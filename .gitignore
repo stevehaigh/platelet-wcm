@@ -165,3 +165,7 @@ reconstruction/ecoli/scripts/nca/data/regulon-db/*.tsv
 
 # VSCode:
 .vscode/
+
+# Personal notes #
+###################
+/stevehaigh-notes/

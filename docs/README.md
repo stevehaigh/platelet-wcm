@@ -33,7 +33,14 @@ Docker mechanics.
 
    ```shell script
    cloud/build-containers-locally.sh
-   docker run --name=wcm -it --rm wcm-code
+   docker run --name=wcm -it --rm ${USER}-wcm-code
+   ```
+
+   **TIP:** To preserve simulation output after the container exits, bind its
+   output directory to the host:
+
+   ```shell script
+   docker run --name=wcm -it --rm -v $PWD/out:/wcEcoli/out ${USER}-wcm-code
    ```
 
    Or build a Docker Image using a Google Cloud Build server,

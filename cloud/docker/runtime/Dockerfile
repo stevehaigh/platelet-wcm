@@ -73,12 +73,26 @@ ENV OPENBLAS_NUM_THREADS=1
 # container with the uid:gid of the user outside the container to get
 # read/write/delete access to the tasks's output files.)
 COPY requirements.txt /
+# Workaround: Equation 1.2.1 bundles a broken ez_setup.py that tries to
+# download a setuptools zip from a URL that no longer works. We fetch the
+# sdist directly, neuter ez_setup.py, and install before the rest of the
+# requirements. stochastic-arrow needs numpy at build time so we install it
+# with --no-build-isolation after numpy is already present.
 RUN (b1="" \
     && if [ -f ~/.numpy-site.cfg ] ; then b1="--no-binary=numpy,scipy"; fi \
     && echo "Installing pips with '$b1'" \
     && pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir numpy==1.26.3 $b1 \
-    && pip install --no-cache-dir -r requirements.txt $b1 \
+    && mkdir -p /tmp/eq && cd /tmp/eq \
+    && curl -sSL -o Equation.tar.gz https://files.pythonhosted.org/packages/fd/0d/ede829e7c0c457b651de2792cd19a739e4885477f59832da54d2cc7a1982/Equation-1.2.01.tar.gz \
+    && tar xzf Equation.tar.gz && cd Equation-* \
+    && echo "def use_setuptools(*a, **kw): pass" > ez_setup.py \
+    && pip install --no-build-isolation --no-cache-dir . \
+    && cd / && rm -rf /tmp/eq \
+    && pip install --no-build-isolation --no-cache-dir stochastic-arrow==1.0.0 \
+    && grep -viE '^(Equation|stochastic-arrow)' /requirements.txt > /requirements_filtered.txt \
+    && pip install --no-cache-dir -r /requirements_filtered.txt $b1 \
+    && rm /requirements_filtered.txt \
     && umask 000 && mkdir -p /.aesara)
 
 CMD ["/bin/bash"]
