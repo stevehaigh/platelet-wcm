@@ -41,10 +41,10 @@ def layout(out_path: str) -> html.Div:
 
 	run_options = make_run_options(out_path)
 
-	return html.Div(style={'padding': '20px'}, children=[
-		html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr 1fr', 'gap': '15px', 'marginBottom': '15px'}, children=[
+	return html.Div(children=[
+		html.Div(className='grid-3', style={'marginBottom': '15px'}, children=[
 			html.Div([
-				html.Label('Run', style={'fontWeight': 'bold'}),
+				html.Label('Run'),
 				dcc.Dropdown(
 					id='inspect-run',
 					options=run_options,
@@ -52,17 +52,17 @@ def layout(out_path: str) -> html.Div:
 				),
 			]),
 			html.Div([
-				html.Label('Listener', style={'fontWeight': 'bold'}),
+				html.Label('Listener'),
 				dcc.Dropdown(id='inspect-listener'),
 			]),
 			html.Div([
-				html.Label('Column', style={'fontWeight': 'bold'}),
+				html.Label('Column'),
 				dcc.Dropdown(id='inspect-column'),
 			]),
 		]),
 
 		html.Div(style={'marginBottom': '15px', 'display': 'flex', 'gap': '20px', 'alignItems': 'center'}, children=[
-			html.Label('Transform:', style={'fontWeight': 'bold'}),
+			html.Label('Transform:'),
 			dcc.Checklist(
 				id='inspect-transform',
 				options=[

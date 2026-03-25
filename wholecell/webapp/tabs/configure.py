@@ -60,10 +60,10 @@ def layout() -> html.Div:
 	# Build toggle checkboxes with defaults pre-checked
 	default_toggles = [name for name, _, default in TOGGLES if default]
 
-	return html.Div(style={'padding': '20px', 'maxWidth': '600px'}, children=[
-		html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '15px', 'marginBottom': '20px'}, children=[
+	return html.Div(style={'maxWidth': '600px'}, children=[
+		html.Div(className='grid-2', style={'marginBottom': '20px'}, children=[
 			html.Div([
-				html.Label('Variant type', style={'fontWeight': 'bold'}),
+				html.Label('Variant type'),
 				dcc.Dropdown(
 					id='config-variant',
 					options=[{'label': v, 'value': v} for v in VARIANT_NAMES],
@@ -71,7 +71,7 @@ def layout() -> html.Div:
 				),
 			]),
 			html.Div([
-				html.Label('Variant index range', style={'fontWeight': 'bold'}),
+				html.Label('Variant index range'),
 				html.Div(style={'display': 'flex', 'gap': '5px', 'alignItems': 'center'}, children=[
 					dcc.Input(id='config-variant-first', type='number', value=0, min=0,
 						style={'width': '60px'}),
@@ -82,36 +82,37 @@ def layout() -> html.Div:
 			]),
 		]),
 
-		html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr 1fr', 'gap': '15px', 'marginBottom': '20px'}, children=[
+		html.Div(className='grid-3', style={'marginBottom': '20px'}, children=[
 			html.Div([
-				html.Label('Generations', style={'fontWeight': 'bold'}),
+				html.Label('Generations'),
 				dcc.Input(id='config-generations', type='number', value=1, min=1,
 					style={'width': '100%'}),
 			]),
 			html.Div([
-				html.Label('Seeds', style={'fontWeight': 'bold'}),
+				html.Label('Seeds'),
 				dcc.Input(id='config-seeds', type='number', value=1, min=1,
 					style={'width': '100%'}),
 			]),
 			html.Div([
-				html.Label('Seed start', style={'fontWeight': 'bold'}),
+				html.Label('Seed start'),
 				dcc.Input(id='config-seed-start', type='number', value=0, min=0,
 					style={'width': '100%'}),
 			]),
 		]),
 
 		html.Div(style={'marginBottom': '20px'}, children=[
-			html.Label('Regulation toggles', style={'fontWeight': 'bold', 'marginBottom': '8px', 'display': 'block'}),
+			html.Label('Regulation toggles', style={'marginBottom': '8px'}),
 			dcc.Checklist(
 				id='config-toggles',
 				options=[{'label': f' {label}', 'value': name} for name, label, _ in TOGGLES],
 				value=default_toggles,
-				style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '4px'},
+				className='grid-2',
+				style={'gap': '4px'},
 			),
 		]),
 
 		html.Div(style={'marginBottom': '20px'}, children=[
-			html.Label('Description', style={'fontWeight': 'bold'}),
+			html.Label('Description'),
 			dcc.Input(
 				id='config-description', type='text',
 				placeholder='Brief description of this run...',
@@ -123,11 +124,7 @@ def layout() -> html.Div:
 			'Run Simulation',
 			id='config-run-button',
 			n_clicks=0,
-			style={
-				'padding': '10px 24px', 'fontSize': '16px',
-				'background': '#2ea44f', 'color': 'white', 'border': 'none',
-				'borderRadius': '6px', 'cursor': 'pointer',
-			},
+			className='btn-primary',
 		),
 		html.Div(id='config-status', style={'marginTop': '10px'}),
 	])

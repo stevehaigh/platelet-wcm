@@ -14,7 +14,7 @@ from wholecell.webapp.jobs import PHASE_DURATIONS, PHASES, JobManager
 def layout() -> html.Div:
 	"""Create the Run Status tab layout."""
 
-	return html.Div(style={'padding': '20px'}, children=[
+	return html.Div(children=[
 		html.Div(style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginBottom': '15px'}, children=[
 			html.H3('Job Queue', style={'margin': 0}),
 		]),
@@ -39,14 +39,7 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 		rows = []
 		for job in jobs:
 			status = job['status']
-			status_color = {
-				'queued': '#6e6e6e',
-				'parca': '#0969da',
-				'simulating': '#bf8700',
-				'analyzing': '#8250df',
-				'done': '#1a7f37',
-				'failed': '#cf222e',
-			}.get(status, '#333')
+			badge_class = f'badge badge-{status}'
 
 			config = json.loads(job.get('config_json', '{}'))
 			variant = config.get('variant', '?')
@@ -55,11 +48,7 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 
 			rows.append(html.Tr([
 				html.Td(f'#{job["id"]}'),
-				html.Td(html.Span(status, style={
-					'color': 'white', 'background': status_color,
-					'padding': '2px 8px', 'borderRadius': '12px',
-					'fontSize': '12px', 'fontWeight': 'bold',
-				})),
+				html.Td(html.Span(status, className=badge_class)),
 				html.Td(variant),
 				html.Td(f'{gens}G × {seeds}S'),
 				html.Td(job.get('description', '')),
@@ -74,14 +63,12 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 				),
 			]))
 
-		return html.Table(
-			style={'width': '100%', 'borderCollapse': 'collapse'},
-			children=[
+		return html.Table(children=[
 				html.Thead(html.Tr([
 					html.Th('ID'), html.Th('Status'), html.Th('Variant'),
 					html.Th('Scale'), html.Th('Description'),
 					html.Th('Started'), html.Th('Finished'), html.Th(''),
-				], style={'borderBottom': '2px solid #ddd', 'textAlign': 'left'})),
+				])),
 				html.Tbody(rows),
 			],
 		)

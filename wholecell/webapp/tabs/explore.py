@@ -32,10 +32,10 @@ def layout(out_path: str) -> html.Div:
 
 	run_options = _make_run_options(out_path)
 
-	return html.Div(style={'padding': '20px'}, children=[
-		html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '15px', 'marginBottom': '15px'}, children=[
+	return html.Div(children=[
+		html.Div(className='grid-2', style={'marginBottom': '15px'}, children=[
 			html.Div([
-				html.Label('Left run', style={'fontWeight': 'bold'}),
+				html.Label('Left run'),
 				dcc.Dropdown(
 					id='explore-left-run',
 					options=run_options,
@@ -43,7 +43,7 @@ def layout(out_path: str) -> html.Div:
 				),
 			]),
 			html.Div([
-				html.Label('Right run (for comparison)', style={'fontWeight': 'bold'}),
+				html.Label('Right run (for comparison)'),
 				dcc.Dropdown(
 					id='explore-right-run',
 					options=run_options,

@@ -35,6 +35,7 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 		__name__,
 		suppress_callback_exceptions=True,
 		title='wcEcoli Web UI',
+		assets_folder=os.path.join(os.path.dirname(__file__), 'assets'),
 	)
 
 	# Import tabs
@@ -51,35 +52,63 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 	}
 
 	app.layout = html.Div([
-		html.Div(
-			style={
-				'background': '#24292f', 'color': 'white',
-				'padding': '12px 24px', 'display': 'flex',
-				'alignItems': 'center', 'gap': '20px',
-			},
-			children=[
-				html.H2('wcEcoli', style={'margin': 0, 'fontWeight': '300'}),
-				html.Span('Whole-Cell E. coli Simulation',
-					style={'opacity': '0.7', 'fontSize': '14px'}),
-			],
-		),
+		# WIP banner
+		html.Div('🚧 🚨 Work in Progress — experimental, not for production use 🚨 🚧',
+			className='wip-banner'),
+
+		# Header
+		html.Div(className='app-header', children=[
+			html.H2('wcEcoli'),
+			html.Span('Whole-Cell E. coli Simulation', className='subtitle'),
+		]),
+
+		# Tab bar
 		dcc.Tabs(
 			id='main-tabs',
 			value='inspect',
-			style={'borderBottom': '1px solid #ddd'},
+			className='tab-bar',
 			children=[
-				dcc.Tab(label='Inspect Data', value='inspect'),
-				dcc.Tab(label='Explore Plots', value='explore'),
-				dcc.Tab(label='Configure', value='configure'),
-				dcc.Tab(label='Run Status', value='runs'),
+				dcc.Tab(label='Inspect Data', value='inspect', className='tab', selected_className='tab--selected'),
+				dcc.Tab(label='Explore Plots', value='explore', className='tab', selected_className='tab--selected'),
+				dcc.Tab(label='Configure', value='configure', className='tab', selected_className='tab--selected'),
+				dcc.Tab(label='Run Status', value='runs', className='tab', selected_className='tab--selected'),
 			],
 		),
-		# All tabs rendered, only one visible at a time
+
+		# Tab panels — all rendered, one visible at a time
 		*[html.Div(
 			tab_contents[tid],
 			id=f'tab-panel-{tid}',
+			className='tab-content',
 			style={'display': 'block' if tid == 'inspect' else 'none'},
 		) for tid in tab_ids],
+
+		# Footer
+		html.Footer(className='app-footer', children=[
+			html.Div([
+				'Based on the ',
+				html.A('wcEcoli whole-cell model',
+					href='https://github.com/CovertLab/wcEcoli', target='_blank'),
+				' by the ',
+				html.A('Covert Lab at Stanford University',
+					href='https://www.covert.stanford.edu/', target='_blank'),
+				'. Licensed under the ',
+				html.A('MIT Licence',
+					href='https://github.com/CovertLab/wcEcoli/blob/master/LICENSE.md',
+					target='_blank'),
+				'.',
+			]),
+			html.Div([
+				'Web UI: ',
+				html.A('stevehaigh/wcEcoli',
+					href='https://github.com/stevehaigh/wcEcoli', target='_blank'),
+				' · Built with AI assistance (GitHub Copilot).',
+			]),
+			html.Div(
+				'This is experimental software and should not be relied upon '
+				'for research conclusions.',
+				className='footer-disclaimer'),
+		]),
 	])
 
 	# Register tab callbacks
