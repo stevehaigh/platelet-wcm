@@ -151,6 +151,34 @@ PRESETS = [
 			'description': 'Wildtype × 3 seeds — cell-to-cell variability',
 		},
 	},
+	{
+		'id': 'preset-ppgpp',
+		'label': '⚠️ ppGpp sweep (starvation signal)',
+		'description': 'Three ppGpp levels: low (0.4×), control (1×), high (1.6×). High ppGpp mimics amino acid starvation — watch ribosome counts drop.',
+		'config': {
+			'variant': 'ppgpp_conc',
+			'variant_first': 1,
+			'variant_last': 3,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'ppGpp sweep: low/control/high — stringent response',
+		},
+	},
+	{
+		'id': 'preset-acetate',
+		'label': '🐢 Slow growth (acetate carbon source)',
+		'description': 'Acetate as sole carbon source — much slower growth than glucose. Compare mass accumulation and ribosome allocation.',
+		'config': {
+			'variant': 'condition',
+			'variant_first': 2,
+			'variant_last': 2,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Slow growth: acetate carbon source (condition index 2)',
+		},
+	},
 ]
 
 
