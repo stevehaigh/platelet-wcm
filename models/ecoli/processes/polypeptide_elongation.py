@@ -1118,7 +1118,9 @@ def dcdt_jit(t, c, n_aas_masked, n_aas, mask,
 
 	v_charging = (kS * synthetase_conc * uncharged_trna_conc * masked_aa_conc / (KMaa[mask] * KMtf[mask])
 		/ (1 + uncharged_trna_conc/KMtf[mask] + masked_aa_conc/KMaa[mask] + uncharged_trna_conc*masked_aa_conc/KMtf[mask]/KMaa[mask]))
-	numerator_ribosome = 1 + np.sum(f * (krta / charged_trna_conc + uncharged_trna_conc / charged_trna_conc * krta / krtf))
+	# Clamp to a tiny epsilon to prevent 0/0 → NaN which crashes BDF solver
+	safe_charged = np.maximum(charged_trna_conc, 1e-30)
+	numerator_ribosome = 1 + np.sum(f * (krta / safe_charged + uncharged_trna_conc / safe_charged * krta / krtf))
 	v_rib = max_elong_rate * ribosome_conc / numerator_ribosome
 
 	# Handle case when f is 0 and charged_trna_conc is 0
