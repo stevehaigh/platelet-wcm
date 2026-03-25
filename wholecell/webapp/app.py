@@ -35,6 +35,19 @@ def create_app(out_path: str = None, wcecoli_root: str = None) -> dash.Dash:
 		title='wcEcoli Web UI',
 	)
 
+	# Import tabs
+	from wholecell.webapp.tabs import configure, explore, inspect_data, runs
+
+	# Build all tab layouts upfront so Dash registers every component ID
+	# in the initial layout. Tabs are shown/hidden via CSS display property.
+	tab_ids = ['inspect', 'explore', 'configure', 'runs']
+	tab_contents = {
+		'inspect': inspect_data.layout(out_path),
+		'explore': explore.layout(out_path),
+		'configure': configure.layout(),
+		'runs': runs.layout(),
+	}
+
 	app.layout = html.Div([
 		html.Div(
 			style={
@@ -59,11 +72,13 @@ def create_app(out_path: str = None, wcecoli_root: str = None) -> dash.Dash:
 				dcc.Tab(label='Run Status', value='runs'),
 			],
 		),
-		html.Div(id='tab-content'),
+		# All tabs rendered, only one visible at a time
+		*[html.Div(
+			tab_contents[tid],
+			id=f'tab-panel-{tid}',
+			style={'display': 'block' if tid == 'inspect' else 'none'},
+		) for tid in tab_ids],
 	])
-
-	# Lazy-import tabs to avoid circular imports
-	from wholecell.webapp.tabs import configure, explore, inspect_data, runs
 
 	# Register tab callbacks
 	inspect_data.register_callbacks(app, out_path)
@@ -72,19 +87,14 @@ def create_app(out_path: str = None, wcecoli_root: str = None) -> dash.Dash:
 	runs.register_callbacks(app, job_manager)
 
 	@app.callback(
-		Output('tab-content', 'children'),
+		[Output(f'tab-panel-{tid}', 'style') for tid in tab_ids],
 		Input('main-tabs', 'value'),
 	)
 	def render_tab(tab):
-		if tab == 'inspect':
-			return inspect_data.layout(out_path)
-		elif tab == 'explore':
-			return explore.layout(out_path)
-		elif tab == 'configure':
-			return configure.layout()
-		elif tab == 'runs':
-			return runs.layout()
-		return html.P('Unknown tab')
+		return [
+			{'display': 'block'} if tid == tab else {'display': 'none'}
+			for tid in tab_ids
+		]
 
 	return app
 
