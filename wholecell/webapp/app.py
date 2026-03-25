@@ -53,7 +53,7 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 
 	app.layout = html.Div([
 		# WIP banner
-		html.Div('🚧 🚨 Work in Progress — experimental, not for production use 🚨 🚧',
+		html.Div('🚧 Work in Progress — experimental, not for production use 🚧',
 			className='wip-banner'),
 
 		# Header
@@ -67,6 +67,7 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 			id='main-tabs',
 			value='inspect',
 			className='tab-bar',
+			content_style={'display': 'none'},
 			children=[
 				dcc.Tab(label='Inspect Data', value='inspect', className='tab', selected_className='tab--selected'),
 				dcc.Tab(label='Explore Plots', value='explore', className='tab', selected_className='tab--selected'),

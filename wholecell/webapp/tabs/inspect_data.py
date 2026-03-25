@@ -284,7 +284,7 @@ def _add_traces_to_fig(
 			y=data.sum(axis=1),
 			name=f'{prefix}{column} (sum of {n_series})',
 			line=dict(dash=dash_style),
-			mode='lines',
+			mode='lines+markers',
 		))
 	else:
 		for i in range(n_series):
@@ -294,5 +294,5 @@ def _add_traces_to_fig(
 				y=data[:, i],
 				name=name,
 				line=dict(dash=dash_style),
-				mode='lines',
+				mode='lines+markers',
 			))
