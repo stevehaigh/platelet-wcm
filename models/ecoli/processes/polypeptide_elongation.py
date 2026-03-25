@@ -1045,7 +1045,10 @@ def calculate_trna_charging(synthetase_conc, uncharged_trna_conc, charged_trna_c
 			v_supply = v_synthesis + v_import - v_export
 			daa[mask] = v_supply[mask] - v_charging
 
-		return np.hstack((-dtrna, dtrna, daa, v_synthesis, v_import, v_export))
+		result = np.hstack((-dtrna, dtrna, daa, v_synthesis, v_import, v_export))
+		# Safety net: replace any NaN/Inf with 0 so BDF solver gets clean values
+		np.nan_to_num(result, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+		return result
 
 	# Convert inputs for integration
 	synthetase_conc = synthetase_conc.asNumber(CONC_UNITS)
@@ -1070,10 +1073,12 @@ def calculate_trna_charging(synthetase_conc, uncharged_trna_conc, charged_trna_c
 	n_aas = len(aa_conc)
 	n_aas_masked = len(original_aa_conc)
 
-	# Limits for integration
+	# Limits for integration — guard against division by zero when f has zeros
+	safe_f = np.fmax(f, 1e-30)
 	aa_rate_limit = original_aa_conc / time_limit
 	trna_rate_limit = original_charged_trna_conc / time_limit
-	v_rib_max = max(0, ((aa_rate_limit + trna_rate_limit) / f).min())
+	v_rib_max_raw = (aa_rate_limit + trna_rate_limit) / safe_f
+	v_rib_max = max(0, np.nanmin(v_rib_max_raw)) if np.any(np.isfinite(v_rib_max_raw)) else 0
 
 	# Integrate rates of charging and elongation
 	c_init = np.hstack((original_uncharged_trna_conc, original_charged_trna_conc,
@@ -1091,11 +1096,18 @@ def calculate_trna_charging(synthetase_conc, uncharged_trna_conc, charged_trna_c
 	negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
 	negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
 
-	fraction_charged = final_charged_trna_conc / (final_uncharged_trna_conc + final_charged_trna_conc)
-	numerator_ribosome = 1 + np.sum(f * (params['krta'] / final_charged_trna_conc + final_uncharged_trna_conc / final_charged_trna_conc * params['krta'] / params['krtf']))
+	# Guard against zeros/NaN in post-integration results
+	safe_final_charged = np.fmax(final_charged_trna_conc, 1e-30)
+	total_trna = final_uncharged_trna_conc + final_charged_trna_conc
+	safe_total_trna = np.fmax(total_trna, 1e-30)
+	fraction_charged = final_charged_trna_conc / safe_total_trna
+	numerator_ribosome = 1 + np.sum(f * (params['krta'] / safe_final_charged + final_uncharged_trna_conc / safe_final_charged * params['krta'] / params['krtf']))
 	v_rib = params['max_elong_rate'] * ribosome_conc / numerator_ribosome
+	if not np.isfinite(v_rib):
+		v_rib = 0
 	if limit_v_rib:
-		v_rib_max = max(0, ((original_aa_conc + (original_charged_trna_conc - final_charged_trna_conc)) / time_limit / f).min())
+		v_rib_max_raw = (original_aa_conc + (original_charged_trna_conc - final_charged_trna_conc)) / time_limit / safe_f
+		v_rib_max = max(0, np.nanmin(v_rib_max_raw)) if np.any(np.isfinite(v_rib_max_raw)) else 0
 		v_rib = min(v_rib, v_rib_max)
 
 	# Replace SEL fraction charged with average
