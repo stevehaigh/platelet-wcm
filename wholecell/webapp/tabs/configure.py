@@ -54,13 +54,141 @@ TOGGLES = [
 ]
 
 
+# Preset simulation configurations.
+# Each preset fills the form with biologically interesting settings.
+# variant_index: the variant index to use (first=last for single index).
+# Timelines index reference (from timelines_def.tsv):
+#   2 = add_aa (minimal → minimal+AA at t=1200s)
+#   25 = cut_aa (minimal+AA → minimal at t=1200s)
+#   1 = cut_glucose (minimal → no_glucose at t=1200s)
+#   18 = cut_oxygen (minimal → anaerobic at t=1200s)
+# Condition index reference (from condition_defs.tsv):
+#   0 = minimal media (control)
+#   1 = with amino acids (faster growth)
+#   2 = acetate (slower growth)
+PRESETS = [
+	{
+		'id': 'preset-wildtype',
+		'label': '🧫 Wildtype baseline',
+		'description': 'Single wildtype cell in minimal media — the standard reference simulation.',
+		'config': {
+			'variant': 'wildtype',
+			'variant_first': 0,
+			'variant_last': 0,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Wildtype baseline — minimal media',
+		},
+	},
+	{
+		'id': 'preset-aa-shift',
+		'label': '📈 Nutrient upshift (add amino acids)',
+		'description': 'Cell growing in minimal media, then amino acids added at 20 min. Watch growth rate accelerate.',
+		'config': {
+			'variant': 'timelines',
+			'variant_first': 2,
+			'variant_last': 2,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Nutrient upshift: minimal → minimal+AA at t=1200s',
+		},
+	},
+	{
+		'id': 'preset-aa-downshift',
+		'label': '📉 Nutrient downshift (remove amino acids)',
+		'description': 'Cell growing in rich media (with amino acids), then amino acids removed at 20 min. Watch ppGpp stress response.',
+		'config': {
+			'variant': 'timelines',
+			'variant_first': 25,
+			'variant_last': 25,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Nutrient downshift: minimal+AA → minimal at t=1200s',
+		},
+	},
+	{
+		'id': 'preset-anaerobic',
+		'label': '🔴 Switch to anaerobic',
+		'description': 'Cell growing aerobically, then oxygen removed at 20 min. Watch metabolism shift.',
+		'config': {
+			'variant': 'timelines',
+			'variant_first': 18,
+			'variant_last': 18,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Anaerobic shift: minimal → minimal-oxygen at t=1200s',
+		},
+	},
+	{
+		'id': 'preset-rich-media',
+		'label': '⚡ Rich media (fast growth)',
+		'description': 'Wildtype cell growing in minimal+amino acids media. Compare growth rate and ribosome allocation to minimal.',
+		'config': {
+			'variant': 'condition',
+			'variant_first': 1,
+			'variant_last': 1,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Rich media: minimal + amino acids',
+		},
+	},
+	{
+		'id': 'preset-multi-seed',
+		'label': '🎲 Wildtype × 3 seeds',
+		'description': 'Three independent wildtype cells with different random seeds — shows cell-to-cell variability.',
+		'config': {
+			'variant': 'wildtype',
+			'variant_first': 0,
+			'variant_last': 0,
+			'generations': 1,
+			'seeds': 3,
+			'seed_start': 0,
+			'description': 'Wildtype × 3 seeds — cell-to-cell variability',
+		},
+	},
+]
+
+
 def layout() -> html.Div:
 	"""Create the Configure tab layout."""
 
 	# Build toggle checkboxes with defaults pre-checked
 	default_toggles = [name for name, _, default in TOGGLES if default]
 
-	return html.Div(style={'maxWidth': '600px'}, children=[
+	preset_buttons = [
+		html.Button(
+			p['label'],
+			id=p['id'],
+			n_clicks=0,
+			className='btn-preset',
+			title=p['description'],
+		)
+		for p in PRESETS
+	]
+
+	return html.Div(style={'maxWidth': '700px'}, children=[
+
+		# Presets section
+		html.Div(style={'marginBottom': '24px'}, children=[
+			html.Label('Quick start presets'),
+			html.P(
+				'Click a preset to fill in the form below, then adjust as needed and click Run Simulation.',
+				style={'color': '#57606a', 'fontSize': '13px', 'margin': '4px 0 10px 0'},
+			),
+			html.Div(preset_buttons, style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '8px'}),
+			html.Div(id='preset-description', style={
+				'marginTop': '8px', 'fontSize': '13px', 'color': '#57606a',
+				'fontStyle': 'italic', 'minHeight': '18px',
+			}),
+		]),
+
+		html.Hr(style={'border': 'none', 'borderTop': '1px solid #d0d7de', 'marginBottom': '20px'}),
+
 		html.Div(className='grid-2', style={'marginBottom': '20px'}, children=[
 			html.Div([
 				html.Label('Variant type'),
@@ -137,6 +265,35 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		on_submit: callable(config_dict) that submits a job.
 			Returns a status message string.
 	"""
+
+	# One combined callback for all preset buttons + form submission
+	preset_ids = [p['id'] for p in PRESETS]
+	preset_lookup = {p['id']: p for p in PRESETS}
+
+	@app.callback(
+		Output('config-variant', 'value'),
+		Output('config-variant-first', 'value'),
+		Output('config-variant-last', 'value'),
+		Output('config-generations', 'value'),
+		Output('config-seeds', 'value'),
+		Output('config-seed-start', 'value'),
+		Output('config-description', 'value'),
+		Output('preset-description', 'children'),
+		[Input(pid, 'n_clicks') for pid in preset_ids],
+		prevent_initial_call=True,
+	)
+	def apply_preset(*args):
+		from dash import ctx
+		triggered = ctx.triggered_id
+		if not triggered or triggered not in preset_lookup:
+			raise dash.exceptions.PreventUpdate
+		p = preset_lookup[triggered]['config']
+		desc = preset_lookup[triggered]['description']
+		return (
+			p['variant'], p['variant_first'], p['variant_last'],
+			p['generations'], p['seeds'], p['seed_start'],
+			p['description'], desc,
+		)
 
 	@app.callback(
 		Output('config-status', 'children'),
