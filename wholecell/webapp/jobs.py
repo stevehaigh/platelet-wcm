@@ -129,7 +129,11 @@ class JobManager:
 			self._run_job(job)
 
 	def _run_job(self, job: Dict[str, Any]) -> None:
-		"""Execute a simulation job via Docker."""
+		"""Execute a simulation job.
+
+		When running inside a container (WCECOLI_WEBAPP_MODE=container),
+		uses local Python subprocess. Otherwise, shells out to Docker.
+		"""
 
 		job_id = job['id']
 		config = json.loads(job['config_json'])
@@ -145,20 +149,15 @@ class JobManager:
 
 		self._update_status(job_id, 'parca', output_dir=out_path)
 
-		# Docker base command — mount host out/ to container /wcEcoli/out/
-		docker_base = [
-			'docker', 'run', '--rm',
-			'-v', f'{out_root}:/wcEcoli/out',
-			self.docker_image,
-		]
+		in_container = os.environ.get('WCECOLI_WEBAPP_MODE') == 'container'
 
 		try:
 			# Phase 1: ParCa
-			cmd_parca = docker_base + [
-				'python', 'runscripts/manual/runParca.py', sim_outdir,
-			]
-			proc = subprocess.run(
-				cmd_parca, capture_output=True, text=True)
+			cmd_parca = self._build_cmd(
+				['python', 'runscripts/manual/runParca.py', sim_outdir],
+				in_container, out_root)
+			proc = subprocess.run(cmd_parca, capture_output=True, text=True,
+				cwd=self.wcecoli_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'ParCa failed:\n{proc.stderr[-2000:]}')
 
@@ -171,7 +170,7 @@ class JobManager:
 			seeds = config.get('init_sims', 1)
 			seed_start = config.get('seed', 0)
 
-			cmd_sim = docker_base + [
+			sim_args = [
 				'python', 'runscripts/manual/runSim.py',
 				'--variant', variant, str(first_idx), str(last_idx),
 				'--generations', str(generations),
@@ -179,26 +178,24 @@ class JobManager:
 				'--seed', str(seed_start),
 				sim_outdir,
 			]
-
-			# Add toggle flags
 			toggles = config.get('toggles', {})
 			for toggle_name, enabled in toggles.items():
 				flag = toggle_name.replace('_', '-')
-				cmd_sim.append(f'--{"" if enabled else "no-"}{flag}')
+				sim_args.append(f'--{"" if enabled else "no-"}{flag}')
 
-			proc = subprocess.run(
-				cmd_sim, capture_output=True, text=True)
+			cmd_sim = self._build_cmd(sim_args, in_container, out_root)
+			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
+				cwd=self.wcecoli_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Simulation failed:\n{proc.stderr[-2000:]}')
 
 			# Phase 3: Analysis
 			self._update_status(job_id, 'analyzing')
-			cmd_analysis = docker_base + [
-				'python', 'runscripts/manual/analysisSingle.py',
-				sim_outdir,
-			]
-			proc = subprocess.run(
-				cmd_analysis, capture_output=True, text=True)
+			cmd_analysis = self._build_cmd(
+				['python', 'runscripts/manual/analysisSingle.py', sim_outdir],
+				in_container, out_root)
+			proc = subprocess.run(cmd_analysis, capture_output=True, text=True,
+				cwd=self.wcecoli_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Analysis failed:\n{proc.stderr[-2000:]}')
 
@@ -210,6 +207,17 @@ class JobManager:
 			self._update_status(
 				job_id, 'failed', finished_at=now,
 				error_message=str(e)[:4000])
+
+	def _build_cmd(self, args: List[str], in_container: bool,
+			out_root: str) -> List[str]:
+		"""Build a command, wrapping with docker run if not in a container."""
+		if in_container:
+			return args
+		return [
+			'docker', 'run', '--rm',
+			'-v', f'{out_root}:/wcEcoli/out',
+			self.docker_image,
+		] + args
 
 	def stop(self) -> None:
 		self._stop_event.set()

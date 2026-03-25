@@ -1,0 +1,24 @@
+FROM --platform=linux/amd64 python:3.11.3-slim
+
+WORKDIR /wcEcoli
+
+# Install only what the webapp needs
+RUN pip install --no-cache-dir \
+    dash==2.9.3 \
+    plotly==5.14.1 \
+    numpy==1.24.4 \
+    ipython
+
+# Copy the webapp code and supporting modules
+COPY wholecell/__init__.py wholecell/__init__.py
+COPY wholecell/io/ wholecell/io/
+COPY wholecell/utils/ wholecell/utils/
+COPY wholecell/webapp/ wholecell/webapp/
+COPY runscripts/manual/webapp.py runscripts/manual/webapp.py
+
+ENV WCECOLI_WEBAPP_MODE=container
+ENV PYTHONPATH=/wcEcoli
+
+EXPOSE 8050
+
+CMD ["python", "runscripts/manual/webapp.py", "--port", "8050"]
