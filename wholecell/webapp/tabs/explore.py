@@ -139,10 +139,15 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		return children
 
 
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 def _encode_image(path: str) -> str | None:
 	"""Read an image file and return a base64-encoded data URI."""
 
 	if not os.path.isfile(path):
+		return None
+	if os.path.getsize(path) > MAX_IMAGE_SIZE:
 		return None
 	ext = os.path.splitext(path)[1].lower()
 	mime = {'png': 'image/png', 'svg': 'image/svg+xml'}.get(ext.lstrip('.'), 'image/png')

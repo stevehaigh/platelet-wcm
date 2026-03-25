@@ -118,12 +118,17 @@ class JobManager:
 
 		while not self._stop_event.is_set():
 			with self._connect() as conn:
+				# Atomically claim the next queued job to prevent duplicates
+				conn.execute(
+					'UPDATE jobs SET status = ? WHERE id = '
+					'(SELECT id FROM jobs WHERE status = ? ORDER BY id LIMIT 1)',
+					('parca', 'queued'))
+				if conn.total_changes == 0:
+					self._stop_event.wait(timeout=5)
+					continue
 				row = conn.execute(
 					'SELECT * FROM jobs WHERE status = ? ORDER BY id LIMIT 1',
-					('queued',)).fetchone()
-			if row is None:
-				self._stop_event.wait(timeout=5)
-				continue
+					('parca',)).fetchone()
 
 			job = dict(row)
 			self._run_job(job)
@@ -144,10 +149,11 @@ class JobManager:
 
 		# Verify the resolved path stays inside the out/ directory
 		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
-		if not os.path.realpath(out_path).startswith(out_root):
+		if not os.path.realpath(out_path).startswith(out_root + os.sep):
 			raise ValueError(f'Invalid output path: {out_path}')
 
-		self._update_status(job_id, 'parca', output_dir=out_path)
+		self._update_status(job_id, 'parca', output_dir=out_path,
+			pid=os.getpid())
 
 		in_container = os.environ.get('WCECOLI_WEBAPP_MODE') == 'container'
 
