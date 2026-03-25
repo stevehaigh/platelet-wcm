@@ -11,12 +11,14 @@ from dash.dependencies import Input, Output
 from wholecell.webapp.jobs import DB_FILENAME, JobManager
 
 
-def create_app(out_path: str = None, wcecoli_root: str = None) -> dash.Dash:
+def create_app(out_path: str = None, wcecoli_root: str = None,
+		docker_image: str = 'steve-wcm-code') -> dash.Dash:
 	"""Create and configure the Dash application.
 
 	Args:
 		out_path: Path to the 'out/' directory with simulation results.
 		wcecoli_root: Path to the wcEcoli repository root.
+		docker_image: Docker image name for running simulations.
 	"""
 
 	if wcecoli_root is None:
@@ -27,7 +29,7 @@ def create_app(out_path: str = None, wcecoli_root: str = None) -> dash.Dash:
 
 	# Job manager
 	db_path = os.path.join(wcecoli_root, DB_FILENAME)
-	job_manager = JobManager(db_path, wcecoli_root)
+	job_manager = JobManager(db_path, wcecoli_root, docker_image=docker_image)
 
 	app = dash.Dash(
 		__name__,

@@ -7,7 +7,6 @@ import os
 import re
 import sqlite3
 import subprocess
-import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -33,9 +32,11 @@ ALLOWED_COLUMNS = frozenset([
 class JobManager:
 	"""Simple job queue backed by SQLite."""
 
-	def __init__(self, db_path: str, wcecoli_root: str) -> None:
+	def __init__(self, db_path: str, wcecoli_root: str,
+			docker_image: str = 'steve-wcm-code') -> None:
 		self.db_path = db_path
 		self.wcecoli_root = wcecoli_root
+		self.docker_image = docker_image
 		self._init_db()
 		self._worker_thread: Optional[threading.Thread] = None
 		self._worker_lock = threading.Lock()
@@ -128,7 +129,7 @@ class JobManager:
 			self._run_job(job)
 
 	def _run_job(self, job: Dict[str, Any]) -> None:
-		"""Execute a simulation job as subprocess chain."""
+		"""Execute a simulation job via Docker."""
 
 		job_id = job['id']
 		config = json.loads(job['config_json'])
@@ -144,16 +145,20 @@ class JobManager:
 
 		self._update_status(job_id, 'parca', output_dir=out_path)
 
-		env = os.environ.copy()
-		env['PYTHONPATH'] = self.wcecoli_root
-		python = sys.executable
+		# Docker base command — mount host out/ to container /wcEcoli/out/
+		docker_base = [
+			'docker', 'run', '--rm',
+			'-v', f'{out_root}:/wcEcoli/out',
+			self.docker_image,
+		]
 
 		try:
 			# Phase 1: ParCa
-			cmd_parca = [python, 'runscripts/manual/runParca.py', out_path]
+			cmd_parca = docker_base + [
+				'python', 'runscripts/manual/runParca.py', sim_outdir,
+			]
 			proc = subprocess.run(
-				cmd_parca, cwd=self.wcecoli_root, env=env,
-				capture_output=True, text=True)
+				cmd_parca, capture_output=True, text=True)
 			if proc.returncode != 0:
 				raise RuntimeError(f'ParCa failed:\n{proc.stderr[-2000:]}')
 
@@ -166,13 +171,13 @@ class JobManager:
 			seeds = config.get('init_sims', 1)
 			seed_start = config.get('seed', 0)
 
-			cmd_sim = [
-				python, 'runscripts/manual/runSim.py',
+			cmd_sim = docker_base + [
+				'python', 'runscripts/manual/runSim.py',
 				'--variant', variant, str(first_idx), str(last_idx),
 				'--generations', str(generations),
 				'--init-sims', str(seeds),
 				'--seed', str(seed_start),
-				out_path,
+				sim_outdir,
 			]
 
 			# Add toggle flags
@@ -182,21 +187,18 @@ class JobManager:
 				cmd_sim.append(f'--{"" if enabled else "no-"}{flag}')
 
 			proc = subprocess.run(
-				cmd_sim, cwd=self.wcecoli_root, env=env,
-				capture_output=True, text=True)
+				cmd_sim, capture_output=True, text=True)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Simulation failed:\n{proc.stderr[-2000:]}')
 
-			# Phase 3: Analysis (CORE plots only)
+			# Phase 3: Analysis
 			self._update_status(job_id, 'analyzing')
-			cmd_analysis = [
-				python, 'runscripts/manual/analysisSingle.py',
-				'--plot', 'CORE',
-				out_path,
+			cmd_analysis = docker_base + [
+				'python', 'runscripts/manual/analysisSingle.py',
+				sim_outdir,
 			]
 			proc = subprocess.run(
-				cmd_analysis, cwd=self.wcecoli_root, env=env,
-				capture_output=True, text=True)
+				cmd_analysis, capture_output=True, text=True)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Analysis failed:\n{proc.stderr[-2000:]}')
 

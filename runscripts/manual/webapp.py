@@ -20,6 +20,8 @@ def main() -> None:
 		help='Path to simulation output directory (default: ./out/)')
 	parser.add_argument('--debug', action='store_true',
 		help='Enable Dash debug mode with hot reload')
+	parser.add_argument('--docker-image', type=str, default='steve-wcm-code',
+		help='Docker image for running simulations (default: steve-wcm-code)')
 	args = parser.parse_args()
 
 	wcecoli_root = os.getcwd()
@@ -30,7 +32,8 @@ def main() -> None:
 		print("The app will start but Inspect/Explore tabs will be empty.")
 
 	from wholecell.webapp.app import create_app
-	app = create_app(out_path=out_path, wcecoli_root=wcecoli_root)
+	app = create_app(out_path=out_path, wcecoli_root=wcecoli_root,
+		docker_image=args.docker_image)
 	print(f"\n  wcEcoli Web UI running at http://localhost:{args.port}/\n")
 	app.run(host='0.0.0.0', port=args.port, debug=args.debug)
 
