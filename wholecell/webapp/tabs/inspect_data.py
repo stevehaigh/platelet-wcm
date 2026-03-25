@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List, Tuple
 
 import dash
-from dash import dcc, html, callback_context
+from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import numpy as np
 import plotly.graph_objs as go
@@ -31,6 +31,8 @@ def make_run_options(out_path: str) -> List[dict]:
 def parse_run_value(value: str) -> Tuple[str, str]:
 	"""Parse a run dropdown value into (sim_dir, variant)."""
 	parts = value.split('|', 1)
+	if len(parts) != 2:
+		raise ValueError(f'Invalid run value (expected sim_dir|variant): {value!r}')
 	return parts[0], parts[1]
 
 
@@ -253,37 +255,40 @@ def _add_traces_to_fig(
 		) -> None:
 	"""Load data and add traces to a Plotly figure."""
 
-	sim_dir, variant = parse_run_value(run_value)
-	cells = results.find_cells(sim_dir, variant)
-	if not cells:
+	try:
+		sim_dir, variant = parse_run_value(run_value)
+		cells = results.find_cells(sim_dir, variant)
+		if not cells:
+			return
+
+		simout = cells[0]['simout_path']
+		time = results.load_time(simout)
+		data, labels = results.load_column(simout, listener, column)
+	except Exception:
 		return
 
-	simout = cells[0]['simout_path']
-	time = results.load_time(simout)
-	data, labels = results.load_column(simout, listener, column)
-
-	if 'normalize' in transforms and data.shape[0] > 1:
-		# Normalize to first non-zero row
-		norm_row = data[1, :] if data.shape[0] > 1 else data[0, :]
+	if 'normalize' in transforms and data.shape[0] > 0:
+		norm_row = data[0, :]
 		norm_row = np.where(norm_row == 0, 1, norm_row)
 		data = data / norm_row
 
 	prefix = '' if is_primary else f'{variant} · '
 	dash_style = None if is_primary else 'dash'
 	x_vals = time if time is not None else np.arange(data.shape[0])
+	n_series = min(len(labels), data.shape[1])
 
 	# For columns with many series (>20), just plot the sum
-	if data.shape[1] > 20:
+	if n_series > 20:
 		fig.add_trace(go.Scatter(
 			x=x_vals,
 			y=data.sum(axis=1),
-			name=f'{prefix}{column} (sum of {data.shape[1]})',
+			name=f'{prefix}{column} (sum of {n_series})',
 			line=dict(dash=dash_style),
 			mode='lines',
 		))
 	else:
-		for i, label in enumerate(labels):
-			name = f'{prefix}{label}' if data.shape[1] > 1 else f'{prefix}{column}'
+		for i in range(n_series):
+			name = f'{prefix}{labels[i]}' if n_series > 1 else f'{prefix}{column}'
 			fig.add_trace(go.Scatter(
 				x=x_vals,
 				y=data[:, i],

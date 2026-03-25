@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -24,6 +25,11 @@ PHASE_DURATIONS = {
 }
 
 
+ALLOWED_COLUMNS = frozenset([
+	'status', 'output_dir', 'pid', 'started_at', 'finished_at', 'error_message',
+])
+
+
 class JobManager:
 	"""Simple job queue backed by SQLite."""
 
@@ -32,6 +38,7 @@ class JobManager:
 		self.wcecoli_root = wcecoli_root
 		self._init_db()
 		self._worker_thread: Optional[threading.Thread] = None
+		self._worker_lock = threading.Lock()
 		self._stop_event = threading.Event()
 
 	def _init_db(self) -> None:
@@ -87,6 +94,8 @@ class JobManager:
 		fields = ['status = ?']
 		values = [status]
 		for k, v in kwargs.items():
+			if k not in ALLOWED_COLUMNS:
+				raise ValueError(f'Invalid column name: {k}')
 			fields.append(f'{k} = ?')
 			values.append(v)
 		values.append(job_id)
@@ -96,13 +105,15 @@ class JobManager:
 				f'UPDATE jobs SET {", ".join(fields)} WHERE id = ?', values)
 
 	def _ensure_worker(self) -> None:
-		if self._worker_thread is None or not self._worker_thread.is_alive():
-			self._worker_thread = threading.Thread(
-				target=self._worker_loop, daemon=True)
-			self._worker_thread.start()
+		with self._worker_lock:
+			if self._worker_thread is None or not self._worker_thread.is_alive():
+				self._stop_event.clear()
+				self._worker_thread = threading.Thread(
+					target=self._worker_loop, daemon=True)
+				self._worker_thread.start()
 
 	def _worker_loop(self) -> None:
-		"""Process queued jobs one at a time."""
+		"""Process queued jobs one at a time, polling when idle."""
 
 		while not self._stop_event.is_set():
 			with self._connect() as conn:
@@ -110,7 +121,8 @@ class JobManager:
 					'SELECT * FROM jobs WHERE status = ? ORDER BY id LIMIT 1',
 					('queued',)).fetchone()
 			if row is None:
-				break
+				self._stop_event.wait(timeout=5)
+				continue
 
 			job = dict(row)
 			self._run_job(job)
@@ -121,9 +133,14 @@ class JobManager:
 		job_id = job['id']
 		config = json.loads(job['config_json'])
 		timestamp = datetime.now().strftime('%Y%m%d.%H%M%S')
-		desc = config.get('description', 'webapp').replace(' ', '_') or 'webapp'
+		desc = re.sub(r'[^a-zA-Z0-9_-]', '', config.get('description', '')) or 'webapp'
 		sim_outdir = f'{timestamp}___{desc}'
 		out_path = os.path.join(self.wcecoli_root, 'out', sim_outdir)
+
+		# Verify the resolved path stays inside the out/ directory
+		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
+		if not os.path.realpath(out_path).startswith(out_root):
+			raise ValueError(f'Invalid output path: {out_path}')
 
 		self._update_status(job_id, 'parca', output_dir=out_path)
 

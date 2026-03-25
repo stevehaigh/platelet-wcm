@@ -69,11 +69,13 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 			return html.P('Select a run to view plots.',
 				style={'color': '#888', 'fontStyle': 'italic'})
 
+		if '|' not in left_value:
+			return html.P('Invalid run selection.', style={'color': '#c00'})
 		left_dir, left_variant = left_value.split('|', 1)
 		left_images = results.find_plot_images(left_dir, left_variant)
 
 		right_images = {}
-		if right_value:
+		if right_value and '|' in right_value:
 			right_dir, right_variant = right_value.split('|', 1)
 			for img in results.find_plot_images(right_dir, right_variant):
 				right_images[img['name']] = img
@@ -148,5 +150,5 @@ def _encode_image(path: str) -> str | None:
 		with open(path, 'rb') as f:
 			encoded = base64.b64encode(f.read()).decode('utf-8')
 		return f'data:{mime};base64,{encoded}'
-	except Exception:
+	except (OSError, ValueError):
 		return None

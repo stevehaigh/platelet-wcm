@@ -163,7 +163,7 @@ def load_time(simout_path: str) -> Optional[np.ndarray]:
 	try:
 		reader = TableReader(main_dir)
 		return reader.readColumn('time').flatten()
-	except Exception:
+	except (DoesNotExistError, OSError, ValueError):
 		return None
 
 
