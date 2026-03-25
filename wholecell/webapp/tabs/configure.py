@@ -39,18 +39,38 @@ VARIANT_NAMES = [
 ]
 
 
-# Key simulation toggles (name, label, default)
+# Key simulation toggles (name, label, default, hint)
 TOGGLES = [
-	('ppgpp_regulation', 'ppGpp regulation', True),
-	('trna_charging', 'tRNA charging', True),
-	('d_period_division', 'D-period division', True),
-	('translation_supply', 'Translation supply', True),
-	('superhelical_density', 'Superhelical density', False),
-	('variable_elongation_transcription', 'Variable elongation (transcription)', False),
-	('variable_elongation_translation', 'Variable elongation (translation)', False),
-	('mechanistic_translation_supply', 'Mechanistic translation supply', False),
-	('mechanistic_aa_transport', 'Mechanistic AA transport', False),
-	('trna_attenuation', 'tRNA attenuation', False),
+	('ppgpp_regulation', 'ppGpp regulation', True,
+		'ppGpp is the stringent-response alarmone: high levels slow ribosome synthesis when amino acids are scarce. '
+		'Disable to use a simplified constant ribosome allocation.'),
+	('trna_charging', 'tRNA charging', True,
+		'Models the enzymatic charging of tRNA with amino acids before each translation step. '
+		'Disable for a simplified translation model that ignores charging kinetics.'),
+	('d_period_division', 'D-period division', True,
+		'Enforces the D-period: a fixed delay between finishing DNA replication and cell division. '
+		'Disable to allow division immediately after replication completes.'),
+	('translation_supply', 'Translation supply', True,
+		'Links ribosome elongation rate to the instantaneous amino acid supply. '
+		'Disable to use a fixed average elongation rate regardless of nutrient availability.'),
+	('superhelical_density', 'Superhelical density', False,
+		'Models the effect of DNA supercoiling on transcription rates. '
+		'Enable for a more mechanistic treatment of transcription; increases simulation time.'),
+	('variable_elongation_transcription', 'Variable elongation (transcription)', False,
+		'Allows RNAP elongation speed to vary per gene rather than using a single average rate. '
+		'Enables more realistic transcript length distributions.'),
+	('variable_elongation_translation', 'Variable elongation (translation)', False,
+		'Allows ribosome elongation speed to vary per mRNA rather than using a single average rate. '
+		'Enables more realistic protein synthesis dynamics.'),
+	('mechanistic_translation_supply', 'Mechanistic translation supply', False,
+		'Uses a detailed kinetic model of amino acid supply to ribosomes instead of a lumped flux. '
+		'More accurate but significantly slower to simulate.'),
+	('mechanistic_aa_transport', 'Mechanistic AA transport', False,
+		'Models amino acid import and export across the inner membrane mechanistically. '
+		'Enable to study transporter saturation effects during nutrient shifts.'),
+	('trna_attenuation', 'tRNA attenuation', False,
+		'Models tRNA-mediated transcriptional attenuation of amino acid biosynthesis operons (e.g. trp, his). '
+		'Enable for a more detailed treatment of biosynthetic gene regulation.'),
 ]
 
 
@@ -186,7 +206,7 @@ def layout() -> html.Div:
 	"""Create the Configure tab layout."""
 
 	# Build toggle checkboxes with defaults pre-checked
-	default_toggles = [name for name, _, default in TOGGLES if default]
+	default_toggles = [name for name, _, default, _ in TOGGLES if default]
 
 	preset_buttons = [
 		html.Button(
@@ -260,7 +280,16 @@ def layout() -> html.Div:
 			html.Label('Regulation toggles', style={'marginBottom': '8px'}),
 			dcc.Checklist(
 				id='config-toggles',
-				options=[{'label': f' {label}', 'value': name} for name, label, _ in TOGGLES],
+				options=[
+					{
+						'label': html.Span([
+							f' {label} ',
+							html.Span('ℹ', className='toggle-hint', title=hint),
+						]),
+						'value': name,
+					}
+					for name, label, _, hint in TOGGLES
+				],
 				value=default_toggles,
 				className='grid-2',
 				style={'gap': '4px'},
@@ -349,7 +378,7 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 			'init_sims': seeds or 1,
 			'seed': seed_start or 0,
 			'description': description or '',
-			'toggles': {name: (name in (toggles or [])) for name, _, _ in TOGGLES},
+			'toggles': {name: (name in (toggles or [])) for name, _, _, _ in TOGGLES},
 		}
 
 		msg = on_submit(config)
