@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import time
 from typing import List, Tuple
 
@@ -62,14 +63,25 @@ def layout(out_path: str) -> html.Div:
 	run_options = make_run_options(out_path)
 
 	return html.Div(children=[
+		dcc.ConfirmDialog(id='inspect-delete-confirm', message=''),
+		dcc.Store(id='inspect-delete-pending', data=None),
+
 		html.Div(className='grid-3', style={'marginBottom': '15px'}, children=[
 			html.Div([
 				html.Label('Run'),
-				dcc.Dropdown(
-					id='inspect-run',
-					options=run_options,
-					value=run_options[0]['value'] if run_options else None,
-				),
+				html.Div(style={'display': 'flex', 'gap': '6px'}, children=[
+					dcc.Dropdown(
+						id='inspect-run',
+						options=run_options,
+						value=run_options[0]['value'] if run_options else None,
+						style={'flex': '1', 'minWidth': '0'},
+					),
+					html.Button('Delete', id='inspect-delete-run', n_clicks=0,
+						style={'padding': '6px 12px', 'cursor': 'pointer',
+							'color': '#c00', 'border': '1px solid #c00',
+							'borderRadius': '4px', 'background': '#fff',
+							'whiteSpace': 'nowrap'}),
+				]),
 			]),
 			html.Div([
 				html.Label('Listener'),
@@ -200,6 +212,52 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		columns = results.find_columns(cells[0]['simout_path'], listener)
 		options = [{'label': c, 'value': c} for c in columns]
 		return options, None
+
+	@app.callback(
+		Output('inspect-delete-confirm', 'displayed'),
+		Output('inspect-delete-confirm', 'message'),
+		Output('inspect-delete-pending', 'data'),
+		Input('inspect-delete-run', 'n_clicks'),
+		State('inspect-run', 'value'),
+		State('inspect-run', 'options'),
+		prevent_initial_call=True,
+	)
+	def show_delete_confirm(n_clicks, run_value, run_options):
+		if not n_clicks or not run_value:
+			return False, '', None
+		label = next((o['label'] for o in (run_options or []) if o['value'] == run_value), run_value)
+		sim_dir, variant = parse_run_value(run_value)
+		variant_path = os.path.join(sim_dir, variant)
+		msg = (f"Permanently delete run '{label}'?\n\n"
+			f"This will remove all simulation output at:\n{variant_path}")
+		return True, msg, run_value
+
+	@app.callback(
+		Output('inspect-run', 'options'),
+		Output('inspect-run', 'value'),
+		Output('inspect-overlay-run', 'options'),
+		Output('inspect-overlay-traces', 'data', allow_duplicate=True),
+		Input('inspect-delete-confirm', 'submit_n_clicks'),
+		State('inspect-delete-pending', 'data'),
+		State('inspect-run', 'value'),
+		State('inspect-overlay-traces', 'data'),
+		prevent_initial_call=True,
+	)
+	def execute_delete(submit_clicks, pending_run, current_run, overlay_traces):
+		if not submit_clicks or not pending_run:
+			raise dash.exceptions.PreventUpdate
+		try:
+			sim_dir, variant = parse_run_value(pending_run)
+			variant_path = os.path.join(sim_dir, variant)
+			if os.path.isdir(variant_path):
+				shutil.rmtree(variant_path)
+		except Exception:
+			pass
+		new_options = make_run_options(out_path)
+		valid_values = {o['value'] for o in new_options}
+		new_value = current_run if current_run in valid_values else (new_options[0]['value'] if new_options else None)
+		new_traces = [t for t in (overlay_traces or []) if t['run'] != pending_run]
+		return new_options, new_value, new_options, new_traces
 
 	@app.callback(
 		Output('inspect-overlay-traces', 'data'),
