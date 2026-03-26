@@ -22,6 +22,20 @@ def dir_timestamp(path: str) -> str:
 		return ''
 
 
+def explore_run_options(out_path: str) -> List[dict]:
+	"""Build run dropdown options for the Explore tab (variant + timestamp label)."""
+
+	options = []
+	for sim_dir in find_sim_dirs(out_path):
+		ts = dir_timestamp(sim_dir)
+		for variant in find_variants(sim_dir):
+			cells = find_cells(sim_dir, variant)
+			if cells:
+				label = f"{variant} {ts}" if ts else variant
+				options.append({'label': label, 'value': f"{sim_dir}|{variant}"})
+	return options
+
+
 # Patterns for directory structure
 VARIANT_PATTERN = re.compile(r'.+_\d{6}')
 SEED_PATTERN = re.compile(r'\d{6}')

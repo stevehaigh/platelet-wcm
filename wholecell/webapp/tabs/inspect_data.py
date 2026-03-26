@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from typing import List, Tuple
 
 import dash
@@ -14,7 +15,6 @@ import numpy as np
 import plotly.graph_objs as go
 
 from wholecell.webapp import results
-from wholecell.webapp.tabs.explore import explore_run_options
 
 
 def make_run_options(out_path: str) -> List[dict]:
@@ -227,30 +227,38 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		Output('inspect-run', 'value'),
 		Output('inspect-overlay-run', 'options'),
 		Output('explore-left-run', 'options'),
+		Output('explore-left-run', 'value'),
 		Output('explore-right-run', 'options'),
+		Output('explore-right-run', 'value'),
 		Output('inspect-overlay-traces', 'data', allow_duplicate=True),
 		Input('inspect-delete-confirm', 'submit_n_clicks'),
 		State('inspect-delete-pending', 'data'),
 		State('inspect-run', 'value'),
+		State('explore-left-run', 'value'),
+		State('explore-right-run', 'value'),
 		State('inspect-overlay-traces', 'data'),
 		prevent_initial_call=True,
 	)
-	def execute_delete(submit_clicks, pending_run, current_run, overlay_traces):
+	def execute_delete(submit_clicks, pending_run, current_run, explore_left, explore_right, overlay_traces):
 		if not submit_clicks or not pending_run:
 			raise dash.exceptions.PreventUpdate
-		try:
-			sim_dir, variant = parse_run_value(pending_run)
-			variant_path = os.path.join(sim_dir, variant)
-			if os.path.isdir(variant_path):
+		sim_dir, variant = parse_run_value(pending_run)
+		variant_path = os.path.join(sim_dir, variant)
+		if os.path.isdir(variant_path):
+			try:
 				shutil.rmtree(variant_path)
-		except Exception:
-			pass
+			except Exception as e:
+				print(f'Error deleting {variant_path}: {e}', file=sys.stderr)
+				raise dash.exceptions.PreventUpdate
 		new_options = make_run_options(out_path)
-		explore_options = explore_run_options(out_path)
-		valid_values = {o['value'] for o in new_options}
-		new_value = current_run if current_run in valid_values else (new_options[0]['value'] if new_options else None)
+		explore_options = results.explore_run_options(out_path)
+		valid_inspect = {o['value'] for o in new_options}
+		valid_explore = {o['value'] for o in explore_options}
+		new_value = current_run if current_run in valid_inspect else (new_options[0]['value'] if new_options else None)
+		new_left = explore_left if explore_left in valid_explore else (explore_options[0]['value'] if explore_options else None)
+		new_right = explore_right if explore_right in valid_explore else None
 		new_traces = [t for t in (overlay_traces or []) if t['run'] != pending_run]
-		return new_options, new_value, new_options, explore_options, explore_options, new_traces
+		return new_options, new_value, new_options, explore_options, new_left, explore_options, new_right, new_traces
 
 	@app.callback(
 		Output('inspect-overlay-traces', 'data'),
@@ -274,7 +282,7 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 				new_trace = {'run': run_value, 'listener': listener, 'column': column}
 				if new_trace not in traces:
 					traces.append(new_trace)
-		elif '"type":"remove-overlay-trace"' in trigger_id or "'type': 'remove-overlay-trace'" in trigger_id:
+		elif '"type":"remove-overlay-trace"' in trigger_id:
 			# Extract the index from the triggered component id
 			prop_id = trigger_id.rsplit('.', 1)[0]
 			try:

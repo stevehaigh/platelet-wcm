@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
-from typing import List, Tuple
+from typing import Tuple
 
 import dash
 from dash import dcc, html
@@ -13,25 +13,10 @@ from dash.dependencies import Input, Output, State
 from wholecell.webapp import results
 
 
-def explore_run_options(out_path: str) -> List[dict]:
-	"""Build dropdown options from available simulation directories."""
-
-	options = []
-	for sim_dir in results.find_sim_dirs(out_path):
-		ts = results.dir_timestamp(sim_dir)
-		for variant in results.find_variants(sim_dir):
-			cells = results.find_cells(sim_dir, variant)
-			if cells:
-				label = f"{variant} {ts}" if ts else variant
-				value = f"{sim_dir}|{variant}"
-				options.append({'label': label, 'value': value})
-	return options
-
-
 def layout(out_path: str) -> html.Div:
 	"""Create the Explore tab layout."""
 
-	run_options = explore_run_options(out_path)
+	run_options = results.explore_run_options(out_path)
 
 	return html.Div(children=[
 		html.Div(className='grid-2', style={'marginBottom': '15px'}, children=[
