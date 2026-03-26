@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+import json
+import os
+import time
 from typing import List, Tuple
 
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import ALL, Input, Output, State
 import numpy as np
 import plotly.graph_objs as go
 
 from wholecell.webapp import results
+
+
+def _dir_timestamp(path: str) -> str:
+	"""Return a short timestamp for a directory as YYMMDD-HH:MM:SS."""
+	try:
+		stat = os.stat(path)
+		ts = getattr(stat, 'st_birthtime', None) or stat.st_mtime
+		return time.strftime('%y%m%d-%H:%M:%S', time.localtime(ts))
+	except OSError:
+		return ''
 
 
 def make_run_options(out_path: str) -> List[dict]:
@@ -18,11 +31,12 @@ def make_run_options(out_path: str) -> List[dict]:
 
 	options = []
 	for sim_dir in results.find_sim_dirs(out_path):
+		ts = _dir_timestamp(sim_dir)
 		for variant in results.find_variants(sim_dir):
 			cells = results.find_cells(sim_dir, variant)
 			if cells:
-				label = f"{variant} ({len(cells)} cell{'s' if len(cells) > 1 else ''})"
-				# Encode as sim_dir + variant separated by |
+				cell_count = f"{len(cells)} cell{'s' if len(cells) > 1 else ''}"
+				label = f"{variant} ({cell_count}) {ts}" if ts else f"{variant} ({cell_count})"
 				value = f"{sim_dir}|{variant}"
 				options.append({'label': label, 'value': value})
 	return options
@@ -34,6 +48,12 @@ def parse_run_value(value: str) -> Tuple[str, str]:
 	if len(parts) != 2:
 		raise ValueError(f'Invalid run value (expected sim_dir|variant): {value!r}')
 	return parts[0], parts[1]
+
+
+def _trace_label(trace_info: dict) -> str:
+	"""Human-readable label for an overlay trace."""
+	_, variant = parse_run_value(trace_info['run'])
+	return f"{variant} / {trace_info['listener']} / {trace_info['column']}"
 
 
 def layout(out_path: str) -> html.Div:
@@ -82,7 +102,7 @@ def layout(out_path: str) -> html.Div:
 		),
 
 		html.Div(style={'marginTop': '15px', 'padding': '10px', 'background': '#f0f0f0', 'borderRadius': '5px'}, children=[
-			html.Label('Overlay trace from another run:', style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
+			html.Label('Overlay traces:', style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
 			html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr 1fr auto', 'gap': '10px', 'alignItems': 'end'}, children=[
 				dcc.Dropdown(
 					id='inspect-overlay-run',
@@ -94,6 +114,7 @@ def layout(out_path: str) -> html.Div:
 				html.Button('Add Trace', id='inspect-add-trace', n_clicks=0,
 					style={'padding': '8px 16px', 'cursor': 'pointer'}),
 			]),
+			html.Div(id='inspect-overlay-trace-list', style={'marginTop': '8px'}),
 		]),
 
 		# Hidden store for overlay traces
@@ -183,24 +204,65 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 	@app.callback(
 		Output('inspect-overlay-traces', 'data'),
 		Input('inspect-add-trace', 'n_clicks'),
+		Input({'type': 'remove-overlay-trace', 'index': ALL}, 'n_clicks'),
 		State('inspect-overlay-run', 'value'),
 		State('inspect-overlay-listener', 'value'),
 		State('inspect-overlay-column', 'value'),
 		State('inspect-overlay-traces', 'data'),
 	)
-	def add_overlay_trace(n_clicks, run_value, listener, column, existing_traces):
-		if not n_clicks or not all([run_value, listener, column]):
-			return existing_traces or []
-		new_trace = {
-			'run': run_value,
-			'listener': listener,
-			'column': column,
-		}
+	def update_overlay_traces(add_clicks, remove_clicks, run_value, listener, column, existing_traces):
 		traces = list(existing_traces or [])
-		# Avoid duplicates
-		if new_trace not in traces:
-			traces.append(new_trace)
+		ctx = dash.callback_context
+		if not ctx.triggered:
+			return traces
+
+		trigger_id = ctx.triggered[0]['prop_id']
+
+		if trigger_id == 'inspect-add-trace.n_clicks':
+			if add_clicks and all([run_value, listener, column]):
+				new_trace = {'run': run_value, 'listener': listener, 'column': column}
+				if new_trace not in traces:
+					traces.append(new_trace)
+		elif '"type":"remove-overlay-trace"' in trigger_id or "'type': 'remove-overlay-trace'" in trigger_id:
+			# Extract the index from the triggered component id
+			prop_id = trigger_id.rsplit('.', 1)[0]
+			try:
+				component_id = json.loads(prop_id)
+				idx = component_id['index']
+				if ctx.triggered[0]['value'] and 0 <= idx < len(traces):
+					traces.pop(idx)
+			except (json.JSONDecodeError, KeyError, IndexError):
+				pass
+
 		return traces
+
+	@app.callback(
+		Output('inspect-overlay-trace-list', 'children'),
+		Input('inspect-overlay-traces', 'data'),
+	)
+	def render_overlay_trace_list(traces):
+		if not traces:
+			return []
+		rows = []
+		for i, trace_info in enumerate(traces):
+			label = _trace_label(trace_info)
+			rows.append(html.Div(
+				style={'display': 'flex', 'alignItems': 'center', 'gap': '8px', 'marginTop': '4px'},
+				children=[
+					html.Span(label, style={'flex': '1', 'fontSize': '0.9em'}),
+					html.Button('×', id={'type': 'remove-overlay-trace', 'index': i},
+						n_clicks=0,
+						style={
+							'padding': '2px 8px',
+							'cursor': 'pointer',
+							'border': '1px solid #ccc',
+							'borderRadius': '3px',
+							'background': '#fff',
+							'lineHeight': '1',
+						}),
+				],
+			))
+		return rows
 
 	@app.callback(
 		Output('inspect-graph', 'figure'),
