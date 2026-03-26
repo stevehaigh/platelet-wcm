@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import time
 from typing import List, Tuple
 
 import dash
@@ -15,16 +14,7 @@ import numpy as np
 import plotly.graph_objs as go
 
 from wholecell.webapp import results
-
-
-def _dir_timestamp(path: str) -> str:
-	"""Return a short timestamp for a directory as YYMMDD-HH:MM:SS."""
-	try:
-		stat = os.stat(path)
-		ts = getattr(stat, 'st_birthtime', None) or stat.st_mtime
-		return time.strftime('%y%m%d-%H:%M:%S', time.localtime(ts))
-	except OSError:
-		return ''
+from wholecell.webapp.tabs.explore import explore_run_options
 
 
 def make_run_options(out_path: str) -> List[dict]:
@@ -32,7 +22,7 @@ def make_run_options(out_path: str) -> List[dict]:
 
 	options = []
 	for sim_dir in results.find_sim_dirs(out_path):
-		ts = _dir_timestamp(sim_dir)
+		ts = results.dir_timestamp(sim_dir)
 		for variant in results.find_variants(sim_dir):
 			cells = results.find_cells(sim_dir, variant)
 			if cells:
@@ -236,6 +226,8 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		Output('inspect-run', 'options'),
 		Output('inspect-run', 'value'),
 		Output('inspect-overlay-run', 'options'),
+		Output('explore-left-run', 'options'),
+		Output('explore-right-run', 'options'),
 		Output('inspect-overlay-traces', 'data', allow_duplicate=True),
 		Input('inspect-delete-confirm', 'submit_n_clicks'),
 		State('inspect-delete-pending', 'data'),
@@ -254,10 +246,11 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		except Exception:
 			pass
 		new_options = make_run_options(out_path)
+		explore_options = explore_run_options(out_path)
 		valid_values = {o['value'] for o in new_options}
 		new_value = current_run if current_run in valid_values else (new_options[0]['value'] if new_options else None)
 		new_traces = [t for t in (overlay_traces or []) if t['run'] != pending_run]
-		return new_options, new_value, new_options, new_traces
+		return new_options, new_value, new_options, explore_options, explore_options, new_traces
 
 	@app.callback(
 		Output('inspect-overlay-traces', 'data'),

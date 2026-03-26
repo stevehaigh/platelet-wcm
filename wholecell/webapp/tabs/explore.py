@@ -13,15 +13,16 @@ from dash.dependencies import Input, Output, State
 from wholecell.webapp import results
 
 
-def _make_run_options(out_path: str) -> List[dict]:
+def explore_run_options(out_path: str) -> List[dict]:
 	"""Build dropdown options from available simulation directories."""
 
 	options = []
 	for sim_dir in results.find_sim_dirs(out_path):
+		ts = results.dir_timestamp(sim_dir)
 		for variant in results.find_variants(sim_dir):
 			cells = results.find_cells(sim_dir, variant)
 			if cells:
-				label = variant
+				label = f"{variant} {ts}" if ts else variant
 				value = f"{sim_dir}|{variant}"
 				options.append({'label': label, 'value': value})
 	return options
@@ -30,7 +31,7 @@ def _make_run_options(out_path: str) -> List[dict]:
 def layout(out_path: str) -> html.Div:
 	"""Create the Explore tab layout."""
 
-	run_options = _make_run_options(out_path)
+	run_options = explore_run_options(out_path)
 
 	return html.Div(children=[
 		html.Div(className='grid-2', style={'marginBottom': '15px'}, children=[
