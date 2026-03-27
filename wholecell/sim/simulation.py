@@ -110,6 +110,7 @@ class Simulation():
 	_listenerClasses = ()  # type: Tuple[Callable, ...]
 	_hookClasses = ()  # type: Sequence[Callable]
 	_shellColumnHeaders = ("Time (s)",)  # type: Sequence[str]
+	_divideCellFunction = None  # subclass sets this if the cell divides
 
 	# Constructors
 	def __init__(self, **kwargs):
@@ -305,8 +306,8 @@ class Simulation():
 			for hook in self.hooks.values():
 				hook.finalize(self)
 
-			# Divide mother into daughter cells
-			if self._cellCycleComplete:
+			# Divide mother into daughter cells (skipped for non-dividing cells)
+			if self._cellCycleComplete and self._divideCellFunction is not None:
 				self.daughter_paths = self._divideCellFunction()
 
 			# Finish logging
