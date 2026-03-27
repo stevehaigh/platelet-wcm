@@ -1,4 +1,11 @@
-.PHONY: compile, clean, recompile
+.PHONY: compile clean recompile \
+        run build docker-run build-code build-all stop
+
+USER     ?= $(shell whoami)
+PORT     ?= 8050
+WEBAPP   := $(USER)-wcm-webapp
+CODE     := $(USER)-wcm-code
+RUNTIME  := $(USER)-wcm-runtime
 
 compile:
 	python setup.py build_ext --inplace
@@ -27,3 +34,49 @@ clean:
 recompile:
 	find . -name "*.so" -delete
 	make compile
+
+# ── Local development ─────────────────────────────────────────────────────────
+
+# Run the webapp directly — no Docker, hot-reloads on save (fastest dev loop).
+run:
+	PYTHONPATH="$$PWD" python runscripts/manual/webapp.py \
+		--port $(PORT) --docker-image $(CODE) --debug
+
+# Run the webapp inside Docker, mounting ./out/ for simulation data.
+docker-run:
+	docker run --rm \
+		-p $(PORT):8050 \
+		-v "$$PWD/out:/wcEcoli/out" \
+		-e WEBAPP_PORT=8050 \
+		$(WEBAPP)
+
+# Build the webapp image (fast — just copies source onto wcm-code).
+build: _require-code-image
+	docker build -f cloud/docker/webapp/Dockerfile \
+		--build-arg from=$(CODE) \
+		-t $(WEBAPP) .
+
+# Rebuild wcm-code (needed when simulation Python/Cython code changes).
+build-code: _require-runtime-image
+	cloud/locally-build-wcm.sh
+
+# Full rebuild: runtime → code → webapp (slow).
+build-all:
+	cloud/locally-build-runtime.sh
+	cloud/locally-build-wcm.sh
+	docker build -f cloud/docker/webapp/Dockerfile \
+		--build-arg from=$(CODE) \
+		-t $(WEBAPP) .
+
+# Kill any directly-running webapp process.
+stop:
+	pkill -f "webapp.py" && echo "Stopped." || echo "No webapp process found."
+
+# Internal guards ─────────────────────────────────────────────────────────────
+_require-runtime-image:
+	@docker image inspect $(RUNTIME) > /dev/null 2>&1 || \
+		(echo "$(RUNTIME) not found — run 'make build-all' first" && exit 1)
+
+_require-code-image:
+	@docker image inspect $(CODE) > /dev/null 2>&1 || \
+		(echo "$(CODE) not found — run 'make build-code' first" && exit 1)
