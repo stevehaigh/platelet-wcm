@@ -169,3 +169,4 @@ reconstruction/ecoli/scripts/nca/data/regulon-db/*.tsv
 # Personal notes #
 ###################
 /stevehaigh-notes/
+webapp_jobs.db

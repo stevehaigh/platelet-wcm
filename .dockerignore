@@ -125,3 +125,8 @@ reconstruction/ecoli/scripts/nca/data/regulon-db/*.tsv
 *.fls
 *.synctex.gz
 
+
+# Additional exclusions for ACR builds
+/stevehaigh-notes
+/webapp_jobs.db
+/prototypes

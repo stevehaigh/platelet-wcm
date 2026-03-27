@@ -635,7 +635,8 @@ class Metabolism(object):
 				higher supply rate if >1, lower supply rate if <1
 		"""
 
-		aa_conc = aa_conc.asNumber(METABOLITE_CONCENTRATION_UNITS)
+		if hasattr(aa_conc, 'asNumber'):
+			aa_conc = aa_conc.asNumber(METABOLITE_CONCENTRATION_UNITS)
 
 		aa_supply = self.fraction_supply_rate
 		aa_import = aa_present * self.fraction_import_rate
