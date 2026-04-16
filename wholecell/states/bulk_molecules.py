@@ -72,6 +72,13 @@ class BulkMolecules(wholecell.states.internal_state.InternalState):
 		self.division_mode['binomial'] = sim_data.molecule_groups.bulk_molecules_binomial_division
 		self.division_mode['equally'] = sim_data.molecule_groups.bulk_molecules_equal_division
 
+		# Resolve energy-molecule index for partition tracking output.
+		# ATP[c] is the E. coli energy currency; other models may not have it.
+		# Store None when absent so tableAppend() can emit zero vectors instead
+		# of crashing with a ValueError.
+		atp_matches = np.where(self._moleculeIDs == "ATP[c]")[0]
+		self._atp_index = int(atp_matches[0]) if len(atp_matches) > 0 else None
+
 		# Set up matrix for compartment mass calculation
 		self._molecule_by_compartment = np.stack(
 			[np.core.defchararray.chararray.endswith(self._moleculeIDs, abbrev + ']'
@@ -254,11 +261,24 @@ class BulkMolecules(wholecell.states.internal_state.InternalState):
 			subcolumns = subcolumns)
 
 	def tableAppend(self, tableWriter):
+		if self._atp_index is not None:
+			atp_allocated_initial = self._countsAllocatedInitial[self._atp_index, :]
+			atp_allocated_final   = self._countsAllocatedFinal[self._atp_index, :]
+			atp_requested         = self._countsRequested[self._atp_index, :]
+		else:
+			# No ATP[c] in this model (e.g. platelet) — write zero vectors so
+			# the table schema stays consistent with downstream analysis code.
+			n = self._countsAllocatedInitial.shape[1]
+			dtype = self._countsAllocatedInitial.dtype
+			atp_allocated_initial = np.zeros(n, dtype)
+			atp_allocated_final   = np.zeros(n, dtype)
+			atp_requested         = np.zeros(n, dtype)
+
 		tableWriter.append(
 			counts = self.container._counts,
-			atpAllocatedInitial = self._countsAllocatedInitial[self.container._objectNames.index("ATP[c]"), :],
-			atpAllocatedFinal = self._countsAllocatedFinal[self.container._objectNames.index("ATP[c]"), :],
-			atpRequested = self._countsRequested[self.container._objectNames.index("ATP[c]"), :],
+			atpAllocatedInitial = atp_allocated_initial,
+			atpAllocatedFinal   = atp_allocated_final,
+			atpRequested        = atp_requested,
 			)
 
 
