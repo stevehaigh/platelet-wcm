@@ -1,0 +1,8 @@
+% Shared LaTeX header for Markdown → PDF builds (make pdfs)
+% Maps Unicode characters that STIX Two Text lacks to LaTeX equivalents.
+\usepackage{newunicodechar}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{⇌}{\ensuremath{\rightleftharpoons}}
+\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{•}{\textbullet}

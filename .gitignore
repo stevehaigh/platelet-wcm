@@ -170,3 +170,6 @@ reconstruction/ecoli/scripts/nca/data/regulon-db/*.tsv
 ###################
 /stevehaigh-notes/
 webapp_jobs.db
+
+# Generated Markdown → PDF output (reports/)
+/reports/pdf/
