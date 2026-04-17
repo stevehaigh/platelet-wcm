@@ -1,0 +1,1043 @@
+\documentclass[11pt,a4paper]{report}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{titlesec}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black,
+    citecolor=green!50!black
+}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    keywordstyle=\color{blue!70!black},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red!70!black},
+}
+
+% Header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{Platelet WCM Feasibility Study}
+\fancyfoot[C]{\thepage}
+
+% Title formatting
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+% Document info
+\title{%
+    \vspace{-2cm}
+    \textbf{A Feasibility Study for Building a Whole-Cell Model of the Human Platelet}\\[1cm]
+    \large Using the wcEcoli Framework as a Foundation\\[2cm]
+    \includegraphics[width=0.3\textwidth]{example-image-a}\\[1cm]
+}
+\author{Steve Haigh}
+\date{April 2026}
+
+\begin{document}
+
+% Title page
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries A Feasibility Study for Building a Whole-Cell Model of the Human Platelet\par}
+\vspace{1.5cm}
+{\Large Using the wcEcoli Framework as a Foundation\par}
+\vspace{3cm}
+{\large Steve Haigh\par}
+\vspace{1cm}
+{\large April 2026\par}
+\vfill
+{\small This document synthesises the rationale, technical analysis, and implementation plan for adapting the wcEcoli whole-cell modelling framework to simulate human platelet biology.\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\part{Background: Whole-Cell Modelling Approaches}
+%==============================================================================
+
+\chapter{Introduction to Whole-Cell Modelling}
+
+\section{What is Whole-Cell Modelling?}
+
+Whole-cell modelling represents a paradigm shift in computational biology. Rather than modelling individual pathways or processes in isolation, a whole-cell model (WCM) integrates \emph{all} major cellular processes into a single, self-consistent simulation. The goal is to predict cellular phenotype directly from molecular-level mechanisms---to simulate the entire life cycle of a cell from first principles.
+
+The key characteristics of whole-cell models are:
+
+\begin{itemize}
+    \item \textbf{Comprehensive scope:} All major biological processes (metabolism, gene expression, replication, etc.) are included.
+    \item \textbf{Mechanistic detail:} Processes are modelled with sufficient biochemical detail to capture the underlying biology.
+    \item \textbf{Integration:} Processes share a common molecular inventory and influence each other dynamically.
+    \item \textbf{Emergent behaviour:} System-level properties (growth rate, cell cycle timing) emerge from the simulation rather than being imposed.
+\end{itemize}
+
+This document examines two state-of-the-art whole-cell models---wcEcoli and MC4D (the 4D minimal cell model)---and presents a feasibility study for adapting the wcEcoli framework to model human platelets.
+
+\section{Why Model Platelets?}
+
+Platelets are clinically critical cells involved in haemostasis, thrombosis, and inflammation. Despite extensive biochemical characterisation, no integrative whole-cell model of the platelet exists. Current computational models focus on individual pathways:
+
+\begin{itemize}
+    \item Calcium signalling models (Sveshnikova, Diamond groups)
+    \item Coagulation cascade models (cascade kinetics)
+    \item Integrin activation models (inside-out signalling)
+\end{itemize}
+
+A whole-cell model would enable questions that span pathways:
+
+\begin{enumerate}
+    \item How does receptor activation propagate through signalling cascades to granule release?
+    \item How does platelet energetics (ATP supply) constrain activation kinetics?
+    \item What explains heterogeneity in activation thresholds across individual platelets?
+\end{enumerate}
+
+These are precisely the cross-pathway, multi-scale questions that whole-cell modelling is designed to address.
+
+%==============================================================================
+\chapter{wcEcoli: The E. coli Whole-Cell Model}
+
+\section{Overview}
+
+wcEcoli is an open-source whole-cell computational model of \emph{Escherichia coli}, developed by the Covert Lab at Stanford University. It represents the most complete whole-cell model of a free-living organism currently available.
+
+\subsection{Key References}
+
+\begin{itemize}
+    \item Karr JR et al. (2012) ``A whole-cell computational model predicts phenotype from genotype.'' \emph{Cell} 150(2):389--401.
+    \item Macklin DN et al. (2020) ``Simultaneous cross-evaluation of heterogeneous E. coli datasets via mechanistic simulation.'' \emph{Science} 369:eaav3751.
+    \item Ahn-Horst TA et al. (2022) ``An expanded whole-cell model of E. coli links cellular physiology with mechanisms of growth rate control.'' \emph{npj Syst Biol Appl} 8:30.
+\end{itemize}
+
+\subsection{What It Simulates}
+
+The model simulates a single \emph{E. coli} cell from birth to division (60--120 minutes), tracking:
+
+\begin{itemize}
+    \item \textbf{Every gene} ($\sim$4,600 genes) and transcription state
+    \item \textbf{Every mRNA molecule} ($\sim$2,000--8,000 copies) and degradation
+    \item \textbf{Every protein} ($\sim$2.4 million molecules) synthesis and turnover
+    \item \textbf{Every metabolite} ($\sim$1,500 species) concentrations and fluxes
+    \item \textbf{DNA replication} fork positions and chromosome copy number
+    \item \textbf{Cell growth} from $\sim$650 fg to $\sim$1,300 fg dry mass at division
+\end{itemize}
+
+\section{Inputs: Data and Parameter Fitting}
+
+\subsection{Raw Data (72+ TSV Files)}
+
+The model is parameterised from curated experimental data stored in \texttt{reconstruction/ecoli/flat/}:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Example Files} & \textbf{Contents} \\
+\midrule
+Genome & \texttt{genes.tsv}, \texttt{sequence.fasta} & 4,583 genes, coordinates \\
+Transcription & \texttt{rnas.tsv}, \texttt{transcription\_factors.tsv} & RNA properties, TF binding \\
+Translation & \texttt{proteins.tsv}, \texttt{translation\_efficiency.tsv} & Protein sequences, rates \\
+Metabolism & \texttt{metabolic\_reactions.tsv}, \texttt{metabolism\_kinetics.tsv} & $\sim$2,500 reactions \\
+Regulation & \texttt{fold\_changes.tsv}, \texttt{ppgpp\_regulation.tsv} & TF effects, stress response \\
+\bottomrule
+\end{tabular}
+\caption{Categories of raw data used to parameterise wcEcoli.}
+\end{table}
+
+\subsection{Parameter Calculator (ParCa)}
+
+Raw data is transformed by \texttt{fit\_sim\_data\_1.py} through a multi-stage fitting pipeline:
+
+\begin{enumerate}
+    \item \texttt{initialize()} --- Load and validate raw data
+    \item \texttt{basal\_specs()} --- Calculate basal expression levels
+    \item \texttt{tf\_condition\_specs()} --- Fit TF regulation parameters
+    \item \texttt{fit\_condition()} --- CVXPY optimisation of expression
+    \item \texttt{promoter\_binding()} --- Calculate TF--promoter binding probabilities
+    \item \texttt{final\_adjustments()} --- Calibrate to target growth rate
+\end{enumerate}
+
+The output is a $\sim$180 MB serialised \texttt{sim\_data} object containing all fitted parameters.
+
+\section{The Simulation Loop}
+
+\subsection{Timestep Structure}
+
+Each simulation timestep (default 1 second, dynamically adjusted 0.1--1.0s):
+
+\begin{enumerate}
+    \item \textbf{Calculate Requests:} Each process declares what molecules it needs.
+    \item \textbf{Partition State:} Molecules allocated to processes by priority.
+    \item \textbf{Evolve State:} Processes execute their biological function.
+    \item \textbf{Merge State:} Updates combined back into global state.
+    \item \textbf{Update Listeners:} Record data to disk for analysis.
+\end{enumerate}
+
+\subsection{Process Groups and Ordering}
+
+Processes run in dependency-ordered groups:
+
+\begin{lstlisting}[language=Python]
+_processClasses = (
+    (TfUnbinding,),                    # Group 1: Must run first
+    (Equilibrium, TwoComponentSystem, RnaMaturation),  # Group 2
+    (TfBinding,),                      # Group 3: Before transcription
+    (TranscriptInitiation, PolypeptideInitiation, 
+     ChromosomeReplication, ProteinDegradation,
+     RnaDegradation, Complexation),    # Group 4: Initiation + decay
+    (TranscriptElongation, PolypeptideElongation),  # Group 5
+    (ChromosomeStructure,),            # Group 6
+    (Metabolism,),                     # Group 7: Balances all changes
+    (CellDivision,),                   # Group 8: Checks completion
+)
+\end{lstlisting}
+
+\subsection{Resource Partitioning}
+
+Processes compete for molecules through priority-based allocation:
+
+\begin{itemize}
+    \item \texttt{REQUEST\_PRIORITY\_METABOLISM = -10} (highest priority)
+    \item \texttt{REQUEST\_PRIORITY\_DEFAULT = 0}
+    \item \texttt{REQUEST\_PRIORITY\_DEGRADATION = 10} (lowest priority)
+\end{itemize}
+
+When requests exceed availability, proportional allocation with stochastic rounding is used.
+
+\section{Major Processes}
+
+\subsection{Transcription}
+
+\textbf{TranscriptInitiation:} Calculates synthesis probability for each gene as:
+\[
+P(\text{synthesis}) = P_{\text{basal}} \times \text{TF modulation} \times \text{ppGpp effect}
+\]
+A multinomial draw determines which genes are initiated each timestep.
+
+\textbf{TranscriptElongation:} Advances RNAP positions along DNA, consuming NTPs. When RNAP reaches gene end, a new RNA molecule is created.
+
+\subsection{Translation}
+
+Uses tRNA charging dynamics to model ribosome elongation:
+
+\begin{enumerate}
+    \item Calculate amino acid demand from sequences being translated
+    \item Solve tRNA charging kinetics (steady-state approximation)
+    \item Elongation rate depends on charged tRNA availability
+    \item Stochastic polymerisation with resource constraints
+\end{enumerate}
+
+Key biological behaviours captured include ribosome stalling, codon-dependent rates, and competition between mRNAs.
+
+\subsection{Metabolism}
+
+Uses Flux Balance Analysis (FBA):
+
+\begin{enumerate}
+    \item Build stoichiometric matrix $S$ (metabolites $\times$ reactions)
+    \item Set flux bounds from enzyme counts and nutrient availability
+    \item Objective: maximise biomass production
+    \item Solve linear program to find optimal flux distribution
+\end{enumerate}
+
+The steady-state assumption ($S \cdot v = 0$) is implicit in FBA.
+
+\subsection{DNA Replication}
+
+Tracks replication fork positions, with rates determined by dNTP availability. Initiation triggered by DnaA-ATP concentration threshold.
+
+\section{Outputs}
+
+\subsection{Directory Structure}
+
+\begin{lstlisting}
+out/{sim_dir}/
+  kb/simData.cPickle           # Fitted parameters (180 MB)
+  wildtype_000000/             # Variant
+    000000/                    # Seed
+      generation_000000/
+        000000/                # Daughter
+          simOut/              # Listener data
+          plotOut/             # Analysis figures
+\end{lstlisting}
+
+\subsection{Listener Data (18 Listeners)}
+
+Each listener records specific data each timestep:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Listener} & \textbf{Data Recorded} \\
+\midrule
+Mass & Total mass, dry mass, mass fractions \\
+BulkMolecules & Counts of all $\sim$3,000 molecule species \\
+FBAResults & Reaction fluxes, exchange rates \\
+GrowthLimits & Which resources limit growth \\
+RibosomeData & Active ribosomes, stalling events \\
+ReplicationData & Fork positions, chromosome count \\
+\bottomrule
+\end{tabular}
+\caption{Key listeners in wcEcoli.}
+\end{table}
+
+%==============================================================================
+\chapter{MC4D: The 4D Minimal Cell Model}
+
+\section{Overview}
+
+MC4D is a whole-cell model of JCVI-syn3A, a synthetically constructed minimal bacterium with approximately 473 genes. Published in \emph{Cell} (March 2026), it is the first whole-cell model to integrate full 3D spatial resolution with a complete biological description.
+
+\subsection{The Organism}
+
+JCVI-syn3A was engineered by iteratively removing genes from \emph{Mycoplasma mycoides}, retaining only those essential for growth and division. With $\sim$473 genes, it is dramatically simpler than \emph{E. coli} ($\sim$4,300 genes), making complete gene coverage tractable. However, roughly one third of genes have unknown function.
+
+\section{The Four Computational Methods}
+
+The model is named ``4D'' both for its spatial dimensions and for the four mathematical formalisms it integrates:
+
+\subsection{RDME --- Reaction-Diffusion Master Equation}
+
+The cell interior is discretised onto a 3D lattice. Molecules diffuse stochastically between voxels and react based on local concentrations. Implemented via Lattice Microbes (GPU-accelerated).
+
+\textbf{Used for:} Translation (spatially resolved), molecular diffusion, ribosome dynamics with excluded-volume constraints.
+
+\subsection{CME --- Chemical Master Equation}
+
+A well-mixed stochastic formalism for globally-treated reactions where spatial homogeneity is reasonable but discrete-molecule stochasticity matters.
+
+\textbf{Used for:} Transcription, tRNA charging.
+
+\subsection{ODE --- Ordinary Differential Equations}
+
+Deterministic kinetic integration of the metabolic network. Enzyme concentrations from RDME are passed to the ODE solver.
+
+\textbf{Used for:} Metabolism, dNTP pool dynamics.
+
+\subsection{BD --- Brownian Dynamics}
+
+Explicit physical simulation of chromosomal DNA as a polymer, using LAMMPS molecular dynamics. SMC proteins and topoisomerases control compaction and segregation.
+
+\textbf{Used for:} Chromosome structure and segregation.
+
+\section{Integration Architecture}
+
+The four methods communicate through a central Python module (\texttt{Hook.py}) that periodically:
+
+\begin{enumerate}
+    \item Extracts molecular counts from the RDME lattice
+    \item Passes enzyme concentrations to ODE solver; runs metabolism
+    \item Passes transcription events to CME solver
+    \item Synchronises chromosome state with BD simulation
+    \item Writes updated counts back to RDME lattice
+\end{enumerate}
+
+\section{Validation}
+
+The model is validated against:
+
+\begin{itemize}
+    \item Doubling time (quantitative agreement)
+    \item Origin-to-terminus ratio (DNA sequencing data)
+    \item mRNA half-lives (experimental measurements)
+    \item Protein spatial distributions (fluorescence data)
+    \item Ribosome counts (quantitative agreement)
+    \item Daughter cell heterogeneity (stochastic partitioning)
+\end{itemize}
+
+\section{Technical Requirements}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Component} & \textbf{Software} & \textbf{Notes} \\
+\midrule
+RDME solver & Lattice Microbes & GPU required \\
+ODE integrator & odecell & Python-based \\
+Chromosome dynamics & btree\_chromo + LAMMPS & Kokkos-enabled build \\
+Orchestration & Hook.py & Central integration \\
+\bottomrule
+\end{tabular}
+\caption{Software dependencies for MC4D.}
+\end{table}
+
+%==============================================================================
+\chapter{Comparison: wcEcoli vs MC4D}
+
+\section{Side-by-Side Overview}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimension} & \textbf{wcEcoli} & \textbf{MC4D} \\
+\midrule
+Organism & \emph{E. coli} ($\sim$4,300 genes) & JCVI-syn3A ($\sim$473 genes) \\
+Gene coverage & $\sim$43\% of characterised genes & $\sim$100\% (including unknowns) \\
+Spatial resolution & None (well-mixed) & Full 3D (RDME lattice + BD) \\
+Cell cycle & 25--130 min & $\sim$100 min \\
+Metabolism & Flux Balance Analysis & ODE kinetic network \\
+Transcription & Stochastic, well-mixed & CME, global stochastic \\
+Translation & Stochastic, well-mixed & RDME, spatially resolved \\
+Chromosome & Position tracking only & Brownian dynamics polymer \\
+GPU required & No & Yes \\
+Framework reuse & Explicitly designed for it & Research prototype \\
+\bottomrule
+\end{tabular}
+\caption{Comparison of wcEcoli and MC4D.}
+\end{table}
+
+\section{Key Architectural Differences}
+
+\subsection{Spatial Resolution}
+
+wcEcoli treats the cell as well-mixed compartments (cytoplasm, periplasm, extracellular). MC4D places every molecule on a 3D lattice with explicit diffusion. This reveals spatial heterogeneity but requires GPU acceleration.
+
+\subsection{Metabolic Treatment}
+
+wcEcoli uses FBA (steady-state assumption, no kinetic parameters required). MC4D uses ODE kinetics (captures transients, requires rate constants for every reaction).
+
+\subsection{Stochasticity}
+
+Both models are stochastic, but MC4D more thoroughly so. All molecular processes in MC4D are governed by stochastic formalisms, producing natural population heterogeneity.
+
+\subsection{Framework Design}
+
+wcEcoli explicitly separates the generic engine (\texttt{wholecell/}) from organism-specific biology (\texttt{models/ecoli/}). MC4D is a research prototype not architected for reuse.
+
+\section{Implications for Platelet Modelling}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Consideration} & \textbf{wcEcoli} & \textbf{MC4D} \\
+\midrule
+Spatial heterogeneity & Limited (well-mixed) & Excellent (RDME) \\
+Transient dynamics & Limited (FBA steady-state) & Excellent (ODE kinetics) \\
+Chromosome modelling & Not needed for platelets & Not needed for platelets \\
+Framework reusability & High & Low \\
+Accessibility & Runs on laptop & Requires GPU + LAMMPS \\
+\bottomrule
+\end{tabular}
+\caption{Relevance of each model to platelet modelling.}
+\end{table}
+
+\textbf{Pragmatic conclusion:} Build the initial platelet model using wcEcoli's framework (fast, reusable, well-tooled), using ODE kinetics for calcium/signalling rather than FBA. If spatial effects prove critical, the RDME approach from MC4D could inform a second-generation model.
+
+%==============================================================================
+\part{Technical Analysis: Framework Reusability}
+%==============================================================================
+
+\chapter{wcEcoli Architecture for Reuse}
+
+\section{High-Level Structure}
+
+The wcEcoli framework has four layers:
+
+\begin{enumerate}
+    \item \textbf{Reconstruction} --- builds \texttt{sim\_data} from raw data
+    \item \textbf{Simulation engine} --- generic time-stepping loop
+    \item \textbf{Organism model} --- processes, states, listeners (E. coli-specific)
+    \item \textbf{Analysis} --- post-simulation plotting
+\end{enumerate}
+
+\section{Simulation Engine (Fully Generic)}
+
+The base \texttt{Simulation} class (\texttt{wholecell/sim/simulation.py}) requires subclasses to define:
+
+\begin{lstlisting}[language=Python]
+class Simulation:
+    _definedBySubclass = (
+        "_internalStateClasses",      # State containers
+        "_externalStateClasses",      # Environment
+        "_processClasses",            # Biological processes
+        "_initialConditionsFunction", # Set starting state
+    )
+    # Optional:
+    _listenerClasses = ()
+    _divideCellFunction = None  # Set to None for non-dividing cells
+\end{lstlisting}
+
+\textbf{Reusability: FULLY GENERIC.} No organism-specific logic.
+
+\section{State Classes}
+
+\subsection{BulkMolecules}
+
+Tracks integer copy numbers in a flat array. Interface with \texttt{sim\_data}:
+
+\begin{lstlisting}[language=Python]
+sim_data.internal_state.bulk_molecules.bulk_data['id']    # molecule IDs
+sim_data.internal_state.bulk_molecules.bulk_data['mass']  # masses
+sim_data.molecule_groups.bulk_molecules_binomial_division # division lists
+\end{lstlisting}
+
+\textbf{Reusability: HIGH.} One hardcoded reference to ATP[c] needs generalisation.
+
+\subsection{UniqueMolecules}
+
+Tracks individual molecules with per-instance attributes (structured numpy arrays).
+
+\textbf{Reusability: MEDIUM.} Division mode loading is E. coli-specific; subclass for platelets (or use empty division modes since platelets don't divide).
+
+\subsection{LocalEnvironment}
+
+Tracks external concentrations with media timeline support. Maps well to platelet agonist addition experiments.
+
+\textbf{Reusability: MEDIUM-HIGH.}
+
+\section{Process Architecture}
+
+The base \texttt{Process} class (\texttt{wholecell/processes/process.py}) is fully generic:
+
+\begin{lstlisting}[language=Python]
+class Process:
+    def initialize(self, sim, sim_data): pass  # Setup
+    def calculateRequest(self): pass           # Declare needs
+    def evolveState(self): pass                # Execute biology
+    def isTimeStepShortEnough(self, dt, safety): return True
+\end{lstlisting}
+
+E. coli processes are \textbf{NOT reusable}---they serve only as examples.
+
+\section{Reusability Summary}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Component} & \textbf{Generic?} & \textbf{Platelet Action} \\
+\midrule
+Simulation engine & YES & Use as-is, subclass \\
+Process base class & YES & Use as-is \\
+View system & YES & Use as-is \\
+BulkMolecules & MOSTLY & Override ATP[c] hardcode \\
+UniqueMolecules & MOSTLY & Subclass, custom division modes \\
+LocalEnvironment & MOSTLY & Simplify exchange logic \\
+Containers & YES & Use as-is \\
+Listener base & YES & Use as-is \\
+Cell division & NO & Not needed (platelets don't divide) \\
+E. coli processes & NO & Write new platelet processes \\
+E. coli reconstruction & NO & Write new platelet reconstruction \\
+\bottomrule
+\end{tabular}
+\caption{Component reusability for platelet model.}
+\end{table}
+
+\section{Minimum sim\_data Interface}
+
+For a minimal platelet simulation, \texttt{SimulationDataPlatelet} must provide:
+
+\begin{lstlisting}[language=Python]
+class SimulationDataPlatelet:
+    # Required by InternalState:
+    submass_name_to_index = {'protein': 0, 'lipid': 1, 'small_molecule': 2}
+    compartment_abbrev_to_index = {'c': 0, 'dg': 1, 'ag': 2, 'e': 3}
+    
+    # Required by BulkMolecules:
+    constants.n_avogadro
+    internal_state.bulk_molecules.bulk_data['id']
+    internal_state.bulk_molecules.bulk_data['mass']
+    molecule_groups.bulk_molecules_binomial_division  # empty list OK
+    
+    # Required by UniqueMolecules:
+    internal_state.unique_molecule.unique_molecule_definitions  # can be {}
+    internal_state.unique_molecule.unique_molecule_masses
+    
+    # Required by LocalEnvironment:
+    external_state.make_media
+    external_state.saved_media
+\end{lstlisting}
+
+%==============================================================================
+\part{The Platelet Model}
+%==============================================================================
+
+\chapter{Biological Context}
+
+\section{Key Differences from E. coli}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature} & \textbf{E. coli} & \textbf{Platelet} \\
+\midrule
+Nucleus & Yes & No (anucleate) \\
+Transcription & Active & None (minimal residual) \\
+Replication & Continuous & None \\
+Division & Binary fission & None \\
+Lifespan & Indefinite (growth) & $\sim$7--10 days \\
+Primary function & Growth \& reproduction & Haemostasis \& signalling \\
+Time axis & Birth $\to$ division (60 min) & Resting $\to$ activated (seconds--minutes) \\
+\bottomrule
+\end{tabular}
+\caption{Key biological differences between E. coli and platelets.}
+\end{table}
+
+\section{Platelet-Specific Biology to Model}
+
+\subsection{Compartmentalisation}
+
+Platelets have highly organised internal compartments:
+
+\begin{itemize}
+    \item \textbf{Dense granules ($\sim$3--8 per platelet):} Contain ADP, ATP, Ca$^{2+}$, serotonin
+    \item \textbf{Alpha granules ($\sim$40--80 per platelet):} Contain fibrinogen, vWF, growth factors
+    \item \textbf{Open canalicular system:} Membrane invaginations for secretion
+    \item \textbf{Mitochondria:} ATP production, calcium buffering
+    \item \textbf{Cytosol:} Signalling cascades, cytoskeleton
+\end{itemize}
+
+\subsection{Receptors and Signalling}
+
+Major platelet receptors:
+
+\begin{itemize}
+    \item \textbf{GPVI:} Collagen receptor (ITAM signalling)
+    \item \textbf{PAR1/PAR4:} Thrombin receptors (GPCR)
+    \item \textbf{P2Y1/P2Y12:} ADP receptors (GPCR)
+    \item \textbf{$\alpha$IIb$\beta$3:} Fibrinogen receptor (integrin)
+\end{itemize}
+
+All converge on calcium mobilisation as the central integrator.
+
+\subsection{Calcium Dynamics}
+
+Ca$^{2+}$ signalling involves:
+
+\begin{enumerate}
+    \item Receptor activation $\to$ PLC$\gamma$2 $\to$ IP$_3$ production
+    \item IP$_3$ $\to$ ER calcium release (STIM1/Orai1)
+    \item Store-operated calcium entry (SOCE)
+    \item Mitochondrial Ca$^{2+}$ uptake (MCU) and release (NCLX)
+    \item Plasma membrane Ca$^{2+}$ ATPase (PMCA) efflux
+\end{enumerate}
+
+\subsection{Granule Exocytosis}
+
+Calcium-dependent secretion:
+
+\begin{itemize}
+    \item SNARE machinery (VAMP-3/8, syntaxin-11, SNAP-23)
+    \item Different Ca$^{2+}$ thresholds for $\alpha$- vs $\delta$-granules
+    \item Positive feedback via released ADP
+\end{itemize}
+
+\subsection{Metabolism}
+
+Platelets rely on:
+
+\begin{itemize}
+    \item Glycolysis (primary ATP source at rest)
+    \item Oxidative phosphorylation (mitochondria)
+    \item Metabolic switching upon activation (PDK/PDH)
+\end{itemize}
+
+%==============================================================================
+\chapter{Literature Analysis}
+
+\section{Key Data Sources}
+
+Based on analysis of $\sim$90 papers across four Zotero collections:
+
+\subsection{Calcium Dynamics}
+
+\textbf{High Priority:}
+
+\begin{itemize}
+    \item \textbf{Dolan \& Diamond (2014):} 34-species ODE model of Ca$^{2+}$ signalling---the most comprehensive implementable model
+    \item \textbf{Kleppe (2018):} ODE model of NO/cGMP/cAMP inhibitory pathway (missing from other Ca$^{2+}$ models)
+    \item \textbf{Ghatge (2026):} MCU (mitochondrial calcium uniporter) quantification
+    \item \textbf{Fernández (2021):} Ca$^{2+}$ threshold for TMEM16F/anoctamin-6 activation
+\end{itemize}
+
+\subsection{Receptor Signalling}
+
+\textbf{High Priority:}
+
+\begin{itemize}
+    \item \textbf{Dunster (2015):} Data-driven ODE model of GPVI $\to$ Syk $\to$ PLC$\gamma$2 pathway
+    \item \textbf{Mazet (2020):} ODE model of PI cycle (PIP$_2$ $\to$ IP$_3$ + DAG)
+\end{itemize}
+
+\subsection{Granule Exocytosis}
+
+\textbf{High Priority:}
+
+\begin{itemize}
+    \item \textbf{Fitch-Tewfik \& Flaumenhaft (2013):} SNARE machinery and fusion pore dynamics
+    \item \textbf{Lopez et al. (2015):} Ca$^{2+}$ thresholds for $\alpha$- vs $\delta$-granule secretion
+\end{itemize}
+
+\subsection{Metabolism}
+
+\textbf{High Priority:}
+
+\begin{itemize}
+    \item \textbf{Thomas et al. (2014):} iAT-PLT-636 constraint-based metabolic reconstruction (636 reactions)
+    \item \textbf{Flora et al. (2023):} PDK/PDH metabolic switch mechanism
+\end{itemize}
+
+\subsection{Proteomics}
+
+\textbf{Critical Resource:}
+
+\begin{itemize}
+    \item \textbf{Burkhart et al. (2012):} Quantitative platelet proteome---copy numbers for $\sim$4,000 proteins
+\end{itemize}
+
+%==============================================================================
+\chapter{Implementation Plan}
+
+\section{Phased Approach}
+
+\subsection{Phase 1: Framework Validation (2--3 weeks)}
+
+\textbf{Goal:} Confirm wcEcoli engine runs a minimal non-E. coli simulation.
+
+\begin{enumerate}
+    \item Clone and run standard E. coli simulation end-to-end
+    \item Map the architecture (processes, states, data flow)
+    \item Document minimum \texttt{sim\_data} interface requirements
+\end{enumerate}
+
+\textbf{Deliverable:} Architecture documentation (complete---see Part II).
+
+\subsection{Phase 2: Minimal Platelet Stub (3--4 weeks)}
+
+\textbf{Goal:} Create a runnable ``blank cell'' in the wcEcoli framework.
+
+\begin{enumerate}
+    \item Create \texttt{models/platelet/} namespace with:
+    \begin{itemize}
+        \item \texttt{sim/simulation.py} --- \texttt{PlateletSimulation} class
+        \item \texttt{sim/initial\_conditions.py} --- Set starting state
+        \item One toy process (e.g., \texttt{RestingDecay})
+        \item One listener (e.g., \texttt{Mass})
+    \end{itemize}
+    \item Create \texttt{reconstruction/platelet/} with:
+    \begin{itemize}
+        \item \texttt{simulation\_data.py} --- \texttt{SimulationDataPlatelet}
+        \item Minimal molecule definitions
+        \item Compartment definitions (cytosol, granules, extracellular)
+    \end{itemize}
+    \item Verify simulation runs without E. coli dependencies
+\end{enumerate}
+
+\textbf{Deliverable:} Runnable platelet stub ($\sim$500 lines new code).
+
+\subsection{Phase 3: Biological Processes (8--12 weeks)}
+
+\subsubsection{Phase 3a: Calcium Dynamics (3--4 weeks)}
+
+Implement ODE-based calcium process:
+
+\begin{itemize}
+    \item ER calcium stores (IP$_3$R, SERCA)
+    \item Mitochondrial buffering (MCU, NCLX)
+    \item Plasma membrane fluxes (PMCA, SOCE)
+    \item Base on Dolan \& Diamond 34-species model + Kleppe inhibitory pathway
+\end{itemize}
+
+\textbf{Validation:} Reproduce published Ca$^{2+}$ transients for thrombin stimulation.
+
+\subsubsection{Phase 3b: Granule Release (2--3 weeks)}
+
+Implement granule exocytosis:
+
+\begin{itemize}
+    \item Granules as unique molecules with state (loaded/fusing/released)
+    \item Ca$^{2+}$-dependent fusion rate function
+    \item Cargo release into extracellular compartment
+    \item Different thresholds for $\alpha$- vs $\delta$-granules
+\end{itemize}
+
+\textbf{Validation:} Reproduce secretion kinetics from Lopez et al. (2015).
+
+\subsubsection{Phase 3c: Receptor Signalling (2--3 weeks)}
+
+Implement receptor $\to$ Ca$^{2+}$ cascade:
+
+\begin{itemize}
+    \item One receptor pathway initially (GPVI or thrombin/PAR)
+    \item Connect to IP$_3$ production
+    \item Trigger calcium dynamics from receptor occupancy
+\end{itemize}
+
+\textbf{Validation:} Dose-response curves for agonist $\to$ Ca$^{2+}$ mobilisation.
+
+\subsubsection{Phase 3d: Metabolism (2--3 weeks)}
+
+Implement simplified metabolic process:
+
+\begin{itemize}
+    \item ATP production (glycolysis + OXPHOS)
+    \item ATP consumption by processes
+    \item Metabolic switch upon activation
+\end{itemize}
+
+Consider adapting iAT-PLT-636 reconstruction (Thomas et al. 2014).
+
+\subsection{Phase 4: Integration and Validation (4+ weeks)}
+
+\begin{enumerate}
+    \item Cross-validate processes (Ca$^{2+}$ drives granule release drives ADP feedback)
+    \item Compare to experimental time courses
+    \item Sensitivity analysis on key parameters
+    \item Document limitations and future directions
+\end{enumerate}
+
+\section{v0.1 Target Definition}
+
+A concrete, falsifiable deliverable:
+
+\begin{quote}
+\textbf{Simulate thrombin-induced Ca$^{2+}$ rise and dense granule release over 5 minutes. Plot secretion kinetics and compare to published data.}
+\end{quote}
+
+This requires:
+\begin{itemize}
+    \item Working simulation engine with platelet namespace
+    \item Calcium dynamics process (ODE)
+    \item Granule release process
+    \item Thrombin receptor signalling (minimal)
+    \item Listeners for Ca$^{2+}$ trace and granule counts
+\end{itemize}
+
+\section{Proposed File Structure}
+
+\begin{lstlisting}
+models/platelet/
+    sim/
+        simulation.py           # PlateletSimulation(Simulation)
+        initial_conditions.py   # Set initial state
+    processes/
+        calcium_dynamics.py     # Ca2+ store release, buffering
+        granule_release.py      # Exocytosis
+        receptor_signalling.py  # GPVI, PAR, P2Y12 -> Ca2+
+        metabolism.py           # ATP production/consumption
+    listeners/
+        mass.py
+        activation_state.py
+        granule_counts.py
+        calcium_trace.py
+
+reconstruction/platelet/
+    simulation_data.py          # SimulationDataPlatelet
+    knowledge_base_raw.py       # Literature values
+    dataclasses/
+        constants.py
+        molecule_groups.py
+        state/
+            internal_state.py
+            external_state.py
+\end{lstlisting}
+
+%==============================================================================
+\chapter{Feasibility Assessment}
+
+\section{Technical Feasibility}
+
+\subsection{Framework Suitability}
+
+The wcEcoli framework is well-suited for adaptation:
+
+\begin{itemize}
+    \item \textbf{Modular design:} Clear separation between engine and organism-specific code
+    \item \textbf{Documented interfaces:} State and process APIs are well-defined
+    \item \textbf{Proven at scale:} Handles 3,000+ molecules, 15+ processes
+    \item \textbf{Existing tooling:} Analysis scripts, data I/O, logging infrastructure
+\end{itemize}
+
+\subsection{Biological Compatibility}
+
+Key adaptations required:
+
+\begin{itemize}
+    \item \textbf{No division:} Set \texttt{\_divideCellFunction = None} (straightforward)
+    \item \textbf{ODE processes:} Replace FBA with kinetic ODEs for signalling (requires new process implementations)
+    \item \textbf{Time axis:} Seconds--minutes activation rather than hours growth (adjust \texttt{lengthSec})
+\end{itemize}
+
+\subsection{Risk Assessment}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Risk} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Mitigation} \\
+\midrule
+Framework too E. coli-specific & Low & High & Phase 2 stub validates genericity \\
+Insufficient parameter data & Medium & Medium & Use Burkhart proteomics + literature \\
+ODE stiffness issues & Medium & Low & Use adaptive solvers (scipy) \\
+Scope creep & High & Medium & Strict v0.1 target definition \\
+\bottomrule
+\end{tabular}
+\caption{Risk assessment for platelet model development.}
+\end{table}
+
+\section{Scientific Feasibility}
+
+\subsection{Data Availability}
+
+Platelet biology is well characterised:
+
+\begin{itemize}
+    \item \textbf{Proteomics:} Burkhart et al. provides copy numbers for $\sim$4,000 proteins
+    \item \textbf{Signalling kinetics:} Multiple ODE models available (Dolan, Dunster, Kleppe)
+    \item \textbf{Metabolomics:} Metabolic reconstructions exist (Thomas et al.)
+    \item \textbf{Validation data:} Extensive experimental literature on activation kinetics
+\end{itemize}
+
+\subsection{Model Scope}
+
+A proof-of-concept model does not require:
+
+\begin{itemize}
+    \item Complete coverage of all pathways (start with 1--2 receptors)
+    \item Spatial resolution (well-mixed is adequate initially)
+    \item Full metabolic network (simplified ATP module sufficient)
+\end{itemize}
+
+\section{Resource Requirements}
+
+\subsection{Computational}
+
+\begin{itemize}
+    \item \textbf{Development:} Standard laptop sufficient
+    \item \textbf{Simulation:} Expected $<$10 minutes per 5-minute simulation
+    \item \textbf{No GPU required} (unlike MC4D)
+\end{itemize}
+
+\subsection{Time Estimate}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Phase} & \textbf{Duration} & \textbf{Cumulative} \\
+\midrule
+Phase 1: Framework validation & 2--3 weeks & 3 weeks \\
+Phase 2: Minimal stub & 3--4 weeks & 7 weeks \\
+Phase 3a: Calcium dynamics & 3--4 weeks & 11 weeks \\
+Phase 3b: Granule release & 2--3 weeks & 14 weeks \\
+Phase 3c: Receptor signalling & 2--3 weeks & 17 weeks \\
+Phase 3d: Metabolism & 2--3 weeks & 20 weeks \\
+Phase 4: Integration & 4+ weeks & 24 weeks \\
+\bottomrule
+\end{tabular}
+\caption{Estimated timeline for proof-of-concept model.}
+\end{table}
+
+\section{Conclusion}
+
+Building a whole-cell model of the human platelet using the wcEcoli framework is \textbf{technically feasible} and \textbf{scientifically justified}:
+
+\begin{enumerate}
+    \item The wcEcoli framework provides a mature, well-tested foundation with explicit support for reuse.
+    \item Platelet biology is well characterised with sufficient data for parameterisation.
+    \item A proof-of-concept model (Ca$^{2+}$ dynamics + granule release) is achievable in $\sim$6 months.
+    \item The model would fill a gap in the field---no integrative WCM of platelets currently exists.
+\end{enumerate}
+
+The key success factors are:
+
+\begin{itemize}
+    \item \textbf{Ruthless scope control:} Start with minimal biology, validate, then extend
+    \item \textbf{ODE-first approach:} Use kinetic models for signalling rather than FBA
+    \item \textbf{Clear validation targets:} Define falsifiable predictions from the outset
+\end{itemize}
+
+%==============================================================================
+\part{Appendices}
+%==============================================================================
+
+\appendix
+
+\chapter{Key Literature References}
+
+\section{Whole-Cell Modelling}
+
+\begin{enumerate}
+    \item Karr JR et al. (2012) A whole-cell computational model predicts phenotype from genotype. \emph{Cell} 150(2):389--401.
+    \item Macklin DN et al. (2020) Simultaneous cross-evaluation of heterogeneous E. coli datasets. \emph{Science} 369:eaav3751.
+    \item Thornburg ZR et al. (2026) Bringing the genetically minimal cell to life on a computer in 4D. \emph{Cell}.
+\end{enumerate}
+
+\section{Platelet Calcium Signalling}
+
+\begin{enumerate}
+    \item Dolan AT, Diamond SL (2014) Systems modeling of Ca2+ homeostasis and mobilization in platelets. \emph{PLoS ONE}.
+    \item Kleppe LS (2018) Mathematical modelling of NO/cGMP/cAMP signalling in platelets.
+    \item Ghatge M et al. (2026) The mitochondrial calcium uniporter regulates calcium dynamics. 
+\end{enumerate}
+
+\section{Platelet Receptor Signalling}
+
+\begin{enumerate}
+    \item Dunster JL et al. (2015) Regulation of early steps of GPVI signal transduction by phosphatases. \emph{PLoS Comput Biol}.
+    \item Mazet F et al. (2020) A model of the PI cycle reveals regulating roles of lipid-binding proteins.
+\end{enumerate}
+
+\section{Platelet Metabolism}
+
+\begin{enumerate}
+    \item Thomas SG et al. (2014) Network reconstruction of platelet metabolism. \emph{Blood}.
+    \item Flora GD et al. (2023) Mitochondrial PDK2/4 contribute to platelet function.
+\end{enumerate}
+
+\section{Platelet Proteomics}
+
+\begin{enumerate}
+    \item Burkhart JM et al. (2012) The first comprehensive and quantitative analysis of human platelet protein composition. \emph{Blood} 120(15):e73--e82.
+\end{enumerate}
+
+\chapter{Glossary}
+
+\begin{description}
+    \item[FBA] Flux Balance Analysis --- constraint-based metabolic modelling
+    \item[RDME] Reaction-Diffusion Master Equation --- spatially-resolved stochastic simulation
+    \item[CME] Chemical Master Equation --- well-mixed stochastic simulation
+    \item[ODE] Ordinary Differential Equations --- deterministic kinetic modelling
+    \item[ParCa] Parameter Calculator --- wcEcoli's data fitting pipeline
+    \item[GPVI] Glycoprotein VI --- platelet collagen receptor
+    \item[PAR] Protease-Activated Receptor --- thrombin receptor
+    \item[SOCE] Store-Operated Calcium Entry
+    \item[MCU] Mitochondrial Calcium Uniporter
+    \item[SNARE] Soluble NSF Attachment Protein Receptor --- membrane fusion machinery
+\end{description}
+
+\end{document}
