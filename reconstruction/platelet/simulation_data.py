@@ -16,6 +16,7 @@ from reconstruction.platelet.dataclasses.constants import Constants
 from reconstruction.platelet.dataclasses.molecule_groups import MoleculeGroups
 from reconstruction.platelet.dataclasses.internal_state import InternalState
 from reconstruction.platelet.dataclasses.external_state import ExternalState
+from reconstruction.platelet.dataclasses.process import Process
 
 
 class SimulationDataPlatelet:
@@ -50,3 +51,4 @@ class SimulationDataPlatelet:
 		self.molecule_groups = MoleculeGroups()
 		self.internal_state = InternalState()
 		self.external_state = ExternalState()
+		self.process = Process(self)

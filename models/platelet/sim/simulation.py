@@ -1,0 +1,40 @@
+from wholecell.sim.simulation import Simulation
+
+from wholecell.states.bulk_molecules import BulkMolecules
+from wholecell.states.unique_molecules import UniqueMolecules
+from wholecell.states.local_environment import LocalEnvironment
+
+from models.platelet.processes.platelet_stub import PlateletStub
+from models.platelet.sim.initial_conditions import calcInitialConditions
+
+
+class PlateletSimulation(Simulation):
+	_internalStateClasses = (
+		BulkMolecules,
+		UniqueMolecules,
+		)
+
+	_externalStateClasses = (
+		LocalEnvironment,
+		)
+
+	_processClasses = (
+		(
+			PlateletStub,
+		),
+	)
+
+	_listenerClasses = ()
+
+	_hookClasses = ()
+
+	_initialConditionsFunction = calcInitialConditions
+
+	_shellColumnHeaders = (
+		'Time (s)',
+		)
+
+
+def platelet_simulation(**options):
+	"""Instantiate a platelet simulation using the scaffold runtime."""
+	return PlateletSimulation(**options)
