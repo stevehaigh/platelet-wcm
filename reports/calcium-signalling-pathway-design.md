@@ -63,7 +63,55 @@ Drawing from Purvis 2008 (upstream) and Dolan & Diamond 2014 (downstream):
 
 ## Implementation in 3 layers
 
-### Layer 1: Raw data (TSV files)
+### Milestone 1 shortcut: hardcoded constants
+
+For Milestone 1 we hardcode species and reaction data directly in the dataclass
+module rather than reading TSV files.  This lets us validate the ODE biology
+before investing in data pipeline boilerplate, and it **does not back us into a
+corner** — the dataclass interface is identical either way.
+
+The pattern is:
+
+```python
+# reconstruction/platelet/dataclasses/process/calcium_signalling.py
+
+# ── Hardcoded data (replace with TSV parsing in Milestone 2) ──────────────
+_SPECIES = [
+    # (id,              compartment, initial_count, mass_fg)
+    ('CA2[c]',          'c',         100,           0.0),
+    ('CA2[dts]',        'dts',       11340,         0.0),
+    ('IP3[c]',          'c',         0,             0.0),
+    # ... full list from calcium-data-provenance.md
+]
+
+_REACTIONS = [
+    # (reaction_id,         kf,      kr,    stoichiometry)
+    ('IP3R_CA_RELEASE',     100.0,   0.0,   {'IP3R_o[dts]': -1, 'CA2[dts]': -1, 'CA2[c]': +1}),
+    ('SERCA_REUPTAKE',      4.0,     0.0,   {'CA2[c]': -1, 'CA2[dts]': +1}),
+    # ... full list from calcium-data-provenance.md
+]
+# ──────────────────────────────────────────────────────────────────────────
+
+
+class CalciumSignalling:
+    def __init__(self, raw_data, sim_data):
+        # Milestone 1: read hardcoded data above.
+        # Milestone 2 migration: replace the two lines below with TSV parsing.
+        #   species = _parse_species_tsv(raw_data.calcium_species)
+        #   reactions = _parse_reactions_tsv(raw_data.calcium_reactions)
+        species = _SPECIES
+        reactions = _REACTIONS
+
+        self._build_stoich_matrix(species, reactions)
+        self._build_ode_system()
+```
+
+The process file (`models/platelet/processes/calcium_signalling.py`) and
+`SimulationDataPlatelet` are **unchanged** by the migration.  The only edit
+needed for Milestone 2 is swapping the two assignment lines above and adding the
+TSV files.
+
+### Milestone 2: raw data TSV files (deferred)
 
 Create flat files analogous to `reconstruction/ecoli/flat/`:
 
@@ -82,7 +130,7 @@ PMCA_EXTRUSION                 2.5           0            ...
 
 Rate constants from Purvis 2008 (Table 1) and Dolan & Diamond 2014 (Table 2).
 
-### Layer 2: Dataclass (parameter fitting)
+### Dataclass (parameter fitting) — Layer 2
 
 ```python
 # reconstruction/platelet/dataclasses/process/calcium_signalling.py
@@ -153,7 +201,7 @@ class CalciumSignalling:
         return needed, changes
 ```
 
-### Layer 3: Process (simulation runtime)
+### Process (simulation runtime) — Layer 3
 
 ```python
 # models/platelet/processes/calcium_signalling.py
