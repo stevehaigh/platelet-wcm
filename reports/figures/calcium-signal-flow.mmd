@@ -1,0 +1,56 @@
+flowchart TD
+    ADP["ADP\n(extracellular agonist)"]
+    P2Y1["P2Y1 receptor\n(plasma membrane)"]
+    Gq["Gq G-protein"]
+    PLCb["PLCβ enzyme\n(cytosol)"]
+    PIP2["PIP2\n(membrane phospholipid)"]
+    IP3["IP3\n(cytosolic second messenger)"]
+    DAG["DAG\n(membrane, activates PKC)"]
+
+    subgraph DTS ["Dense Tubular System (intracellular Ca²⁺ store)"]
+        IP3R["IP3R channel\n(opens when IP3 binds)"]
+        SERCA["SERCA pump\n(refills DTS from cytosol)"]
+        STIM1["STIM1 sensor\n(detects DTS depletion)"]
+        CaDTS["Ca²⁺ (stored)\n~250 µM"]
+    end
+
+    subgraph CYT ["Cytosol"]
+        CaCyt["Ca²⁺ (cytosolic)\n100 nM → ~1 µM on activation"]
+        CaM["Calmodulin (CaM)\n~20,000 copies"]
+    end
+
+    subgraph EX ["Extracellular space"]
+        CaEx["Ca²⁺ (external)\n1.2 mM"]
+    end
+
+    PMCA["PMCA pump\n(plasma membrane)\nejects Ca²⁺ from cell"]
+    Orai1["Orai1 / CRAC channel\n(plasma membrane)\nSOCE entry point"]
+
+    ACT["▶ Platelet activation\n(shape change, secretion,\naggregation)"]
+
+    ADP --> P2Y1
+    P2Y1 --> Gq
+    Gq --> PLCb
+    PLCb -- "hydrolyses" --> PIP2
+    PIP2 --> IP3
+    PIP2 --> DAG
+    IP3 --> IP3R
+    IP3R -- "Ca²⁺ release" --> CaCyt
+    CaDTS -- "source" --> IP3R
+    CaCyt -- "drives" --> ACT
+    CaCyt -- "pumped back" --> SERCA
+    SERCA --> CaDTS
+    CaCyt --> CaM
+    CaM -- "activates" --> PMCA
+    PMCA -- "extrudes Ca²⁺" --> CaEx
+    CaDTS -- "depleted → STIM1 moves" --> STIM1
+    STIM1 -- "gates" --> Orai1
+    CaEx -- "SOCE entry" --> Orai1
+    Orai1 -- "Ca²⁺ entry" --> CaCyt
+
+    style DTS fill:#dbeafe,stroke:#3b82f6
+    style CYT fill:#dcfce7,stroke:#22c55e
+    style EX  fill:#fef9c3,stroke:#eab308
+    style ACT fill:#fde8d8,stroke:#f97316,font-weight:bold
+    style IP3  fill:#e9d5ff,stroke:#a855f7
+    style CaCyt fill:#bbf7d0,stroke:#16a34a,font-weight:bold
