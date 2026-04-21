@@ -1,3 +1,5 @@
+import os
+import pickle
 import tempfile
 import unittest
 
@@ -5,6 +7,8 @@ import numpy as np
 
 from models.platelet.sim.simulation import PlateletSimulation
 from reconstruction.platelet.simulation_data import SimulationDataPlatelet
+from runscripts.manual.runPlateletSim import run_platelet_sim
+from wholecell.utils import constants
 
 
 class TestPlateletSimulationScaffold(unittest.TestCase):
@@ -59,3 +63,27 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			initial_counts,
 			sim.internal_states['BulkMolecules'].container.counts(),
 			)
+
+	def test_simulation_data_pickles(self):
+		payload = pickle.dumps(self.sim_data, protocol=pickle.HIGHEST_PROTOCOL)
+		restored = pickle.loads(payload)
+		np.testing.assert_array_equal(
+			restored.process.platelet_stub.molecule_names,
+			self.sim_data.process.platelet_stub.molecule_names,
+			)
+
+	def test_run_platelet_sim_writes_local_output(self):
+		with tempfile.TemporaryDirectory() as sim_path:
+			paths = run_platelet_sim(
+				sim_path, length_sec=1, seed=7, log_to_shell=False)
+
+			self.assertEqual(sim_path, paths['sim_path'])
+			self.assertTrue(os.path.isfile(os.path.join(
+				sim_path, constants.KB_DIR,
+				constants.SERIALIZED_SIM_DATA_FILENAME)))
+			self.assertTrue(os.path.isdir(os.path.join(
+				paths['sim_out_dir'], 'Main')))
+			self.assertTrue(os.path.isdir(os.path.join(
+				paths['sim_out_dir'], 'BulkMolecules')))
+			self.assertTrue(os.path.isdir(os.path.join(
+				paths['sim_out_dir'], 'EvaluationTime')))

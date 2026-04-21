@@ -173,3 +173,4 @@ webapp_jobs.db
 
 # Generated Markdown → PDF output (reports/)
 /reports/pdf/
+node_modules

@@ -14,6 +14,15 @@ _STUB_MEDIA_ID = 'platelet_resting'
 _STUB_MEDIA = {_STUB_MEDIA_ID: {}}   # empty environment — no exchange molecules
 
 
+def empty_exchange_data_from_concentrations(concentrations):
+	"""Return an empty exchange-data payload for the platelet stub."""
+	del concentrations
+	return {
+		'importUnconstrainedExchangeMolecules': [],
+		'importConstrainedExchangeMolecules': {},
+		}
+
+
 class _MakeMedia:
 	"""Stub for the make_media object LocalEnvironment calls."""
 
@@ -36,6 +45,7 @@ class ExternalState:
 		self.saved_media = _STUB_MEDIA
 
 		# No exchange reactions for a resting platelet stub
-		self.exchange_data_from_concentrations = lambda concentrations: {}
+		self.exchange_data_from_concentrations = (
+			empty_exchange_data_from_concentrations)
 		self.exchange_to_env_map = {}
 		self.import_constraint_threshold = 0.0
