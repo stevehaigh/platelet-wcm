@@ -12,11 +12,12 @@ from wholecell.utils.unit_struct_array import UnitStructArray
 
 
 # Placeholder molecule inventory. Real copy numbers will be populated in
-# issue #18 (Burkhart proteome curation). For now, a tiny inventory is enough
-# to prove the simulation runtime can initialize and step cleanly.
+# issue #18 (Burkhart proteome curation). Counts set to Burkhart 2012 median
+# platelet protein abundance (~5000 copies) so RestingDecay produces a
+# visible stochastic decay signal before the real proteome is curated.
 _PLACEHOLDER_MOLECULES = [
-	('DUMMY_PROTEIN[c]', 1.0, 1),  # cytoplasm
-	('DUMMY_LIPID[e]', 1.0, 1),  # extracellular
+	('DUMMY_PROTEIN[c]', 1.0, 5000),  # cytoplasm
+	('DUMMY_LIPID[e]', 1.0, 5000),    # extracellular
 ]
 
 
