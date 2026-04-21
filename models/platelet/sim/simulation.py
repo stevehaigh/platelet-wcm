@@ -5,6 +5,7 @@ from wholecell.states.unique_molecules import UniqueMolecules
 from wholecell.states.local_environment import LocalEnvironment
 
 from models.platelet.processes.platelet_stub import PlateletStub
+from models.platelet.processes.resting_decay import RestingDecay
 from models.platelet.sim.initial_conditions import calcInitialConditions
 
 
@@ -21,6 +22,7 @@ class PlateletSimulation(Simulation):
 	_processClasses = (
 		(
 			PlateletStub,
+			RestingDecay,
 		),
 	)
 

@@ -2,6 +2,7 @@
 SimulationData platelet-process namespace.
 """
 
+from .resting_decay import RestingDecay
 from .stub import PlateletStub
 
 
@@ -10,3 +11,4 @@ class Process:
 
 	def __init__(self, sim_data):
 		self.platelet_stub = PlateletStub(sim_data)
+		self.resting_decay = RestingDecay(sim_data)
