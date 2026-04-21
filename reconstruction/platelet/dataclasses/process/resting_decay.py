@@ -14,5 +14,5 @@ class RestingDecay:
 	"""Parameters for the RestingDecay process."""
 
 	def __init__(self, sim_data):
-		self.molecule_names = sim_data.internal_state.bulk_molecules.bulk_data['id'].copy()
+		self.molecule_names = sim_data.internal_state.bulk_molecules.protein_molecule_names
 		self.protein_half_life = _PROTEIN_HALF_LIFE_SEC
