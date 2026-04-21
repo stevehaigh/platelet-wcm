@@ -58,23 +58,45 @@ def main(out_dir='out/decay-verify'):
 	print(f"  (half-life = 7 days; p per 1s step = {p_per_step:.2e})")
 
 	# ── Plot (proteins only) ──────────────────────────────────────────────────
-	fig, ax = plt.subplots(figsize=(9, 5))
+	fig, ax = plt.subplots(figsize=(10, 6))
 	fig.suptitle('RestingDecay — simulated protein decay vs theory (1 day)', fontsize=13)
 
 	protein_indices = [i for i, mol_id in enumerate(ids) if mol_id in PROTEIN_MOLECULE_IDS]
 
 	for i in protein_indices:
 		n0 = int(counts[0, i])
-		ax.step(t / 3600, counts[:, i], where='post', alpha=0.8, label=f'Sim: {ids[i]}')
+		ax.step(t / 3600, counts[:, i], where='post', alpha=0.8,
+			label=f'Sim: {ids[i]}  [Binomial$(n,\\ p)$]')
 		t_theory = np.linspace(0, n_steps - 1, 500)
 		ax.plot(t_theory / 3600, theoretical_decay(t_theory, n0=n0),
 			color='black', linestyle='--', linewidth=1.5,
-			label=f'Theory (N0={n0:,}, t½=7 days)')
+			label=f'Theory  [$N_0 \\cdot e^{{-\\ln 2 \\cdot t / t_{{1/2}}}}$]')
 
 	ax.set_xlabel('Simulated time (hours)')
 	ax.set_ylabel('Molecule count')
-	ax.legend()
 	ax.set_xlim(0, (n_steps - 1) / 3600)
+
+	# Annotation box explaining the two lines
+	annotation = (
+		'Theory (dashed):\n'
+		r'  $N(t) = N_0 \cdot e^{-\ln 2 \cdot t \;/\; t_{1/2}}$'
+		'\n\n'
+		'Sim (solid):\n'
+		r'  $p = 1 - e^{-\ln 2 \cdot \Delta t \;/\; t_{1/2}}$'  '\n'
+		r'  $\Delta n \sim \mathrm{Binomial}(n,\; p)$'  '\n'
+		f'  $t_{{1/2}}$ = 7 days,  $\\Delta t$ = 1 s\n'
+		f'  $p$ per step = {p_per_step:.2e}'
+	)
+	ax.text(
+		0.97, 0.97, annotation,
+		transform=ax.transAxes,
+		fontsize=9,
+		verticalalignment='top',
+		horizontalalignment='right',
+		bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='grey', alpha=0.9),
+		)
+
+	ax.legend(loc='lower left')
 	plt.tight_layout()
 
 	plot_out = os.path.join(os.path.dirname(sim_out_dir), 'plotOut', 'resting_decay.png')
