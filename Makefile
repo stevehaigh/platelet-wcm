@@ -1,5 +1,6 @@
 .PHONY: help compile clean recompile \
         run build docker-run build-code build-all stop \
+        deploy \
         pdfs pdfs-clean
 
 help:
@@ -20,6 +21,9 @@ help:
 	@echo "    docker-run    Run webapp in Docker on port $(PORT)"
 	@echo "    build-code    Rebuild wcm-code image (when sim code changes)"
 	@echo "    build-all     Full rebuild: runtime → code → webapp (slow)"
+	@echo ""
+	@echo "  Azure"
+	@echo "    deploy        Push current branch to webapp → triggers Azure CI pipeline"
 	@echo ""
 	@echo "  Reports"
 	@echo "    pdfs          Build PDFs from reports/*.md into reports/pdf/"
@@ -101,6 +105,14 @@ build-all:
 # Kill any directly-running webapp process.
 stop:
 	pkill -f "webapp.py" && echo "Stopped." || echo "No webapp process found."
+
+# ── Azure deployment ──────────────────────────────────────────────────────────
+
+# Push the current branch to the webapp branch to trigger the Azure CI pipeline.
+# GitHub Actions (.github/workflows/deploy-azure.yml) will then build and deploy.
+deploy:
+	@echo "Pushing $$(git branch --show-current) → webapp to trigger Azure deployment..."
+	git push origin HEAD:webapp
 
 # ── Reports: Markdown → PDF ───────────────────────────────────────────────────
 
