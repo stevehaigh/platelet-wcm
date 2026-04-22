@@ -1,6 +1,14 @@
+---
+pdf-engine: xelatex
+mainfont: "STIX Two Text"
+monofont: "Menlo"
+fontsize: 11pt
+geometry: margin=2.5cm
+---
+
 # v0.2 Calcium Dynamics — Design Document
 
-**Issues:** #24 (data + dataclass), #25 (process), #26 (listener), #27 (analysis), #43 (IP3R model)
+**Issues:** #24 (data + dataclass), #25 (process, including 6-state IP3R — absorbs #43), #26 (listener), #27 (analysis)
 **Branch:** `platelet`
 **References:** `reports/calcium-data-provenance.md`, `reports/calcium-signalling-pathway-design.md`
 
@@ -87,7 +95,7 @@ IP3 spike
        └─ DTS depletion → STIM1 oligomerises → gates Orai1 → SOCE
 ```
 
-Key compartments: cytosol (6 fL, Purvis 2008 direct measurement), DTS (0.26 fL = 4.3% of cytosol, Purvis 2008 glucose-6-phosphatase staining), extracellular (treated as an infinite reservoir at fixed 1.2 mM, Dolan 2014).
+Key compartments: cytosol (6 fL, Purvis 2008 direct measurement), DTS (0.258 fL = 4.3% of cytosol, Purvis 2008 glucose-6-phosphatase staining), extracellular (treated as an infinite reservoir at fixed 1.2 mM, Dolan 2014).
 
 ---
 
@@ -148,7 +156,7 @@ Rationale:
 - The ODE gives the correct *mean* behaviour. The quantisation noise when
   rounding back to integers is ~0.3–0.8% per timestep at resting concentrations
   — this is below biological measurement uncertainty.
-- Both Purvis 2008 and Sveshnikova 2015 use stochastic simulation, but they
+- Both Purvis 2008 and Sveshnikova 2025 use stochastic simulation, but they
   focus on cell-to-cell variability in population studies. For single-cell
   mean dynamics (our validation target), deterministic ODEs are standard.
 
@@ -164,7 +172,7 @@ in the analysis.
 | Variable | Description | Compartment | Resting count |
 |----------|-------------|-------------|---------------|
 | `CA2_CYT` | Cytosolic free Ca²⁺ | `[c]` | **361** (100 nM, 6 fL cyt) |
-| `CA2_DTS` | DTS stored Ca²⁺ | `[dts]` | 38,842 (250 µM, 0.26 fL DTS) |
+| `CA2_DTS` | DTS stored Ca²⁺ | `[dts]` | 38,842 (250 µM, 0.258 fL DTS) |
 | `CA2_EX` | Extracellular Ca²⁺ | `[e]` | fixed (infinite reservoir) |
 | `IP3` | Inositol trisphosphate | `[c]` | 181 |
 | `IP3R_n` | IP3R neutral state | `[dts]` | 809 |
@@ -179,15 +187,15 @@ in the analysis.
 | `SERCA_E1PCa` | SERCA phosphorylated·Ca²⁺ | `[dts]` | 7 |
 | `SERCA_E2PCa` | SERCA phosphorylated E2·Ca²⁺ | `[dts]` | 4 |
 | `SERCA_E2P` | SERCA phosphorylated, empty | `[dts]` | 28 |
-| `PMCA` | PMCA unbound | `[m]` | 764 |
+| `PMCA` | PMCA unbound | `[m]` | 765 |
 | `PMCA_Ca` | PMCA·Ca²⁺ complex | `[m]` | 4 |
 | `STIM1` | STIM1 free monomer | `[dts]` | 438 |
 | `STIM1_Ca` | STIM1 DTS-bound (inactive) | `[dts]` | 3,805 |
 | `STIM1_dim` | STIM1 dimer (active sensor) | `[dts]` | 22 |
-| `ORAI1` | Orai1 (closed) | `[m]` | 1,447 |
+| `ORAI1` | Orai1 (all channels start closed; opening tracked via the `STIM1·Orai1*` complex count in §3.6, not as a separate state variable) | `[m]` | 1,447 |
 
 Initial counts from Dolan 2014 Table S1 representative configuration.
-Conversion: 6 fL cytosol, 0.26 fL DTS, N_A = 6.022×10²³.
+Conversion: 6 fL cytosol, 0.258 fL DTS, N_A = 6.022×10²³.
 
 ### 3.2 IP3 sourcing
 
@@ -211,10 +219,13 @@ t_peak   = 3.0 s
 τ_decay  = 60.0 s
 ```
 
-The time curve is injected into the ODE solver at each timestep as a
-fixed boundary condition on IP3, not as a molecule count. IP3 is still tracked
-as a BulkMolecule (for mass accounting), but its count is overridden by the
-time curve each step.
+At each timestep the IP3 count is *set* from the curve, not integrated, and
+made available to the ODE solver as a boundary condition on IP3 concentration.
+IP3 is still declared as a `BulkMolecule` so that downstream consumers of the
+state see a valid count, but in v0.2 mass is not conserved on IP3 — the curve
+creates and destroys it implicitly. This is an intentional v0.2 simplification
+and closes in v0.3 when the upstream P2Y1 process produces IP3 and IP3
+phosphatase consumes it as normal bulk reactions.
 
 **v0.3 upgrade path:** Replace the time curve with a proper upstream
 process (`P2Y1Signalling`) that produces IP3 as a BulkMolecule. The Ca²⁺
@@ -246,16 +257,23 @@ Rate constants (Purvis 2008 Table 1, Sneyd & Dufour 2002 type-2 kinetics):
 
 Open probability:
 ```
-P_o = (0.9 × IP3R_a / IP3R_total + 0.1 × IP3R_o / IP3R_total)⁴
+P_o = ((0.9 · IP3R_a + 0.1 · IP3R_o) / IP3R_total)⁴
 ```
 
-Ca²⁺ flux through IP3R (Purvis 2008):
+Ca²⁺ flux through IP3R (Purvis 2008, eq. 13):
 ```
-J_IP3R = γ_IP3R × N_IP3R × P_o × ψ_IM / (z × F)
+J_IP3R = γ_IP3R × N_IP3R × P_o × (V_IM − E_Ca,IM) / (z × F)
 
-γ_IP3R  = 10 pS     single-channel conductance
-ψ_IM    = RT/zF × ln([Ca²⁺]_dts / [Ca²⁺]_cyt)   Nernst driving force (z=2)
+γ_IP3R   = 10 pS                                single-channel conductance
+V_IM     = −60 mV                               DTS membrane potential (see §5)
+E_Ca,IM  = (RT / zF) × ln([Ca²⁺]_dts / [Ca²⁺]_cyt)   Ca²⁺ equilibrium (Nernst) potential
+                                                across the DTS membrane (z=2)
 ```
+
+The driving force is `(V_IM − E_Ca,IM)`, i.e. membrane potential minus the
+Ca²⁺ equilibrium potential. At resting [Ca²⁺]_dts/[Ca²⁺]_cyt = 2,500, E_Ca,IM
+≈ +104 mV, so with V_IM = −60 mV the driving force is ≈ −164 mV — a strong
+gradient moving Ca²⁺ out of the DTS into the cytosol when the channel opens.
 
 ### 3.4 SERCA: E1–E2 cycle
 
@@ -276,8 +294,13 @@ Two-state simplified model (Caride 2007 parameters, Purvis 2008 Table 1):
 ```
 PMCA + Ca²⁺_cyt ⇌ PMCA·Ca²⁺ → PMCA + Ca²⁺_ex
 
-KM1 = 0.5 mM⁻¹,  KM2 = 1.0 mM⁻¹,  kcat = 8.9 s⁻¹
+KM1 = 0.5 µM,  KM2 = 1.0 µM,  kcat = 8.9 s⁻¹
 ```
+
+> **TODO (before implementation):** the KM values above are shown in concentration
+> units (µM) — the original draft had them as mM⁻¹, which is dimensionally wrong
+> for a Michaelis constant. The numerical values here are provisional; confirm
+> against Purvis 2008 Table 1 / Caride 2007 and update.
 
 CaM-mediated activation is simplified in v0.2: PMCA treated as constitutively
 active at basal rate. Full CaM kinetics deferred to v0.3.
@@ -392,7 +415,7 @@ Full provenance in `calcium-data-provenance.md`. Summary for implementation:
 | Constant | Value |
 |----------|-------|
 | N_A | 6.022×10²³ mol⁻¹ |
-| V_IM (DTS membrane potential) | −60 mV (Dolan upper bound; used in IP3R Nernst term ψ_IM §3.3 and SOCE current §3.6) |
+| V_IM (DTS membrane potential) | −60 mV (Dolan upper bound; used in IP3R driving force (V_IM − E_Ca,IM) §3.3 and SOCE current §3.6) |
 | V_PM (plasma membrane potential) | −60 mV (used in SOCE current I_SOC §3.6) |
 | T | 310 K (37°C) |
 
@@ -404,16 +427,19 @@ Full provenance in `calcium-data-provenance.md`. Summary for implementation:
 
 **Decision:** ODE solver works in concentration (µM) internally. At the start
 of each timestep, integer counts are converted to concentration, integrated,
-then rounded back to counts. This matches the `TwoComponentSystem` pattern —
-`TwoComponentSystem` is the existing wcEcoli reference implementation of a
-two-component bacterial signalling pathway (written as a single CamelCase word
-following the Python class naming convention for process names in this codebase).
-It demonstrates the count ↔ concentration ↔ count pattern we replicate here.
+then rounded back to counts. This matches the pattern in the existing
+`TwoComponentSystem` process (wcEcoli's reference implementation of a
+two-component bacterial signalling pathway), which demonstrates the same
+count ↔ concentration ↔ count conversion we replicate here.
 
 **Implication:** At resting cytosolic Ca²⁺ (~361 molecules), rounding
-introduces ~0.3% quantisation noise per step. This is acceptable —
-Sveshnikova 2015 notes that stochastic effects at this scale are biologically
-real. We accept it and flag it in the analysis.
+introduces ~0.3% quantisation noise per step — a ±1 molecule round-off against
+a count of 361. Crucially, this error does **not** accumulate: each timestep
+starts from the previous integer count, runs the ODE in concentration space,
+and rounds back to integers, so round-off is bounded at ±1 per species per
+step rather than drifting over the full 300-step simulation. Sveshnikova 2025
+notes that stochastic effects at this scale are biologically real. We accept
+the round-off and flag it in the analysis.
 
 ### 6.2 One process or many?
 
@@ -462,9 +488,14 @@ This is a useful emergent property: it means platelet activation shows up
 correctly as an energy cost without any special-casing.
 
 In v0.2, ATP is added to the molecule inventory and the process requests it.
-If the ATP pool is insufficient (unlikely in the first version), we log a
-warning and proceed without it — this failure mode will motivate adding a
-proper metabolic process in a future milestone.
+If the ATP pool is insufficient (unlikely in the first version since nothing
+else consumes it yet), the framework's partitioner will allocate less than
+requested. The process scales pump activity proportionally: it advances SERCA
+and PMCA only to the extent that allocated ATP supports, and the unsupported
+pump turnover does not happen. This keeps mass and energy balance correct
+even under starvation. A warning is logged on any shortfall so the failure
+mode is visible; a proper metabolic process in a future milestone will make
+shortfalls biologically meaningful.
 
 ### 6.6 ODE solver
 
@@ -489,7 +520,8 @@ migration pattern.
 Run 300 s with no IP3 forcing (fold=1). Pass criteria:
 - Ca²⁺_cyt stays within 80–120 nM
 - Ca²⁺_dts stays within 200–300 µM
-- IP3R state fractions within 10% of Dolan Table S1 values
+- All six IP3R state fractions (n, o, a, i1, i2, s; see §3.1 state table)
+  stay within 10% of their Dolan Table S1 resting values
 
 ### 7.2 Ca²⁺ transient shape (primary validation)
 
@@ -530,15 +562,19 @@ Pass criteria:
 
 ## 9. Open questions for review
 
-1. **DTS volume:** Use 4.3% of cytosol (Purvis direct measurement, 0.26 fL) or 2%
-   (Purvis Monte Carlo median, 0.12 fL)? The larger DTS gives a larger Ca²⁺ store
-   and more stable oscillations. **Recommendation: 4.3%.**
+The decisions in §3.1 and §5 are provisional until this list is cleared. Items
+marked *resolved* have a decision in the body of the doc and are listed here
+only for visibility; reviewers should push back if they disagree.
 
-2. **Cytoplasmic volume:** Use 6 fL (Purvis) or 3 fL (Sveshnikova)? This directly
-   sets the resting Ca²⁺ count: 361 vs 181. Either is borderline for deterministic
-   treatment. **Recommendation: 6 fL to stay consistent with Dolan 2014 parameters.**
-   The Sveshnikova discrepancy likely reflects a different definition of "cytoplasm"
-   (total cell vs non-granular fraction). Document in the analysis.
+1. **DTS volume — resolved (§5).** 4.3% of cytosol = 0.258 fL (Purvis direct
+   measurement). The 2% alternative (Purvis Monte Carlo median, 0.12 fL) would
+   give a smaller Ca²⁺ store and less stable oscillations; the larger value is
+   consistent with Dolan 2014's parameter set.
+
+2. **Cytoplasmic volume — resolved (§3.1).** V_cyt = 6 fL (Purvis), giving a
+   resting count of 361. The Sveshnikova 2025 figure of 3 fL (count = 181)
+   likely reflects a different definition of "cytoplasm" (total cell vs
+   non-granular fraction). Documented in the analysis.
 
 3. **V_IM:** Set to −60 mV (Dolan cluster analysis upper bound). If SOCE flux is
    too large or too small, this is the first parameter to adjust.
@@ -552,8 +588,13 @@ Pass criteria:
    kinetics in v0.3. Agree?
 
 6. **ATP molecule inventory:** ATP, ADP, Pi must be added to the platelet molecule
-   inventory to support pump accounting. Starting counts: ATP ~10⁹ (Platelet
-   contains ~10⁻¹² mol ATP, Gerson 2008). Confirmed approach?
+   inventory to support pump accounting. Starting count: ATP ~1–2 × 10⁷ molecules
+   per platelet, estimated as cytosolic [ATP] ~3–5 mM in 6 fL (standard platelet
+   range; Holmsen 1981, Gerson 2008 bulk assays rescaled per cell). The earlier
+   draft's figure of ~10⁹ came from interpreting Gerson's "~10⁻¹² mol ATP" as
+   per-platelet rather than per-assay aliquot, which is two orders too high —
+   single platelets contain femtomoles, not picomoles, of ATP. Confirm the
+   precise starting count before implementation.
 
 7. **Stochastic future (flagged, not blocking):** The PLC-Gq bottleneck (~1 molecule)
    will require a hybrid deterministic/stochastic approach in v0.3. At that stage,
