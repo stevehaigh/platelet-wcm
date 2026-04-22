@@ -50,19 +50,23 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			self.sim_data.internal_state.bulk_molecules.initial_counts,
 			)
 
-	def test_platelet_simulation_one_step_preserves_placeholder_counts(self):
+	def test_platelet_simulation_one_step_metabolites_preserved(self):
+		"""Metabolites are not subject to RestingDecay and should be unchanged."""
+		from reconstruction.platelet.dataclasses.internal_state import _MOLECULES
 		sim = self.make_simulation()
+		ids = list(self.sim_data.internal_state.bulk_molecules.bulk_data['id'])
+		metabolite_indices = [
+			ids.index(m[0]) for m in _MOLECULES if m[3] == 'metabolite']
 		initial_counts = sim.internal_states['BulkMolecules'].container.counts().copy()
 
 		sim.run_for(1.0)
 
-		process = sim.processes['PlateletStub']
-		self.assertEqual(1, process.calculate_request_calls)
-		self.assertEqual(1, process.evolve_state_calls)
+		final_counts = sim.internal_states['BulkMolecules'].container.counts()
 		np.testing.assert_array_equal(
-			initial_counts,
-			sim.internal_states['BulkMolecules'].container.counts(),
-			)
+			initial_counts[metabolite_indices],
+			final_counts[metabolite_indices],
+			err_msg='Metabolite counts changed unexpectedly after one step',
+		)
 
 	def test_simulation_data_pickles(self):
 		payload = pickle.dumps(self.sim_data, protocol=pickle.HIGHEST_PROTOCOL)
@@ -87,3 +91,17 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 				paths['sim_out_dir'], 'BulkMolecules')))
 			self.assertTrue(os.path.isdir(os.path.join(
 				paths['sim_out_dir'], 'EvaluationTime')))
+			self.assertTrue(os.path.isdir(os.path.join(
+				paths['sim_out_dir'], 'Mass')))
+
+	def test_mass_listener_dry_mass_positive_and_decreasing(self):
+		"""dryMass should be positive and decrease (proteins decay, nothing grows)."""
+		from wholecell.io.tablereader import TableReader
+		with tempfile.TemporaryDirectory() as sim_path:
+			paths = run_platelet_sim(
+				sim_path, length_sec=100, seed=0, log_to_shell=False)
+			reader = TableReader(os.path.join(paths['sim_out_dir'], 'Mass'))
+			dry = reader.readColumn('dryMass')
+			self.assertTrue(np.all(dry > 0), 'dryMass should always be positive')
+			self.assertLessEqual(dry[-1], dry[0],
+				'dryMass should not increase under resting decay')
