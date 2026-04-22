@@ -1,11 +1,12 @@
 """
-Verify and plot RestingDecay process: run a 1-day platelet sim, report
+Verify and plot RestingDecay process: run a platelet sim, report
 molecule counts, and save a chart of simulated protein decay vs theory.
 
 Usage:
-    PYTHONPATH="$PWD" python runscripts/manual/verify_resting_decay.py [out_dir]
+    PYTHONPATH="$PWD" python runscripts/manual/verify_resting_decay.py [out_dir] [--days N]
 
 If out_dir is omitted, defaults to out/decay-verify.
+--days N sets the simulation length (default 1).
 """
 
 import os
@@ -33,9 +34,10 @@ def theoretical_fraction(t):
 	return np.exp(-np.log(2) * t / _HALF_LIFE)
 
 
-def main(out_dir='out/decay-verify'):
-	print("Running 1-day platelet simulation...")
-	result = run_platelet_sim(out_dir, length_sec=86400, seed=0)
+def main(out_dir='out/decay-verify', days=1):
+	day_label = f"{days} day" + ("s" if days != 1 else "")
+	print(f"Running {day_label} platelet simulation...")
+	result = run_platelet_sim(out_dir, length_sec=days * 86400, seed=0)
 	sim_out_dir = result['sim_out_dir']
 
 	reader = TableReader(os.path.join(sim_out_dir, 'BulkMolecules'))
@@ -46,9 +48,9 @@ def main(out_dir='out/decay-verify'):
 
 	# Console report
 	p_per_step = 1 - np.exp(-np.log(2) / _HALF_LIFE)
-	expected_pct = 100.0 * (1 - (1 - p_per_step) ** 86400)
+	expected_pct = 100.0 * (1 - (1 - p_per_step) ** (days * 86400))
 
-	print(f"\n=== RestingDecay results (1 simulated day) ===")
+	print(f"\n=== RestingDecay results ({day_label}) ===")
 	print(f"  {'Molecule':<25}  {'Class':<12}  {'Start':>12}  {'End':>12}  {'Lost':>8}  {'Decay %':>8}")
 	print("  " + "-" * 90)
 	for i, mol_id in enumerate(ids):
@@ -58,12 +60,12 @@ def main(out_dir='out/decay-verify'):
 		mol_class = _CLASS_BY_ID.get(mol_id, '?')
 		print(f"  {mol_id:<25}  {mol_class:<12}  {c0:>12,}  {cf:>12,}  {lost:>8,}  {pct:>7.2f}%")
 
-	print(f"\n  Theoretical protein decay over 1 day: {expected_pct:.2f}%")
+	print(f"\n  Theoretical protein decay over {day_label}: {expected_pct:.2f}%")
 	print(f"  (half-life = 7 days; p per 1s step = {p_per_step:.2e})")
 
 	# Plot: all proteins normalised to fraction remaining
 	fig, ax = plt.subplots(figsize=(11, 6))
-	fig.suptitle('RestingDecay — protein decay vs theory (1 day, normalised)', fontsize=13)
+	fig.suptitle(f'RestingDecay — protein decay vs theory ({days} day(s), normalised)', fontsize=13)
 
 	protein_indices = [i for i, mol_id in enumerate(ids) if mol_id in PROTEIN_MOLECULE_IDS]
 	cmap = plt.get_cmap('tab10')
@@ -86,7 +88,8 @@ def main(out_dir='out/decay-verify'):
 	ax.set_xlabel('Simulated time (hours)')
 	ax.set_ylabel('Fraction remaining  ($n\\ /\\ n_0$)')
 	ax.set_xlim(0, (n_steps - 1) / 3600)
-	ax.set_ylim(bottom=0)
+	y_min = max(0.0, theoretical_fraction(n_steps - 1) - 0.05)
+	ax.set_ylim(y_min, 1.005)
 
 	annotation = (
 		'Theory (dashed):\n'
@@ -117,4 +120,9 @@ def main(out_dir='out/decay-verify'):
 
 
 if __name__ == '__main__':
-	main(sys.argv[1] if len(sys.argv) > 1 else 'out/decay-verify')
+	import argparse
+	ap = argparse.ArgumentParser()
+	ap.add_argument('out_dir', nargs='?', default='out/decay-verify')
+	ap.add_argument('--days', type=int, default=1)
+	args = ap.parse_args()
+	main(args.out_dir, days=args.days)
