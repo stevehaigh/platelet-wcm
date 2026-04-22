@@ -34,10 +34,19 @@ All runscripts support `-h` for full option docs. Options can be abbreviated (`-
 
 ## Tests & Type Checking
 
+The repo is pinned to Python 3.11.5 via `.python-version`. If pyenv is initialised
+in your shell (`eval "$(pyenv init -)"` in `.zshrc`/`.bash_profile`), plain
+`python3` and `pytest` will auto-select the right interpreter.
+
 ```bash
-pytest
-pytest wholecell/tests/utils/test_units.py
-pytest wholecell/tests/utils/test_units.py::TestUnits::test_some_method
+# Run all tests
+python3 -m pytest
+
+# Run a single file or test method
+python3 -m pytest models/platelet/tests/
+python3 -m pytest wholecell/tests/utils/test_units.py::TestUnits::test_some_method
+
+# Type checking
 mypy
 ```
 

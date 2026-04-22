@@ -83,7 +83,8 @@ user/*
 
 # pyenv python version #
 ########################
-.python-version
+# Python version (tracked so all contributors use the same interpreter)
+# .python-version
 
 # personal config files #
 #########################

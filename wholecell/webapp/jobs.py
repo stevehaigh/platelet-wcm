@@ -158,6 +158,10 @@ class JobManager:
 
 		in_container = os.environ.get('WCECOLI_WEBAPP_MODE') == 'container'
 
+		if config.get('variant') == 'platelet':
+			self._run_platelet_job(job_id, config, sim_outdir, in_container)
+			return
+
 		try:
 			# Phase 1: ParCa
 			cmd_parca = self._build_cmd(
@@ -209,6 +213,39 @@ class JobManager:
 			now = datetime.now(timezone.utc).isoformat()
 			self._update_status(job_id, 'done', finished_at=now)
 
+		except Exception as e:
+			now = datetime.now(timezone.utc).isoformat()
+			self._update_status(
+				job_id, 'failed', finished_at=now,
+				error_message=str(e)[:4000])
+
+	def _run_platelet_job(self, job_id: int, config: Dict[str, Any],
+			sim_outdir: str, in_container: bool) -> None:
+		"""Run a platelet simulation job — no ParCa or analysis phases."""
+
+		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
+		length_days = config.get('first_variant_index', 1) or 1
+		length_sec = length_days * 86400
+		seed = config.get('seed', 0)
+
+		self._update_status(job_id, 'simulating')
+		try:
+			cmd = self._build_cmd(
+				[
+					'python', 'runscripts/manual/runPlateletSim.py',
+					sim_outdir,
+					'--length', str(length_sec),
+					'--seed', str(seed),
+					'--no-log-to-shell',
+				],
+				in_container, out_root)
+			proc = subprocess.run(cmd, capture_output=True, text=True,
+				cwd=self.wcecoli_root if in_container else None)
+			if proc.returncode != 0:
+				raise RuntimeError(f'Platelet sim failed:\n{proc.stderr[-2000:]}')
+
+			now = datetime.now(timezone.utc).isoformat()
+			self._update_status(job_id, 'done', finished_at=now)
 		except Exception as e:
 			now = datetime.now(timezone.utc).isoformat()
 			self._update_status(

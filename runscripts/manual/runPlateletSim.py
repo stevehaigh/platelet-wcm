@@ -57,11 +57,23 @@ def write_sim_data(sim_path, sim_data):
 
 
 def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True):
-	"""Create sim_data, write it to disk, and run a platelet simulation."""
+	"""Create sim_data, write it to disk, and run a platelet simulation.
+
+	Output is written to the E. coli-compatible nested structure so the
+	webapp's Inspect Data tab can discover platelet runs automatically:
+	  {sim_path}/platelet_stub_{seed:06d}/{seed:06d}/generation_000000/000000/simOut/
+	"""
 	sim_data = SimulationDataPlatelet()
 	write_sim_data(sim_path, sim_data)
 
-	sim_out_dir = fp.makedirs(sim_path, 'simOut')
+	cell_dir = fp.makedirs(
+		sim_path,
+		f'platelet_stub_{seed:06d}',
+		f'{seed:06d}',
+		'generation_000000',
+		'000000',
+	)
+	sim_out_dir = fp.makedirs(cell_dir, 'simOut')
 	sim = PlateletSimulation(
 		simData=sim_data,
 		outputDir=sim_out_dir,

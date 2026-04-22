@@ -6,6 +6,7 @@ import os
 from models.platelet.analysis.single import TAGS
 from wholecell.utils import constants, scriptBase
 import wholecell.utils.filepath as fp
+from wholecell.webapp import results as _results
 
 
 DEFAULT_PLOTS = ['DEFAULT']
@@ -33,9 +34,22 @@ def expand_plot_names(plot_names):
 	return expanded
 
 
+def _find_simout(sim_path):
+	"""Locate the simOut directory for a platelet run.
+
+	Checks for the E. coli-compatible nested structure first (written by
+	runPlateletSim.py), then falls back to the legacy flat structure.
+	"""
+	for variant in _results.find_variants(sim_path):
+		cells = _results.find_cells(sim_path, variant)
+		if cells:
+			return cells[0]['simout_path']
+	return os.path.join(sim_path, 'simOut')
+
+
 def run_platelet_analysis(sim_path, plot_names=None):
-	"""Run one or more platelet analysis plots for a flat local run layout."""
-	sim_out_dir = os.path.join(sim_path, 'simOut')
+	"""Run one or more platelet analysis plots for a local run."""
+	sim_out_dir = _find_simout(sim_path)
 	plot_out_dir = fp.makedirs(sim_path, constants.PLOTOUT_DIR)
 	sim_data_file = os.path.join(
 		sim_path, constants.KB_DIR, constants.SERIALIZED_SIM_DATA_FILENAME)

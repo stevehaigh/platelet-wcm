@@ -9,6 +9,9 @@ from dash.dependencies import Input, Output, State
 # Hardcoded to avoid importing the heavy model stack.
 # Keep in sync with models/ecoli/sim/variants/__init__.py
 VARIANT_NAMES = [
+	# Platelet model (no ParCa required; "variant index" = length in days)
+	'platelet',
+	# E. coli model variants
 	'wildtype',
 	'aa_synthesis_ko',
 	'aa_synthesis_ko_shift',
@@ -87,6 +90,24 @@ TOGGLES = [
 #   1 = with amino acids (faster growth)
 #   2 = acetate (slower growth)
 PRESETS = [
+	{
+		'id': 'preset-platelet',
+		'label': '🩸 Platelet resting state (1 day)',
+		'description': (
+			'Platelet in resting state for 1 day — no ParCa required. '
+			'The "Variant index" field controls duration in days. '
+			'Inspect results in the Inspect Data tab (Mass → dryMass).'
+		),
+		'config': {
+			'variant': 'platelet',
+			'variant_first': 1,
+			'variant_last': 1,
+			'generations': 1,
+			'seeds': 1,
+			'seed_start': 0,
+			'description': 'Platelet resting state — 1 day',
+		},
+	},
 	{
 		'id': 'preset-wildtype',
 		'label': '🧫 Wildtype baseline',
