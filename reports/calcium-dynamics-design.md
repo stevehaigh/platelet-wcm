@@ -16,7 +16,7 @@ The goal is to reproduce the Dolan & Diamond (2014) Figure 4 response curve — 
 sharp peak followed by a sustained plateau driven by store-operated calcium entry
 (SOCE) — using the ODE parameters published in that paper.
 
-![Schematic Ca²⁺ transient — expected output shape](figures/ca2-transient-reference.png)
+![Schematic Ca²⁺ transient — expected output shape](/Users/steve/github/wcEcoli/reports/figures/ca2-transient-reference.png)
 *Schematic showing the expected Ca²⁺ transient shape. The IP3 forcing function
 (lower panel) drives a rapid peak in cytosolic Ca²⁺, which then decays to a
 SOCE-sustained plateau before returning to baseline. This is the shape we aim
