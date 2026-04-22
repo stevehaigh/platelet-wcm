@@ -1,9 +1,5 @@
 ---
-pdf-engine: xelatex
-mainfont: "STIX Two Text"
-monofont: "Menlo"
-fontsize: 11pt
-geometry: margin=2.5cm
+title: "v0.2 Calcium Dynamics — Design Document"
 ---
 
 # v0.2 Calcium Dynamics — Design Document
