@@ -8,12 +8,24 @@
 
 ## 1. Scope
 
-v0.2 adds the first real biochemistry to the platelet model: a Ca²⁺ transient
-driven by IP3. The goal is to reproduce the Dolan & Diamond (2014) Figure 4
-response curve — a sharp peak in cytosolic Ca²⁺ followed by a SOCE-sustained
-plateau — using the same ODE parameters published in that paper.
+v0.2 adds the first real biochemistry to the platelet model: a **Ca²⁺ transient**
+driven by IP3. A Ca²⁺ transient is the characteristic pulse of elevated cytosolic
+calcium that occurs when a platelet is activated — cytosolic Ca²⁺ rises sharply
+from ~100 nM at rest to a peak of 300–500 nM, then decays over several minutes.
+The goal is to reproduce the Dolan & Diamond (2014) Figure 4 response curve — a
+sharp peak followed by a sustained plateau driven by store-operated calcium entry
+(SOCE) — using the ODE parameters published in that paper.
 
-This is a **Dolan-core-first** strategy:
+![Schematic Ca²⁺ transient — expected output shape](figures/ca2-transient-reference.png)
+*Schematic showing the expected Ca²⁺ transient shape. The IP3 forcing function
+(lower panel) drives a rapid peak in cytosolic Ca²⁺, which then decays to a
+SOCE-sustained plateau before returning to baseline. This is the shape we aim
+to reproduce from Dolan & Diamond 2014 Fig. 4.*
+
+This is a **Dolan-core-first** strategy — meaning we implement the validated
+Ca²⁺ core from Dolan & Diamond (2014) first, using their published parameters,
+before adding the upstream receptor cascade that would generate IP3 in a real
+cell:
 
 ```
 v0.2:  IP3 forcing → Ca²⁺ core (IP3R + SERCA + PMCA + SOCE)
@@ -22,6 +34,26 @@ v0.4:  P2Y12 modulation           (Gi → AC → cAMP → PKA → IP3R inhibitio
 ```
 
 Each milestone is independently testable and produces publishable results.
+
+### Why Dolan 2014 and not Purvis 2008?
+
+Purvis & Bhatt (2008) is the foundational modelling paper for platelet Ca²⁺
+signalling and provides the kinetic parameters for the IP3R 6-state model and
+many of the rate constants we use. However, Dolan & Diamond (2014) published an
+updated model specifically calibrated to match experimental Ca²⁺ transients in
+intact platelets, including the SOCE component (STIM1/Orai1) which was not
+characterised when Purvis wrote. Dolan Table S1 provides a complete, consistent
+set of initial conditions for all 22 state variables, validated against their
+Figure 4 experimental curves.
+
+In practice, both papers are used:
+- **Purvis 2008** supplies IP3R kinetics (Sneyd & Dufour 2002 rate constants),
+  SERCA cycle parameters, and compartment volumes (6 fL cytosol, 4.3% DTS).
+- **Dolan 2014** supplies the complete ODE system, SOCE parameters, STIM1/Orai1
+  copy numbers, and the primary validation target (Fig. 4).
+  
+Dolan is the primary reference because it is more recent, includes SOCE, and
+provides the initial conditions as a self-consistent set.
 
 ### 1.1 Framework usage philosophy
 
@@ -55,13 +87,28 @@ IP3 spike
        └─ DTS depletion → STIM1 oligomerises → gates Orai1 → SOCE
 ```
 
-Key compartments: cytosol (6 fL), DTS (0.26 fL = 4.3% cyt), extracellular (infinite reservoir).
+Key compartments: cytosol (6 fL, Purvis 2008 direct measurement), DTS (0.26 fL = 4.3% of cytosol, Purvis 2008 glucose-6-phosphatase staining), extracellular (treated as an infinite reservoir at fixed 1.2 mM, Dolan 2014).
 
 ---
 
 ## 3. ODE system
 
 ### 3.1 State variables and the integer-count problem
+
+**Background — why integer counts matter here.** The wcEcoli framework tracks
+all molecules as discrete integer counts (e.g. 361 Ca²⁺ ions) rather than as
+continuous concentrations (e.g. 100 nM). This is the *integer-count problem*:
+when the number of molecules of a species is very small, treating them as a
+continuous number is inaccurate, and rounding to the nearest integer at each
+timestep introduces noise. The point at which this noise becomes negligible and
+continuous mathematics is a safe approximation is called the *continuum limit* —
+typically around 1,000+ molecules of a given species.
+
+**Why this matters for Ca²⁺.** Cytosolic Ca²⁺ at rest is ~100 nM in a ~6 fL
+cell, which works out to only ~361 molecules. That is borderline. During a
+transient, the count rises to ~3,600 at peak (~1 µM), which is comfortable, but
+then falls back through the borderline range as the transient decays. The DTS
+store (~38,000 Ca²⁺ ions) is well above the continuum limit and not a concern.
 
 **Cytoplasmic Ca²⁺ is at the continuum limit.** At rest (~100 nM), the count
 depends on which cytoplasmic volume we adopt:
@@ -75,6 +122,20 @@ depends on which cytoplasmic volume we adopt:
 All three are borderline for deterministic treatment. For context, the rule of
 thumb for Gillespie vs ODE is usually ~1,000 molecules — we are near or below
 that at rest.
+
+> **ODE** (Ordinary Differential Equation): a mathematical description of how
+> concentrations change continuously over time. Standard in biochemical modelling;
+> fast to solve numerically. Assumes species counts are large enough to treat as
+> continuous numbers.
+>
+> **Gillespie algorithm**: an exact stochastic simulation method that fires
+> individual reaction events one at a time, drawn from probability distributions.
+> Correct at any copy number, but computationally expensive — the simulation cost
+> scales with the total reaction rate, which can be enormous for fast enzymes.
+>
+> **Tau-leaping**: a Gillespie approximation that fires multiple reaction events
+> in one leap, trading some accuracy for much better speed. Suitable for systems
+> with a mix of fast and slow reactions.
 
 **Decision: deterministic ODE sub-stepper for v0.2.**
 
@@ -132,11 +193,14 @@ Conversion: 6 fL cytosol, 0.26 fL DTS, N_A = 6.022×10²³.
 
 In a whole-cell model, IP3 should be a state variable produced by the GPCR
 cascade (P2Y1 → Gq → PLCβ → IP3) and consumed by IP3 phosphatase. In v0.2,
-it is instead driven by an analytical forcing function — a known simplification.
+it is instead driven by a **pre-programmed time curve** — a mathematical formula
+that specifies exactly how IP3 concentration rises and falls after stimulation.
+This is a known simplification borrowed directly from the Dolan 2014 model
+(their Fig. S2). It lets us validate the Ca²⁺ core without first building the
+full receptor cascade.
 
-This is acceptable for the Ca²⁺ core validation (reproducing Dolan Fig 4),
-but it means **you cannot model agonist dose-response until v0.3**. The
-forcing function shape is taken directly from Dolan 2014 Fig S2:
+This means **you cannot model agonist dose-response until v0.3**. The
+time curve shape is taken directly from Dolan 2014 Fig S2:
 
 ```
 IP3(t) = IP3_rest × [1 + (fold−1) × (1 − e^{−t/τ_rise}) × e^{−max(0, t−t_peak)/τ_decay}]
@@ -147,12 +211,12 @@ t_peak   = 3.0 s
 τ_decay  = 60.0 s
 ```
 
-The forcing function is injected into the ODE solver at each timestep as a
+The time curve is injected into the ODE solver at each timestep as a
 fixed boundary condition on IP3, not as a molecule count. IP3 is still tracked
 as a BulkMolecule (for mass accounting), but its count is overridden by the
-forcing function each step.
+time curve each step.
 
-**v0.3 upgrade path:** Replace the forcing function with a proper upstream
+**v0.3 upgrade path:** Replace the time curve with a proper upstream
 process (`P2Y1Signalling`) that produces IP3 as a BulkMolecule. The Ca²⁺
 process then reads IP3 as a normal state variable. No change to the Ca²⁺
 ODE system is needed — IP3 concentration simply becomes time-varying input.
@@ -163,8 +227,12 @@ The IP3 receptor transitions between six states. Ca²⁺-dependent activation
 and inhibition produce the biphasic open probability required for oscillations.
 A Hill function cannot reproduce this behaviour.
 
-![IP3R 6-state Markov model — Sneyd & Dufour 2002](figures/ip3r-state-machine.png)
-*Green states (o, a) are Ca²⁺-conducting. Transitions are Ca²⁺- and IP3-dependent.*
+![IP3R 6-state Markov model](/Users/steve/github/wcEcoli/reports/figures/ip3r-state-machine.png)
+*IP3R 6-state Markov model, adapted from Sneyd & Dufour (2002) type-2 kinetics
+as parameterised in Purvis & Bhatt (2008) Table 1. Green states (o, a) are
+Ca²⁺-conducting. Blue (n) is the resting neutral state. Purple states (i1, i2)
+are Ca²⁺-inhibited. Red (s) is the shut state. Transitions are Ca²⁺- and IP3-
+dependent.*
 
 Rate constants (Purvis 2008 Table 1, Sneyd & Dufour 2002 type-2 kinetics):
 
@@ -241,84 +309,43 @@ where E_Ca is the Ca²⁺ Nernst potential and g_SOC is set by the MWC model.
 
 ### 4.1 Signal flow
 
-![Ca²⁺ signalling process architecture](figures/calcium-process-architecture.png)
+The diagram below shows how the wcEcoli process/state architecture has been
+adapted for platelet Ca²⁺ signalling. The E. coli biological processes
+(transcription, metabolism, etc.) are replaced by the platelet-specific
+`CalciumDynamics` process, but the underlying framework — state containers,
+time-stepping, ATP/ADP partitioning — is carried over unchanged.
+
+![Ca²⁺ signalling process architecture](/Users/steve/github/wcEcoli/reports/figures/calcium-process-architecture.png)
 *ATP coupling shown in red. Green compartment = cytosol, blue = DTS, purple = plasma membrane.*
 
-### 4.2 File structure
-
-![Issue dependency and file plan](figures/calcium-issue-plan.png)
-*Issue #43 (IP3R model upgrade) is absorbed into #25 — 6-state model is implemented from the start.*
-
-### 4.3 File contents
+### 4.2 File contents
 
 #### `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
 
-Builds the ODE system at "parameter-fitting" time (called once on startup, not
-each timestep). Exposes a `molecules_to_next_time_step()` method.
+**Class `CalciumSignalling`** — builds the ODE system at startup (called once,
+not each timestep). Stores the species list and all rate constants. In v0.2
+these are hardcoded; v0.3 migration swaps in TSV parsing without touching the
+process code.
 
-```python
-class CalciumSignalling:
-    molecule_names: list[str]
-
-    def __init__(self, raw_data, sim_data):
-        # Phase 1: hardcoded species and rate constants (see §5)
-        # Phase 2 migration: swap in TSV parsing here
-        ...
-
-    def molecules_to_next_time_step(
-            self, counts, volume_cyt, volume_dts, nAvogadro, dt, t_sim
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Integrate Ca2+ ODEs for one timestep.
-
-        Returns (needed, changes) as integer count deltas.
-        """
-        y0 = counts / (volume * nAvogadro)   # counts → µM
-        # Inject IP3 forcing function at current simulation time
-        # Solve with scipy.integrate.solve_ivp (BDF, stiff)
-        # Round back to integers
-        ...
-```
+Key method: **`molecules_to_next_time_step(counts, volume_cyt, volume_dts,
+nAvogadro, dt, t_sim)`** — converts integer molecule counts to concentrations
+(µM), runs the Ca²⁺ ODE sub-stepper (BDF solver, one timestep duration),
+injects the IP3 time curve at `t_sim`, and returns integer count deltas and
+estimated ATP cost.
 
 #### `models/platelet/processes/calcium_signalling.py`
 
-Thin wrapper. Note ATP coupling in both lifecycle methods:
+**Class `CalciumDynamics(Process)`** — thin wrapper around the ODE solver.
+Follows the standard wcEcoli process lifecycle:
 
-```python
-class CalciumDynamics(process.Process):
-    _name = "CalciumDynamics"
-
-    def initialize(self, sim, sim_data):
-        super().initialize(sim, sim_data)
-        self.solver = sim_data.process.calcium_signalling
-        self.molecules = self.bulkMoleculesView(
-            sim_data.process.calcium_signalling.molecule_names)
-        # ATP accounting
-        self.atp = self.bulkMoleculesView(['ATP[c]'])
-        self.adp = self.bulkMoleculesView(['ADP[c]'])
-        self.pi  = self.bulkMoleculesView(['Pi[c]'])
-
-    def calculateRequest(self):
-        counts = self.molecules.total_counts()
-        t_sim  = self.time()
-        cellMass = (self.readFromListener("Mass", "cellMass") * units.fg
-                    ).asNumber(units.g)
-        volume_cyt = cellMass / self.cellDensity
-
-        self.needed, self.changes, self.atp_needed = (
-            self.solver.molecules_to_next_time_step(
-                counts, volume_cyt, self.nAvogadro, self.timeStepSec(), t_sim))
-
-        self.molecules.requestIs(self.needed)
-        self.atp.requestIs(np.array([self.atp_needed]))
-
-    def evolveState(self):
-        self.molecules.countsInc(self.changes)
-        # Consume ATP, return ADP + Pi (use actual allocated, not requested)
-        atp_used = min(self.atp.counts()[0], self.atp_needed)
-        self.atp.countsDec(np.array([atp_used]))
-        self.adp.countsInc(np.array([atp_used]))
-        self.pi.countsInc( np.array([atp_used]))
-```
+- **`initialize(sim, sim_data)`** — creates `BulkMolecule` views for all 22
+  Ca²⁺ species and for ATP, ADP, and Pi.
+- **`calculateRequest()`** — calls `molecules_to_next_time_step` to estimate
+  changes for this timestep, then requests the required molecules (Ca²⁺ species
+  needed by the ODE) and the estimated ATP from the framework's partitioner.
+- **`evolveState()`** — applies the Ca²⁺ count changes and performs ATP/ADP/Pi
+  accounting using the ATP actually allocated (not the requested amount, which
+  may have been reduced by the partitioner).
 
 #### `models/platelet/listeners/calcium_dynamics.py`
 
@@ -365,8 +392,8 @@ Full provenance in `calcium-data-provenance.md`. Summary for implementation:
 | Constant | Value |
 |----------|-------|
 | N_A | 6.022×10²³ mol⁻¹ |
-| V_IM (DTS membrane potential) | −60 mV (Dolan upper bound) |
-| V_PM (plasma membrane potential) | −60 mV |
+| V_IM (DTS membrane potential) | −60 mV (Dolan upper bound; used in IP3R Nernst term ψ_IM §3.3 and SOCE current §3.6) |
+| V_PM (plasma membrane potential) | −60 mV (used in SOCE current I_SOC §3.6) |
 | T | 310 K (37°C) |
 
 ---
@@ -377,7 +404,11 @@ Full provenance in `calcium-data-provenance.md`. Summary for implementation:
 
 **Decision:** ODE solver works in concentration (µM) internally. At the start
 of each timestep, integer counts are converted to concentration, integrated,
-then rounded back to counts. This matches the TwoComponentSystem pattern.
+then rounded back to counts. This matches the `TwoComponentSystem` pattern —
+`TwoComponentSystem` is the existing wcEcoli reference implementation of a
+two-component bacterial signalling pathway (written as a single CamelCase word
+following the Python class naming convention for process names in this codebase).
+It demonstrates the count ↔ concentration ↔ count pattern we replicate here.
 
 **Implication:** At resting cytosolic Ca²⁺ (~361 molecules), rounding
 introduces ~0.3% quantisation noise per step. This is acceptable —
@@ -389,7 +420,7 @@ real. We accept it and flag it in the analysis.
 **One process.** The Ca²⁺ subsystem is tightly coupled — splitting IP3R,
 SERCA, and SOCE across processes would require artificial partitioning at
 every interface. The ODE captures this coupling naturally. This mirrors the
-TwoComponentSystem design decision.
+`TwoComponentSystem` design decision (see §6.1).
 
 ### 6.3 IP3R model: Hill vs 6-state?
 
@@ -417,13 +448,12 @@ Stoichiometry:
 - **SERCA**: 1 ATP → 2 Ca²⁺ transported (cytosol → DTS)
 - **PMCA**: 1 ATP → 1 Ca²⁺ extruded (cytosol → extracellular)
 
-At each timestep, the ODE integration gives us the net Ca²⁺ transport:
-```
-Δca_serca = CA2_DTS[t+dt] - CA2_DTS[t] + (net DTS leak flux)
-Δca_pmca  = Ca²⁺ extruded (from PMCA flux integral)
-
-ATP_consumed = floor(Δca_serca / 2) + Δca_pmca
-```
+At each timestep, the ODE integration gives the net Ca²⁺ transport. The
+`estimate_atp_cost` method in `CalciumSignalling` calculates:
+`ATP = floor(Δca_serca / 2) + Δca_pmca`. `calculateRequest()` requests this
+amount from the framework's ATP pool. `evolveState()` then uses the ATP
+actually allocated (which may be less if ATP is scarce) and returns the
+corresponding ADP and Pi.
 
 At rest, SERCA and passive leak are in balance — net ATP consumption is small.
 During a Ca²⁺ transient, SERCA works hard to refill the DTS, and the ATP drain
@@ -436,35 +466,13 @@ If the ATP pool is insufficient (unlikely in the first version), we log a
 warning and proceed without it — this failure mode will motivate adding a
 proper metabolic process in a future milestone.
 
-```python
-def calculateRequest(self):
-    counts = self.molecules.total_counts()
-    # ... run ODE solver ...
-    self.needed, self.changes = self.solver.molecules_to_next_time_step(...)
-
-    # Request ATP for pump activity
-    self.atp_needed = self.solver.estimate_atp_cost(self.changes)
-    self.atp.requestIs(self.atp_needed)
-
-    self.molecules.requestIs(self.needed)
-
-def evolveState(self):
-    # Apply Ca²⁺ changes
-    self.molecules.countsInc(self.changes)
-    # Consume ATP, produce ADP + Pi
-    atp_allocated = self.atp.counts()[0]
-    self.atp.countsDec(atp_allocated)
-    self.adp.countsInc(atp_allocated)
-    self.pi.countsInc(atp_allocated)
-```
-
 ### 6.6 ODE solver
 
 `scipy.integrate.solve_ivp` with method `'BDF'` (backward differentiation,
 suitable for stiff systems). Tolerances: `atol=1e-10`, `rtol=1e-8`.
 Ca²⁺ transients resolve on 1–3 s timescale; 1-second timestep is adequate.
 
-### 6.7 Not backing into a corner
+### 6.7 Future extensibility
 
 The hardcoded parameter approach (Milestone 1) is identical to the TSV-based
 approach from the Process's point of view. The only change for Milestone 2 is
