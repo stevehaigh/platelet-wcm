@@ -11,28 +11,49 @@ from wholecell.utils import units
 from wholecell.utils.unit_struct_array import UnitStructArray
 
 
-# Placeholder molecule inventory. Real values from issue #18 (Burkhart proteome
-# curation). Each entry: (molecule_id, mass_fg, initial_count, molecule_class)
-# molecule_class: 'protein' | 'lipid' — used to route molecules to the correct
-# decay process (RestingDecay targets proteins only; lipids get their own
-# process once turnover data is available).
+# Minimal molecule inventory for the v0.1 platelet stub.
+# Raw data and citations: reconstruction/platelet/raw_data/molecules.tsv
 #
-# Lipid count: platelet plasma membrane contains ~3×10^8 phospholipid molecules
-# (van Meer 2008; Purvis 2008 surface area estimate). Using 3e8 as placeholder.
-# Lipid half-life: membrane phospholipid turnover in resting anucleate platelets
-# is poorly characterised — no active synthesis pathway running, so turnover is
-# negligible on a 7-day timescale. Lipid decay deferred to a future process.
-_PLACEHOLDER_MOLECULES = [
-	('DUMMY_PROTEIN[c]', 1.0, 5000,    'protein'),  # Burkhart 2012 median
-	('DUMMY_LIPID[e]',   1.0, 300_000_000, 'lipid'),  # van Meer 2008 order-of-magnitude
+# Each entry: (molecule_id, mass_fg, initial_count, molecule_class)
+#   molecule_class: 'protein' | 'metabolite'
+#   mass_fg: per-molecule mass in femtograms = mw_da × 1.661e-9
+#   initial_count: resting-state copy number per platelet (see TSV for sources)
+#
+# Submass routing (matches SimulationDataPlatelet.submass_name_to_index):
+#   'protein'    → submass column 0
+#   'metabolite' → submass column 1
+#
+# Compartments:
+#   [c]   = cytoplasm     [dts] = dense tubular system (Ca2+ store)
+#   [dg]  = dense granule [ag]  = alpha granule
+_MOLECULES = [
+	# id              mass_fg      initial_count  molecule_class
+	# ── metabolites (concentrations derived from Purvis 2008 / Dolan 2014 / Sveshnikova 2025) ──
+	('CA2_CYT[c]',   6.660e-8,    361,           'metabolite'),  # 100 nM × 6 fL
+	('CA2_DTS[dts]', 6.660e-8,    38842,         'metabolite'),  # 250 µM × 4.3% × 6 fL
+	('ATP[c]',       8.424e-7,    3_613_200,     'metabolite'),  # 1 mM × 6 fL
+	('ADP[c]',       7.096e-7,    361_320,       'metabolite'),  # 0.1 mM × 6 fL
+	('5HT[dg]',      2.927e-7,    3_500_000,     'metabolite'),  # serotonin; dense granule
+	('ADP[dg]',      7.096e-7,    400_000,       'metabolite'),  # ADP; dense granule
+	('IP3[c]',       6.977e-7,    181,           'metabolite'),  # 50 nM × 6 fL
+	# ── proteins (copy numbers from Burkhart 2012 unless noted) ──
+	('GP1BA[c]',     1.378e-4,    25_000,        'protein'),   # GpIbα; surface receptor
+	('ITGA2B[c]',    2.149e-4,    80_000,        'protein'),   # αIIb integrin
+	('ACTB[c]',      6.933e-5,    2_000_000,     'protein'),   # β-actin
+	('FGA[ag]',      5.647e-4,    30_000,        'protein'),   # fibrinogen hexamer; alpha granule
+	('SELP[ag]',     1.493e-4,    30_000,        'protein'),   # P-selectin; alpha granule
+	('ITPR2[c]',     5.110e-4,    1_700,         'protein'),   # IP3 receptor type 2
+	('ATP2A3[c]',    1.814e-4,    16_300,        'protein'),   # SERCA3 Ca2+-ATPase
+	('STIM1[c]',     1.285e-4,    7_400,         'protein'),   # STIM1 Ca2+ sensor
 ]
 
-# Molecule IDs that RestingDecay should act on (proteins + mRNAs).
-# Lipids, metabolites, and ions are excluded — they have different turnover
-# mechanisms and will be handled by dedicated processes.
-# Replace this list with a proper classification query when #18 lands.
+# Submass column index for each class (mirrors SimulationDataPlatelet).
+_SUBMASS_COL = {'protein': 0, 'metabolite': 1}
+
+# IDs of molecules that undergo protein-class decay (RestingDecay).
+# Metabolites and ions are excluded — different turnover mechanisms.
 PROTEIN_MOLECULE_IDS = np.array(
-	[m[0] for m in _PLACEHOLDER_MOLECULES if m[3] == 'protein'],
+	[m[0] for m in _MOLECULES if m[3] == 'protein'],
 	dtype='U50',
 )
 
@@ -41,11 +62,11 @@ class _BulkMoleculesSpec:
 	"""Mirrors the interface of reconstruction.ecoli.dataclasses.state.bulk_molecules."""
 
 	def __init__(self):
-		ids = np.array([m[0] for m in _PLACEHOLDER_MOLECULES], dtype=str)
+		ids = np.array([m[0] for m in _MOLECULES], dtype=str)
 		n_submass = 2  # protein (0), metabolite (1) — see SimulationDataPlatelet
 		masses_raw = np.zeros((len(ids), n_submass))
-		for i, (_, mass_fg, _, _) in enumerate(_PLACEHOLDER_MOLECULES):
-			masses_raw[i, 0] = mass_fg  # protein submass column for all stubs
+		for i, (_, mass_fg, _, molecule_class) in enumerate(_MOLECULES):
+			masses_raw[i, _SUBMASS_COL[molecule_class]] = mass_fg
 
 		bulk_data = np.zeros(
 			len(ids),
@@ -66,7 +87,7 @@ class _BulkMoleculesSpec:
 			'mass': units.fg / units.mol,
 			})
 		self.initial_counts = np.array(
-			[m[2] for m in _PLACEHOLDER_MOLECULES], dtype=np.int64)
+			[m[2] for m in _MOLECULES], dtype=np.int64)
 
 		# Subset of molecule IDs that undergo protein-class decay.
 		# Used by RestingDecay; replaces the all-molecules view.

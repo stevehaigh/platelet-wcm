@@ -33,17 +33,19 @@ class SimulationDataPlatelet:
 
 		# ── Compartment abbreviation → index mapping ───────────────────────────
 		# Platelet compartments:
-		#   c  = cytoplasm
-		#   dg = dense granule lumen
-		#   ag = alpha-granule lumen
-		#   m  = mitochondrial matrix
-		#   e  = extracellular / open canalicular system
+		#   c   = cytoplasm
+		#   dg  = dense granule lumen
+		#   ag  = alpha-granule lumen
+		#   m   = mitochondrial matrix
+		#   e   = extracellular / open canalicular system
+		#   dts = dense tubular system (platelet ER equivalent; Ca2+ store)
 		self.compartment_abbrev_to_index = {
-			'c':  0,
-			'dg': 1,
-			'ag': 2,
-			'm':  3,
-			'e':  4,
+			'c':   0,
+			'dg':  1,
+			'ag':  2,
+			'm':   3,
+			'e':   4,
+			'dts': 5,
 		}
 
 		# ── Sub-objects read by engine states ──────────────────────────────────
