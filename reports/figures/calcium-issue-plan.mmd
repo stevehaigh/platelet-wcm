@@ -1,0 +1,21 @@
+flowchart LR
+    I24["#24  data + dataclass\n─────────────────\ninternal_state.py\n22 Ca²⁺ species\ncalcium_signalling.py\n(ODE builder)"]
+
+    I25["#25  CalciumDynamics process\n─────────────────\ncalcium_signalling.py\nBDF ODE solver\n6-state IP3R\nSERCA · PMCA · SOCE\nATP coupling"]
+
+    I26["#26  listener\n─────────────────\ncalcium_dynamics.py\nca_cyt_nM\nca_dts_uM\nip3_nM\nip3r_open_fraction\nsoce_flux"]
+
+    I27["#27  analysis plot\n─────────────────\ncalcium_transient.py\ntime series\nIP3R state fractions\nDolan ref lines"]
+
+    I43["#43  IP3R model\n(merged into #25)\n6-state from start\nnot Hill function"]
+
+    I24 --> I25
+    I25 --> I26
+    I26 --> I27
+    I43 -. "absorbed into" .-> I25
+
+    style I24 fill:#dbeafe,stroke:#3b82f6
+    style I25 fill:#dcfce7,stroke:#22c55e
+    style I26 fill:#f3e8ff,stroke:#a855f7
+    style I27 fill:#fef3c7,stroke:#d97706
+    style I43 fill:#fee2e2,stroke:#dc2626,color:#666

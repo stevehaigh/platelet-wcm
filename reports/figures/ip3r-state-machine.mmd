@@ -1,0 +1,43 @@
+%%{init: {'theme': 'base'}}%%
+flowchart LR
+    subgraph top [" "]
+        direction LR
+        n["<b>n</b><br/>neutral"]
+        o["<b>o</b><br/>open"]
+        a["<b>a</b><br/>active"]
+    end
+    subgraph bot [" "]
+        direction LR
+        i1["<b>i1</b><br/>inhibited-1"]
+        s["<b>s</b><br/>shut"]
+        i2["<b>i2</b><br/>inhibited-2"]
+    end
+
+    n -- "k₂[IP3]" --> o
+    o -- "k₋₂" --> n
+    o -- "k₄[Ca²⁺]" --> a
+    a -- "k₋₄" --> o
+
+    n -- "k₁[Ca²⁺]" --> i1
+    i1 -- "k₋₁" --> n
+    a -- "k₁[Ca²⁺]" --> i2
+    i2 -- "k₋₁" --> a
+
+    o -- "k₃[Ca²⁺]" --> s
+    s -- "k₋₃" --> o
+
+    i1 -- "l₂" --> s
+    s -- "l₋₂" --> i1
+    i2 -- "l₂" --> s
+    s -- "l₋₂" --> i2
+
+    style n  fill:#e0f2fe,stroke:#0284c7
+    style o  fill:#bbf7d0,stroke:#16a34a,color:#000,font-weight:bold
+    style a  fill:#86efac,stroke:#16a34a,color:#000,font-weight:bold
+    style i1 fill:#e9d5ff,stroke:#7c3aed
+    style i2 fill:#e9d5ff,stroke:#7c3aed
+    style s  fill:#fee2e2,stroke:#dc2626
+    style top fill:none,stroke:none
+    style bot fill:none,stroke:none
+
+

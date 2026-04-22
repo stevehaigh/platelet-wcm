@@ -1,0 +1,43 @@
+flowchart TD
+    subgraph Forcing ["IP3 forcing function (v0.2)"]
+        FN["IP3(t) = IP3_rest × f(t)\npeak ×5.5 at t=3 s\ndecay τ = 60 s"]
+    end
+
+    subgraph CYT ["Cytosol  (6 fL)"]
+        CA_CYT["CA2_CYT\n~361 molecules at rest\n100 nM → ~1 µM peak"]
+        ATP["ATP  →  ADP + Pi\n(SERCA: 2 Ca²⁺/ATP)\n(PMCA: 1 Ca²⁺/ATP)"]
+    end
+
+    subgraph DTS ["Dense Tubular System  (0.26 fL)"]
+        CA_DTS["CA2_DTS\n~38,842 molecules at rest\n250 µM"]
+        IP3R["IP3R\n1,328 total\n6-state Markov model\n(Sneyd & Dufour 2002)"]
+        SERCA["SERCA\n11,892 total\n6-state E1–E2 cycle\n(Dode 2002 kinetics)"]
+        STIM1["STIM1\n4,265 total\n~89% DTS-bound at rest"]
+    end
+
+    subgraph PM ["Plasma membrane"]
+        PMCA["PMCA\n769 total\n(constitutive in v0.2)"]
+        ORAI["Orai1 / CRAC\n1,447 total\ngated by STIM1"]
+    end
+
+    EX["Ca²⁺ extracellular\n1.2 mM  (fixed reservoir)"]
+
+    FN  -- "sets [IP3]" --> IP3R
+    IP3R -- "Ca²⁺ release" --> CA_CYT
+    CA_DTS -- "store source" --> IP3R
+    CA_CYT -- "SERCA pump\n(ATP-dependent)" --> CA_DTS
+    CA_CYT -- "PMCA extrusion\n(ATP-dependent)" --> EX
+    CA_CYT -- "ATP consumed" --> ATP
+    CA_DTS -- "depletion\nactivates" --> STIM1
+    STIM1  -- "gates" --> ORAI
+    EX     -- "SOCE entry" --> ORAI
+    ORAI   -- "Ca²⁺ entry" --> CA_CYT
+
+    style Forcing fill:#fef3c7,stroke:#d97706
+    style CYT    fill:#dcfce7,stroke:#22c55e
+    style DTS    fill:#dbeafe,stroke:#3b82f6
+    style PM     fill:#f3e8ff,stroke:#a855f7
+    style EX     fill:#fef9c3,stroke:#eab308
+    style CA_CYT fill:#bbf7d0,stroke:#16a34a,font-weight:bold
+    style IP3R   fill:#bfdbfe,stroke:#2563eb
+    style ATP    fill:#fee2e2,stroke:#dc2626
