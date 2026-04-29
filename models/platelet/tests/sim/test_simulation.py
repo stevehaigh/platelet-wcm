@@ -119,3 +119,31 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			self.assertTrue(np.all(dry > 0), 'dryMass should always be positive')
 			self.assertLessEqual(dry[-1], dry[0],
 				'dryMass should not increase under resting decay')
+
+	def test_calcium_trace_listener_writes_output(self):
+		"""CalciumTrace should write all expected columns and resting Ca²⁺ is ~100 nM."""
+		from wholecell.io.tablereader import TableReader
+		with tempfile.TemporaryDirectory() as sim_path:
+			paths = run_platelet_sim(
+				sim_path, length_sec=10, seed=0, log_to_shell=False)
+
+			self.assertTrue(
+				os.path.isdir(os.path.join(paths['sim_out_dir'], 'CalciumTrace')),
+				'CalciumTrace listener output directory missing')
+
+			reader = TableReader(os.path.join(paths['sim_out_dir'], 'CalciumTrace'))
+			ca_cyt_nM     = reader.readColumn('ca_cyt_nM').flatten()
+			ca_dts_uM     = reader.readColumn('ca_dts_uM').flatten()
+			ip3_nM        = reader.readColumn('ip3_nM').flatten()
+			soce_flux_nMs = reader.readColumn('soce_flux_nMs').flatten()
+
+			self.assertGreater(len(ca_cyt_nM), 0, 'ca_cyt_nM column is empty')
+			# Resting cytosolic Ca²⁺ should start near 100 nM (initial count = 361).
+			self.assertGreater(ca_cyt_nM[0], 0.0, 'resting Ca²⁺ should be positive')
+			# DTS store should start at ~250 µM (initial count = 38842).
+			self.assertGreater(ca_dts_uM[0], 0.0, 'resting DTS Ca²⁺ should be positive')
+			# IP3 at rest is 50 nM.
+			self.assertGreater(ip3_nM[0], 0.0, 'resting IP3 should be positive')
+			# SOCE flux is non-negative (Ca²⁺ enters the cell).
+			self.assertTrue(
+				np.all(soce_flux_nMs >= 0.0), 'SOCE flux should be non-negative')

@@ -9,7 +9,9 @@ from runscripts.manual.runPlateletSim import run_platelet_sim
 
 class TestPlateletAnalysis(unittest.TestCase):
 	def test_expand_plot_names_default(self):
-		self.assertEqual(['scaffold_summary.py'], expand_plot_names([]))
+		self.assertEqual(
+			['scaffold_summary.py', 'calcium_trace.py'],
+			expand_plot_names([]))
 
 	def test_run_platelet_analysis_writes_plot_output(self):
 		with tempfile.TemporaryDirectory() as sim_path:
@@ -19,11 +21,15 @@ class TestPlateletAnalysis(unittest.TestCase):
 
 			self.assertEqual(sim_path, result['sim_path'])
 			self.assertIn('scaffold_summary', result['plots'])
+			self.assertIn('calcium_trace', result['plots'])
 			self.assertTrue(os.path.isdir(result['plot_out_dir']))
-			self.assertTrue(os.path.isfile(os.path.join(
-				result['plot_out_dir'], 'scaffold_summary.pdf')))
-			self.assertTrue(os.path.isfile(os.path.join(
-				result['plot_out_dir'], 'svg_plots', 'scaffold_summary.svg')))
-			self.assertTrue(os.path.isfile(os.path.join(
-				result['plot_out_dir'], 'low_res_plots',
-				'scaffold_summary.png')))
+			for plot_name in ('scaffold_summary', 'calcium_trace'):
+				self.assertTrue(os.path.isfile(os.path.join(
+					result['plot_out_dir'], f'{plot_name}.pdf')),
+					f'{plot_name}.pdf not found')
+				self.assertTrue(os.path.isfile(os.path.join(
+					result['plot_out_dir'], 'svg_plots', f'{plot_name}.svg')),
+					f'{plot_name}.svg not found')
+				self.assertTrue(os.path.isfile(os.path.join(
+					result['plot_out_dir'], 'low_res_plots', f'{plot_name}.png')),
+					f'{plot_name}.png not found')
