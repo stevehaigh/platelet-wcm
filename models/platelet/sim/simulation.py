@@ -4,6 +4,7 @@ from wholecell.states.bulk_molecules import BulkMolecules
 from wholecell.states.unique_molecules import UniqueMolecules
 from wholecell.states.local_environment import LocalEnvironment
 
+from models.platelet.listeners.calcium_trace import CalciumTrace
 from models.platelet.listeners.mass import Mass
 from models.platelet.processes.calcium_dynamics import CalciumDynamics
 from models.platelet.processes.platelet_stub import PlateletStub
@@ -29,7 +30,7 @@ class PlateletSimulation(Simulation):
 		),
 	)
 
-	_listenerClasses = (Mass,)
+	_listenerClasses = (Mass, CalciumTrace)
 
 	_hookClasses = ()
 
