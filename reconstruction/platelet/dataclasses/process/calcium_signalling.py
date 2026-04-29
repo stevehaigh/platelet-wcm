@@ -98,15 +98,19 @@ K_IP3R = {
 
 # IP3R Ca²⁺ flux: empirical conductance × open fraction × concentration
 # gradient. Replaces the Nernst formulation in v0.2; the conductance value
-# is set so that at rest J_IP3R ≈ J_SERCA (DTS-side balance).
-K_IP3R_FLUX = 0.30      # µM/s per (µM gradient × Po), tuned for resting balance
+# is calibrated so that resting J_IP3R ≈ 69 nM/s (balanceable by SERCA).
+# Original value (0.30) gave 5143 nM/s — 74× too large, draining DTS in 1.6 s.
+K_IP3R_FLUX = 0.004     # µM/s per (µM gradient × Po)
 
 # SERCA cycle (Purvis 2008 Table 1, Dode 2002). Mass-action.
 K_SERCA = {
 	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
 	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	'k_bind_f':     1.0e3,    # E1 + 2 Ca²⁺_cyt → E1·Ca       (µM⁻²·s⁻¹) [scaled]
-	'k_bind_r':     10.0,     # E1·Ca → E1 + 2 Ca²⁺_cyt        (s⁻¹)
+	# k_bind_f calibrated so SERCA throughput ≈ 124 ct/s at rest (100 nM cytosol).
+	# Original value (1e3 µM⁻²·s⁻¹) gave 59,140 ct/s — draining cytosol in ms.
+	# Km kept at 0.1 µM: k_bind_r = k_bind_f × 0.01.
+	'k_bind_f':     2.1101,   # E1 + 2 Ca²⁺_cyt → E1·Ca       (µM⁻²·s⁻¹)
+	'k_bind_r':     0.021101, # E1·Ca → E1 + 2 Ca²⁺_cyt        (s⁻¹)
 	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
 	'k_phos_r':     5.0,
 	'k_conf_f':     600.0,    # E1P·Ca ⇌ E2P·Ca                (s⁻¹)
@@ -116,8 +120,6 @@ K_SERCA = {
 	'k_dephos_f':   500.0,    # E2P → E2                       (s⁻¹)
 	'k_dephos_r':   1.0,
 }
-# Note on `k_bind_f`: Purvis lists 1e15 M⁻²·s⁻¹. Converting to µM⁻²·s⁻¹
-# gives 1e15 × 1e-12 = 1e3 µM⁻²·s⁻¹. Same scaling for k_release_r.
 
 # PMCA (Caride 2007 Table 3, basal).
 K_PMCA = {
@@ -131,7 +133,12 @@ K_PMCA = {
 # the activation step; STIM1_dim gates Orai1 to allow Ca²⁺_ex → Ca²⁺_cyt.
 K_SOCE = {
 	'k_release_f':  0.1,     # STIM1_Ca → STIM1_free (s⁻¹) — slow at high Ca²⁺_dts
-	'k_release_r':  1.0e-3,  # STIM1_free + Ca²⁺_dts → STIM1_Ca (µM⁻¹·s⁻¹)
+	# k_release_r calibrated so v_STIM1 = 0 at Dolan 2014 Table S1 IC
+	# (st_ca=3805, st_free=438, ca_dts=250 µM):
+	#   k_release_r = k_release_f × st_ca / (st_free × ca_dts) = 3.475e-3
+	# Original value (1e-3) was 3.5× too small, causing continuous Ca release
+	# from DTS into the STIM1-Ca pool at rest.
+	'k_release_r':  3.475e-3, # STIM1_free + Ca²⁺_dts → STIM1_Ca (µM⁻¹·s⁻¹)
 	# k_dim_f: set so that the Dolan 2014 Table S1 resting initial conditions
 	# (st_free=438, st_dim=22) are at equilibrium: k_dim_f = k_dim_r × st_dim / st_free².
 	# The original value (0.05) was ~436× too large — an ad hoc estimate that caused
@@ -139,7 +146,11 @@ K_SOCE = {
 	# longer-term fix (implement the full Dolan 2014 MWC allosteric model).
 	'k_dim_f':      1.15e-4, # 2 STIM1_free → STIM1_dim (count⁻¹·s⁻¹) [equilibrium-derived]
 	'k_dim_r':      1.0,     # STIM1_dim → 2 STIM1_free  (s⁻¹)
-	'k_orai':       0.001,   # SOCE flux per STIM1_dim per (Ca²⁺_ex - Ca²⁺_cyt) µM/s
+	# k_orai calibrated so SOCE = PMCA efflux at rest (21 nM/s each) with
+	# st_dim=22, Ca_ex−Ca_cyt ≈ 1200 µM:
+	#   k_orai = PMCA_efflux_µMs / (st_dim × ΔCa) = 21.09e-3 / (22 × 1200) = 7.99e-7
+	# Original value (0.001) gave SOCE = 26,400 nM/s — ~1260× too large.
+	'k_orai':       7.99e-7, # SOCE flux per STIM1_dim per (Ca²⁺_ex − Ca²⁺_cyt) µM/s
 }
 
 
@@ -223,8 +234,10 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	# µM/s in the cytosolic compartment, driven by the Ca²⁺ gradient
 	flux_ip3r_uMs = K_IP3R_FLUX * po * (ca_dts - ca_cyt)
 	# Convert µM/s → counts/s in each compartment (mass-conserving).
+	# The same number of atoms leave DTS as enter CYT; dividing by the
+	# DTS volume factor would create phantom Ca²⁺ (bug fix, issue #46).
 	flux_ip3r_count_cyt = flux_ip3r_uMs / _UM_PER_COUNT_CYT
-	flux_ip3r_count_dts = flux_ip3r_uMs / _UM_PER_COUNT_DTS
+	flux_ip3r_count_dts = flux_ip3r_count_cyt
 
 	dy[_IDX['CA2_CYT[c]']]   += +flux_ip3r_count_cyt
 	dy[_IDX['CA2_DTS[dts]']] += -flux_ip3r_count_dts
@@ -258,16 +271,19 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	# Catalysis ejects Ca²⁺ to extracellular; the reservoir is not modelled.
 
 	# ── SOCE (STIM1 dimerisation + Orai1 flux) ────────────────────────
-	v_release = (
+	# Rename from v_release to avoid collision with SERCA's v_release above.
+	v_stim1_release = (
 		K_SOCE['k_release_f'] * st_ca
 		- K_SOCE['k_release_r'] * st_free * ca_dts
 	)
 	# Dimerisation as a 2nd-order step in free monomers (count units).
 	v_dim = K_SOCE['k_dim_f'] * st_free * st_free - K_SOCE['k_dim_r'] * st_dim
 
-	dy[_IDX['STIM1_Ca[dts]']]   += -v_release
-	dy[_IDX['STIM1_free[dts]']] += +v_release - 2.0 * v_dim
+	dy[_IDX['STIM1_Ca[dts]']]   += -v_stim1_release
+	dy[_IDX['STIM1_free[dts]']] += +v_stim1_release - 2.0 * v_dim
 	dy[_IDX['STIM1_dim[dts]']]  += +v_dim
+	# Ca²⁺ released from STIM1 binding returns to the free DTS pool (bug fix, issue #46).
+	dy[_IDX['CA2_DTS[dts]']]    += v_stim1_release
 
 	# Orai1 flux into cytosol, gated by STIM1_dim count.
 	soce_flux_uMs = K_SOCE['k_orai'] * st_dim * (CA_EX_UM - ca_cyt)
