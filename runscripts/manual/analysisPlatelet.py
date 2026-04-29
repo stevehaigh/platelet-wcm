@@ -50,7 +50,8 @@ def _find_simout(sim_path):
 def run_platelet_analysis(sim_path, plot_names=None):
 	"""Run one or more platelet analysis plots for a local run."""
 	sim_out_dir = _find_simout(sim_path)
-	plot_out_dir = fp.makedirs(sim_path, constants.PLOTOUT_DIR)
+	# Write plots alongside simOut/ so the web app can find them via find_plot_images
+	plot_out_dir = fp.makedirs(sim_out_dir.replace('simOut', constants.PLOTOUT_DIR))
 	sim_data_file = os.path.join(
 		sim_path, constants.KB_DIR, constants.SERIALIZED_SIM_DATA_FILENAME)
 	metadata_path = os.path.join(

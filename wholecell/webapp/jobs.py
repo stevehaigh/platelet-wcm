@@ -221,7 +221,7 @@ class JobManager:
 
 	def _run_platelet_job(self, job_id: int, config: Dict[str, Any],
 			sim_outdir: str, in_container: bool) -> None:
-		"""Run a platelet simulation job — no ParCa or analysis phases."""
+		"""Run a platelet simulation job — simulation then analysis plots."""
 
 		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
 		length_days = config.get('first_variant_index', 1) or 1
@@ -243,6 +243,16 @@ class JobManager:
 				cwd=self.wcecoli_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Platelet sim failed:\n{proc.stderr[-2000:]}')
+
+			# Phase 2: Analysis
+			self._update_status(job_id, 'analyzing')
+			cmd_analysis = self._build_cmd(
+				['python', 'runscripts/manual/analysisPlatelet.py', sim_outdir],
+				in_container, out_root)
+			proc = subprocess.run(cmd_analysis, capture_output=True, text=True,
+				cwd=self.wcecoli_root if in_container else None)
+			if proc.returncode != 0:
+				raise RuntimeError(f'Platelet analysis failed:\n{proc.stderr[-2000:]}')
 
 			now = datetime.now(timezone.utc).isoformat()
 			self._update_status(job_id, 'done', finished_at=now)
