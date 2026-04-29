@@ -432,32 +432,47 @@ homeostatic/dynamic constraints.
 
 **Verified ✓ (Zotero, Dolan 2014 itemKey LJNKNAUI, 2026-04-23)**
 
-### Implementation gap — simplified mass-action model (issue #45)
+### MWC implementation (closes issues #45/#46)
 
 The code in `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
-does **not** implement the MWC model above. Instead it uses a simplified
-3-state mass-action system:
+now implements the full Hoover & Lewis 2011 / Dolan 2014 MWC scheme. The
+SOCE block has three layers:
 
-```
-STIM1_Ca  ⇌  STIM1_free  ⇌  STIM1_dim  →  Orai1 flux
-```
+1. **STIM1 mass-action cycle** (DTS-side):
+   ```
+   STIM1·Ca²⁺_dts  ⇌  STIM1_free + Ca²⁺_dts    (EF-hand release)
+   2 STIM1_free   ⇌  STIM1_dim                 (dimerisation)
+   ```
+   Rate constants `k_release_r = 3.475×10⁻³ µM⁻¹s⁻¹` and
+   `k_dim_f = 1.15×10⁻⁴ count⁻¹s⁻¹` are derived from detailed balance at the
+   Dolan Table S1 IC — this gives `v = 0` for both reactions at rest.
 
-with rate constants `k_dim_f`, `k_dim_r`, `k_orai` that are **not from any
-paper** — they were ad hoc estimates when the dataclass was first written.
+2. **Puncta entry** (Dolan 2014 Eq. 2):
+   ```
+   (STIM2)p = qp · STIM2_dimers
+   qp = α · ([Ca²⁺]_cyt^n / (KM^n + [Ca²⁺]_cyt^n)) + 0.01
+   ```
+   with `α = 0.2` (Dolan default), `KM = 0.5 µM`, `n = 4` (mid-range from
+   Dolan's scanned ranges; not yet refit to platelet homeostatic constraints).
 
-**Bug discovered 2026-04-29:** `k_dim_f = 0.05 count⁻¹s⁻¹` was 436× too
-large. With st_free=438 at rest the dimerisation rate was 9,570/s, causing
-runaway STIM1_dim growth and massive spurious SOCE influx in the first
-timestep. The correct equilibrium-consistent value is:
+3. **MWC channel gating** (Hoover Fig. 4B):
+   ```
+   For i = 0..4 STIM dimers bound to a tetrameric Orai channel:
+     [CSi]/[C]   = (4 choose i) · a^(i(i−1)/2) · (Ka·Sf)^i
+     [OSi]/[CSi] = f^i · L
+   ```
+   with Hoover values `L = 10⁻⁴, f = 14.2, a = 0.5` (binding cooperativity).
+   `Ka = 2` is rescaled from Hoover's a.u. (where `Ka_Hoover = 100`,
+   `Stotal_Hoover = 3.2 a.u.`) to match the platelet saturating dimer count
+   (~170 dimers) at the same `Ka·Sf ≈ 300` saturation point.
 
-```
-k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 22 / 438² ≈ 1.15×10⁻⁴
-```
-
-This fix has been applied. `k_orai = 0.001` has not been independently
-validated and may also need calibration against the Dolan 2014 Fig. 4 trace.
-
-The full MWC implementation is tracked in **issue #46**.
+The SOC current uses Dolan Eq. 4 with single-channel conductance
+`γ_SOC = 0.3 fS`, an effective value derived from the resting balance
+constraint `SOCE_rest = PMCA_steady_rest`. Literature γ_SOC for CRAC is
+~24 fS at saturating Po, but for the integer-count regime at platelet rest
+(<1 channel open) the effective conductance is reduced to avoid spurious
+runaway. See `reports/platelet-calcium-calibration.md` §3 and §6 for the
+full derivation.
 
 ---
 

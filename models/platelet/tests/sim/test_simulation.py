@@ -108,8 +108,15 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			self.assertTrue(os.path.isdir(os.path.join(
 				paths['sim_out_dir'], 'Mass')))
 
-	def test_mass_listener_dry_mass_positive_and_decreasing(self):
-		"""dryMass should be positive and decrease (proteins decay, nothing grows)."""
+	def test_mass_listener_dry_mass_positive(self):
+		"""dryMass should be positive throughout the simulation.
+
+		Earlier versions of this test also asserted dry mass monotonically
+		decreases under RestingDecay. That holds when only protein decay is
+		active, but CalciumDynamics now imports Ca²⁺ via SOCE and exports
+		via PMCA, so dry mass tracks the calcium balance plus protein decay
+		— it is not necessarily monotonic.
+		"""
 		from wholecell.io.tablereader import TableReader
 		with tempfile.TemporaryDirectory() as sim_path:
 			paths = run_platelet_sim(
@@ -117,8 +124,6 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			reader = TableReader(os.path.join(paths['sim_out_dir'], 'Mass'))
 			dry = reader.readColumn('dryMass')
 			self.assertTrue(np.all(dry > 0), 'dryMass should always be positive')
-			self.assertLessEqual(dry[-1], dry[0],
-				'dryMass should not increase under resting decay')
 
 	def test_calcium_trace_listener_writes_output(self):
 		"""CalciumTrace should write all expected columns and resting Ca²⁺ is ~100 nM."""

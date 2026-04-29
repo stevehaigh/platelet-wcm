@@ -11,7 +11,7 @@ from wholecell.utils import units
 from wholecell.utils.unit_struct_array import UnitStructArray
 
 
-# Minimal molecule inventory for the v0.1 platelet stub.
+# Molecule inventory for the v0.2 platelet model (calcium core).
 # Raw data and citations: reconstruction/platelet/raw_data/molecules.tsv
 #
 # Each entry: (molecule_id, mass_fg, initial_count, molecule_class)
@@ -26,25 +26,55 @@ from wholecell.utils.unit_struct_array import UnitStructArray
 # Compartments:
 #   [c]   = cytoplasm     [dts] = dense tubular system (Ca2+ store)
 #   [dg]  = dense granule [ag]  = alpha granule
+#   [pl]  = plasmalemma (plasma membrane)
+#
+# IP3R, SERCA, PMCA, STIM1 are split into their kinetic sub-states so the
+# CalciumDynamics ODE solver can integrate the 6-state Sneyd IP3R, the SERCA
+# E1/E2 cycle, the 2-state PMCA Michaelis–Menten approximation, and the STIM1
+# DTS-bound / free / dimer sensor cycle. Sub-state initial counts are the
+# Dolan & Diamond 2014 Table S1 representative configuration; protein totals
+# match the per-protein totals in that table (1,328 IP3R; 11,892 SERCA;
+# 769 PMCA; 4,265 STIM1; 1,447 Orai1).
 _MOLECULES = [
-	# id              mass_fg      initial_count  molecule_class
+	# id                   mass_fg      initial_count  molecule_class
 	# ── metabolites (concentrations derived from Purvis 2008 / Dolan 2014 / Sveshnikova 2025) ──
-	('CA2_CYT[c]',   6.660e-8,    361,           'metabolite'),  # 100 nM × 6 fL
-	('CA2_DTS[dts]', 6.660e-8,    38842,         'metabolite'),  # 250 µM × 4.3% × 6 fL
-	('ATP[c]',       8.424e-7,    3_613_200,     'metabolite'),  # 1 mM × 6 fL
-	('ADP[c]',       7.096e-7,    361_320,       'metabolite'),  # 0.1 mM × 6 fL
-	('5HT[dg]',      2.927e-7,    3_500_000,     'metabolite'),  # serotonin; dense granule
-	('ADP[dg]',      7.096e-7,    400_000,       'metabolite'),  # ADP; dense granule
-	('IP3[c]',       6.977e-7,    181,           'metabolite'),  # 50 nM × 6 fL
+	('CA2_CYT[c]',        6.660e-8,    361,           'metabolite'),  # 100 nM × 6 fL
+	('CA2_DTS[dts]',      6.660e-8,    38842,         'metabolite'),  # 250 µM × 4.3% × 6 fL
+	('ATP[c]',            8.424e-7,    10_839_600,    'metabolite'),  # 3 mM × 6 fL (Holmsen 1979/1981)
+	('ADP[c]',            7.096e-7,    1_083_960,     'metabolite'),  # 0.3 mM × 6 fL (ATP:ADP = 10:1)
+	('PI[c]',             1.580e-7,    361_320,       'metabolite'),  # 100 µM × 6 fL inorganic phosphate
+	('5HT[dg]',           2.927e-7,    3_500_000,     'metabolite'),  # serotonin; dense granule
+	('ADP[dg]',           7.096e-7,    400_000,       'metabolite'),  # ADP; dense granule
+	('IP3[c]',            6.977e-7,    181,           'metabolite'),  # 50 nM × 6 fL
 	# ── proteins (copy numbers from Burkhart 2012 unless noted) ──
-	('GP1BA[c]',     1.378e-4,    25_000,        'protein'),   # GpIbα; surface receptor
-	('ITGA2B[c]',    2.149e-4,    80_000,        'protein'),   # αIIb integrin
-	('ACTB[c]',      6.933e-5,    2_000_000,     'protein'),   # β-actin
-	('FGA[ag]',      5.647e-4,    30_000,        'protein'),   # fibrinogen hexamer; alpha granule
-	('SELP[ag]',     1.493e-4,    30_000,        'protein'),   # P-selectin; alpha granule
-	('ITPR2[c]',     5.110e-4,    1_700,         'protein'),   # IP3 receptor type 2
-	('ATP2A3[c]',    1.814e-4,    16_300,        'protein'),   # SERCA3 Ca2+-ATPase
-	('STIM1[c]',     1.285e-4,    7_400,         'protein'),   # STIM1 Ca2+ sensor
+	('GP1BA[c]',          1.378e-4,    25_000,        'protein'),     # GpIbα; surface receptor
+	('ITGA2B[c]',         2.149e-4,    80_000,        'protein'),     # αIIb integrin
+	('ACTB[c]',           6.933e-5,    2_000_000,     'protein'),     # β-actin
+	('FGA[ag]',           5.647e-4,    30_000,        'protein'),     # fibrinogen hexamer; alpha granule
+	('SELP[ag]',          1.493e-4,    30_000,        'protein'),     # P-selectin; alpha granule
+	# ── IP3R sub-states (type 2; mass = ITPR2 monomer × Burkhart total/Dolan total) ──
+	('IP3R_n[dts]',       5.110e-4,    809,           'protein'),     # neutral
+	('IP3R_o[dts]',       5.110e-4,    261,           'protein'),     # open
+	('IP3R_a[dts]',       5.110e-4,    65,            'protein'),     # active (Ca²⁺-bound, conducting)
+	('IP3R_i1[dts]',      5.110e-4,    167,           'protein'),     # inhibited-1 (Ca²⁺ at inhibitory site)
+	('IP3R_i2[dts]',      5.110e-4,    25,            'protein'),     # inhibited-2
+	('IP3R_s[dts]',       5.110e-4,    1,             'protein'),     # shut
+	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
+	('SERCA_E1[dts]',     1.814e-4,    5_920,         'protein'),     # E1 (cytosol-facing, empty)
+	('SERCA_E2[dts]',     1.814e-4,    5_927,         'protein'),     # E2 (DTS-facing, empty)
+	('SERCA_E1Ca[dts]',   1.814e-4,    6,             'protein'),     # E1·2Ca²⁺
+	('SERCA_E1PCa[dts]',  1.814e-4,    7,             'protein'),     # E1P·2Ca²⁺ (phosphorylated)
+	('SERCA_E2PCa[dts]',  1.814e-4,    4,             'protein'),     # E2P·2Ca²⁺
+	('SERCA_E2P[dts]',    1.814e-4,    28,            'protein'),     # E2P (Ca²⁺ released to DTS)
+	# ── PMCA4b sub-states (2-state Michaelis–Menten; mass = ATP2B4 monomer) ──
+	('PMCA[pl]',          2.114e-4,    765,           'protein'),     # PMCA free (1.273e5 Da)
+	('PMCA_Ca[pl]',       2.114e-4,    4,             'protein'),     # PMCA·Ca²⁺
+	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
+	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
+	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)
+	('STIM1_dim[dts]',    1.285e-4,    22,            'protein'),     # dimer (monomer-equiv count; 11 dimers)
+	# ── Orai1 (CRAC channel pore-forming subunit) ──
+	('ORAI1[pl]',         5.108e-5,    1_447,         'protein'),     # 30,768 Da; tetramerises to form ~360 channels
 ]
 
 # Submass column index for each class (mirrors SimulationDataPlatelet).

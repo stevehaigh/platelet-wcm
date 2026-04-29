@@ -15,13 +15,22 @@ Columns written:
 
 import numpy as np
 
+import math
+
 import wholecell.listeners.listener
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_IDX,
 	_UM_PER_COUNT_CYT,
 	_UM_PER_COUNT_DTS,
+	_mwc_open_fraction,
 	CA_EX_UM,
-	K_SOCE,
+	GAMMA_SOC_S,
+	NA_OVER_zF,
+	ORAI_SUBUNITS_PER_CHANNEL,
+	PUNCTA,
+	RT_OVER_zF_V,
+	STIM_MONOMERS_PER_DIMER,
+	V_PM_V,
 )
 
 
@@ -46,6 +55,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self._idx_ca_dts  = all_ids.index('CA2_DTS[dts]')
 		self._idx_ip3     = all_ids.index('IP3[c]')
 		self._idx_stim1   = all_ids.index('STIM1_dim[dts]')
+		self._idx_orai    = all_ids.index('ORAI1[pl]')
 
 		# Initialise logged quantities for shell display.
 		self.ca_cyt_nM     = 0.0
@@ -66,15 +76,35 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		ca_dts_uM = counts[self._idx_ca_dts] * _UM_PER_COUNT_DTS
 		ip3_uM    = counts[self._idx_ip3]    * _UM_PER_COUNT_CYT
 		stim1_dim = counts[self._idx_stim1]
+		orai      = counts[self._idx_orai]
 
-		self.ca_cyt_nM     = float(ca_cyt_uM * 1e3)
-		self.ca_dts_uM     = float(ca_dts_uM)
-		self.ip3_nM        = float(ip3_uM * 1e3)
-		self.stim1_dim     = int(stim1_dim)
+		self.ca_cyt_nM = float(ca_cyt_uM * 1e3)
+		self.ca_dts_uM = float(ca_dts_uM)
+		self.ip3_nM    = float(ip3_uM * 1e3)
+		self.stim1_dim = int(stim1_dim)
 
-		# Instantaneous SOCE flux (nM/s into cytosol).
-		soce_uMs           = K_SOCE['k_orai'] * stim1_dim * (CA_EX_UM - ca_cyt_uM)
-		self.soce_flux_nMs = float(soce_uMs * 1e3)
+		# Instantaneous SOCE flux (nM/s into cytosol) via the same Dolan
+		# Eq. 2/3/4 chain used inside the ODE: Hill puncta entry → MWC
+		# equilibrium → Eq. 4 Nernst current.
+		if ca_cyt_uM > 0.0:
+			hill = (ca_cyt_uM ** PUNCTA['n']
+					/ (PUNCTA['KM_uM'] ** PUNCTA['n'] + ca_cyt_uM ** PUNCTA['n']))
+		else:
+			hill = 0.0
+		qp = PUNCTA['alpha'] * hill + PUNCTA['baseline']
+		stim2_p = qp * (stim1_dim / STIM_MONOMERS_PER_DIMER)
+		n_orai_channels = orai / ORAI_SUBUNITS_PER_CHANNEL
+		po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
+		if ca_cyt_uM > 0.0 and CA_EX_UM > 0.0:
+			e_ca_pm_v = RT_OVER_zF_V * math.log(CA_EX_UM / ca_cyt_uM)
+		else:
+			e_ca_pm_v = 0.0
+		driving_pm_v = V_PM_V - e_ca_pm_v
+		soce_ions_s = (
+			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
+		)
+		# Convert ions/s in cytosol → nM/s (cyt volume).
+		self.soce_flux_nMs = float(soce_ions_s * _UM_PER_COUNT_CYT * 1e3)
 
 	def tableCreate(self, tableWriter):
 		tableWriter.writeAttributes(

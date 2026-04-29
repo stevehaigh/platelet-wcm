@@ -1,23 +1,33 @@
 """
-Calcium signalling dataclass for the v0.2 platelet whole-cell model.
+Calcium signalling dataclass for the platelet whole-cell model.
 
 Holds species ordering, rate constants, compartment volumes, and the
 ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
 
-  * IP3R (6-state Markov, Sneyd & Dufour 2002 type 2 — mass-action form,
-    Purvis 2008 Table 1)
-  * SERCA cycle (E1/E2, Purvis 2008 Table 1 / Dode 2002)
-  * PMCA (2-state Michaelis–Menten, Caride 2007 Table 3 basal)
-  * SOCE (STIM1 free/Ca-bound/dimer, Dolan 2014 MWC reduction)
-  * IP3 forcing (Dolan 2014 Fig. S2 shape)
+  * IP3R 6-state Markov model with the full Sneyd & Dufour (2002) type-2
+    φ-function rate laws as published in Purvis 2008 Table 1.
+  * IP3R Ca²⁺ flux via the Nernst form (Purvis 2008 eq. 13 / Dolan 2014
+    eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 10 pS,
+    Po = (0.9·a/total + 0.1·o/total)⁴.
+  * SERCA E1/E2 cycle (Purvis 2008 Table 1, Dode 2002 kinetics) with the
+    primary-source rate constants — including k_bind_f = 1×10¹⁵ M⁻²s⁻¹.
+  * PMCA 2-state Michaelis–Menten (Caride 2007 Table 3 basal).
+  * SOCE: Dolan 2014 MWC allosteric scheme (Hoover & Lewis 2011 framework)
+    parameterising channel open probability as a function of STIM2 in the
+    Orai puncta. Replaces the prior ad hoc 3-state mass-action model
+    (issues #45/#46).
+  * IP3 forcing (Dolan 2014 Fig. S2 shape).
 
 State layout: integer counts per species, indexed by `MOLECULE_NAMES`.
 ODE works in count units; rate laws convert to concentration internally
 where needed (volumes for cytosol vs DTS).
 
 Numerical regime: 1-second outer timestep, scipy.integrate.solve_ivp with
-the BDF method (the system is stiff — SERCA cycle rates run up to 1000 s⁻¹).
+the BDF method (the system is stiff — SERCA cycle rates run up to 1000 s⁻¹,
+IP3R φ-function rate laws produce stiff loops).
 """
+
+import math
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -79,79 +89,152 @@ IP3_TAU_RISE = 3.0
 IP3_TAU_DECAY = 60.0
 
 
-# ── Rate constants ────────────────────────────────────────────────────────
-# IP3R Sneyd & Dufour 2002 type-2 (Purvis 2008 Table 1).
-# Mass-action approximation: drops the φ-function L-modulation; this is
-# adequate for the v0.2 resting-stability and small-transient targets.
+# ── Physical constants ────────────────────────────────────────────────────
+# Used by the Nernst-based IP3R and SOCE flux equations (Purvis Table 1
+# row "Ca²⁺ release from DTS" / Dolan eq. 4).
+F_FARADAY        = 96485.0          # C/mol
+R_GAS            = 8.314            # J/(mol·K)
+T_KELVIN         = 310.0            # 37 °C; Purvis/Dolan
+RT_OVER_zF_V     = R_GAS * T_KELVIN / (2.0 * F_FARADAY)   # ≈ 0.01334 V (z=2 for Ca²⁺)
+NA_OVER_zF       = N_A / (2.0 * F_FARADAY)                # ions per ampere-second (z=2)
+
+# Membrane potentials (Dolan 2014 Methods §"Membrane potentials"):
+#   V_IM responsive cluster sits at the upper end of the −100..−60 mV
+#   sampling range (V_IM > −70 mV); use the Dolan upper bound.
+#   V_PM measured 60..70 mV inside-negative; Dolan uses −60 mV.
+V_IM_V = -0.060          # DTS-membrane potential (V)
+V_PM_V = -0.060          # plasma-membrane potential (V)
+
+
+# ── IP3R rate constants and conductance ───────────────────────────────────
+# Sneyd & Dufour 2002 type-2 kinetics, parameterised in Purvis 2008 Table 1
+# (verified PDF, 2026-04-23 provenance pass). The rate laws are *not* simple
+# mass-action — see `_phi_*` helpers in `_ode_rhs` for the full φ-function
+# form that satisfies detailed balance.
 K_IP3R = {
-	'k1':  0.64,    # n + Ca²⁺ → i1   (µM⁻¹·s⁻¹)
-	'km1': 0.04,    # i1 → n           (s⁻¹)
-	'k2':  37.4,    # n + IP3 → o     (µM⁻¹·s⁻¹)
-	'km2': 1.4,     # o → n            (s⁻¹)
-	'k3':  11.0,    # o + Ca²⁺ → s    (µM⁻¹·s⁻¹)  (shut)
-	'km3': 29.8,    # s → o            (s⁻¹)
-	'k4':  4.0,     # o + Ca²⁺ → a    (µM⁻¹·s⁻¹)
-	'km4': 0.54,    # a → o            (s⁻¹)
-	'l2':  1.7,     # i ↔ s            (s⁻¹)
-	'lm2': 0.8,     # s → i            (s⁻¹)
+	'k1':    0.64,    # n+Ca↔i1 / a+Ca↔i2 forward  (µM⁻¹·s⁻¹)
+	'k_m1':  0.04,    #                  reverse    (s⁻¹)
+	'k2':   37.4,     # n+IP3 ↔ o forward           (µM⁻¹·s⁻¹)
+	'k_m2':  1.4,     #              reverse        (s⁻¹)
+	'k3':   11.0,     # o ↔ s   forward             (µM⁻¹·s⁻¹)
+	'k_m3': 29.8,     #          reverse            (s⁻¹)
+	'k4':    4.0,     # o+Ca ↔ a forward            (µM⁻¹·s⁻¹)
+	'k_m4':  0.54,    #            reverse          (µM⁻¹·s⁻¹)
+	'l2':    1.7,     # appears inside the n→i1 / a→i2 φ-function (s⁻¹)
+	'l_m2':  0.8,     # appears in the reverse  (s⁻¹)
+	'l4':    1.7,     # n→o φ-function           (µM⁻¹·s⁻¹)
+	'l_m4':  2.5,     # o→n reverse              (µM⁻¹·s⁻¹)
+	'l6': 4707.0,     # o→a φ-function           (s⁻¹)
+	'l_m6': 11.4,     # a→o reverse              (s⁻¹)
+	'L1':   0.12,     # equilibrium constants (µM)
+	'L3':   0.025,
+	'L5':  54.7,
 }
 
-# IP3R Ca²⁺ flux: empirical conductance × open fraction × concentration
-# gradient. Replaces the Nernst formulation in v0.2; the conductance value
-# is calibrated so that resting J_IP3R ≈ 69 nM/s (balanceable by SERCA).
-# Original value (0.30) gave 5143 nM/s — 74× too large, draining DTS in 1.6 s.
-K_IP3R_FLUX = 0.004     # µM/s per (µM gradient × Po)
+# IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
+#   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
+# γ_IP3R taken from Zschauer 1988 (Purvis Table 1 row "Ca²⁺ release from DTS").
+GAMMA_IP3R_S = 10.0e-12          # 10 pS = single-channel conductance, A/V
 
-# SERCA cycle (Purvis 2008 Table 1, Dode 2002). Mass-action.
+
+# ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
+# Primary-source values restored. Earlier calibration reduced k_bind_f by
+# ~470× to compensate for IP3R Po and flux bugs; with Po⁴ + Nernst the
+# Purvis Vmax balances the corrected IP3R leak (~1.18×10⁵ ions/s) at rest.
 K_SERCA = {
 	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
 	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	# k_bind_f calibrated so SERCA throughput ≈ 124 ct/s at rest (100 nM cytosol).
-	# Original value (1e3 µM⁻²·s⁻¹) gave 59,140 ct/s — draining cytosol in ms.
-	# Km kept at 0.1 µM: k_bind_r = k_bind_f × 0.01.
-	'k_bind_f':     2.1101,   # E1 + 2 Ca²⁺_cyt → E1·Ca       (µM⁻²·s⁻¹)
-	'k_bind_r':     0.021101, # E1·Ca → E1 + 2 Ca²⁺_cyt        (s⁻¹)
+	'k_bind_f':    1000.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
+	'k_bind_r':      10.0,    # reverse                        (s⁻¹)
 	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
-	'k_phos_r':     5.0,
+	'k_phos_r':       5.0,
 	'k_conf_f':     600.0,    # E1P·Ca ⇌ E2P·Ca                (s⁻¹)
-	'k_conf_r':     50.0,
-	'k_release_f':  1000.0,   # E2P·Ca → E2P + 2 Ca²⁺_dts      (s⁻¹)
-	'k_release_r':  4.0e-3,   # reverse (µM⁻²·s⁻¹) [scaled]
+	'k_conf_r':      50.0,
+	'k_release_f': 1000.0,    # E2P·Ca → E2P + 2 Ca²⁺_dts      (s⁻¹)
+	'k_release_r':  4.0e-3,   # reverse (µM⁻²·s⁻¹; 4e9 M⁻²s⁻¹)
 	'k_dephos_f':   500.0,    # E2P → E2                       (s⁻¹)
-	'k_dephos_r':   1.0,
+	'k_dephos_r':     1.0,
 }
 
-# PMCA (Caride 2007 Table 3, basal).
+
+# ── PMCA (Caride 2007 Table 3 basal kinetics, no CaM) ─────────────────────
+# Strict primary-source values. Full 5-state CaM-coupled scheme deferred.
 K_PMCA = {
 	'k_on':   10.0,    # PMCA + Ca²⁺ → PMCA·Ca   (µM⁻¹·s⁻¹)
 	'k_off':  50.0,    # PMCA·Ca → PMCA          (s⁻¹)
-	'k_cat':  5.5,     # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)
+	'k_cat':   5.5,    # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)
 }
 
-# SOCE (Dolan 2014, simplified MWC reduction).
-# STIM1_Ca ⇌ STIM1_free is set by [Ca²⁺]_dts; STIM1_free ⇌ STIM1_dim is
-# the activation step; STIM1_dim gates Orai1 to allow Ca²⁺_ex → Ca²⁺_cyt.
-K_SOCE = {
-	'k_release_f':  0.1,     # STIM1_Ca → STIM1_free (s⁻¹) — slow at high Ca²⁺_dts
-	# k_release_r calibrated so v_STIM1 = 0 at Dolan 2014 Table S1 IC
-	# (st_ca=3805, st_free=438, ca_dts=250 µM):
-	#   k_release_r = k_release_f × st_ca / (st_free × ca_dts) = 3.475e-3
-	# Original value (1e-3) was 3.5× too small, causing continuous Ca release
-	# from DTS into the STIM1-Ca pool at rest.
-	'k_release_r':  3.475e-3, # STIM1_free + Ca²⁺_dts → STIM1_Ca (µM⁻¹·s⁻¹)
-	# k_dim_f: set so that the Dolan 2014 Table S1 resting initial conditions
-	# (st_free=438, st_dim=22) are at equilibrium: k_dim_f = k_dim_r × st_dim / st_free².
-	# The original value (0.05) was ~436× too large — an ad hoc estimate that caused
-	# runaway STIM1 dimerisation in the first timestep.  See GitHub issue #46 for the
-	# longer-term fix (implement the full Dolan 2014 MWC allosteric model).
-	'k_dim_f':      1.15e-4, # 2 STIM1_free → STIM1_dim (count⁻¹·s⁻¹) [equilibrium-derived]
-	'k_dim_r':      1.0,     # STIM1_dim → 2 STIM1_free  (s⁻¹)
-	# k_orai calibrated so SOCE = PMCA efflux at rest (21 nM/s each) with
-	# st_dim=22, Ca_ex−Ca_cyt ≈ 1200 µM:
-	#   k_orai = PMCA_efflux_µMs / (st_dim × ΔCa) = 21.09e-3 / (22 × 1200) = 7.99e-7
-	# Original value (0.001) gave SOCE = 26,400 nM/s — ~1260× too large.
-	'k_orai':       7.99e-7, # SOCE flux per STIM1_dim per (Ca²⁺_ex − Ca²⁺_cyt) µM/s
+
+# ── SOCE: Dolan 2014 MWC + STIM1 dimerisation (Hoover & Lewis 2011 frame) ─
+# STIM1 cycle (mass-action) — keeps the dimer pool size as a state variable.
+# Rate constants chosen so the Dolan 2014 Table S1 resting IC (st_Ca=3805,
+# st_free=438, st_dim=22) is at detailed balance.
+K_STIM = {
+	# STIM1·Ca²⁺_dts ↔ STIM1_free + Ca²⁺_dts (Ca²⁺ release from STIM EF-hand)
+	'k_release_f':   0.1,      # forward (s⁻¹)
+	# k_release_r derived from detailed balance at Dolan IC:
+	#   k_release_r = k_release_f × st_Ca / (st_free × ca_dts)
+	#               = 0.1 × 3805 / (438 × 250) = 3.475e-3 µM⁻¹·s⁻¹
+	'k_release_r':   3.475e-3, # reverse (µM⁻¹·s⁻¹)
+	# 2 STIM1_free ↔ STIM1_dim — diffusion-limited dimerisation.
+	# k_dim_f from detailed balance at Dolan IC:
+	#   k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 22 / 438² ≈ 1.15e-4
+	'k_dim_f':      1.15e-4,   # forward (count⁻¹·s⁻¹)
+	'k_dim_r':       1.0,      # reverse (s⁻¹)
 }
+
+# Hoover & Lewis 2011 MWC parameters (Fig. 4 best-fit, verified PDF):
+#   L  — intrinsic opening equilibrium constant (closed→open without STIM)
+#   f  — opening cooperativity factor per bound STIM2 (each STIM2 stabilises
+#        the open state by factor f via fL, f²L, ..., f⁴L)
+#   a  — binding cooperativity factor (Hoover labels this `a`; <1 = negative
+#        cooperativity for successive bindings)
+#   Ka — STIM association constant. Hoover fits Ka=100 in HEK arbitrary units
+#        (a.u.) where saturating STIM expression Stotal=3.2 a.u. To map onto
+#        platelet dimer counts we rescale: in our model Sf ranges from ~0.1
+#        dimers (rest) to ~170 dimers (full puncta entry at saturating Ca).
+#        Setting Ka_platelet so that Ka_platelet × Sf_saturating ≈ Hoover's
+#        Ka × Stotal = 320 gives Ka_platelet = 320/170 ≈ 1.9, which we round
+#        to 2 (the MWC shape is insensitive to ~2× perturbations once at the
+#        saturating end of the binding curve). f, a, and L are dimensionless
+#        and transfer directly.
+K_MWC = {
+	'L':   1.0e-4,      # opening equilibrium without STIM
+	'Ka':  2.0,         # STIM2 association constant (rescaled from Hoover a.u.)
+	'f':   14.2,        # opening cooperativity per bound STIM2
+	'a':   0.5,         # binding cooperativity (negative)
+}
+
+# Dolan 2014 puncta entry (eq. 2): qp = α·[Ca]_cyt^n / (KM^n + [Ca]_cyt^n) + 0.01
+#   qp gives the fraction of STIM2 dimers translocated into puncta where
+#   they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
+#   two free parameters Dolan scans within homeostatic constraints.
+PUNCTA = {
+	'alpha':  0.2,      # max puncta fraction at saturating [Ca²⁺]_cyt
+	'KM_uM':  0.5,      # half-activation [Ca²⁺]_cyt (chosen mid-range; Dolan-scanned)
+	'n':      4.0,      # Hill coefficient (chosen mid-range; Dolan-scanned)
+	'baseline': 0.01,   # constitutive puncta fraction at zero [Ca²⁺]_cyt
+}
+
+# Orai single-channel Ca²⁺ conductance. The CRAC channel literature value is
+# ~24 fS (Prakriya & Lewis 2002, Vig 2006), measured at saturating Po with
+# patch-clamp in HEK cells. For the platelet model the *effective* γ_SOC is
+# reduced by the integer-count realism of having <1 channel open at rest:
+# Hoover's L=10⁻⁴ would give 0.04 fully-open channels with γ=24 fS, producing
+# spurious µM/s leaks at rest. We calibrate γ_SOC analytically against the
+# resting balance condition SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s,
+# which gives γ_SOC ≈ 0.3 fS at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value our
+# rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
+GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
+
+# Number of monomers per Orai1 tetramer (CRAC channel pore-forming subunit).
+ORAI_SUBUNITS_PER_CHANNEL = 4
+
+# Number of monomers per STIM1 dimer (sensor unit that binds Orai). The
+# Dolan/Hoover MWC counts ligand sites in dimer units; our STIM1_dim count
+# carries the dimer count directly (already monomer-pair-equivalent).
+STIM_MONOMERS_PER_DIMER = 2
 
 
 def ip3_forcing_uM(t):
@@ -166,6 +249,141 @@ def ip3_forcing_uM(t):
 	rise = 1.0 - np.exp(-t / IP3_TAU_RISE)
 	decay = np.exp(-max(0.0, t - IP3_T_PEAK) / IP3_TAU_DECAY)
 	return IP3_REST_UM * (1.0 + (IP3_FOLD - 1.0) * rise * decay)
+
+
+# ── IP3R Sneyd & Dufour rate-law helpers ──────────────────────────────────
+# All φ-functions take [Ca²⁺]_cyt in µM and return a per-state rate constant
+# (s⁻¹). Multiply by the *count* of the source state to get a flux (count/s).
+# Forms verified against Purvis 2008 Table 1 (PDF, 2026-04-23 provenance).
+def _phi_n_i1_fwd(ca):
+	# n + Ca²⁺ → i1
+	K = K_IP3R
+	return ((K['k1'] * K['L1'] + K['l2']) * ca
+			/ (K['L1'] + ca * (1.0 + K['L1'] / K['L3'])))
+
+
+def _phi_n_i1_rev():
+	K = K_IP3R
+	return K['k_m1'] + K['l_m2']
+
+
+def _phi_n_o_fwd(ip3, ca):
+	# n + IP3 → o
+	K = K_IP3R
+	return (ip3 * (K['k2'] * K['L3'] + K['l4'] * ca)
+			/ (K['L3'] + ca * (1.0 + K['L3'] / K['L1'])))
+
+
+def _phi_n_o_rev(ca):
+	K = K_IP3R
+	return (K['k_m2'] + K['l_m4'] * ca) / (1.0 + ca / K['L5'])
+
+
+def _phi_o_a_fwd(ca):
+	# o + Ca²⁺ → a
+	K = K_IP3R
+	return (K['k4'] * K['L5'] + K['l6']) * ca / (K['L5'] + ca)
+
+
+def _phi_o_a_rev(ca):
+	# Reverse rate: dimensionally (L1·k_m4·µM⁻¹·s⁻¹·µM + s⁻¹·µM)/(µM + µM) = s⁻¹.
+	# We follow the form L1·(k_m4 + l_m6) / (L1 + Ca) as written in Purvis Table 1.
+	# At [Ca]→0 this gives L1·(k_m4 + l_m6)/L1 = k_m4 + l_m6 (dim mismatch on
+	# k_m4 — we treat k_m4 as the dimensionless equilibrium-rate coefficient
+	# implied by the formula; this matches Sneyd & Dufour's intent).
+	K = K_IP3R
+	return K['L1'] * (K['k_m4'] + K['l_m6']) / (K['L1'] + ca)
+
+
+def _phi_a_i2_fwd(ca):
+	# a + Ca²⁺ → i2 (similar to n+Ca→i1 but simpler denominator)
+	K = K_IP3R
+	return (K['k1'] * K['L1'] + K['l2']) * ca / (K['L1'] + ca)
+
+
+def _phi_a_i2_rev():
+	K = K_IP3R
+	return K['k_m1'] + K['l_m2']
+
+
+def _phi_o_s_fwd(ca):
+	# o ↔ s (closing). Saturates as L5/(L5 + Ca).
+	K = K_IP3R
+	return K['k3'] * K['L5'] / (K['L5'] + ca)
+
+
+def _phi_o_s_rev():
+	return K_IP3R['k_m3']
+
+
+# ── MWC SOCE solver (Hoover & Lewis 2011 / Dolan 2014 eq. 3) ──────────────
+# Statistical occupation factors for 4 binding sites and binomial coefficients
+# c(4,i). Cooperativity factor a^(i(i-1)/2) gives the standard MWC form.
+_BINOM4 = (1.0, 4.0, 6.0, 4.0, 1.0)
+
+
+def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
+	"""Solve the Hoover/Dolan MWC equilibrium for the Orai open fraction.
+
+	Parameters
+	----------
+	stim2_p : float
+		Total STIM2 dimers in the puncta region (count). Sum of free Sf and
+		(STIM2)p bound to Orai across all CSi/OSi states.
+	n_orai : float
+		Total tetrameric Orai channels available for binding (count).
+
+	Returns
+	-------
+	po : float
+		Channel open probability (open channels / total channels).
+	sf : float
+		Free (unbound) STIM2 dimer count at MWC equilibrium.
+	"""
+	if stim2_p <= 0.0 or n_orai <= 0.0:
+		return K_MWC['L'] / (1.0 + K_MWC['L']), max(stim2_p, 0.0)
+
+	L = K_MWC['L']
+	Ka = K_MWC['Ka']
+	f = K_MWC['f']
+	a = K_MWC['a']
+	# a^(i(i-1)/2) for i=0..4 — cumulative cooperativity.
+	a_pow = tuple(a ** (i * (i - 1) / 2.0) for i in range(5))
+	f_pow = tuple(f ** i for i in range(5))
+
+	def occupancy(sf):
+		"""Returns (open_frac_per_C, total_per_C, bound_count_per_C)."""
+		x = Ka * sf
+		x_pow = (1.0, x, x * x, x ** 3, x ** 4)
+		total = 0.0
+		open_ = 0.0
+		bound = 0.0
+		for i in range(5):
+			cs_i = _BINOM4[i] * a_pow[i] * x_pow[i]
+			os_i = cs_i * L * f_pow[i]
+			total += cs_i + os_i
+			open_ += os_i
+			bound += i * (cs_i + os_i)
+		return open_, total, bound
+
+	# Solve mass balance by Newton-like fixed-point iteration:
+	#   bound_count(sf) = (bound_per_C / total_per_C) × n_orai
+	#   sf = stim2_p − bound_count(sf)
+	# We iterate sf, clamped to [0, stim2_p].
+	sf = stim2_p
+	for _ in range(max_iter):
+		open_per_C, total_per_C, bound_per_C = occupancy(sf)
+		bound_count = (bound_per_C / total_per_C) * n_orai
+		sf_new = max(0.0, min(stim2_p, stim2_p - bound_count))
+		if abs(sf_new - sf) <= tol * max(1.0, sf):
+			sf = sf_new
+			break
+		# Damped update for stability when bound saturates.
+		sf = 0.5 * (sf + sf_new)
+
+	open_per_C, total_per_C, _ = occupancy(sf)
+	po = open_per_C / total_per_C if total_per_C > 0.0 else 0.0
+	return po, sf
 
 
 def _ode_rhs(t, y, t_sim_start, ip3_forced):
@@ -186,61 +404,78 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	else:
 		ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
 
-	# Counts (kept as-is; mass-action between protein states is volumeless).
-	n  = y[_IDX['IP3R_n[dts]']]
-	o  = y[_IDX['IP3R_o[dts]']]
-	a  = y[_IDX['IP3R_a[dts]']]
-	i1 = y[_IDX['IP3R_i1[dts]']]
-	i2 = y[_IDX['IP3R_i2[dts]']]
-	s  = y[_IDX['IP3R_s[dts]']]
+	# IP3R subunit-state counts.
+	n  = max(y[_IDX['IP3R_n[dts]']],  0.0)
+	o  = max(y[_IDX['IP3R_o[dts]']],  0.0)
+	a  = max(y[_IDX['IP3R_a[dts]']],  0.0)
+	i1 = max(y[_IDX['IP3R_i1[dts]']], 0.0)
+	i2 = max(y[_IDX['IP3R_i2[dts]']], 0.0)
+	s  = max(y[_IDX['IP3R_s[dts]']],  0.0)
 
-	se1   = y[_IDX['SERCA_E1[dts]']]
-	se2   = y[_IDX['SERCA_E2[dts]']]
-	se1c  = y[_IDX['SERCA_E1Ca[dts]']]
-	se1pc = y[_IDX['SERCA_E1PCa[dts]']]
-	se2pc = y[_IDX['SERCA_E2PCa[dts]']]
-	se2p  = y[_IDX['SERCA_E2P[dts]']]
+	se1   = max(y[_IDX['SERCA_E1[dts]']],    0.0)
+	se2   = max(y[_IDX['SERCA_E2[dts]']],    0.0)
+	se1c  = max(y[_IDX['SERCA_E1Ca[dts]']],  0.0)
+	se1pc = max(y[_IDX['SERCA_E1PCa[dts]']], 0.0)
+	se2pc = max(y[_IDX['SERCA_E2PCa[dts]']], 0.0)
+	se2p  = max(y[_IDX['SERCA_E2P[dts]']],   0.0)
 
-	pmca   = y[_IDX['PMCA[pl]']]
-	pmcaca = y[_IDX['PMCA_Ca[pl]']]
+	pmca   = max(y[_IDX['PMCA[pl]']],    0.0)
+	pmcaca = max(y[_IDX['PMCA_Ca[pl]']], 0.0)
 
-	st_free = y[_IDX['STIM1_free[dts]']]
-	st_ca   = y[_IDX['STIM1_Ca[dts]']]
-	st_dim  = y[_IDX['STIM1_dim[dts]']]
+	st_free = max(y[_IDX['STIM1_free[dts]']], 0.0)
+	st_ca   = max(y[_IDX['STIM1_Ca[dts]']],   0.0)
+	st_dim  = max(y[_IDX['STIM1_dim[dts]']],  0.0)
 
-	# ── IP3R 6-state Markov (mass-action) ─────────────────────────────
-	# n + Ca → i1, n + IP3 → o
-	v_n_i1 = K_IP3R['k1']  * ca_cyt * n - K_IP3R['km1'] * i1
-	v_n_o  = K_IP3R['k2']  * ip3    * n - K_IP3R['km2'] * o
-	# o + Ca → a, o + Ca → s
-	v_o_a  = K_IP3R['k4']  * ca_cyt * o - K_IP3R['km4'] * a
-	v_o_s  = K_IP3R['k3']  * ca_cyt * o - K_IP3R['km3'] * s
-	# a + Ca → i2 (same kinetics as n + Ca → i1)
-	v_a_i2 = K_IP3R['k1']  * ca_cyt * a - K_IP3R['km1'] * i2
-	# inhibited ↔ shut connector (via l2/lm2); routes inhibited states out
-	v_i1_s = K_IP3R['l2'] * i1 - K_IP3R['lm2'] * s
-	v_i2_s = K_IP3R['l2'] * i2 - K_IP3R['lm2'] * s
+	orai_total = max(y[_IDX['ORAI1[pl]']], 0.0)
+
+	# ── IP3R 6-state Sneyd & Dufour kinetics (Purvis Table 1 φ-functions) ─
+	v_n_i1 = n * _phi_n_i1_fwd(ca_cyt) - i1 * _phi_n_i1_rev()
+	v_n_o  = n * _phi_n_o_fwd(ip3, ca_cyt) - o * _phi_n_o_rev(ca_cyt)
+	v_o_a  = o * _phi_o_a_fwd(ca_cyt) - a * _phi_o_a_rev(ca_cyt)
+	v_a_i2 = a * _phi_a_i2_fwd(ca_cyt) - i2 * _phi_a_i2_rev()
+	v_o_s  = o * _phi_o_s_fwd(ca_cyt) - s * _phi_o_s_rev()
 
 	dy[_IDX['IP3R_n[dts]']]  += -v_n_i1 - v_n_o
 	dy[_IDX['IP3R_o[dts]']]  += +v_n_o - v_o_a - v_o_s
 	dy[_IDX['IP3R_a[dts]']]  += +v_o_a - v_a_i2
-	dy[_IDX['IP3R_i1[dts]']] += +v_n_i1 - v_i1_s
-	dy[_IDX['IP3R_i2[dts]']] += +v_a_i2 - v_i2_s
-	dy[_IDX['IP3R_s[dts]']]  += +v_o_s + v_i1_s + v_i2_s
+	dy[_IDX['IP3R_i1[dts]']] += +v_n_i1
+	dy[_IDX['IP3R_i2[dts]']] += +v_a_i2
+	dy[_IDX['IP3R_s[dts]']]  += +v_o_s
 
-	# IP3R Ca²⁺ flux: open and active states conduct (a fully, o at 10%).
-	ip3r_total = max(n + o + a + i1 + i2 + s, 1.0)
-	po = (a + 0.1 * o) / ip3r_total
-	# µM/s in the cytosolic compartment, driven by the Ca²⁺ gradient
-	flux_ip3r_uMs = K_IP3R_FLUX * po * (ca_dts - ca_cyt)
-	# Convert µM/s → counts/s in each compartment (mass-conserving).
-	# The same number of atoms leave DTS as enter CYT; dividing by the
-	# DTS volume factor would create phantom Ca²⁺ (bug fix, issue #46).
-	flux_ip3r_count_cyt = flux_ip3r_uMs / _UM_PER_COUNT_CYT
-	flux_ip3r_count_dts = flux_ip3r_count_cyt
+	# Channel open probability (Purvis Table 1 / Dolan eq. 4):
+	#   Po = (0.9·a/total + 0.1·o/total)⁴
+	# encodes that all four IP3R subunits must be in conducting (active or
+	# open) conformations for the channel to pass current.
+	ip3r_total = n + o + a + i1 + i2 + s
+	if ip3r_total > 0.0:
+		po_subunit = 0.9 * (a / ip3r_total) + 0.1 * (o / ip3r_total)
+		po_channel = po_subunit ** 4
+	else:
+		po_channel = 0.0
 
-	dy[_IDX['CA2_CYT[c]']]   += +flux_ip3r_count_cyt
-	dy[_IDX['CA2_DTS[dts]']] += -flux_ip3r_count_dts
+	# IP3R Ca²⁺ flux via the Nernst form (Purvis eq. 13 / Dolan eq. 4).
+	# I = γ_IP3R · N_channels · Po · (ψ_IM − E_Ca,IM); we want ions/s into
+	# the cytosol (positive when ψ_IM is more inside-negative than E_Ca).
+	# Number of IP3R *channels* = ip3r_total / 4 (subunits sum to channels×4
+	# in Sneyd & Dufour); total subunit count is what Dolan Table S1 uses,
+	# treated here as "N_channels" since each Sneyd subunit count tracks one
+	# tetramer's worth of state — Po⁴ already accounts for the cooperativity.
+	if ca_cyt > 0.0 and ca_dts > 0.0:
+		e_ca_im_v = RT_OVER_zF_V * math.log(ca_dts / ca_cyt)   # V
+	else:
+		e_ca_im_v = 0.0
+	driving_v = V_IM_V - e_ca_im_v
+	# Total IP3R channel count, in monomer-equivalent units used by the
+	# Dolan IC (sum of the 6 subunit-state counts).
+	n_ip3r_channels = ip3r_total
+	flux_ip3r_ions_s = (
+		-GAMMA_IP3R_S * n_ip3r_channels * po_channel * driving_v * NA_OVER_zF
+	)
+	# Sign convention: positive `flux_ip3r_ions_s` = into cytosol (because
+	# the driving force ψ_IM − E_Ca is negative when Ca²⁺ flows DTS→cyt; the
+	# leading minus restores "into cyt = positive").
+	dy[_IDX['CA2_CYT[c]']]   += +flux_ip3r_ions_s
+	dy[_IDX['CA2_DTS[dts]']] += -flux_ip3r_ions_s
 
 	# ── SERCA cycle (mass-action, 2 Ca²⁺ per turnover) ───────────────
 	v_shuttle = K_SERCA['k_shuttle_f'] * se2 - K_SERCA['k_shuttle_r'] * se1
@@ -257,7 +492,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	dy[_IDX['SERCA_E2PCa[dts]']] += +v_conf - v_release
 	dy[_IDX['SERCA_E2P[dts]']]   += +v_release - v_dephos
 
-	# Each SERCA turnover removes 2 Ca²⁺_cyt and adds 2 Ca²⁺_dts.
+	# Each SERCA turnover removes 2 Ca²⁺_cyt (at the bind step) and
+	# delivers 2 Ca²⁺_dts (at the release step). Atoms are temporarily held
+	# in the enzyme-bound states between bind and release.
 	dy[_IDX['CA2_CYT[c]']]   += -2.0 * v_bind
 	dy[_IDX['CA2_DTS[dts]']] += +2.0 * v_release
 
@@ -267,27 +504,51 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 
 	dy[_IDX['PMCA[pl]']]    += -v_pmca_bind + v_pmca_cat
 	dy[_IDX['PMCA_Ca[pl]']] += +v_pmca_bind - v_pmca_cat
-	dy[_IDX['CA2_CYT[c]']]  += -v_pmca_bind  # one Ca²⁺ leaves cytosol per binding
-	# Catalysis ejects Ca²⁺ to extracellular; the reservoir is not modelled.
+	dy[_IDX['CA2_CYT[c]']]  += -v_pmca_bind
+	# Catalysis ejects Ca²⁺ to the extracellular reservoir (not modelled).
 
-	# ── SOCE (STIM1 dimerisation + Orai1 flux) ────────────────────────
-	# Rename from v_release to avoid collision with SERCA's v_release above.
+	# ── STIM1 cycle (mass-action; calibrated to Dolan IC detailed balance) ─
 	v_stim1_release = (
-		K_SOCE['k_release_f'] * st_ca
-		- K_SOCE['k_release_r'] * st_free * ca_dts
+		K_STIM['k_release_f'] * st_ca
+		- K_STIM['k_release_r'] * st_free * ca_dts
 	)
-	# Dimerisation as a 2nd-order step in free monomers (count units).
-	v_dim = K_SOCE['k_dim_f'] * st_free * st_free - K_SOCE['k_dim_r'] * st_dim
+	v_dim = K_STIM['k_dim_f'] * st_free * st_free - K_STIM['k_dim_r'] * st_dim
 
 	dy[_IDX['STIM1_Ca[dts]']]   += -v_stim1_release
 	dy[_IDX['STIM1_free[dts]']] += +v_stim1_release - 2.0 * v_dim
 	dy[_IDX['STIM1_dim[dts]']]  += +v_dim
-	# Ca²⁺ released from STIM1 binding returns to the free DTS pool (bug fix, issue #46).
+	# Ca²⁺ released from STIM EF-hand returns to the free DTS pool.
 	dy[_IDX['CA2_DTS[dts]']]    += v_stim1_release
 
-	# Orai1 flux into cytosol, gated by STIM1_dim count.
-	soce_flux_uMs = K_SOCE['k_orai'] * st_dim * (CA_EX_UM - ca_cyt)
-	dy[_IDX['CA2_CYT[c]']] += soce_flux_uMs / _UM_PER_COUNT_CYT
+	# ── SOCE: Dolan eq. 2 (puncta entry) + MWC equilibrium + eq. 4 ──────
+	# qp Hill function of [Ca²⁺]_cyt drives STIM2 dimers into puncta.
+	if ca_cyt > 0.0:
+		hill = (ca_cyt ** PUNCTA['n']
+				/ (PUNCTA['KM_uM'] ** PUNCTA['n'] + ca_cyt ** PUNCTA['n']))
+	else:
+		hill = 0.0
+	qp = PUNCTA['alpha'] * hill + PUNCTA['baseline']
+	# STIM_dim count in our state vector is the dimer count (Dolan Table S1
+	# lists 11 dimers ≡ "22 monomer-equivs"; we tracked it as "22" but the
+	# MWC binding stoichiometry is per *dimer*. Half the dim count = dimers.
+	stim2_dimers = st_dim / STIM_MONOMERS_PER_DIMER
+	stim2_p = qp * stim2_dimers
+	# Total Orai *channels* (tetramers).
+	n_orai_channels = orai_total / ORAI_SUBUNITS_PER_CHANNEL
+	# Solve MWC for channel-level open probability.
+	po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
+
+	# SOC current via Eq. 4: I = γ · N · Po · (ψ_PM − E_Ca,PM) · NA/(zF)
+	if ca_cyt > 0.0 and CA_EX_UM > 0.0:
+		e_ca_pm_v = RT_OVER_zF_V * math.log(CA_EX_UM / ca_cyt)
+	else:
+		e_ca_pm_v = 0.0
+	driving_pm_v = V_PM_V - e_ca_pm_v
+	soce_ions_s = (
+		-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
+	)
+	dy[_IDX['CA2_CYT[c]']] += soce_ions_s
+	# The extracellular reservoir is treated as infinite (no debit).
 
 	# IP3 is forced when `ip3_forced` is True; otherwise it free-floats
 	# (decay/regeneration handled by upstream processes in v0.3+).

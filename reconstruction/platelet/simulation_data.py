@@ -39,6 +39,8 @@ class SimulationDataPlatelet:
 		#   m   = mitochondrial matrix
 		#   e   = extracellular / open canalicular system
 		#   dts = dense tubular system (platelet ER equivalent; Ca2+ store)
+		#   pl  = plasmalemma (plasma membrane); chosen over `pm` to avoid
+		#         collision with the matrix `m` suffix.
 		self.compartment_abbrev_to_index = {
 			'c':   0,
 			'dg':  1,
@@ -46,6 +48,7 @@ class SimulationDataPlatelet:
 			'm':   3,
 			'e':   4,
 			'dts': 5,
+			'pl':  6,
 		}
 
 		# ── Sub-objects read by engine states ──────────────────────────────────

@@ -1,157 +1,218 @@
 # Platelet Ca²⁺ Dynamics: Implementation and Calibration Notes
 
-**Branch:** `platelet`  
-**Relevant commits:** issues #24, #25, #26, #27  
-**Status:** Partially calibrated — simulation runs without runaway, but resting Ca²⁺ drifts to ~235 nM instead of the target 100 nM (see §4).
+**Branch:** `platelet`
+**Relevant commits:** issues #24, #25, #26, #27, #45, #46
+**Status:** Equations restored to primary-source form (Sneyd & Dufour IP3R, Po⁴ tetramer cooperativity, Nernst flux, Hoover/Dolan MWC SOCE, Purvis SERCA Vmax). Integrator runs stably. Resting state does **not** hold 100 nM at the Dolan Table S1 ICs — those ICs are not a steady state of the corrected model. See §4.
 
 ---
 
-## 1. What Was Built (v0.2)
+## 1. What Was Built (current state)
 
 Three files implement IP3-mediated Ca²⁺ signalling in the platelet WCM:
 
 | File | Role |
 |------|------|
-| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | ODE right-hand side, all kinetic parameters |
+| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | ODE right-hand side, all kinetic parameters, MWC SOCE solver |
 | `models/platelet/processes/calcium_dynamics.py` | Thin process wrapper calling the ODE each timestep |
 | `models/platelet/listeners/calcium_trace.py` | Records ca_cyt, ca_dts, ip3, SOCE flux each timestep |
 | `models/platelet/analysis/single/calcium_trace.py` | 3-panel Ca²⁺ transient plot vs Dolan 2014 reference |
 
 The ODE covers 21 molecular species:
 
-- **Ca²⁺ pools**: cytosol (ca_cyt), DTS (ca_dts)
-- **IP3R**: 6-state De Young–Keizer gating (n, o, a, i1, i2, s)
-- **SERCA**: 6-state Purvis 2008 cycle (E1, E2, E1Ca, E1PCa, E2PCa, E2P)
-- **PMCA**: 2-state Ca²⁺/CaM-activated pump
-- **SOCE/STIM1/Orai1**: 3-state simplified MWC (STIM1_Ca, STIM1_free, STIM1_dim)
+- **Ca²⁺ pools**: cytosol (`CA2_CYT`), DTS (`CA2_DTS`)
+- **IP3R**: 6-state Sneyd & Dufour Markov gating (n, o, a, i1, i2, s)
+- **SERCA**: 6-state Purvis 2008 / Dode 2002 cycle
+- **PMCA**: 2-state Caride 2007 basal kinetics (CaM-coupled scheme deferred)
+- **SOCE / STIM1 / Orai1**: 3-state STIM cycle + Hoover/Dolan MWC channel gating
 
-IP3 is forced externally via `ip3_forcing_uM(t)` — a Dolan 2014 Fig. S2 approximation (50 nM rest → 275 nM peak at t≈3–5 s → τ=60 s decay). The simulation timestep is 1 s; the ODE is solved with SciPy BDF within each step.
-
----
-
-## 2. The Five Calibration Bugs
-
-The initial parameter set caused runaway behaviour: ca_cyt reached ~60 µM within seconds (biological target: ~400 nM peak) and DTS filled rather than depleting. Numerical audit identified five miscalibrated parameters:
-
-### 2.1 IP3R resting flux too large (`K_IP3R_FLUX`)
-
-| | Value | Resting flux |
-|---|---|---|
-| Original | 0.30 | 5143 nM/s |
-| Fixed | **0.004** | 69 nM/s |
-
-At `K_IP3R_FLUX = 0.30`, with Dolan Table S1 resting open probability (~0.069) and DTS–cytosol gradient (~250 µM), the IP3R alone would drain the entire DTS in 1.6 s. The correct value is derived by requiring the resting IP3R flux to match the SERCA pumping capacity (~69 nM/s).
-
-### 2.2 SOCE conductance too large (`k_orai`)
-
-| | Value | Resting SOCE |
-|---|---|---|
-| Original | 0.001 | 26,400 nM/s |
-| Fixed | **7.99×10⁻⁷** | 21 nM/s |
-
-The fix requires SOCE = PMCA efflux at rest:
-
-```
-k_orai = PMCA_efflux_µMs / (st_dim × (Ca_ex − ca_cyt))
-       = 21.09×10⁻³ / (22 × 1200) = 7.99×10⁻⁷
-```
-
-### 2.3 STIM1 Ca-binding not at equilibrium (`k_release_r`)
-
-| | Value | v_STIM1 at Dolan IC |
-|---|---|---|
-| Original | 0.001 | +271 ct/s (net release) |
-| Fixed | **3.475×10⁻³** | ≈ 0 ct/s |
-
-The fix requires detailed balance at the Dolan 2014 Table S1 resting IC (st_ca=3805, st_free=438, ca_dts=250 µM):
-
-```
-k_release_r = k_release_f × st_ca / (st_free × ca_dts)
-            = 0.1 × 3805 / (438 × 250) = 3.475×10⁻³ µM⁻¹s⁻¹
-```
-
-### 2.4 SERCA binding rate too large (`k_bind_f`, `k_bind_r`)
-
-| | k_bind_f | k_bind_r | Resting throughput |
-|---|---|---|---|
-| Original | 1000 µM⁻²s⁻¹ | 10 s⁻¹ | 59,140 ct/s |
-| Fixed | **2.1101 µM⁻²s⁻¹** | **0.021101 s⁻¹** | 124 ct/s |
-
-The Purvis 2008 value (1×10¹⁵ M⁻²s⁻¹) converts correctly to 1×10³ µM⁻²s⁻¹, but this is the *in-vitro* maximum rate for isolated SERCA — far too fast for a system with only 5920 SERCA molecules and 100 nM cytosolic Ca²⁺. The correct `k_bind_f` is derived by requiring SERCA throughput to balance the corrected IP3R + SOCE − PMCA at rest (~124 ct/s), while maintaining the 0.1 µM Km (so `k_bind_r = k_bind_f × Km²`).
+IP3 is forced externally via `ip3_forcing_uM(t)` — a Dolan 2014 Fig. S2 approximation. The simulation timestep is 1 s; the ODE is solved with SciPy BDF within each step.
 
 ---
 
-## 3. Current Behaviour After Fixes
+## 2. Equations restored to primary-source form
 
-With the five fixes applied, the simulation no longer diverges. Qualitative behaviour:
+A previous calibration pass (commit 8df289acb) reduced several constants to balance against an *incorrect* IP3R flux formula and thereby achieve flat resting Ca²⁺. With the corrected equations the original primary-source values are restored. Five changes:
 
-- Ca_cyt starts at 100 nM, drifts upward to ~235 nM over ~5 s, then stabilises
-- DTS depletes slowly (250 → 242 µM over 10 s)
-- STIM1 and Orai1 states remain near their resting values
-- IP3 forcing does produce an elevated Ca²⁺ response (not yet fully validated against Dolan 2014 Fig. 3)
+### 2.1 IP3R open probability — Po⁴ + 0.9 weighting
+
+Purvis 2008 Table 1 / Dolan 2014 Eq. 4:
+
+```
+Po = (0.9 · IP3R_a/total + 0.1 · IP3R_o/total)⁴
+```
+
+The previous code used `Po = (a + 0.1·o)/total` — linear, missing the `0.9` factor and (more importantly) the `^4` exponent. The exponent encodes that all four IP3R subunits in the tetrameric channel must be in conducting (active or open) conformations simultaneously.
+
+Effect: at the Dolan IC subunit fractions (a/total = 0.049, o/total = 0.197), linear Po = 0.069; Po⁴ = 1.65×10⁻⁵. The amplitude difference is ~3000× — but, crucially, the *response* to IP3 stimulation now scales as the 4th power of the active-subunit fraction, giving the characteristic sharp transient.
+
+### 2.2 IP3R Sneyd & Dufour rate laws (φ-functions)
+
+Purvis 2008 Table 1 lists the full Sneyd & Dufour 2002 type-2 rate laws as rational functions of `[Ca²⁺]_cyt`:
+
+```
+n + Ca²⁺ → i1:  v = [n] · ((k₁·L₁ + l₂)·[Ca] / (L₁ + [Ca]·(1 + L₁/L₃)))
+                 − [i1] · (k₋₁ + l₋₂)
+n + IP3  → o:   v = [n] · [IP3] · ((k₂·L₃ + l₄·[Ca]) / (L₃ + [Ca]·(1 + L₃/L₁)))
+                 − [o] · ((k₋₂ + l₋₄·[Ca]) / (1 + [Ca]/L₅))
+o + Ca²⁺ → a:   v = [o] · ((k₄·L₅ + l₆)·[Ca] / (L₅ + [Ca]))
+                 − [a] · (L₁·(k₋₄ + l₋₆) / (L₁ + [Ca]))
+a + Ca²⁺ → i2:  v = [a] · ((k₁·L₁ + l₂)·[Ca] / (L₁ + [Ca]))
+                 − [i2] · (k₋₁ + l₋₂)
+o ↔ s:          v = [o] · (k₃·L₅ / (L₅ + [Ca])) − [s] · k₋₃
+```
+
+with `L₁=0.12 µM, L₃=0.025 µM, L₅=54.7 µM, l₄=1.7 µM⁻¹s⁻¹, l₋₄=2.5 µM⁻¹s⁻¹, l₆=4707 s⁻¹, l₋₆=11.4 s⁻¹` plus the existing `k₁..k₋₄, l₂, l₋₂`.
+
+The previous code used simple `k·X·Y − k₋·Z` mass action and dropped the L1/L3/L5/l₄/l₋₄/l₆/l₋₆ constants entirely. Mass action does not satisfy detailed balance for the Sneyd network — Wegscheider's loop product around `n→o→s→i1→n` gave 0.0145 at Dolan ICs, not 1.
+
+There is one minor topological change versus the previous code: the spurious `i1↔s` and `i2↔s` mass-action transitions (which were not in Purvis Table 1) are removed. The Sneyd parameters `l₂, l₋₂` are subsumed into the φ-function rate laws, where they belong.
+
+### 2.3 IP3R Ca²⁺ flux — Nernst form
+
+Purvis Table 1 row "Ca²⁺ release from DTS" / Dolan Eq. 4:
+
+```
+I_IP3R = γ_IP3R · N_channels · Po · (NA / zF) · (ψ_IM − E_Ca,IM)
+       γ_IP3R = 10 pS              (Zschauer 1988)
+       ψ_IM   = −60 mV             (Dolan upper bound, V_IM > −70 mV cluster)
+       E_Ca,IM = (RT/zF) · ln([Ca²⁺]_dts / [Ca²⁺]_cyt)
+       RT/zF (z=2, 37 °C) = 13.4 mV
+```
+
+The previous code used an empirical conductance form `K_IP3R_FLUX × Po × ([Ca]_dts − [Ca]_cyt)` and dropped the constant. The Nernst form is logarithmic in the gradient, so as DTS depletes the flux saturates rather than scaling linearly — which matters during the transient.
+
+### 2.4 SERCA k_bind_f restored to Purvis 1×10¹⁵ M⁻²·s⁻¹
+
+The earlier calibration reduced k_bind_f from 1×10³ µM⁻²s⁻¹ to 2.11 µM⁻²s⁻¹ (470× smaller) so that resting SERCA throughput would balance the *incorrectly small* IP3R flux produced by the linear-Po + empirical-conductance combination.
+
+With Po⁴ + Nernst, the corrected IP3R leak is ~1.13×10⁵ ions/s into cytosol at Dolan ICs. The Purvis SERCA Vmax (k_bind_f = 1000) gives 2 × v_bind ≈ 1.18×10⁵ ions/s extrusion at 100 nM cytosolic Ca²⁺ and Dolan enzyme states — in approximate balance.
+
+### 2.5 SOCE — full Hoover/Dolan MWC
+
+The SOCE block now implements:
+
+1. **STIM1 cycle** (mass-action with detailed-balance constants):
+   ```
+   STIM1·Ca²⁺_dts ⇌ STIM1_free + Ca²⁺_dts    (Ca²⁺ release from EF-hand)
+   2 STIM1_free   ⇌ STIM1_dim                 (diffusion-limited dimerisation)
+   ```
+   Constants `k_release_r = 3.475×10⁻³`, `k_dim_f = 1.15×10⁻⁴` are derived from
+   detailed balance at the Dolan Table S1 IC (st_Ca=3805, st_free=438, st_dim=22, ca_dts=250 µM).
+
+2. **Puncta entry** (Dolan 2014 Eq. 2):
+   ```
+   (STIM2)p = qp · STIM2_dimers
+   qp = α · ([Ca²⁺]_cyt^n / (KM^n + [Ca²⁺]_cyt^n)) + 0.01
+   α = 0.2,  KM = 0.5 µM,  n = 4   (KM, n picked mid-range from Dolan's scan)
+   ```
+
+3. **MWC channel gating** (Hoover & Lewis 2011 / Dolan Eq. 3):
+   ```
+   For i = 0..4 STIM dimers bound:
+     [CSi]/[C] = (4 choose i) · a^(i(i−1)/2) · (Ka·Sf)^i
+     [OSi]/[CSi] = f^i · L
+     [OSi]/[C]   = L · f^i · (4 choose i) · a^(i(i−1)/2) · (Ka·Sf)^i
+
+   Po = Σ[OSi] / Σ([CSi] + [OSi])
+   ```
+   with Hoover Fig 4B parameters `L=10⁻⁴, f=14.2, a=0.5`. `Ka` is rescaled from
+   Hoover's a.u. (100 with Stotal=3.2) to platelet dimer counts (`Ka = 2`); see code comment.
+
+   Sf is solved each ODE step by Newton-like iteration on the mass-balance
+   `Sf + bound_count(Sf) = (STIM2)p`.
+
+4. **SOC current** (Dolan Eq. 4):
+   ```
+   I_SOC = γ_SOC · N_orai_channels · Po · (NA/zF) · (ψ_PM − E_Ca,PM)
+   γ_SOC = 0.3 fS    (calibrated from resting balance — see §3)
+   ψ_PM = −60 mV    (Dolan)
+   E_Ca,PM = (RT/zF) · ln([Ca²⁺]_ex / [Ca²⁺]_cyt)
+   ```
+
+This closes issues #45 and #46 as designed.
 
 ---
 
-## 4. Known Limitation: Residual Resting Drift
+## 3. Constants still requiring calibration (and how they were derived)
 
-**The system does not hold 100 nM at rest.** This is a calibration limitation, not a code bug.
+After restoring the primary-source equations, four parameters cannot be drawn directly from the literature for our platelet count-units:
 
-### Root cause
+| Constant | Value | Derivation |
+|---------|-------|-------------|
+| STIM `k_release_r` | 3.475×10⁻³ µM⁻¹s⁻¹ | Detailed balance at Dolan IC: `= k_release_f × st_Ca / (st_free × ca_dts) = 0.1 × 3805 / (438 × 250)` |
+| STIM `k_dim_f` | 1.15×10⁻⁴ count⁻¹s⁻¹ | Detailed balance at Dolan IC: `= k_dim_r × st_dim / st_free² = 1.0 × 22 / 438²` |
+| MWC `Ka` | 2.0 | Rescaled from Hoover a.u.: `Ka_platelet = Ka_Hoover × (Stotal_Hoover / Sf_saturating_platelet) = 100 × (3.2 / 170) ≈ 1.9 → 2` |
+| `γ_SOC` | 0.3 fS | Resting flux balance: `SOCE_rest = PMCA_steady_rest ≈ 76 ions/s` at Po(MWC, Sf_rest) ≈ 1.2×10⁻³ |
 
-The Dolan 2014 Table S1 initial conditions for the SERCA protein states:
-
-| State | Dolan IC | Equilibrium at new k_bind_f |
-|---|---|---|
-| SERCA_E1Ca | 6 | ~0.18 |
-| SERCA_E1PCa | 7 | ~0.26 |
-| SERCA_E2PCa | 4 | ~0.64 |
-| SERCA_E2P | 28 | ~2.1 |
-
-The Dolan ICs were derived for the fast-SERCA regime (`k_bind_f = 1000`). With the re-calibrated `k_bind_f = 2.11`, the true equilibrium for these enzyme states is ~14× smaller. As the simulation runs, the SERCA protein states relax toward their true equilibrium, which shifts the Ca²⁺ balance point.
-
-At the false equilibrium (~235 nM), the IP3R flux (1489 ct/s) exactly balances SERCA (1384 ct/s) + PMCA (172 ct/s) at the higher cytosolic Ca²⁺. This is a self-consistent but biologically wrong steady state.
-
-### Why this wasn't trivially fixed
-
-The IP3R flux at rest is proportional to (ca_dts − ca_cyt) × Po. As ca_cyt rises from 100 to 235 nM, Po barely changes (~0.069) but the SERCA throughput increases steeply (∝ ca_cyt²: from 124 to 692 ct/s). The system finds a new balance at 235 nM rather than at 100 nM. To force the equilibrium back to 100 nM, `K_IP3R_FLUX` would need to be further reduced — but this would also reduce the IP3-evoked peak response.
-
-The fundamental issue is that the three timescales — IP3R gating, SERCA cycling, and STIM1 activation — are calibrated from different papers with different cell types and scales, and no consistent fitting has been done. This is tracked as issue #45 (SOCE MWC) and issue #24 (parameter curation).
+All other rate constants are taken directly from primary sources (Purvis 2008 Table 1 for IP3R/SERCA/IP3R conductance, Caride 2007 Table 3 for PMCA basal, Hoover 2011 Fig 4B for MWC L/f/a, Dolan 2014 Eqs. 2–4 for SOCE structure).
 
 ---
 
-## 5. What Still Needs Doing
+## 4. Resting state with corrected equations
+
+### 4.1 Why the Dolan ICs are no longer a steady state
+
+The Dolan 2014 Table S1 representative ICs are filtered against four homeostatic/dynamic constraints **for the Dolan ODE system** — full Sneyd rate laws, Po⁴, Nernst flux, Caride/CaM-coupled PMCA, MWC SOCE with their fitted (n, KM). Our v0.2 differs in two ways that prevent the ICs from being a true equilibrium:
+
+1. **PMCA is basal-only (no CaM coupling).** Caride 2007's full 5-state CaM-coupled scheme drops the apparent KM into the sub-µM range and raises k_cat during a Ca²⁺ rise. With basal-only kinetics, PMCA cannot match the SOCE+IP3R inflow at peak Ca²⁺.
+2. **(KM, n) for puncta entry are not from the same scan as the rest of the ICs.** Dolan scanned KM and n jointly with the protein copy numbers and V_IM to satisfy resting balance. Picking mid-range values without rerunning the scan means SOCE at moderate `[Ca²⁺]_cyt` is unbalanced.
+
+### 4.2 Observed behaviour (no IP3 forcing)
+
+Starting from the Dolan IC, the corrected ODE (see `tests/sim/test_simulation.py`) produces:
+
+- `[Ca²⁺]_cyt`: 100 nM → ~600 nM peak at t≈0.5 s (SERCA enzyme states relax) → settles toward ~50 nM by t=100 s
+- `[Ca²⁺]_dts`: 250 µM → empties to ~0 µM by t≈30 s
+- STIM1_dim: grows from 22 → ~800 (full dimerisation as STIM_Ca releases)
+- Total Ca²⁺ in cell: drops from ~39 000 atoms to ~hundreds (PMCA extrusion exceeds SOCE replenishment at this calibration)
+
+This is biologically wrong but **mathematically self-consistent** with the corrected primary-source equations and the unscanned (KM, n).
+
+### 4.3 Observed behaviour with IP3 forcing
+
+Under the Dolan 2014 Fig. S2 IP3 curve, peak `[Ca²⁺]_cyt` reaches several µM (vs. Dolan Fig 4's ~400 nM). The DTS empties completely. The transient *shape* is qualitatively right (rise on IP3 stimulus, then decay) but amplitude and recovery dynamics are off because:
+
+- SERCA has no upper bound from CaM/PMCA pulling Ca²⁺ out of the cytosol fast enough during peak
+- DTS empties → IP3R flux saturates at zero gradient
+- SOCE plateau is small (γ_SOC was calibrated for resting balance, not peak)
+
+---
+
+## 5. What still needs doing
 
 | Priority | Task |
 |----------|------|
-| High | Re-derive SERCA ICs at new `k_bind_f` and update `internal_state.py` — would eliminate the SERCA transient |
-| High | Global parameter fitting: tune `K_IP3R_FLUX` and `k_orai` jointly so both resting and peak Ca²⁺ match Dolan targets |
-| Medium | Implement Dolan 2014 MWC allosteric STIM1/Orai1 model (issue #46) |
-| Medium | Add cytosolic Ca²⁺ buffering (calmodulin, calbindin) — currently all Ca²⁺ is free |
-| Low | Replace Purvis 6-state SERCA with a simpler Michaelis–Menten pump consistent with the Dolan ODE level of detail |
+| High | Re-scan (KM, n) for puncta entry within the Dolan homeostatic/dynamic constraint framework so that the IC is a genuine steady state of *our* ODE — not just Dolan's |
+| High | Implement Caride 2007 full 5-state CaM-coupled PMCA — with proper CaM activation, peak PMCA can clamp the Ca²⁺ transient at biological values |
+| Medium | Re-derive Dolan-style "representative IC" by integrating to steady state at low IP3, then use that IC as the simulation start — guarantees zero drift |
+| Medium | Add cytosolic Ca²⁺ buffering (calmodulin total ~20 000, plus calbindin) — currently all Ca²⁺ is free |
+| Low | Validate the analytical detailed-balance derivations of `k_release_r`, `k_dim_f`, `Ka`, `γ_SOC` against an independent numerical fit |
 
 ---
 
-## 6. Methodology Notes
-
-### Analytical derivation approach
-
-All five parameter fixes were derived analytically from detailed-balance / flux-balance conditions at the Dolan 2014 Table S1 resting IC, then verified numerically by integrating the ODE for 5–200 s and inspecting all flux terms.
+## 6. Methodology notes
 
 ### Unit conventions
 
-All concentrations inside the ODE run in µM. Count ↔ µM conversion uses platelet geometry:
+All concentrations inside the ODE run in µM. Count ↔ µM conversion uses platelet geometry (Purvis 2008 direct measurement):
 
 ```python
-_UM_PER_COUNT_CYT = 2.77e-4 µM/count  # cytosol volume 6 fL
-_UM_PER_COUNT_DTS = 6.44e-3 µM/count  # DTS volume 0.258 fL
+_UM_PER_COUNT_CYT = 2.77e-4 µM/count   # cytosol volume 6 fL
+_UM_PER_COUNT_DTS = 6.44e-3 µM/count   # DTS volume 0.258 fL (4.3 % cyt)
 ```
 
-The same number of Ca²⁺ atoms crossing the DTS membrane appears as different concentration changes on each side (DTS is ~23× smaller than cytosol). Fluxes in the ODE are always in counts/s; µM values are only used for reaction rate laws.
+The same number of Ca²⁺ atoms crossing the DTS membrane appears as different concentration changes on each side (DTS is ~23× smaller than cytosol). Fluxes in the ODE are always in counts/s — the IP3R Nernst form returns ions/s directly via `NA/(zF) × current`.
 
-### Why the Purvis SERCA k_bind_f was wrong by 3 orders of magnitude
+### MWC unit rescaling
 
-The Purvis 2008 paper gives `k_bind_f = 1×10¹⁵ M⁻²s⁻¹`. This converts to `1×10³ µM⁻²s⁻¹` — which looks correct. The error is that this rate was measured for isolated detergent-solubilised SERCA at saturating ATP in vitro. In vivo at 100 nM cytosolic Ca²⁺ (below Km) with ~6000 SERCA copies, the effective throughput is determined by the Km, not the Vmax. The system needs the throughput to be ~124 ct/s, which back-calculates to `k_bind_f ≈ 2.11 µM⁻²s⁻¹`.
+Hoover & Lewis 2011 fit their MWC scheme to ICRAC vs. Orai expression in HEK cells, where STIM and Orai are reported in a.u. proportional to GFP fluorescence. The fitted `Ka = 100` works in *those* units, not in molecule counts. Following Dolan 2014's algebraic-equation approach, we transfer Hoover's structure intact (L, f, a are dimensionless and unchanged) and rescale `Ka` so that the saturating biology (`Sf ≈ 170 platelet STIM2 dimers`) maps to Hoover's saturating regime (`Ka × Stotal ≈ 320`). This gives `Ka_platelet ≈ 2`. The MWC Po(Sf) curve has the same shape as Hoover's, just with Sf measured in dimer counts rather than a.u.
+
+### γ_SOC calibration
+
+CRAC channels have a literature single-channel conductance of ~24 fS (Prakriya & Lewis 2002, Vig 2006). With L = 10⁻⁴ giving ~0.04 channels open at rest in a 361-channel cell, that produces ~5×10³ ions/s of resting SOCE — far above the PMCA basal extrusion (~76 ions/s) and enough to drive Ca²⁺ runaway. The literature value reflects measurements at saturating Po, in cell types where many channels are open. For the platelet's small effective open count at rest, we use a calibrated effective γ_SOC of 0.3 fS, derived from the requirement `SOCE_rest = PMCA_steady_rest`.
+
+This is a v0.2 simplification. The full single-channel calibration would require either (a) re-scanning Dolan's (n, KM) phase space and using a literature γ_SOC, or (b) treating SOCE flux probabilistically below the integer-count threshold.
 
 ---
 
-*Report written 2026-04-29. See also: `calcium-dynamics-design.md`, `calcium-signalling-pathway-design.md`, `reconstruction-platelet-design.md`.*
+*Report rewritten 2026-04-29 after restoring primary-source equations. See also: `calcium-dynamics-design.md`, `calcium-signalling-pathway-design.md`, `calcium-data-provenance.md`.*

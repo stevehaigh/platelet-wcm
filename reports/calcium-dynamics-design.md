@@ -32,16 +32,16 @@ before adding the upstream receptor cascade that would generate IP3 in a real
 cell:
 
 ```
-v0.2:  IP3 forcing → Ca²⁺ core (IP3R + SERCA + PMCA + SOCE)
+v0.2:  IP3 forcing → Ca²⁺ core    (IP3R + SERCA + PMCA + SOCE)
 v0.3:  Upstream receptor cascade  (P2Y1 → Gq → PLCβ → IP3 production)
 v0.4:  P2Y12 modulation           (Gi → AC → cAMP → PKA → IP3R inhibition)
 ```
 
-Each milestone is independently testable and produces publishable results.
+Each milestone is independently testable.
 
 ### Why Dolan 2014 and not Purvis 2008?
 
-Purvis & Bhatt (2008) is the foundational modelling paper for platelet Ca²⁺
+Purvis (2008) is the foundational modelling paper for platelet Ca²⁺
 signalling and provides the kinetic parameters for the IP3R 6-state model and
 many of the rate constants we use. However, Dolan & Diamond (2014) published an
 updated model specifically calibrated to match experimental Ca²⁺ transients in
@@ -51,6 +51,7 @@ set of initial conditions for all 22 state variables, validated against their
 Figure 4 experimental curves.
 
 In practice, both papers are used:
+
 - **Purvis 2008** supplies IP3R kinetics (Sneyd & Dufour 2002 rate constants),
   SERCA cycle parameters, and compartment volumes (6 fL cytosol, 4.3% DTS).
 - **Dolan 2014** supplies the complete ODE system, SOCE parameters, STIM1/Orai1
@@ -144,6 +145,7 @@ that at rest.
 **Decision: deterministic ODE sub-stepper for v0.2.**
 
 Rationale:
+
 - Gillespie for Ca²⁺ dynamics is computationally impractical: the SERCA cycle
   has transitions with rates up to 1,000 s⁻¹ × 11,892 enzymes — the algorithm
   would fire millions of reaction events per simulated second.
@@ -285,28 +287,42 @@ Rate constants: see `calcium-data-provenance.md` § "SERCA cycle".
 
 ### 3.5 PMCA
 
-Two-state simplified model (Caride 2007 parameters, Purvis 2008 Table 1):
+Two-state Michaelis–Menten approximation using Caride 2007 Table 3 *basal*
+(CaM-free) rate constants for the PMCA4b isoform:
 
 ```
 PMCA + Ca²⁺_cyt ⇌ PMCA·Ca²⁺ → PMCA + Ca²⁺_ex
+              k_on, k_off       k_cat
 
-KM1 = 0.5 µM,  KM2 = 1.0 µM,  kcat = 8.9 s⁻¹
+k_on  = 10  µM⁻¹s⁻¹      Ca²⁺ binding (Caride 2007 Table 3, basal)
+k_off = 50  s⁻¹          Ca²⁺ unbinding (Caride 2007 Table 3, basal)
+k_cat = 5.5 s⁻¹          turnover (Caride 2007 Table 3, V_max basal)
+
+KM = (k_off + k_cat) / k_on = 5.55 µM   (derived)
 ```
 
-> **TODO (before implementation):** the KM values above are shown in concentration
-> units (µM) — the original draft had them as mM⁻¹, which is dimensionally wrong
-> for a Michaelis constant. The numerical values here are provisional; confirm
-> against Purvis 2008 Table 1 / Caride 2007 and update.
+This is a deliberate v0.2 simplification. Caride 2007 themselves use a 5-state
+kinetic scheme with CaM binding; Dolan 2014 adopts a comparable CaM-coupled
+model. Both produce a much faster apparent KM (~0.5 µM) once CaM activation
+ramps up during the Ca²⁺ transient. Using the basal constants in v0.2 is
+honest to the primary source but means the decay phase of the modelled
+transient will be slower than Dolan & Diamond Fig 4. This gap is documented in
+the validation criteria (§7.2) and closed in v0.3 by adopting the full
+CaM-coupled scheme.
 
-CaM-mediated activation is simplified in v0.2: PMCA treated as constitutively
-active at basal rate. Full CaM kinetics deferred to v0.3.
+> **Note on prior draft.** Earlier versions of this section quoted
+> `KM1 = 0.5 µM, KM2 = 1.0 µM, kcat = 8.9 s⁻¹` attributed to Caride 2007 /
+> Purvis 2008 Table 1. Those numbers do not appear in either paper for PMCA;
+> they correspond to Reaction #11 in Purvis 2008 (CDPDG synthesis, a
+> phospholipid biosynthesis enzyme) and are unrelated to Ca²⁺ extrusion.
+> Provenance has been corrected in `calcium-data-provenance.md`.
 
 ### 3.6 SOCE (STIM1 / Orai1)
 
 Dolan 2014 MWC allosteric model:
 
 ```
-STIM1·Ca²⁺_dts ⇌ STIM1_free  (Ca²⁺ release from DTS-bound STIM1)
+STIM1·Ca²⁺_dts  ⇌ STIM1_free  (Ca²⁺ release from DTS-bound STIM1)
 STIM1_free      ⇌ STIM1_dim   (dimerisation — active sensor)
 STIM1_dim + Orai1 → STIM1·Orai1*  (CRAC channel opening)
 Ca²⁺_ex  --Orai1*--> Ca²⁺_cyt     (Ca²⁺ entry)
@@ -320,7 +336,7 @@ SOCE current:
 I_SOC = g_SOC × P_open × (V_PM − E_Ca)
 ```
 
-where E_Ca is the Ca²⁺ Nernst potential and g_SOC is set by the MWC model.
+where E_Ca is the Ca²⁺ Nernst potential (the electrical force exactly balances the concentration gradient) and g_SOC is set by the MWC model.
 
 ---
 
@@ -523,15 +539,20 @@ Run 300 s with no IP3 forcing (fold=1). Pass criteria:
 
 Run 300 s with IP3 forcing (fold=5.5, τ_rise=3 s, τ_decay=60 s).
 Pass criteria (Dolan 2014 Fig 4, +extracellular Ca²⁺ condition):
+
 - Peak Ca²⁺_cyt: 200–500 nM, reached within 15–20 s
 - Partial DTS depletion: Ca²⁺_dts drops to 30–70% of resting
 - Sustained plateau above baseline (SOCE-dependent)
-- Return to ~resting levels within 300 s
+- Return towards baseline within 300 s. The decay phase is expected to be
+  slower than Dolan Fig 4 because v0.2 PMCA uses basal (CaM-free) kinetics
+  (§3.5). A residual elevation of up to ~50 nM above baseline at 300 s is
+  acceptable in v0.2 and resolved in v0.3 with the CaM-coupled PMCA scheme.
 
 ### 7.3 SOCE dependence
 
 Run with Ca²⁺_ex = 0 (EDTA condition).
 Pass criteria:
+
 - Transient peak similar, but plateau absent / faster decay
 - Matches Dolan 2014 Fig 4C (no-extracellular-Ca²⁺ curve)
 
@@ -580,17 +601,21 @@ only for visibility; reviewers should push back if they disagree.
    membrane and functionally gated. The Dolan value is from a filtered population
    that satisfies homeostatic constraints.
 
-5. **CaM / PMCA activation:** Simplify to constitutive PMCA in v0.2. Full CaM
-   kinetics in v0.3. Agree?
+5. **CaM / PMCA activation — resolved (§3.5).** v0.2 uses Caride 2007 Table 3
+   *basal* (CaM-free) constants: k_on=10 µM⁻¹s⁻¹, k_off=50 s⁻¹, k_cat=5.5 s⁻¹
+   (KM=5.55 µM). Strict primary-source values; transient decay will be slower
+   than Dolan Fig 4 (acknowledged in §7.2). Full 5-state CaM-coupled scheme
+   deferred to v0.3.
 
-6. **ATP molecule inventory:** ATP, ADP, Pi must be added to the platelet molecule
-   inventory to support pump accounting. Starting count: ATP ~1–2 × 10⁷ molecules
-   per platelet, estimated as cytosolic [ATP] ~3–5 mM in 6 fL (standard platelet
-   range; Holmsen 1981, Gerson 2008 bulk assays rescaled per cell). The earlier
-   draft's figure of ~10⁹ came from interpreting Gerson's "~10⁻¹² mol ATP" as
-   per-platelet rather than per-assay aliquot, which is two orders too high —
-   single platelets contain femtomoles, not picomoles, of ATP. Confirm the
-   precise starting count before implementation.
+6. **ATP / ADP starting counts — resolved.** ATP[c] = 1.084×10⁷ molecules
+   (3 mM × 6 fL × N_A, lower end of the platelet 3–5 mM cytosolic range;
+   Holmsen 1979/1981 metabolic pool). ADP[c] = 1.084×10⁶ molecules (0.3 mM,
+   ATP:ADP = 10:1 typical resting ratio). Updated in `molecules.tsv` and
+   `internal_state.py`. Pi[c] is still pending and will be added alongside
+   the §3.1 species expansion in #24. Note: the earlier draft's figure of
+   ~10⁹ came from misinterpreting bulk-assay "~10⁻¹² mol ATP" as
+   per-platelet rather than per-assay aliquot — single platelets contain
+   femtomoles, not picomoles, of ATP.
 
 7. **Stochastic future (flagged, not blocking):** The PLC-Gq bottleneck (~1 molecule)
    will require a hybrid deterministic/stochastic approach in v0.3. At that stage,
