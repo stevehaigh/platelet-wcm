@@ -51,21 +51,35 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			)
 
 	def test_platelet_simulation_one_step_metabolites_preserved(self):
-		"""Metabolites are not subject to RestingDecay and should be unchanged."""
+		"""Metabolites not touched by any process should be unchanged after one step.
+
+		Calcium-pathway metabolites (CA2_CYT, CA2_DTS, IP3, ATP) are expected
+		to change — they are driven by CalciumDynamics each timestep.  The
+		remaining metabolites (granule cargo, inorganic phosphate, ADP) have no
+		process acting on them and should be conserved.
+		"""
 		from reconstruction.platelet.dataclasses.internal_state import _MOLECULES
+		from reconstruction.platelet.dataclasses.process.calcium_signalling import (
+			MOLECULE_NAMES as _CALCIUM_NAMES,
+		)
+		calcium_set = frozenset(_CALCIUM_NAMES) | {'ATP[c]'}
+
 		sim = self.make_simulation()
 		ids = list(self.sim_data.internal_state.bulk_molecules.bulk_data['id'])
-		metabolite_indices = [
-			ids.index(m[0]) for m in _MOLECULES if m[3] == 'metabolite']
+		stable_metabolite_indices = [
+			ids.index(m[0])
+			for m in _MOLECULES
+			if m[3] == 'metabolite' and m[0] not in calcium_set
+		]
 		initial_counts = sim.internal_states['BulkMolecules'].container.counts().copy()
 
 		sim.run_for(1.0)
 
 		final_counts = sim.internal_states['BulkMolecules'].container.counts()
 		np.testing.assert_array_equal(
-			initial_counts[metabolite_indices],
-			final_counts[metabolite_indices],
-			err_msg='Metabolite counts changed unexpectedly after one step',
+			initial_counts[stable_metabolite_indices],
+			final_counts[stable_metabolite_indices],
+			err_msg='Stable metabolite counts changed unexpectedly after one step',
 		)
 
 	def test_simulation_data_pickles(self):

@@ -8,6 +8,34 @@ between sources.
 
 ---
 
+## Verification status (as of 2026-04-23)
+
+The numerical values in this file were originally extracted from PDFs using
+ChatGPT, which produced one confirmed mis-attribution (PMCA / Purvis Reaction
+#11 — see §"Provenance correction" below) before the practice was flagged.
+A systematic re-verification pass against the primary PDFs in the local Zotero
+library was completed on 2026-04-23. Status by source:
+
+| Source | Zotero itemKey | Verified | Notes |
+|--------|----------------|----------|-------|
+| Dolan & Diamond 2014 | LJNKNAUI (+ supporting RDWZ4QX2) | ✓ | Volumes, ICs, Table S1 species counts, IP3 forcing, SOCE module. Three corrections logged (V_IM range, "2 unknowns not 3", SERCA "type 3b"). |
+| Purvis et al. 2008 | Z5W8RMLQ | ✓ | Volumes, resting concs, all SERCA cycle rates, IP3R rate constants, IP3R conductance. Two corrections logged (added missing L₃ = 0.025 µM to IP3R n→i1; SERCA transport row 5 stoichiometry "+ 2 Ca²⁺_dts"). |
+| Burkhart et al. 2012 | 3KX7BHEV | ✓ | All copy numbers in §"Protein copy numbers per platelet" verified against the calcium-pathway paragraph in the paper text. |
+| Caride et al. 2007 | YLIICDWW | ✓ | PMCA4b basal kinetics k4=10 µM⁻¹s⁻¹, k4r=50 s⁻¹, k5=5.5 s⁻¹ verified directly in Caride Table 3. Confirmed the earlier ChatGPT-extracted PMCA values were the wrong row. |
+| Sveshnikova & Panteleev 2025 | ZYLRCRQ6 | ✓ | All four compartment volumes and all Table 1 ICs (Ca²⁺_cyt 13 nM, [Ca²⁺]_dts 1000 µM, [IP3] 50 nM, etc.) verified directly. Discovered new compartment "plasmatic membrane equivalent (0.6 pL)". |
+| Sneyd & Dufour 2002, Dode 2002, Hoover & Lewis 2011, Zschauer 1988, Holmsen 1979/81, Kinzer-Ursem 2007, Waldo 2004 | not in Zotero | indirect | Verified by reading Purvis 2008 / Dolan 2014 / Caride 2007 directly and confirming they attribute the values to the named source. See §"References not held in Zotero" for the per-source breakdown. |
+
+**Bottom line:** every numerical value adopted by the v0.2 calcium core can now
+be traced to a PDF that has been read directly. Two real content corrections to
+this file were made during the verification pass (PMCA values, IP3R missing L₃,
+SERCA stoichiometry, SOCE V_IM range, "2 unknowns not 3"); no further surprises
+were uncovered. Caveats remain only for the Holmsen 1979/81 ATP range
+(secondary-source quote, primary PDF not in Zotero) and any future extension to
+mitochondrial / receptor-cascade values from Sveshnikova 2025 Table 2 (which is
+embedded as images in the source HTML and was not parsed).
+
+---
+
 ## Background: how calcium signalling works in platelets
 
 Platelet activation produces a rapid rise in cytosolic calcium (Ca²⁺), which
@@ -75,10 +103,10 @@ that extracellular Ca²⁺ can restock the DTS.
 
 | Compartment | Value | Source | Notes |
 |-------------|-------|--------|-------|
-| Cytosol | 6 fL | Purvis 2008 (ref 27) | "cytosolic volume of the platelet is approximately 6 fL" |
+| Cytosol | 6 fL | Purvis 2008 (ref 27) | "cytosolic volume of the platelet is approximately 6 fL" ✓ |
 | Cytosol | 3 fL | Sveshnikova 2025 | Used in their model |
-| DTS | 2% of cytosol (median) | Purvis 2008 | Monte Carlo estimation; range 0.5–5% |
-| DTS | 4.3% of cytosol | Purvis 2008 | Direct measurement: glucose-6-phosphatase stain, DTS area 0.13 µm² vs cytosol 3.02 µm² |
+| DTS | 2% of cytosol (median) | Purvis 2008 | Monte Carlo estimation; range 0.5–5% ✓ |
+| DTS | 4.3% of cytosol | Purvis 2008 | Direct measurement: glucose-6-phosphatase stain, DTS area 0.13 µm² vs cytosol 3.02 µm² ✓ |
 | DTS | 1–10% of CYT | Dolan 2014 (refs 4,17,18) | Literature range |
 | DTS | 1.5 fL | Sveshnikova 2025 | Used in their model; NB this is 50% of cytosol — much higher than other sources |
 | Mitochondria | 0.3 fL | Sveshnikova 2025 | |
@@ -113,11 +141,54 @@ value (1.5 fL) as an outlier that needs explanation before adopting.
 [Ca²⁺]dts = 250 µM, [Ca²⁺]ex = 1.2 mM, [IP3] = 50 nM. These are middle-of-road
 values consistent with Purvis and Dolan.
 
+**Verified ✓ for Dolan-attributed rows (2026-04-23):**
+- [Ca²⁺]cyt 40–100 nM ✓ (Dolan main text: "40–100 nM (36)")
+- [Ca²⁺]dts 100–400 µM ✓ (Dolan: "high submillimolar Ca²⁺dts (100–400 mM)")
+- [Ca²⁺]dts ~250 µM Fluo-5N ✓ (Dolan ref 45 = Sage et al. 2011 J Thromb Haemost)
+- [Ca²⁺]ex 1.2 mM ✓ (Dolan Methods: fixed parameter for Monte Carlo scans)
+- [IP3] 20–40 nM, <200 copies ✓ (Dolan Results: "fairly narrowly between 20 and 40 nM")
+- DTS 1–10% of CYT ✓ (Dolan Methods, refs 4,17,18 cited)
+- Total platelet <10 fL ✓ (Dolan Methods, ref 9 cited)
+- Total platelet ~5 fL — Sveshnikova 2025, not yet PDF-verified.
+
+**Verified ✓ for Purvis-attributed rows (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23):**
+- Cytosol 6 fL ✓ (Purvis text: "cytosolic volume of the platelet is approximately 6 fL")
+- DTS 2% of cytosol (median, 0.5–5% range) ✓ (Purvis Monte Carlo estimation)
+- DTS 4.3% of cytosol ✓ (Purvis direct measurement, glucose-6-phosphatase stain)
+- [Ca²⁺]cyt 100 ± 10 nM ✓ (Purvis homeostasis constraint in Methods)
+- [Ca²⁺]cyt 75 nM ✓ (Purvis: model resting value with basal ADP)
+- [IP3] resting ~200 nM (~1200 mol/platelet) ✓ (Purvis ref 31)
+
+**Verified ✓ for Sveshnikova-attributed rows (Zotero, Sveshnikova 2025 itemKey ZYLRCRQ6, 2026-04-23):**
+- Cytosol 3 fL ✓ (Sveshnikova: "cytosol (3 fL), plasmatic membrane equivalent (0.6 pL), DTS (1.5 fL), and mitochondria (0.3 fL)")
+- DTS 1.5 fL ✓ (same passage)
+- Mitochondria 0.3 fL ✓ (same passage)
+- Total platelet ~5 fL ✓ ("the total volume of about 5 fL")
+- [Ca²⁺]cyt 13 nM (0.013 µM) ✓ (Sveshnikova Table 1: "Cytosolic calcium … Cytosol 0.013")
+- [Ca²⁺]dts 1000 µM ✓ (Sveshnikova Table 1: "Calcium in DTS … 1000")
+- [IP3] 50 nM (0.05 µM) ✓ (Sveshnikova Table 1: "IP3 … Cytosol 0.05")
+- 29 species, 27 ODEs + 2 fixed ✓ (Sveshnikova: "described by 27 differential equations, and two species were fixed")
+
+**New finding (not yet in tables above):** Sveshnikova 2025 also defines a
+"plasmatic membrane equivalent" compartment of 0.6 pL — this is a surface
+compartment for membrane-bound species, not a cytosolic volume. This is the
+likely source of the PAR1 copy-number figure (Table 1 lists "Resting PAR …
+0.006 µM" in this 0.6 pL compartment, giving ≈ 2000 molecules — closer to
+2× the 1000-copy figure in the protein table than 1×).
+
 ---
 
 ## Protein copy numbers per platelet
 
 Primary source: Burkhart 2012 (proteomics). Secondary: Purvis 2008 (model estimation).
+
+**Verified ✓ (Zotero, Burkhart 2012 itemKey 3KX7BHEV, 2026-04-23)** — every
+Burkhart-attributed value below matches the source paper text exactly. Verified
+from the calcium-pathway paragraph: "IP3 receptors (inositol 1,4,5-trisphosphate
+receptor type 1, 2, and 3 with 2400, 1700, 750 copies)... PLCB2, PLCB3, PLCB4,
+PLCG2: 2500, 1700, 1000, 2000 copies... STIM1: 7400, CRACM1: 1700, TRPC6: 1100
+copies... PMCA4: 640, ATPase 2C1: 2200, SLC8A3: 580, MCU 5900, MICU1 1400,
+SERCA2 and 3 with 9000 and 16300, P2X1 1400."
 
 | Protein | Copies/platelet | Source | Notes |
 |---------|----------------|--------|-------|
@@ -148,6 +219,8 @@ Primary source: Burkhart 2012 (proteomics). Secondary: Purvis 2008 (model estima
 ---
 
 ## Representative resting state — Dolan 2014 Table S1 (Supporting Material)
+
+**Verified ✓ (Zotero, Dolan 2014 supporting-material PDF RDWZ4QX2, 2026-04-23) — every sub-species count below matches the source PDF exactly.**
 
 A single representative initial condition from the fully filtered population
 (satisfies all 4 homeostatic + dynamic constraints):
@@ -221,7 +294,10 @@ This captures the essential behaviour: fast rise, slow return to slightly above 
 
 ## Rate constants — Ca²⁺ module (Purvis 2008 Table 1)
 
-### SERCA cycle (type 3 isoform kinetics; ref: Dode 2002)
+### SERCA cycle (type 3b isoform kinetics; ref: Dode 2002, as cited via Purvis 2008 Table 1)
+
+> Dolan 2014 Methods explicitly names this as the **SERCA3b** isoform; earlier
+> revisions of this section said "type 3" without the sub-isoform letter.
 
 | Step | Forward | Reverse |
 |------|---------|---------|
@@ -229,19 +305,31 @@ This captures the essential behaviour: fast rise, slow return to slightly above 
 | E1 + 2Ca²⁺cyt ⇌ E1·Ca²⁺₂ | k₁ = 1×10¹⁵ M⁻²·s⁻¹ | k₋₁ = 10 s⁻¹ |
 | E1·Ca²⁺ → E1P·Ca²⁺ (phosphorylation) | k₁ = 700 s⁻¹ | k₋₁ = 5 s⁻¹ |
 | E1P·Ca²⁺ ⇌ E2P·Ca²⁺ (conformational) | k₁ = 600 s⁻¹ | k₋₁ = 50 s⁻¹ |
-| E2P·Ca²⁺ → E2P + Ca²⁺ (transport) | k₁ = 1000 s⁻¹ | k₋₁ = 4×10⁹ M⁻²·s⁻¹ |
+| E2P·Ca²⁺ → E2P + 2 Ca²⁺_dts (transport) | k₁ = 1000 s⁻¹ | k₋₁ = 4×10⁹ M⁻²·s⁻¹ |
 | E2P → E2 (dephosphorylation) | k₁ = 500 s⁻¹ | k₋₁ = 1 s⁻¹ |
+
+**Verified ✓ (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23)** — all six rate
+constants match Purvis Table 1 SERCA cycle. Stoichiometry of the transport step
+corrected from "+ Ca²⁺" to "+ 2 Ca²⁺_dts" (the M⁻² units of k₋₁ confirm that
+two Ca²⁺ ions are released into the DTS lumen on each turnover, consistent with
+the 2:1 Ca²⁺:ATP stoichiometry of SERCA3b).
 
 ### IP3R dynamics (type 2; ref: Sneyd & Dufour 2002)
 
 | Transition | Parameters |
 |------------|------------|
-| n + Ca²⁺ → i1 (inhibition) | k₁ = 0.64 µM⁻¹·s⁻¹, L₁ = 0.12 µM, l₂ = 1.7 s⁻¹, k₋₁ = 0.04 s⁻¹, l₋₂ = 0.8 s⁻¹ |
+| n + Ca²⁺ → i1 (inhibition) | k₁ = 0.64 µM⁻¹·s⁻¹, L₁ = 0.12 µM, **L₃ = 0.025 µM**, l₂ = 1.7 s⁻¹, k₋₁ = 0.04 s⁻¹, l₋₂ = 0.8 s⁻¹ |
 | n + IP3 → o (opening) | k₂ = 37.4 µM⁻¹·s⁻¹, l₄ = 1.7 µM⁻¹·s⁻¹, k₋₂ = 1.4 s⁻¹, l₋₄ = 2.5 µM⁻¹·s⁻¹, L₅ = 54.7 µM |
 | o + Ca²⁺ → a (activation) | k₄ = 4 µM⁻¹·s⁻¹, L₅ = 54.7 µM, l₆ = 4707 s⁻¹, L₁ = 0.12 µM, k₋₄ = 0.54 µM⁻¹·s⁻¹, l₋₆ = 11.4 s⁻¹ |
 | a + Ca²⁺ → i2 (inhibition) | Same as n → i1 |
 | o → s (shutting) | k₃ = 11 µM⁻¹·s⁻¹, L₅ = 54.7 µM, k₋₃ = 29.8 s⁻¹ |
 | Channel open probability | Po = (0.9·IP3Ra/IP3Rtotal + 0.1·IP3Ro/IP3Rtotal)⁴ |
+
+**Verified ✓ (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23)** — rate constants
+match Purvis Table 1 / Sneyd & Dufour 2002. Earlier revisions of this table omitted
+**L₃ = 0.025 µM** from the n→i1 row; this is a real Sneyd/Purvis equilibrium
+constant for the inhibitory site and is required by the rate-law expression.
+Add it back when implementing the rate laws (issue #25).
 
 ### Ca²⁺ release through IP3R
 
@@ -251,13 +339,63 @@ This captures the essential behaviour: fast rise, slow return to slightly above 
 | Leak conductance (γ_leak) | 0.7 pS·m⁻² | Purvis 2008 |
 | Nernst driving force | ψ_IM = RT/zF · ln([Ca²⁺]dts/[Ca²⁺]cyt) | |
 
-### PMCA (type 4b; ref: Caride 2007)
+**Verified ✓ (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23)** — γ_IP3R 10 pS
+and γ_leak 0.7 pS·m⁻² match Purvis Table 1. Total species (70), reactions (77),
+and kinetic parameters (132) confirmed against Purvis Table 1 header.
 
-| Parameter | Value |
-|-----------|-------|
-| KM1 | 0.5 mM⁻¹ |
-| KM2 | 1.0 mM⁻¹ |
-| kcat | 8.9 s⁻¹ |
+### PMCA (type 4b; ref: Caride 2007 Table 3, basal/CaM-free)
+
+Two-state Michaelis–Menten approximation, used for v0.2. Values are the
+basal (CaM-free) constants from **Caride 2007 Table 3** for the human PMCA4b
+isoform:
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| k_on  | 10 µM⁻¹·s⁻¹ | Ca²⁺ binding (basal, no CaM) |
+| k_off | 50 s⁻¹      | Ca²⁺ unbinding (basal, no CaM) |
+| k_cat | 5.5 s⁻¹     | Turnover (V_max basal) |
+| KM    | 5.55 µM     | Derived: (k_off + k_cat) / k_on |
+
+**Verified ✓ (Zotero, Caride 2007 itemKey YLIICDWW, 2026-04-23)** — the source
+table directly lists "k4 (s⁻¹ µM⁻¹) 10" for Ca²⁺ binding, "k4r (s⁻¹) 50" for
+Ca²⁺ unbinding, and "k5 (s⁻¹) 5.5" for PMCA4b turnover (PMCA4a is 12 — see
+the paper if v0.3 wants the alternate isoform). The Caride symbols (k4, k4r, k5)
+map onto our (k_on, k_off, k_cat) for the Ca²⁺-binding and turnover steps of
+the larger 5-state cycle; the 2-state Michaelis–Menten reduction here is ours,
+not Caride's. Caride's full scheme is used by Dolan 2014 and is the v0.3 target.
+
+**Caveat — this is a v0.2 simplification.** Caride 2007 themselves describe
+PMCA4b with a 5-state kinetic scheme that includes CaM binding, where CaM
+activation drops the apparent KM into the sub-µM range and raises k_cat. Dolan
+2014 adopts a comparable CaM-coupled model. Using the basal constants in v0.2
+is honest to the primary source but will yield a slower decay phase than the
+Dolan & Diamond Fig 4 transient. The full 5-state CaM-coupled scheme is
+deferred to v0.3 — see `calcium-dynamics-design.md` §3.5 and §7.2.
+
+#### Provenance correction (logged 2026-04-23)
+
+Earlier revisions of this row recorded:
+
+```
+KM1 = 0.5 mM⁻¹,  KM2 = 1.0 mM⁻¹,  kcat = 8.9 s⁻¹
+```
+
+attributed to Caride 2007 / Purvis 2008 Table 1. Both the values and the
+attribution were wrong:
+
+- The units `mM⁻¹` are dimensionally invalid for a Michaelis constant (should
+  be a concentration, e.g. µM).
+- These three numbers do **not** appear in Caride 2007 for any PMCA reaction.
+  Caride 2007 reports a multi-step kinetic scheme with rate constants in
+  Table 3, not a 2-parameter Michaelis–Menten with these values.
+- The numbers do match **Reaction #11 in Purvis 2008** ("Synthesis of CDPDG"),
+  a phospholipid biosynthesis enzyme unrelated to Ca²⁺ extrusion. The
+  triplet (KM1=0.5, KM2=1.0, kcat=8.9) was lifted from that row and
+  mis-applied to PMCA in the original draft of this document.
+
+The replacement values above use Caride 2007 Table 3 directly, with the
+consequence that v0.2 transient decay will be slower than Dolan Fig 4 (see
+design doc §7.2 for adjusted pass criteria).
 
 ---
 
@@ -268,22 +406,58 @@ STIM1-Orai1 cooperative binding and channel opening. Key parameters:
 
 | Parameter | Meaning | Value | Notes |
 |-----------|---------|-------|-------|
-| L | Intrinsic opening equilibrium constant | Scanned | One of 3 unknowns |
-| Ka | Association constant for STIM2 binding to Orai | Scanned | |
-| α | Binding cooperativity factor | | Negative cooperativity |
-| f | Opening cooperativity factor | | Positive cooperativity |
-| n | Hill coefficient for puncta entry | Scanned | One of 3 unknowns |
-| KM | Half-saturation for puncta entry | Scanned | One of 3 unknowns |
+| L | Intrinsic opening equilibrium constant | Fixed (from Hoover 2011 ref 18) | Not scanned by Dolan |
+| Ka | Association constant for STIM2 binding to Orai | Fixed (from Hoover 2011 ref 18) | Not scanned by Dolan |
+| α | Binding cooperativity factor | Fixed (from Hoover 2011 ref 18) | Negative cooperativity |
+| f | Opening cooperativity factor | Fixed (from Hoover 2011 ref 18) | Positive cooperativity |
+| n | Hill coefficient for puncta entry | **Scanned** | One of 2 unknowns Dolan scans (with KM) |
+| KM | Half-saturation for puncta entry | **Scanned** | One of 2 unknowns Dolan scans (with n) |
 | V_PM | Plasma membrane potential | −60 mV | Fixed |
-| V_IM | DTS inner membrane potential | −70 to −100 mV | **Unmeasured; key parameter** |
-| C_M | Specific membrane capacitance | ~2 mF/cm² | Higher than typical (1 mF/cm²) due to invaginations |
+| V_IM | DTS inner membrane potential | Sampled −100 to −60 mV | **Unmeasured; responsive cluster at upper bound (V_IM > −70 mV)** |
+| C_M | Specific membrane capacitance | ~2 mF/cm² | Higher than typical (1 mF/cm²) due to surface invaginations |
 | g_SOC | SOC single-channel conductance | From MWC model | |
 | α (puncta) | Max fraction of STIM2 in puncta at rest | 0.2 | Increased → more constitutive leak |
 
-**Note:** Dolan 2014 uses Monte Carlo scanning over 3 unknown parameters + 9 ICs
-in a 12-dimensional space. They report that <0.06% of 2.6M sampled configurations
-satisfy all 4 homeostatic/dynamic constraints. The SOCE module is tightly coupled
-to VIM — configurations responsive to IP3 require VIM > −70 mV.
+**Note (corrected 2026-04-23):** Dolan 2014 main text Methods explicitly
+identifies *two* unknown fixed parameters (Km, n) — not three. The 12-dimensional
+sampling space is: 6 protein copy numbers (IP3R, SERCA, STIM, Orai, CaM, PMCA)
++ 3 nonprotein ICs ([Ca²⁺]cyt, [Ca²⁺]dts, [IP3]) + VIM + 2 unknowns (Km, n)
+= 12. Earlier draft of this table claimed 3 unknowns and listed L, Ka as scanned;
+both were wrong — L and Ka come from Hoover & Lewis (2011) PNAS 108:13299.
+
+VIM sampling range was −100 to −60 mV (not −70 to −100 mV as the earlier draft
+stated); responsive-to-IP3 configurations cluster at the upper end (V_IM >
+−70 mV). They report that <0.06% of 2.6M sampled configurations satisfy all 4
+homeostatic/dynamic constraints.
+
+**Verified ✓ (Zotero, Dolan 2014 itemKey LJNKNAUI, 2026-04-23)**
+
+### Implementation gap — simplified mass-action model (issue #45)
+
+The code in `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
+does **not** implement the MWC model above. Instead it uses a simplified
+3-state mass-action system:
+
+```
+STIM1_Ca  ⇌  STIM1_free  ⇌  STIM1_dim  →  Orai1 flux
+```
+
+with rate constants `k_dim_f`, `k_dim_r`, `k_orai` that are **not from any
+paper** — they were ad hoc estimates when the dataclass was first written.
+
+**Bug discovered 2026-04-29:** `k_dim_f = 0.05 count⁻¹s⁻¹` was 436× too
+large. With st_free=438 at rest the dimerisation rate was 9,570/s, causing
+runaway STIM1_dim growth and massive spurious SOCE influx in the first
+timestep. The correct equilibrium-consistent value is:
+
+```
+k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 22 / 438² ≈ 1.15×10⁻⁴
+```
+
+This fix has been applied. `k_orai = 0.001` has not been independently
+validated and may also need calibration against the Dolan 2014 Fig. 4 trace.
+
+The full MWC implementation is tracked in **issue #46**.
 
 ---
 
@@ -371,6 +545,28 @@ both use stochastic simulation for this reason).
 | ADP dose-response | Peak [Ca²⁺]cyt at ~20 s, decay τ ~1 min | Purvis 2008 Fig 5 |
 | P2Y12 knockout effect | Reduced amplitude/duration, not abolished | Design doc target |
 | MCU knockout effect | Impaired store-operated entry, reduced function | Ghatge 2026 |
+
+---
+
+## References not held in Zotero (cross-checked indirectly)
+
+The following primary sources are cited by Purvis 2008 / Dolan 2014 / Caride 2007
+but are **not** present as PDFs in the local Zotero library. Their values have
+been verified indirectly by reading the citing paper's table/text and confirming
+that the citing paper attributes the value to the named source.
+
+| Source | Used for | Verification status |
+|--------|----------|---------------------|
+| Sneyd & Dufour 2002 | IP3R type 2 6-state kinetics (Purvis 2008 Table 1, Dolan 2014 Methods) | Indirectly verified via Purvis 2008 Table 1 (rate constants k₁..k₄, l₂..l₆, L₁, L₃, L₅ — all present in Purvis with values) |
+| Dode 2002 | SERCA3b cycle kinetics (Purvis 2008 Table 1) | Indirectly verified via Purvis 2008 Table 1 (six rate constants, all present) |
+| Hoover & Lewis 2011 PNAS | MWC SOCE allosteric constants L, Ka, α, f (Dolan 2014) | Indirectly verified via Dolan 2014 Methods: "L, Ka, α, f from Hoover & Lewis (ref 18)"; only n and KM are scanned |
+| Zschauer 1988 | IP3R single-channel conductance 10 pS (Purvis 2008) | Indirectly verified via Purvis 2008 Table 1 |
+| Holmsen 1979/1981 | Cytosolic ATP 3–5 mM (used for ATP[c] starting count) | **Not yet verified** — secondary sources widely quote this range; primary PDF would need to be added to Zotero to confirm |
+| Kinzer-Ursem 2007, Waldo 2004 | Receptor module ternary complex parameters (Purvis 2008 Table 1) | Indirectly verified via Purvis 2008 Table 1 |
+
+For the calcium core (issue #25) all rate constants used in code can be traced
+to Purvis 2008 Table 1 or Dolan 2014, both of which have been verified against
+their own PDFs in this provenance pass.
 
 ---
 
