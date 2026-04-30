@@ -14,3 +14,5 @@
 "ITPR2[c]"	"IP3 receptor type 2"	"protein"	307621	1700	"Burkhart 2012 (UniProt O14672); monomer count"
 "ATP2A3[c]"	"SERCA3 Ca2+-ATPase"	"protein"	109207	16300	"Burkhart 2012 (UniProt Q93084)"
 "STIM1[c]"	"STIM1 Ca2+ sensor"	"protein"	77367	7400	"Burkhart 2012 (UniProt Q13586)"
+"ATP2B4[c]"	"Plasma membrane Ca2+-ATPase 4 (PMCA4)"	"protein"	127272	640	"Burkhart 2012 (UniProt P23634)"
+"CALM1[c]"	"Calmodulin (CALM1/2/3; all identical sequence)"	"protein"	16706	20481	"Dolan 2014 Table S1 total CaM = 20481; Burkhart 2012 does not report CaM copy number (UniProt P0DP23)"

@@ -28,13 +28,13 @@ from wholecell.utils.unit_struct_array import UnitStructArray
 #   [dg]  = dense granule [ag]  = alpha granule
 #   [pl]  = plasmalemma (plasma membrane)
 #
-# IP3R, SERCA, PMCA, STIM1 are split into their kinetic sub-states so the
-# CalciumDynamics ODE solver can integrate the 6-state Sneyd IP3R, the SERCA
-# E1/E2 cycle, the 2-state PMCA Michaelis–Menten approximation, and the STIM1
-# DTS-bound / free / dimer sensor cycle. Sub-state initial counts are the
-# Dolan & Diamond 2014 Table S1 representative configuration; protein totals
-# match the per-protein totals in that table (1,328 IP3R; 11,892 SERCA;
-# 769 PMCA; 4,265 STIM1; 1,447 Orai1).
+# IP3R, SERCA, PMCA, STIM1, and CaM are split into their kinetic sub-states so
+# the CalciumDynamics ODE solver can integrate the 6-state Sneyd IP3R, the SERCA
+# E1/E2 cycle, the 5-state Caride 2007 CaM-coupled PMCA scheme, the STIM1
+# DTS-bound / free / dimer sensor cycle, and the 3-state CaM Ca²⁺-binding ladder.
+# Sub-state initial counts are the Dolan & Diamond 2014 Table S1 representative
+# configuration; protein totals match the per-protein totals in that table
+# (1,328 IP3R; 11,892 SERCA; 769 PMCA; 4,265 STIM1; 1,447 Orai1; 20,481 CaM).
 _MOLECULES = [
 	# id                   mass_fg      initial_count  molecule_class
 	# ── metabolites (concentrations derived from Purvis 2008 / Dolan 2014 / Sveshnikova 2025) ──
@@ -66,9 +66,22 @@ _MOLECULES = [
 	('SERCA_E1PCa[dts]',  1.814e-4,    7,             'protein'),     # E1P·2Ca²⁺ (phosphorylated)
 	('SERCA_E2PCa[dts]',  1.814e-4,    4,             'protein'),     # E2P·2Ca²⁺
 	('SERCA_E2P[dts]',    1.814e-4,    28,            'protein'),     # E2P (Ca²⁺ released to DTS)
-	# ── PMCA4b sub-states (2-state Michaelis–Menten; mass = ATP2B4 monomer) ──
-	('PMCA[pl]',          2.114e-4,    765,           'protein'),     # PMCA free (1.273e5 Da)
-	('PMCA_Ca[pl]',       2.114e-4,    4,             'protein'),     # PMCA·Ca²⁺
+	# ── PMCA4b sub-states (Caride 2007 Table 3 5-state CaM-coupled scheme) ──
+	# Basal path (steps 4–5): PMCA ⇌ PMCA·Ca → Ca²⁺_ex
+	# CaM-activated path (steps 8–11): PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
+	#   → Ca₄·CaM·PMCA·Ca → Ca²⁺_ex; Ca₄·CaM·PMCA ⇌ PMCA·CaM + 4 Ca²⁺
+	# Complex sub-states carry combined mass: PMCA (2.114e-4) + CaM (2.775e-5) = 2.391e-4 fg
+	('PMCA[pl]',              2.114e-4,    765,     'protein'),  # PMCA free
+	('PMCA_Ca[pl]',           2.114e-4,    4,       'protein'),  # PMCA·Ca²⁺ (basal)
+	('Ca4_CaM_PMCA[pl]',      2.391e-4,    0,       'protein'),  # Ca₄·CaM·PMCA (CaM-activated, empty)
+	('Ca4_CaM_PMCA_Ca[pl]',   2.391e-4,    0,       'protein'),  # Ca₄·CaM·PMCA·Ca²⁺
+	('PMCA_CaM[pl]',          2.391e-4,    0,       'protein'),  # PMCA·CaM (deactivating)
+	# ── Calmodulin sub-states (Caride 2007 Table 3 steps 6–7; mass = CaM monomer 16,706 Da) ──
+	# CaM that is bound to PMCA is accounted for in the PMCA complex sub-states above;
+	# these three states cover all free (unbound) CaM.
+	('CaM_free[c]',       2.775e-5,    20_465,  'protein'),  # free CaM (Dolan Table S1)
+	('Ca2_CaM[c]',        2.775e-5,    15,      'protein'),  # Ca₂·CaM (N-lobe loaded)
+	('Ca4_CaM[c]',        2.775e-5,    1,       'protein'),  # Ca₄·CaM (fully loaded, binds PMCA)
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)

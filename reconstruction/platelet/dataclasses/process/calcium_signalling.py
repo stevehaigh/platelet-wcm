@@ -11,7 +11,11 @@ ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
     Po = (0.9·a/total + 0.1·o/total)⁴.
   * SERCA E1/E2 cycle (Purvis 2008 Table 1, Dode 2002 kinetics) with the
     primary-source rate constants — including k_bind_f = 1×10¹⁵ M⁻²s⁻¹.
-  * PMCA 2-state Michaelis–Menten (Caride 2007 Table 3 basal).
+  * PMCA 5-state CaM-coupled scheme (Caride 2007 Table 3): basal path
+    (steps 4–5) plus CaM-activated path (steps 8–11).
+  * Calmodulin Ca²⁺ binding (Caride 2007 Table 3 steps 6–7): two-lobe
+    cooperative ladder CaM → Ca₂·CaM → Ca₄·CaM. Ca₄·CaM activates PMCA
+    (5× higher k_cat) and acts as a cytosolic Ca²⁺ buffer.
   * SOCE: Dolan 2014 MWC allosteric scheme (Hoover & Lewis 2011 framework)
     parameterising channel open probability as a function of STIM2 in the
     Orai puncta. Replaces the prior ad hoc 3-state mass-action model
@@ -70,6 +74,14 @@ MOLECULE_NAMES = (
 	'STIM1_Ca[dts]',
 	'STIM1_dim[dts]',
 	'ORAI1[pl]',
+	# CaM Ca²⁺-binding ladder (Caride 2007 steps 6–7; Phase 1c)
+	'CaM_free[c]',
+	'Ca2_CaM[c]',
+	'Ca4_CaM[c]',
+	# PMCA–CaM complex sub-states (Caride 2007 steps 8–11; Phase 1d)
+	'Ca4_CaM_PMCA[pl]',
+	'Ca4_CaM_PMCA_Ca[pl]',
+	'PMCA_CaM[pl]',
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -157,12 +169,37 @@ K_SERCA = {
 }
 
 
-# ── PMCA (Caride 2007 Table 3 basal kinetics, no CaM) ─────────────────────
-# Strict primary-source values. Full 5-state CaM-coupled scheme deferred.
+# ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
+# Steps 4–5 are unchanged; the CaM-activated path (steps 8–11) is below.
 K_PMCA = {
-	'k_on':   10.0,    # PMCA + Ca²⁺ → PMCA·Ca   (µM⁻¹·s⁻¹)
-	'k_off':  50.0,    # PMCA·Ca → PMCA          (s⁻¹)
-	'k_cat':   5.5,    # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)
+	'k_on':   10.0,    # PMCA + Ca²⁺ ⇌ PMCA·Ca   (µM⁻¹·s⁻¹)  step 4 fwd
+	'k_off':  50.0,    # reverse                  (s⁻¹)        step 4 rev
+	'k_cat':   5.5,    # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)        step 5 (basal turnover)
+}
+
+# ── CaM Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ─────────────────────
+# Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7).
+# Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
+K_CAM = {
+	'k6':    2.669,   # CaM + 2 Ca²⁺ → Ca₂·CaM  (µM⁻²·s⁻¹)  step 6 fwd
+	'k6r':   2.682,   # reverse                  (s⁻¹)        step 6 rev
+	'k7':  170.4,     # Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM (µM⁻²·s⁻¹) step 7 fwd
+	'k7r':   1.551,   # reverse                  (s⁻¹)        step 7 rev
+}
+
+# ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–11) ──────────
+# Ca₄·CaM binds free PMCA (step 8), then the complex binds and pumps Ca²⁺
+# with ~5× higher k_cat (step 10 vs step 5).  Step 11 is PMCA·CaM slow
+# deactivation (k11=10 s⁻¹); we include it for mass conservation but it
+# operates on a ~20 min timescale so it rarely fires.
+K_CAM_PMCA = {
+	'k8':   0.2,       # PMCA + Ca₄·CaM → Ca₄·CaM·PMCA  (µM⁻¹·s⁻¹) step 8 fwd
+	'k8r':  8.0e-4,    # reverse                         (s⁻¹)       step 8 rev
+	'k9':  50.0,       # Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca (µM⁻¹·s⁻¹) step 9
+	'k9r': 10.0,       # reverse                         (s⁻¹)
+	'k10': 30.0,       # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹) step 10
+	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺ (s⁻¹)    step 11 fwd
+	'k11r':  7.332e-4, # reverse (µM⁻⁴·s⁻¹)                          step 11 rev
 }
 
 
@@ -422,6 +459,13 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	pmca   = max(y[_IDX['PMCA[pl]']],    0.0)
 	pmcaca = max(y[_IDX['PMCA_Ca[pl]']], 0.0)
 
+	cam_free         = max(y[_IDX['CaM_free[c]']],        0.0)
+	ca2_cam          = max(y[_IDX['Ca2_CaM[c]']],         0.0)
+	ca4_cam          = max(y[_IDX['Ca4_CaM[c]']],         0.0)
+	ca4_cam_pmca     = max(y[_IDX['Ca4_CaM_PMCA[pl]']],   0.0)
+	ca4_cam_pmca_ca  = max(y[_IDX['Ca4_CaM_PMCA_Ca[pl]']],0.0)
+	pmca_cam         = max(y[_IDX['PMCA_CaM[pl]']],       0.0)
+
 	st_free = max(y[_IDX['STIM1_free[dts]']], 0.0)
 	st_ca   = max(y[_IDX['STIM1_Ca[dts]']],   0.0)
 	st_dim  = max(y[_IDX['STIM1_dim[dts]']],  0.0)
@@ -498,14 +542,58 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	dy[_IDX['CA2_CYT[c]']]   += -2.0 * v_bind
 	dy[_IDX['CA2_DTS[dts]']] += +2.0 * v_release
 
-	# ── PMCA (2-state MM; basal kinetics, no CaM coupling) ───────────
+	# ── CaM Ca²⁺ binding (Caride 2007 steps 6–7) ────────────────────
+	# Step 6: CaM + 2 Ca²⁺ ⇌ Ca₂·CaM  (slow N-lobe)
+	v_cam_bind1 = K_CAM['k6'] * cam_free * (ca_cyt ** 2) - K_CAM['k6r'] * ca2_cam
+	# Step 7: Ca₂·CaM + 2 Ca²⁺ ⇌ Ca₄·CaM  (fast C-lobe)
+	v_cam_bind2 = K_CAM['k7'] * ca2_cam * (ca_cyt ** 2) - K_CAM['k7r'] * ca4_cam
+
+	dy[_IDX['CaM_free[c]']] += -v_cam_bind1
+	dy[_IDX['Ca2_CaM[c]']]  += +v_cam_bind1 - v_cam_bind2
+	dy[_IDX['Ca4_CaM[c]']]  += +v_cam_bind2
+	# CaM-bound Ca²⁺ is removed from the free cytosolic pool (buffering effect).
+	dy[_IDX['CA2_CYT[c]']]  += -2.0 * v_cam_bind1 - 2.0 * v_cam_bind2
+
+	# ── PMCA basal path (Caride 2007 steps 4–5) ──────────────────────
 	v_pmca_bind = K_PMCA['k_on'] * pmca * ca_cyt - K_PMCA['k_off'] * pmcaca
 	v_pmca_cat  = K_PMCA['k_cat'] * pmcaca
 
 	dy[_IDX['PMCA[pl]']]    += -v_pmca_bind + v_pmca_cat
 	dy[_IDX['PMCA_Ca[pl]']] += +v_pmca_bind - v_pmca_cat
 	dy[_IDX['CA2_CYT[c]']]  += -v_pmca_bind
-	# Catalysis ejects Ca²⁺ to the extracellular reservoir (not modelled).
+	# Catalysis ejects Ca²⁺ to the extracellular reservoir (not tracked).
+
+	# ── PMCA CaM-activated path (Caride 2007 steps 8–11) ─────────────
+	# Step 8: PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
+	# Ca₄·CaM concentration in µM; PMCA count is used directly (count-level).
+	ca4_cam_uM = ca4_cam * _UM_PER_COUNT_CYT
+	v_cam_bind_pmca = (
+		K_CAM_PMCA['k8'] * pmca * ca4_cam_uM
+		- K_CAM_PMCA['k8r'] * ca4_cam_pmca
+	)
+	# Step 9: Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca
+	v_cam_pmca_bind = (
+		K_CAM_PMCA['k9'] * ca4_cam_pmca * ca_cyt
+		- K_CAM_PMCA['k9r'] * ca4_cam_pmca_ca
+	)
+	# Step 10: Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex  (activated extrusion)
+	v_cam_pmca_cat = K_CAM_PMCA['k10'] * ca4_cam_pmca_ca
+	# Step 11: Ca₄·CaM·PMCA ⇌ PMCA·CaM + 4 Ca²⁺  (slow CaM deactivation)
+	v_cam_deact = (
+		K_CAM_PMCA['k11'] * ca4_cam_pmca
+		- K_CAM_PMCA['k11r'] * pmca_cam * (ca_cyt ** 4)
+	)
+
+	dy[_IDX['PMCA[pl]']]              += -v_cam_bind_pmca
+	dy[_IDX['Ca4_CaM[c]']]            += -v_cam_bind_pmca  # CaM leaves free pool
+	dy[_IDX['Ca4_CaM_PMCA[pl]']]      += (+v_cam_bind_pmca - v_cam_pmca_bind
+	                                        - v_cam_deact)
+	dy[_IDX['Ca4_CaM_PMCA_Ca[pl]']]   += +v_cam_pmca_bind - v_cam_pmca_cat
+	dy[_IDX['PMCA_CaM[pl]']]          += +v_cam_deact
+	# Steps 9 fwd removes one Ca²⁺_cyt; step 10 ejects it extracellularly.
+	dy[_IDX['CA2_CYT[c]']]            += -v_cam_pmca_bind
+	# Step 11 releases 4 Ca²⁺ back to cytosol.
+	dy[_IDX['CA2_CYT[c]']]            += +4.0 * v_cam_deact
 
 	# ── STIM1 cycle (mass-action; calibrated to Dolan IC detailed balance) ─
 	v_stim1_release = (
@@ -611,7 +699,12 @@ class CalciumSignalling:
 		# step).
 		dts_gain = max(delta[_IDX['CA2_DTS[dts]']], 0)
 		serca_atp = dts_gain // 2
-		pmca_atp = max(int(K_PMCA['k_cat'] * counts[_IDX['PMCA_Ca[pl]']] * dt), 0)
+		# PMCA ATP: 1 per turnover on both the basal path (step 5) and the
+		# CaM-activated path (step 10).
+		pmca_atp = max(int(
+			K_PMCA['k_cat'] * counts[_IDX['PMCA_Ca[pl]']] * dt
+			+ K_CAM_PMCA['k10'] * counts[_IDX['Ca4_CaM_PMCA_Ca[pl]']] * dt
+		), 0)
 		atp_cost = serca_atp + pmca_atp
 
 		return delta, atp_cost
