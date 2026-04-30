@@ -232,3 +232,62 @@ Webapp WIP committed separately as `ef0113e53`:
 
 - `runscripts/manual/analysisPlatelet.py` — webapp plot path
 - `wholecell/webapp/jobs.py` — webapp adds platelet analysis phase
+
+---
+
+## Where to pick up next session
+
+**Last commit pushed:** `021c1be47` on `platelet` (origin up to date).
+
+**Branch state:** clean. No uncommitted changes.
+
+**Pick up at:** Phase 1b — *add CaM species + sub-states to the molecule inventory* (issue [#47](https://github.com/stevehaigh/wcEcoli/issues/47), task #10).
+
+**Read first** (in this order):
+
+1. `reports/calcium-next-steps-plan.md` — the 5-phase roadmap, with effort estimates against the dissertation timeline
+2. `reports/caride-2007-pmca-rate-constants.md` — Phase 1a output: every PMCA4b + Ca²⁺-CaM rate constant from Caride 2007 Table 3, with implementation notes
+3. This file ("What the model does and doesn't show" section) — the equation-level picture of why the runaway happens
+
+**Concrete next action (Phase 1b):**
+
+Open `reconstruction/platelet/dataclasses/internal_state.py` and `reconstruction/platelet/raw_data/molecules.tsv`. Add 6 new species:
+
+- `CaM_free[c]` — initial count 20 465 (Dolan Table S1)
+- `Ca2_CaM[c]` — initial count 15
+- `Ca4_CaM[c]` — initial count 1
+- `Ca4_CaM_PMCA[pl]` — initial count ~0
+- `Ca4_CaM_PMCA_Ca[pl]` — initial count ~0
+- `PMCA_CaM[pl]` — initial count ~0
+
+Mass per CaM monomer: ~16.7 kDa = $2.78 \times 10^{-5}$ fg. PMCA·CaM forms have masses summed.
+
+After Phase 1b, the next steps are 1c (CaM Ca²⁺-binding kinetics) and 1d (replace basal PMCA with the full 5-state Caride scheme). All rate constants for these are already extracted into `caride-2007-pmca-rate-constants.md`.
+
+**Acceptance criterion for Phase 1 overall (task #13 / issue #47):**
+
+- 200 s sim with IP3 forcing peaks at $[\text{Ca}^{2+}]_{\text{cyt}}$ in the 200–800 nM range (currently $\sim$6 µM)
+- No late-time runaway (cyt does not exceed 1 µM after $t = 50$ s)
+- DTS partially depletes (does not reach 0 µM)
+- All existing tests still pass
+
+**GitHub state:**
+
+| Issue | Status |
+|-------|--------|
+| #47 | open — Phase 1 (CaM + Caride 5-state PMCA) |
+| #48 | open — Phase 2 (re-derive resting IC) |
+| #49 | open — Phase 3 (Dolan Fig 4 validation) |
+| #45, #46 | closed (MWC done) |
+| #24, #25 | open with progress comments |
+
+**Build/test commands** (with pyenv-init in the shell):
+
+```bash
+PYTHONPATH=. python3 -m pytest models/platelet/tests/             # 9 tests, all pass
+PYTHONPATH=. python3 runscripts/manual/runPlateletSim.py --length 200 platelet_smoke
+PYTHONPATH=. python3 runscripts/manual/analysisPlatelet.py platelet_smoke --plot calcium_trace
+make pdfs                                                          # rebuild reports/pdf/*.pdf
+```
+
+**Gotcha:** the v0.2 platelet sim cytosolic CaM concentration is $\sim$5.66 µM (20 481 / 6 fL), about 3× higher than the Caride 2007 CHO cells. Caride's rate constants are fine (CaM Ca²⁺-binding is intensive in concentration), but the *count*-based mass-action terms in our ODE need careful unit conversion when CaM appears as an enzyme-side count.
