@@ -235,50 +235,77 @@ Webapp WIP committed separately as `ef0113e53`:
 
 ---
 
+## Session 2026-04-29 → status as of 2026-05-01
+
+Phase 1b, 1c, 1d **all completed** in the session of 2026-04-30 / 2026-05-01:
+
+| Sub-task | Commit | Status |
+|----------|--------|--------|
+| 1b — CaM species to inventory | `f3080c40a` | ✓ done |
+| 1c — CaM Ca²⁺-binding ODE (steps 6–7) | `f3080c40a` | ✓ done |
+| 1d — 5-state Caride PMCA (steps 8–10) | `f3080c40a` | ✓ done |
+| Phantom IP3R flux bug | `ec511f7be` | ✓ fixed |
+| PMCA mass conservation (step-10 recycle) | `ec511f7be` | ✓ fixed |
+| CaM ICs pre-equilibrated | `ec511f7be` | ✓ fixed |
+| 5-panel CalciumTrace analysis | `ec511f7be` | ✓ done |
+
+**Phase 1 acceptance-criteria status (200 s, IP3-forced):**
+
+| Criterion | Value | Status |
+|-----------|-------|--------|
+| peak [Ca²⁺]_cyt (t ≤ 20 s) | **280 nM** | ✓ PASS (200–800 nM) |
+| at t = 50 s | 2 nM | ✓ PASS (<1000 nM) |
+| at t = 200 s | 1 nM | ✓ PASS (<1000 nM) |
+| DTS min > 0 µM | **0 µM** | ✗ FAIL — Phase 2 required |
+
+**DTS drainage issue (the key Phase 2 problem):**
+
+`GAMMA_IP3R_S = 10 pS` is the measured single-channel conductance of IP3R2 (Zschauer
+1988 via Purvis Table 1). With $N = 1328$ channels at resting $P_o = 1.65 \times 10^{-5}$
+and $\Delta V = 164\ \text{mV}$, the Nernst formula gives $\sim 112\,000$ ions/s out of
+the DTS. SERCA refills at only $\sim 6\,600$ ions/s (limited by the Dolan IC having
+few molecules in E2P·Ca state). Net drain: 38842 DTS atoms gone in $\sim 0.35$ s.
+
+The 10 pS value is a *biophysical single-channel measurement* that does not carry
+information about how it should scale to a 6 fL whole-cell model. For whole-cell
+purposes, `GAMMA_IP3R_S` needs to be calibrated so that at resting $P_o$ the IP3R
+flux equals the SERCA refill capacity ($\sim 6\,600$ ions/s), giving:
+$$\gamma_{\text{IP3R, calibrated}} \approx \frac{6600}{1328 \times 1.65 \times 10^{-5} \times 0.164 \times 3.12 \times 10^{18}} \approx 0.6\ \text{fS}$$
+This recalibration is **Phase 2, issue #48** (re-derive resting IC + calibrate IP3R flux).
+
 ## Where to pick up next session
 
-**Last commit pushed:** `021c1be47` on `platelet` (origin up to date).
+**Last commit:** `ec511f7be` on `platelet` (branch ahead of origin by 2 commits; push when ready).
 
-**Branch state:** clean. No uncommitted changes.
+**Pick up at:** Phase 2 — re-derive a true resting steady-state IC and recalibrate `GAMMA_IP3R_S` (issue [#48](https://github.com/stevehaigh/wcEcoli/issues/48)).
 
-**Pick up at:** Phase 1b — *add CaM species + sub-states to the molecule inventory* (issue [#47](https://github.com/stevehaigh/wcEcoli/issues/47), task #10).
+**Concrete next actions:**
 
-**Read first** (in this order):
+1. Recalibrate `GAMMA_IP3R_S` in `reconstruction/platelet/dataclasses/process/calcium_signalling.py`:
+   - Target: at resting $P_o \approx 1.65 \times 10^{-5}$, IP3R flux = SERCA refill rate ≈ 6600 ions/s.
+   - Value: `GAMMA_IP3R_S = 0.6e-15` (0.6 fS).  Start here; tune if needed.
 
-1. `reports/calcium-next-steps-plan.md` — the 5-phase roadmap, with effort estimates against the dissertation timeline
-2. `reports/caride-2007-pmca-rate-constants.md` — Phase 1a output: every PMCA4b + Ca²⁺-CaM rate constant from Caride 2007 Table 3, with implementation notes
-3. This file ("What the model does and doesn't show" section) — the equation-level picture of why the runaway happens
+2. Run at low IP3 ($t = 0 \to 500$ s with `ip3_forced=False`) to let the ODE reach true
+   steady state. Extract the final counts as the new `_MOLECULES` ICs in `internal_state.py`.
+   This ensures the SERCA E1P/E2P states, STIM1 cycle, and PMCA are all at rest before the
+   IP3 pulse is applied.
 
-**Concrete next action (Phase 1b):**
+3. Re-run the 200 s IP3-forced transient from the new IC and verify all four Phase 1
+   acceptance criteria including DTS min > 0.
 
-Open `reconstruction/platelet/dataclasses/internal_state.py` and `reconstruction/platelet/raw_data/molecules.tsv`. Add 6 new species:
-
-- `CaM_free[c]` — initial count 20 465 (Dolan Table S1)
-- `Ca2_CaM[c]` — initial count 15
-- `Ca4_CaM[c]` — initial count 1
-- `Ca4_CaM_PMCA[pl]` — initial count ~0
-- `Ca4_CaM_PMCA_Ca[pl]` — initial count ~0
-- `PMCA_CaM[pl]` — initial count ~0
-
-Mass per CaM monomer: ~16.7 kDa = $2.78 \times 10^{-5}$ fg. PMCA·CaM forms have masses summed.
-
-After Phase 1b, the next steps are 1c (CaM Ca²⁺-binding kinetics) and 1d (replace basal PMCA with the full 5-state Caride scheme). All rate constants for these are already extracted into `caride-2007-pmca-rate-constants.md`.
-
-**Acceptance criterion for Phase 1 overall (task #13 / issue #47):**
-
-- 200 s sim with IP3 forcing peaks at $[\text{Ca}^{2+}]_{\text{cyt}}$ in the 200–800 nM range (currently $\sim$6 µM)
-- No late-time runaway (cyt does not exceed 1 µM after $t = 50$ s)
-- DTS partially depletes (does not reach 0 µM)
-- All existing tests still pass
+4. If DTS still depletes fully: consider whether the Dolan IC has insufficient DTS Ca²⁺
+   for the 5 fL platelet (the 250 µM value is from Purvis 2008 bulk measurement; the
+   platelet DTS fraction ≈ 4.3% may mean an effective concentration 10-20× higher in
+   the DTS sub-compartment).
 
 **GitHub state:**
 
 | Issue | Status |
 |-------|--------|
-| #47 | open — Phase 1 (CaM + Caride 5-state PMCA) |
-| #48 | open — Phase 2 (re-derive resting IC) |
-| #49 | open — Phase 3 (Dolan Fig 4 validation) |
-| #45, #46 | closed (MWC done) |
+| #47 | effectively done (peak criterion ✓; DTS pending Phase 2) |
+| #48 | open — Phase 2 (IP3R calibration + true resting IC) |
+| #49 | open — Phase 3 (Dolan 2014 Fig 4 validation) |
+| #45, #46 | closed |
 | #24, #25 | open with progress comments |
 
 **Build/test commands** (with pyenv-init in the shell):
