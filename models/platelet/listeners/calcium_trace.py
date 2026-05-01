@@ -5,12 +5,20 @@ Records the Ca²⁺ signalling state each timestep for post-simulation analysis
 and validation against the Dolan & Diamond (2014) Fig. 4 Ca²⁺ transient.
 
 Columns written:
-  time            — simulation time (s)
-  ca_cyt_nM       — free cytosolic Ca²⁺ (nM)
-  ca_dts_uM       — DTS stored Ca²⁺ (µM)
-  ip3_nM          — IP₃ concentration (nM)
-  soce_flux_nMs   — instantaneous SOCE influx rate into cytosol (nM/s)
-  stim1_dim       — STIM1 dimer count (monomer-equivalent units)
+  time              — simulation time (s)
+  ca_cyt_nM         — free cytosolic Ca²⁺ (nM)
+  ca_dts_uM         — DTS stored Ca²⁺ (µM)
+  ip3_nM            — IP₃ concentration (nM)
+  soce_flux_nMs     — instantaneous SOCE influx rate into cytosol (nM/s)
+  stim1_dim         — STIM1 dimer count (monomer-equivalent units)
+  cam_free          — free calmodulin count
+  ca2_cam           — Ca₂·CaM count (N-lobe loaded)
+  ca4_cam           — Ca₄·CaM count (fully loaded; activates PMCA)
+  ca4_cam_pmca      — Ca₄·CaM·PMCA count (CaM-activated, empty)
+  ca4_cam_pmca_ca   — Ca₄·CaM·PMCA·Ca count (CaM-activated, loaded)
+  pmca_cam          — PMCA·CaM count (deactivating)
+  pmca_free         — free PMCA count
+  pmca_ca           — PMCA·Ca count (basal active)
 """
 
 import numpy as np
@@ -51,18 +59,34 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 
 		# Pre-compute the global indices of the species we track.
 		all_ids = list(sim_data.internal_state.bulk_molecules.bulk_data['id'])
-		self._idx_ca_cyt  = all_ids.index('CA2_CYT[c]')
-		self._idx_ca_dts  = all_ids.index('CA2_DTS[dts]')
-		self._idx_ip3     = all_ids.index('IP3[c]')
-		self._idx_stim1   = all_ids.index('STIM1_dim[dts]')
-		self._idx_orai    = all_ids.index('ORAI1[pl]')
+		self._idx_ca_cyt         = all_ids.index('CA2_CYT[c]')
+		self._idx_ca_dts         = all_ids.index('CA2_DTS[dts]')
+		self._idx_ip3            = all_ids.index('IP3[c]')
+		self._idx_stim1          = all_ids.index('STIM1_dim[dts]')
+		self._idx_orai           = all_ids.index('ORAI1[pl]')
+		self._idx_cam_free       = all_ids.index('CaM_free[c]')
+		self._idx_ca2_cam        = all_ids.index('Ca2_CaM[c]')
+		self._idx_ca4_cam        = all_ids.index('Ca4_CaM[c]')
+		self._idx_ca4_cam_pmca   = all_ids.index('Ca4_CaM_PMCA[pl]')
+		self._idx_ca4_cam_pmca_ca = all_ids.index('Ca4_CaM_PMCA_Ca[pl]')
+		self._idx_pmca_cam       = all_ids.index('PMCA_CaM[pl]')
+		self._idx_pmca_free      = all_ids.index('PMCA[pl]')
+		self._idx_pmca_ca        = all_ids.index('PMCA_Ca[pl]')
 
-		# Initialise logged quantities for shell display.
-		self.ca_cyt_nM     = 0.0
-		self.ca_dts_uM     = 0.0
-		self.ip3_nM        = 0.0
-		self.soce_flux_nMs = 0.0
-		self.stim1_dim     = 0
+		# Initialise logged quantities.
+		self.ca_cyt_nM        = 0.0
+		self.ca_dts_uM        = 0.0
+		self.ip3_nM           = 0.0
+		self.soce_flux_nMs    = 0.0
+		self.stim1_dim        = 0
+		self.cam_free         = 0
+		self.ca2_cam          = 0
+		self.ca4_cam          = 0
+		self.ca4_cam_pmca     = 0
+		self.ca4_cam_pmca_ca  = 0
+		self.pmca_cam         = 0
+		self.pmca_free        = 0
+		self.pmca_ca          = 0
 
 		self.registerLoggedQuantity('Ca²⁺_cyt\n(nM)',   'ca_cyt_nM',     '.1f')
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
@@ -82,6 +106,16 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.ca_dts_uM = float(ca_dts_uM)
 		self.ip3_nM    = float(ip3_uM * 1e3)
 		self.stim1_dim = int(stim1_dim)
+
+		# CaM and PMCA sub-states.
+		self.cam_free        = int(counts[self._idx_cam_free])
+		self.ca2_cam         = int(counts[self._idx_ca2_cam])
+		self.ca4_cam         = int(counts[self._idx_ca4_cam])
+		self.ca4_cam_pmca    = int(counts[self._idx_ca4_cam_pmca])
+		self.ca4_cam_pmca_ca = int(counts[self._idx_ca4_cam_pmca_ca])
+		self.pmca_cam        = int(counts[self._idx_pmca_cam])
+		self.pmca_free       = int(counts[self._idx_pmca_free])
+		self.pmca_ca         = int(counts[self._idx_pmca_ca])
 
 		# Instantaneous SOCE flux (nM/s into cytosol) via the same Dolan
 		# Eq. 2/3/4 chain used inside the ODE: Hill puncta entry → MWC
@@ -121,4 +155,12 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			ip3_nM=self.ip3_nM,
 			soce_flux_nMs=self.soce_flux_nMs,
 			stim1_dim=self.stim1_dim,
+			cam_free=self.cam_free,
+			ca2_cam=self.ca2_cam,
+			ca4_cam=self.ca4_cam,
+			ca4_cam_pmca=self.ca4_cam_pmca,
+			ca4_cam_pmca_ca=self.ca4_cam_pmca_ca,
+			pmca_cam=self.pmca_cam,
+			pmca_free=self.pmca_free,
+			pmca_ca=self.pmca_ca,
 		)

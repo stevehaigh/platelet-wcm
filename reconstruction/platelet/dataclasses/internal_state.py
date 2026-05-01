@@ -79,9 +79,14 @@ _MOLECULES = [
 	# ── Calmodulin sub-states (Caride 2007 Table 3 steps 6–7; mass = CaM monomer 16,706 Da) ──
 	# CaM that is bound to PMCA is accounted for in the PMCA complex sub-states above;
 	# these three states cover all free (unbound) CaM.
-	('CaM_free[c]',       2.775e-5,    20_465,  'protein'),  # free CaM (Dolan Table S1)
-	('Ca2_CaM[c]',        2.775e-5,    15,      'protein'),  # Ca₂·CaM (N-lobe loaded)
-	('Ca4_CaM[c]',        2.775e-5,    1,       'protein'),  # Ca₄·CaM (fully loaded, binds PMCA)
+	# ICs are set at thermodynamic equilibrium with 100 nM free Ca²⁺ (Caride k6/k6r, k7/k7r).
+	# Dolan Table S1 gave total CaM = 20,481 with sub-state breakdown (15, 1) that reflects
+	# their original model without explicit CaM Ca²⁺-binding kinetics; those values are NOT
+	# at equilibrium with 100 nM Ca²⁺ in our ODE and cause a spurious CaM-loading burst in
+	# the first timestep.  The values below satisfy detailed balance exactly.
+	('CaM_free[c]',       2.775e-5,    20_062,  'protein'),  # free CaM (equilibrated)
+	('Ca2_CaM[c]',        2.775e-5,    200,     'protein'),  # Ca₂·CaM (N-lobe loaded; ~0.010 × free)
+	('Ca4_CaM[c]',        2.775e-5,    219,     'protein'),  # Ca₄·CaM (fully loaded; ~1.10 × Ca₂·CaM)
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)

@@ -504,17 +504,20 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	# in Sneyd & Dufour); total subunit count is what Dolan Table S1 uses,
 	# treated here as "N_channels" since each Sneyd subunit count tracks one
 	# tetramer's worth of state — Po⁴ already accounts for the cooperativity.
-	if ca_cyt > 0.0 and ca_dts > 0.0:
-		e_ca_im_v = RT_OVER_zF_V * math.log(ca_dts / ca_cyt)   # V
-	else:
-		e_ca_im_v = 0.0
-	driving_v = V_IM_V - e_ca_im_v
 	# Total IP3R channel count, in monomer-equivalent units used by the
 	# Dolan IC (sum of the 6 subunit-state counts).
 	n_ip3r_channels = ip3r_total
-	flux_ip3r_ions_s = (
-		-GAMMA_IP3R_S * n_ip3r_channels * po_channel * driving_v * NA_OVER_zF
-	)
+	# IP3R Ca²⁺ flux via the Nernst form. When DTS is empty there is no Ca²⁺
+	# to release; setting flux=0 prevents a phantom influx that arises when
+	# e_ca_im defaults to 0 (giving a -60 mV driving force from an empty store).
+	if ca_cyt > 0.0 and ca_dts > 0.0:
+		e_ca_im_v = RT_OVER_zF_V * math.log(ca_dts / ca_cyt)   # V
+		driving_v = V_IM_V - e_ca_im_v
+		flux_ip3r_ions_s = (
+			-GAMMA_IP3R_S * n_ip3r_channels * po_channel * driving_v * NA_OVER_zF
+		)
+	else:
+		flux_ip3r_ions_s = 0.0
 	# Sign convention: positive `flux_ip3r_ions_s` = into cytosol (because
 	# the driving force ψ_IM − E_Ca is negative when Ca²⁺ flows DTS→cyt; the
 	# leading minus restores "into cyt = positive").
@@ -563,9 +566,17 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	dy[_IDX['CA2_CYT[c]']]  += -v_pmca_bind
 	# Catalysis ejects Ca²⁺ to the extracellular reservoir (not tracked).
 
-	# ── PMCA CaM-activated path (Caride 2007 steps 8–11) ─────────────
+	# ── PMCA CaM-activated path (Caride 2007 steps 8–10) ────────────
+	# Step 11 (slow CaM deactivation, τ ≈ 20 min) is omitted for Phase 1:
+	# it operates on a timescale far beyond the 200 s transient and including
+	# it caused PMCA to accumulate in a dead-end PMCA·CaM state within 30 s.
+	#
+	# Mass balance (steps 8–10 only):
+	#   d/dt(PMCA + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca) = 0  ✓
+	#   d/dt(Ca4_CaM + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca) = 0  ✓ (CaM stays bound)
+	#
 	# Step 8: PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
-	# Ca₄·CaM concentration in µM; PMCA count is used directly (count-level).
+	# Ca₄·CaM in µM; PMCA as count — gives rate in count·s⁻¹.
 	ca4_cam_uM = ca4_cam * _UM_PER_COUNT_CYT
 	v_cam_bind_pmca = (
 		K_CAM_PMCA['k8'] * pmca * ca4_cam_uM
@@ -577,23 +588,16 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 		- K_CAM_PMCA['k9r'] * ca4_cam_pmca_ca
 	)
 	# Step 10: Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex  (activated extrusion)
+	# Recycles the empty Ca₄·CaM·PMCA complex back to step 9 — PMCA is not consumed.
 	v_cam_pmca_cat = K_CAM_PMCA['k10'] * ca4_cam_pmca_ca
-	# Step 11: Ca₄·CaM·PMCA ⇌ PMCA·CaM + 4 Ca²⁺  (slow CaM deactivation)
-	v_cam_deact = (
-		K_CAM_PMCA['k11'] * ca4_cam_pmca
-		- K_CAM_PMCA['k11r'] * pmca_cam * (ca_cyt ** 4)
-	)
 
-	dy[_IDX['PMCA[pl]']]              += -v_cam_bind_pmca
-	dy[_IDX['Ca4_CaM[c]']]            += -v_cam_bind_pmca  # CaM leaves free pool
-	dy[_IDX['Ca4_CaM_PMCA[pl]']]      += (+v_cam_bind_pmca - v_cam_pmca_bind
-	                                        - v_cam_deact)
-	dy[_IDX['Ca4_CaM_PMCA_Ca[pl]']]   += +v_cam_pmca_bind - v_cam_pmca_cat
-	dy[_IDX['PMCA_CaM[pl]']]          += +v_cam_deact
-	# Steps 9 fwd removes one Ca²⁺_cyt; step 10 ejects it extracellularly.
-	dy[_IDX['CA2_CYT[c]']]            += -v_cam_pmca_bind
-	# Step 11 releases 4 Ca²⁺ back to cytosol.
-	dy[_IDX['CA2_CYT[c]']]            += +4.0 * v_cam_deact
+	dy[_IDX['PMCA[pl]']]             += -v_cam_bind_pmca
+	dy[_IDX['Ca4_CaM[c]']]           += -v_cam_bind_pmca  # CaM leaves free pool on step 8 fwd
+	dy[_IDX['Ca4_CaM_PMCA[pl]']]     += +v_cam_bind_pmca - v_cam_pmca_bind + v_cam_pmca_cat
+	dy[_IDX['Ca4_CaM_PMCA_Ca[pl]']]  += +v_cam_pmca_bind - v_cam_pmca_cat
+	# PMCA_CaM[pl] is left at zero (step 11 omitted for Phase 1).
+	# Step 9 fwd removes one Ca²⁺_cyt; step 10 ejects it extracellularly.
+	dy[_IDX['CA2_CYT[c]']]           += -v_cam_pmca_bind
 
 	# ── STIM1 cycle (mass-action; calibrated to Dolan IC detailed balance) ─
 	v_stim1_release = (
