@@ -11,18 +11,18 @@ on:
         default: false
 
 env:
-  ACR_REGISTRY: wcecoliacr.azurecr.io
-  RESOURCE_GROUP: wcecoli-rg
-  ACI_NAME: wcecoli-webapp
-  ACI_DNS: wcecoli-webapp
+  ACR_REGISTRY: plateletacr.azurecr.io
+  RESOURCE_GROUP: platelet-wcm-rg
+  ACI_NAME: platelet-webapp
+  ACI_DNS: platelet-webapp
   ACI_LOCATION: uksouth
-  STORAGE_ACCOUNT: wcecolistorage
-  FILE_SHARE: wcecoli-out
+  STORAGE_ACCOUNT: plateletwcmstorage
+  FILE_SHARE: platelet-out
 
 jobs:
   # ── Build the base images (runtime + code) ──────────────────────
-  # Skipped on normal pushes unless cloud/docker/runtime/ or
-  # cloud/docker/wholecell/ changed, or force-triggered.
+  # Skipped on normal pushes unless docker/ or requirements.txt
+  # or core source changed, or force-triggered.
   build-base:
     runs-on: ubuntu-latest
     outputs:
@@ -52,7 +52,7 @@ jobs:
           fi
           # Check if base Dockerfiles, requirements, or core source changed
           git diff --name-only "$BEFORE" ${{ github.sha }} 2>/dev/null | \
-            grep -qE '^(cloud/docker/(runtime|wholecell)/|requirements\.txt|setup\.py|Makefile|wholecell/(io|utils|processes|listeners|fireworks)/|models/|reconstruction/|runscripts/)' \
+            grep -qE '^(docker/|requirements\.txt|wholecell/|models/platelet/|reconstruction/platelet/|runscripts/manual/)' \
             && echo "needed=true" >> "$GITHUB_OUTPUT" \
             || echo "needed=false" >> "$GITHUB_OUTPUT"
 
@@ -68,37 +68,37 @@ jobs:
         if: steps.check.outputs.needed == 'true'
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & push wcm-runtime
+      - name: Build & push platelet-wcm-runtime
         if: steps.check.outputs.needed == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: cloud/docker/runtime/Dockerfile
+          file: docker/runtime/Dockerfile
           push: true
-          tags: ${{ env.ACR_REGISTRY }}/wcm-runtime:latest
-          cache-from: type=registry,ref=${{ env.ACR_REGISTRY }}/wcm-runtime:buildcache
-          cache-to: type=registry,ref=${{ env.ACR_REGISTRY }}/wcm-runtime:buildcache,mode=max
+          tags: ${{ env.ACR_REGISTRY }}/platelet-wcm-runtime:latest
+          cache-from: type=registry,ref=${{ env.ACR_REGISTRY }}/platelet-wcm-runtime:buildcache
+          cache-to: type=registry,ref=${{ env.ACR_REGISTRY }}/platelet-wcm-runtime:buildcache,mode=max
 
-      - name: Build & push wcm-code
+      - name: Build & push platelet-wcm-webapp (base)
         if: steps.check.outputs.needed == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: cloud/docker/wholecell/Dockerfile
+          file: docker/webapp/Dockerfile
           push: true
-          tags: ${{ env.ACR_REGISTRY }}/wcm-code:latest
+          tags: ${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:latest
           build-args: |
-            from=${{ env.ACR_REGISTRY }}/wcm-runtime:latest
+            from=${{ env.ACR_REGISTRY }}/platelet-wcm-runtime:latest
             git_hash=${{ github.sha }}
             git_branch=${{ github.ref_name }}
-          cache-from: type=registry,ref=${{ env.ACR_REGISTRY }}/wcm-code:buildcache
-          cache-to: type=registry,ref=${{ env.ACR_REGISTRY }}/wcm-code:buildcache,mode=max
+          cache-from: type=registry,ref=${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:buildcache
+          cache-to: type=registry,ref=${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:buildcache,mode=max
 
       - name: Set code image tag
         id: tags
-        run: echo "code_tag=${{ env.ACR_REGISTRY }}/wcm-code:latest" >> "$GITHUB_OUTPUT"
+        run: echo "code_tag=${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:latest" >> "$GITHUB_OUTPUT"
 
-  # ── Build the webapp layer (fast, always runs) ──────────────────
+  # ── Build the webapp layer (always runs on source changes) ─────────────────
   build-webapp:
     runs-on: ubuntu-latest
     needs: build-base
@@ -115,15 +115,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & push wcm-webapp
+      - name: Build & push platelet-wcm-webapp
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: cloud/docker/webapp/Dockerfile
+          file: docker/webapp/Dockerfile
           push: true
-          tags: ${{ env.ACR_REGISTRY }}/wcm-webapp:latest
+          tags: ${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:latest
           build-args: |
-            from=${{ env.ACR_REGISTRY }}/wcm-code:latest
+            from=${{ env.ACR_REGISTRY }}/platelet-wcm-runtime:latest
 
   # ── Deploy to Azure Container Instances ─────────────────────────
   deploy:
@@ -148,7 +148,7 @@ jobs:
           az container create \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --name ${{ env.ACI_NAME }} \
-            --image ${{ env.ACR_REGISTRY }}/wcm-webapp:latest \
+            --image ${{ env.ACR_REGISTRY }}/platelet-wcm-webapp:latest \
             --os-type Linux \
             --cpu 4 \
             --memory 8 \
@@ -160,7 +160,7 @@ jobs:
             --azure-file-volume-share-name ${{ env.FILE_SHARE }} \
             --azure-file-volume-account-name ${{ env.STORAGE_ACCOUNT }} \
             --azure-file-volume-account-key ${{ secrets.AZURE_STORAGE_KEY }} \
-            --azure-file-volume-mount-path /wcEcoli/out \
+            --azure-file-volume-mount-path /platelet-wcm/out \
             --environment-variables WCECOLI_WEBAPP_MODE=container WEBAPP_PORT=80
 
       - name: Verify deployment
