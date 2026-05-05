@@ -33,17 +33,6 @@ xcode-select --install
 sudo apt install -y gcc make build-essential wget curl llvm
 ```
 
-### On Sherlock
-
-(Here we're assuming you already have a login account for the Sherlock scientific computing cluster. If not,
-you might not need to bother with Sherlock except to view Jenkins CI build logs.)
-
-The needed tools are already installed for the group.
-Look in `$GROUP_HOME/downloads/`, `$GROUP_HOME/installation_notes/`, and `$GROUP_HOME/modules/`.
-
-* Just add to your shell login script as described below.
-
-
 ### On other OSs
 
 You'll need at least `gcc`, `git`, and `make`.
@@ -62,7 +51,6 @@ required libraries and library versions.
 
 1. Install `pyenv`, `pyenv-virtualenv`, `pyenv-virtualenvwrapper` using your local
    package manager, e.g. [homebrew](https://brew.sh/) on macOS.
-   **\[On Sherlock, pyenv is already installed. Skip to the next step.]** 
 
    See [pyenv Installation](https://github.com/pyenv/pyenv#installation) for
    up-to-date instructions to install pyenv on various operating systems.
@@ -127,28 +115,6 @@ required libraries and library versions.
      fi
      ```
 
-   - Example `~/.bash_profile` lines for Sherlock:
-
-     ```shell script
-     export PI_HOME=$GROUP_HOME
-
-     ##### Add group-wide path settings #####
-     if [ -f "${PI_HOME}/etc/bash_profile" ]; then
-         . "${PI_HOME}/etc/bash_profile"
-     fi
-
-     module load git/2.27.0 git-lfs/2.11.
-     module load wcEcoli/python3
-
-     export PYENV_ROOT="${PI_HOME}/pyenv"
-
-     if [ -d "${PYENV_ROOT}" ]; then
-         export PATH="${PYENV_ROOT}/bin:${PATH}"
-         eval "$(pyenv init -)"
-         eval "$(pyenv virtualenv-init -)"
-     fi
-     ```
-
 1. Open a new shell so it runs the updated profile.
 
    - On macOS, If you use normally use an account that does not have
@@ -170,10 +136,10 @@ required libraries and library versions.
 1. You'll need to put the project source code root on the `PYTHONPATH` when working on it. Consider adding this to your profile:
 
    ```shell script
-   export PYTHONPATH="$HOME/wcEcoli"
+   export PYTHONPATH="$HOME/dev/platelet-wcm"
    ```
 
-   _or_ create a shell alias **and run it when you work on wcEcoli or any other Python project**:
+   _or_ create a shell alias **and run it when you work on the project**:
 
    ```shell script
    alias ppath='export PYTHONPATH=$PWD'
@@ -239,8 +205,8 @@ alias ls='ls -F'
 alias l.='ls -d .*'
 alias lt='ls -lhFt'
 
-alias cdw='cd ~/dev/wcEcoli'
-alias cdwo='cd ~/dev/wcEcoli/out'
+alias cdw='cd ~/dev/platelet-wcm'
+alias cdwo='cd ~/dev/platelet-wcm/out'
 
 alias df="df -h"
 alias du="du -h"
@@ -254,7 +220,6 @@ shopt -s histappend
 ### PyCharm setup
 
 After [building the pyenv](create-pyenv.md) and cloning the repo to a local directory, you can create a project in PyCharm.
-wcEcoli has a project in source control.
 
 * **Be sure to select the project's Python interpreter so PyCharm understands the version
 of Python and its installed libraries.** This enables code completion, usage documentation
@@ -263,7 +228,7 @@ source code, and many other features for working with Python code.
 
   PyCharm >  
   Preferences >  
-  Project: wcEcoli >  
+  Project: platelet-wcm >  
   Project Interpreter >  
   gear ⚙️ >  
   Add... >  
@@ -271,7 +236,7 @@ source code, and many other features for working with Python code.
   Existing environment >  
   Interpreter >  
   [run `pyenv which python` in a shell to find the python location, something
-  like `/usr/local/var/pyenv/versions/wcEcoli3/python`, and paste that path into
+  like `/usr/local/var/pyenv/versions/platelet-wcm/python`, and paste that path into
   the text box or navigate there].
 
 * Set Keyboard Shortcuts: Duplicate a keymap (e.g. "Mac OS X 10.5+"), then make changes to suit.
@@ -324,7 +289,7 @@ Tips (also see [the FAQ](https://www.iterm2.com/faq.html)):
 
 * If you configure it to save & load preferences to a Dropbox folder, you don't have to do much when switching to a new Mac.
 * tmux Integration lets you make and adjust window split panes much more easily than typing tmux commands.
-* [Shell Integration](https://www.iterm2.com/documentation-shell-integration.html) is very handy, but the regular setup didn't work quite right on Sherlock with the pyenv virtualenv shell prompt. So for Sherlock, just set up the "Triggers" as documented on that page. The "Prompt Detected" trigger is probably the most useful part since it lets you jump between shell prompts in the terminal output.
+* [Shell Integration](https://www.iterm2.com/documentation-shell-integration.html) is very handy. Set up "Triggers" as documented on that page — the "Prompt Detected" trigger is probably the most useful part since it lets you jump between shell prompts in the terminal output.
 
 Example "Default" profile configuration for "Keys":
 * Option up/down arrows: scroll one line up/down
@@ -336,9 +301,7 @@ Example "Default" profile configuration for "Keys":
 * Right Option (alt) key: Normal
 
 Example "Default" profile configuration for "Triggers":
-* `@login.sherlock.stanford.edu's password:` --> Open Password Manager
-* `Enter passphrase for key '/home/users/\w+/.ssh/id_rsa':` --> Open Password Manager
-* `^\[(\w+)@(sh-[\w-]+) login! ([^\]]+)]\$ ` --> Prompt Detected
+* `^\[(\w+)@([\w-]+) ([^\]]+)]\$ ` --> Prompt Detected
 * ^ You can use the same regex for Report User & Host `\1@\2` and for Report Directory `\3`
 
 Example overall configuration for "Keys":
