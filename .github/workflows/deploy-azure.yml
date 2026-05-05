@@ -11,13 +11,13 @@ on:
         default: false
 
 env:
-  ACR_REGISTRY: plateletacr.azurecr.io
-  RESOURCE_GROUP: platelet-wcm-rg
-  ACI_NAME: platelet-webapp
-  ACI_DNS: platelet-webapp
+  ACR_REGISTRY: wcecoliacr.azurecr.io
+  RESOURCE_GROUP: wcecoli-rg
+  ACI_NAME: wcecoli-webapp
+  ACI_DNS: wcecoli-webapp
   ACI_LOCATION: uksouth
-  STORAGE_ACCOUNT: plateletwcmstorage
-  FILE_SHARE: platelet-out
+  STORAGE_ACCOUNT: wcecolistorage
+  FILE_SHARE: wcecoli-out
 
 jobs:
   # ── Build the base images (runtime + code) ──────────────────────
