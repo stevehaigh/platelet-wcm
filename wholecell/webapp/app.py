@@ -1,4 +1,4 @@
-"""wcEcoli Web UI — Dash application factory."""
+"""Platelet WCM — Dash application factory."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 	app = dash.Dash(
 		__name__,
 		suppress_callback_exceptions=True,
-		title='wcEcoli Web UI',
+		title='Platelet WCM',
 		assets_folder=os.path.join(os.path.dirname(__file__), 'assets'),
 	)
 
@@ -58,8 +58,8 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 
 		# Header
 		html.Div(className='app-header', children=[
-			html.H2('wcEcoli'),
-			html.Span('Whole-Cell E. coli Simulation', className='subtitle'),
+			html.H2('Platelet WCM'),
+			html.Span('Whole-Cell Platelet Simulation', className='subtitle'),
 		]),
 
 		# Tab bar
@@ -101,8 +101,8 @@ def create_app(out_path: str = None, wcecoli_root: str = None,
 			]),
 			html.Div([
 				'Web UI: ',
-				html.A('stevehaigh/wcEcoli',
-					href='https://github.com/stevehaigh/wcEcoli', target='_blank'),
+				html.A('stevehaigh/platelet-wcm',
+					href='https://github.com/stevehaigh/platelet-wcm', target='_blank'),
 				' · Built with AI assistance (GitHub Copilot).',
 			]),
 			html.Div(
