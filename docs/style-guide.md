@@ -29,7 +29,7 @@ and whether to:
 * Plan to change existing code gradually or rapidly.
 
 
-## wcEcoli Style Guidelines from PEP8 ... with adjustments
+## Style Guidelines from PEP8 ... with adjustments
 
 ### Misc
 
