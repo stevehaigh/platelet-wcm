@@ -1,4 +1,4 @@
-"""Job manager — SQLite job queue and subprocess runner."""
+"""Job manager — SQLite job queue and subprocess runner for platelet sims."""
 
 from __future__ import annotations
 
@@ -8,19 +8,17 @@ import re
 import sqlite3
 import subprocess
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
 DB_FILENAME = 'webapp_jobs.db'
-PHASES = ['queued', 'parca', 'simulating', 'analyzing', 'done', 'failed']
+PHASES = ['queued', 'simulating', 'analyzing', 'done', 'failed']
 
 # Typical durations for progress estimation (seconds)
 PHASE_DURATIONS = {
-	'parca': 18 * 60,
-	'simulating': 10 * 60,
-	'analyzing': 60,
+	'simulating': 30,
+	'analyzing': 10,
 }
 
 
@@ -32,10 +30,10 @@ ALLOWED_COLUMNS = frozenset([
 class JobManager:
 	"""Simple job queue backed by SQLite."""
 
-	def __init__(self, db_path: str, wcecoli_root: str,
+	def __init__(self, db_path: str, repo_root: str,
 			docker_image: str = 'steve-wcm-code') -> None:
 		self.db_path = db_path
-		self.wcecoli_root = wcecoli_root
+		self.repo_root = repo_root
 		self.docker_image = docker_image
 		self._init_db()
 		self._worker_thread: Optional[threading.Thread] = None
@@ -71,7 +69,7 @@ class JobManager:
 			cursor = conn.execute(
 				'INSERT INTO jobs (status, variant, config_json, description, started_at) '
 				'VALUES (?, ?, ?, ?, ?)',
-				('queued', config.get('variant', 'wildtype'),
+				('queued', 'platelet',
 				 json.dumps(config), config.get('description', ''), now))
 			job_id = cursor.lastrowid
 
@@ -123,19 +121,19 @@ class JobManager:
 				conn.execute(
 					'UPDATE jobs SET status = ? WHERE id = '
 					'(SELECT id FROM jobs WHERE status = ? ORDER BY id LIMIT 1)',
-					('parca', 'queued'))
+					('simulating', 'queued'))
 				if conn.total_changes == 0:
 					self._stop_event.wait(timeout=5)
 					continue
 				row = conn.execute(
 					'SELECT * FROM jobs WHERE status = ? ORDER BY id LIMIT 1',
-					('parca',)).fetchone()
+					('simulating',)).fetchone()
 
 			job = dict(row)
 			self._run_job(job)
 
 	def _run_job(self, job: Dict[str, Any]) -> None:
-		"""Execute a simulation job.
+		"""Execute a platelet simulation job — sim then analysis plots.
 
 		When running inside a container (WCECOLI_WEBAPP_MODE=container),
 		uses local Python subprocess. Otherwise, shells out to Docker.
@@ -146,91 +144,23 @@ class JobManager:
 		timestamp = datetime.now().strftime('%Y%m%d.%H%M%S')
 		desc = re.sub(r'[^a-zA-Z0-9_-]', '', config.get('description', '')) or 'webapp'
 		sim_outdir = f'{timestamp}___{desc}'
-		out_path = os.path.join(self.wcecoli_root, 'out', sim_outdir)
+		out_path = os.path.join(self.repo_root, 'out', sim_outdir)
 
 		# Verify the resolved path stays inside the out/ directory
-		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
+		out_root = os.path.realpath(os.path.join(self.repo_root, 'out'))
 		if not os.path.realpath(out_path).startswith(out_root + os.sep):
 			raise ValueError(f'Invalid output path: {out_path}')
 
-		self._update_status(job_id, 'parca', output_dir=out_path,
+		self._update_status(job_id, 'simulating', output_dir=out_path,
 			pid=os.getpid())
 
 		in_container = os.environ.get('WCECOLI_WEBAPP_MODE') == 'container'
-
-		if config.get('variant') == 'platelet':
-			self._run_platelet_job(job_id, config, sim_outdir, in_container)
-			return
+		length_sec = int(config.get('length_sec', 60))
+		seed = int(config.get('seed', 0))
 
 		try:
-			# Phase 1: ParCa
-			cmd_parca = self._build_cmd(
-				['python', 'runscripts/manual/runParca.py', sim_outdir],
-				in_container, out_root)
-			proc = subprocess.run(cmd_parca, capture_output=True, text=True,
-				cwd=self.wcecoli_root if in_container else None)
-			if proc.returncode != 0:
-				raise RuntimeError(f'ParCa failed:\n{proc.stderr[-2000:]}')
-
-			# Phase 2: Simulation
-			self._update_status(job_id, 'simulating')
-			variant = config.get('variant', 'wildtype')
-			first_idx = config.get('first_variant_index', 0)
-			last_idx = config.get('last_variant_index', 0)
-			generations = config.get('generations', 1)
-			seeds = config.get('init_sims', 1)
-			seed_start = config.get('seed', 0)
-
-			sim_args = [
-				'python', 'runscripts/manual/runSim.py',
-				'--variant', variant, str(first_idx), str(last_idx),
-				'--generations', str(generations),
-				'--init-sims', str(seeds),
-				'--seed', str(seed_start),
-				sim_outdir,
-			]
-			toggles = config.get('toggles', {})
-			for toggle_name, enabled in toggles.items():
-				flag = toggle_name.replace('_', '-')
-				sim_args.append(f'--{"" if enabled else "no-"}{flag}')
-
-			cmd_sim = self._build_cmd(sim_args, in_container, out_root)
-			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
-				cwd=self.wcecoli_root if in_container else None)
-			if proc.returncode != 0:
-				raise RuntimeError(f'Simulation failed:\n{proc.stderr[-2000:]}')
-
-			# Phase 3: Analysis
-			self._update_status(job_id, 'analyzing')
-			cmd_analysis = self._build_cmd(
-				['python', 'runscripts/manual/analysisSingle.py', sim_outdir],
-				in_container, out_root)
-			proc = subprocess.run(cmd_analysis, capture_output=True, text=True,
-				cwd=self.wcecoli_root if in_container else None)
-			if proc.returncode != 0:
-				raise RuntimeError(f'Analysis failed:\n{proc.stderr[-2000:]}')
-
-			now = datetime.now(timezone.utc).isoformat()
-			self._update_status(job_id, 'done', finished_at=now)
-
-		except Exception as e:
-			now = datetime.now(timezone.utc).isoformat()
-			self._update_status(
-				job_id, 'failed', finished_at=now,
-				error_message=str(e)[:4000])
-
-	def _run_platelet_job(self, job_id: int, config: Dict[str, Any],
-			sim_outdir: str, in_container: bool) -> None:
-		"""Run a platelet simulation job — simulation then analysis plots."""
-
-		out_root = os.path.realpath(os.path.join(self.wcecoli_root, 'out'))
-		length_days = config.get('first_variant_index', 1) or 1
-		length_sec = length_days * 86400
-		seed = config.get('seed', 0)
-
-		self._update_status(job_id, 'simulating')
-		try:
-			cmd = self._build_cmd(
+			# Phase 1: Simulation
+			cmd_sim = self._build_cmd(
 				[
 					'python', 'runscripts/manual/runPlateletSim.py',
 					sim_outdir,
@@ -239,8 +169,8 @@ class JobManager:
 					'--no-log-to-shell',
 				],
 				in_container, out_root)
-			proc = subprocess.run(cmd, capture_output=True, text=True,
-				cwd=self.wcecoli_root if in_container else None)
+			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
+				cwd=self.repo_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Platelet sim failed:\n{proc.stderr[-2000:]}')
 
@@ -250,7 +180,7 @@ class JobManager:
 				['python', 'runscripts/manual/analysisPlatelet.py', sim_outdir],
 				in_container, out_root)
 			proc = subprocess.run(cmd_analysis, capture_output=True, text=True,
-				cwd=self.wcecoli_root if in_container else None)
+				cwd=self.repo_root if in_container else None)
 			if proc.returncode != 0:
 				raise RuntimeError(f'Platelet analysis failed:\n{proc.stderr[-2000:]}')
 

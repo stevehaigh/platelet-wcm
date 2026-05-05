@@ -141,8 +141,13 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 			return [], None
 		listeners = results.find_listeners(cells[0]['simout_path'])
 		options = [{'label': l, 'value': l} for l in listeners]
-		# Default to Mass if available
-		default = 'Mass' if 'Mass' in listeners else (listeners[0] if listeners else None)
+		# Prefer CalciumTrace (the headline platelet listener), then Mass
+		if 'CalciumTrace' in listeners:
+			default = 'CalciumTrace'
+		elif 'Mass' in listeners:
+			default = 'Mass'
+		else:
+			default = listeners[0] if listeners else None
 		return options, default
 
 	@app.callback(
@@ -160,8 +165,10 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 			return [], None
 		columns = results.find_columns(cells[0]['simout_path'], listener)
 		options = [{'label': c, 'value': c} for c in columns]
-		# Default to dryMass for Mass listener, else first column
-		if listener == 'Mass' and 'dryMass' in columns:
+		# Sensible defaults per listener
+		if listener == 'CalciumTrace' and 'ca_cyt_nM' in columns:
+			default = 'ca_cyt_nM'
+		elif listener == 'Mass' and 'dryMass' in columns:
 			default = 'dryMass'
 		elif listener == 'Main' and 'time' in columns:
 			default = 'time'

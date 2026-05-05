@@ -291,4 +291,135 @@ print('ODE imports OK; N_SPECIES =', len(MOLECULE_NAMES))
 
 ---
 
-*Branch:* `platelet` · *3 commits ahead of origin* · *Last commit:* `e2ffdbb70`
+## 2026-05-05 — repo migration, CLAUDE.md refresh, webapp cleanup
+
+Maintenance session. No biology changes; the calcium model state is unchanged
+from the 2026-05-01 entry above (Phase 1 complete; Phase 2 IP3R recalibration
+still next). Three threads of housekeeping:
+
+### 1. Repo migration finished (wcEcoli → platelet-wcm)
+
+The fork has now been fully renamed and pruned. State as of `f83d9d8b`:
+
+| Area | Change |
+|------|--------|
+| Remote | `stevehaigh/platelet-wcm` (was `stevehaigh/wcEcoli`) |
+| Branches | `main`, `webapp` |
+| Removed | `models/ecoli/`, `reconstruction/ecoli/`, all `.pyx` Cython, `cloud/`, ParCa runscripts (`runParca.py`, `runSim.py`, `analysisSingle.py`, …) |
+| Docker | `cloud/docker/` → `docker/runtime/` + `docker/webapp/` |
+| Azure | ACI URL is now `platelet-wcm.uksouth.azurecontainer.io`; resource names kept as `wcecoli-*` to avoid recreating shared infra |
+| README | Rewritten as a platelet-WCM project README with framework attribution to CovertLab/wcEcoli |
+| CI | `.github/workflows/ci.yml` runs pytest + mypy on every push/PR to `main` |
+
+`make compile` is no longer required — there are no remaining `.pyx` files.
+
+### 2. `CLAUDE.md` rewritten for platelet context
+
+The previous CLAUDE.md still described an E. coli simulation. Rewritten to cover:
+
+- The platelet model layout (`models/platelet/`, `reconstruction/platelet/`)
+- Current process / listener / analysis inventory
+- Calcium signalling overview (IP3R / SERCA / PMCA / SOCE / CaM, Dolan validation target)
+- Platelet compartment table (`c, dts, dg, ag, m, pl, e`) and the rationale for `pl` over `pm`
+- Build & run without ParCa (`SimulationDataPlatelet` constructed directly)
+- Webapp + reports/lab-books layout
+
+Memory entries also written under `~/.claude/projects/.../memory/` so future
+sessions know the dissertation deadline (~mid-July 2026) and Phase 2 is the
+next live work.
+
+### 3. Web UI cleanup
+
+The Dash webapp at `wholecell/webapp/` was still presenting the E. coli surface
+(27 variants, 10 regulation toggles, 8 nutrient-shift presets). Stripped to a
+platelet-only UI.
+
+**Removed from `tabs/configure.py`:**
+
+- `VARIANT_NAMES` — 27 E. coli variant names
+- `TOGGLES` — all 10 (ppGpp regulation, tRNA charging, D-period division,
+  translation supply, superhelical density, variable elongation ×2, mechanistic
+  translation/AA transport, tRNA attenuation)
+- 8 of 9 `PRESETS` (wildtype, AA shift up/down, anaerobic, rich media,
+  multi-seed, ppGpp sweep, acetate)
+- "Variant index range / Generations / Seeds" form fields
+
+**New `tabs/configure.py` form:**
+
+| Field | Notes |
+|-------|-------|
+| Length (seconds) | Default 200 s; integer ≥ 1 |
+| Random seed | Default 0; not currently consumed by any stochastic process |
+| Description | Free-text, used in the run directory name |
+
+**New presets** (3, all platelet):
+
+| Preset | Length | Purpose |
+|--------|--------|---------|
+| ⚡ Smoke test | 60 s | Engine-runs-end-to-end check |
+| 🩸 IP3 Ca²⁺ transient | 200 s | Reproduces Phase 1 transient (Dolan 2014 Fig. S2 IP3 curve) |
+| 🛌 Resting | 300 s | Verify steady state at current resting IC |
+
+**Removed from `jobs.py`:**
+
+- The entire `_run_job` E. coli branch (called `runParca.py`, `runSim.py`,
+  `analysisSingle.py` — all deleted from the repo)
+- The `parca` phase from `PHASES` and `PHASE_DURATIONS` (job pipeline is now
+  just `queued → simulating → analyzing → done|failed`)
+- Job config schema simplified from
+  `{variant, first_variant_index, last_variant_index, generations, init_sims, seed, toggles, description}`
+  to `{length_sec, seed, description}`
+
+**Other surface changes:**
+
+- `tabs/runs.py` — Run Status table columns are now "Length / Seed" (was
+  "Variant / Generations × Seeds")
+- `tabs/inspect_data.py` — default listener prefers `CalciumTrace`, default
+  column for `CalciumTrace` is `ca_cyt_nM` (was `Mass` / `dryMass`; both still
+  available)
+- `tabs/explore.py` — fixed stale "run analysisSingle.py" hint
+- `results.py` — removed redundant `wildtype_*` directory special-case
+- `app.py`, `runscripts/manual/webapp.py`, `assets/style.css` — `wcecoli_root`
+  → `repo_root`; banner / docstring renames
+
+**Old runs deleted:** `out/run-check/` (the only remaining stale run from the
+E. coli era).
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| All webapp imports | OK |
+| `create_app()` constructs | 14 callbacks registered, no duplicate-Output / missing-Input errors |
+| 60-second platelet sim via `runPlateletSim.py` | OK; writes 7 listener directories (BulkMolecules, CalciumTrace, Environment, EvaluationTime, Main, Mass, UniqueMolecules) |
+| `analysisPlatelet.py` on the run | OK; writes `calcium_trace.png` and `scaffold_summary.png` to `low_res_plots/` |
+| `find_sim_dirs` / `find_variants` / `find_cells` / `find_listeners` / `find_columns` / `find_plot_images` | All discover the run correctly |
+| `pytest models/platelet/tests/` | 17 passed |
+
+### File index of this session's changes
+
+| File | Change |
+|------|--------|
+| `CLAUDE.md` | Full rewrite for platelet-wcm context (committed `f83d9d8b`) |
+| `wholecell/webapp/tabs/configure.py` | Strip E. coli; new platelet form + 3 presets |
+| `wholecell/webapp/jobs.py` | Remove E. coli code path; simplify schema; drop `parca` phase |
+| `wholecell/webapp/tabs/runs.py` | Length / Seed columns instead of Variant / Scale |
+| `wholecell/webapp/tabs/inspect_data.py` | Default to CalciumTrace / ca_cyt_nM |
+| `wholecell/webapp/tabs/explore.py` | Update stale runscript hint |
+| `wholecell/webapp/results.py` | Drop `wildtype_*` directory special-case |
+| `wholecell/webapp/app.py` | `wcecoli_root` → `repo_root`; param + docstring |
+| `runscripts/manual/webapp.py` | "wcEcoli Web UI" → "Platelet WCM Web UI" |
+| `wholecell/webapp/assets/style.css` | Banner comment |
+
+### Where to pick up next session
+
+Phase 2 IP3R recalibration is still the next live biology task — see the
+"Next steps" section at the top of this lab book. The webapp is now ready for
+launching short Phase 2 / Phase 3 calibration runs without command-line
+gymnastics: `make run`, click a preset, watch results in Inspect Data /
+Explore Plots.
+
+---
+
+*Branch:* `main` · *Last commit before this session:* `f83d9d8b` (CLAUDE.md
+rewrite) · *Webapp cleanup uncommitted at write time*

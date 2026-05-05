@@ -69,7 +69,7 @@ def register_callbacks(app: dash.Dash, out_path: str) -> None:
 		if not left_images:
 			return html.P(
 				'No analysis plots found. Run analysis first '
-				'(e.g., python runscripts/manual/analysisSingle.py).',
+				'(e.g., python runscripts/manual/analysisPlatelet.py).',
 				style={'color': '#888', 'fontStyle': 'italic'})
 
 		comparing = bool(right_value)

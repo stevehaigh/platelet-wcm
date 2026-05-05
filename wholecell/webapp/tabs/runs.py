@@ -42,15 +42,14 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 			badge_class = f'badge badge-{status}'
 
 			config = json.loads(job.get('config_json', '{}'))
-			variant = config.get('variant', '?')
-			gens = config.get('generations', '?')
-			seeds = config.get('init_sims', '?')
+			length_sec = config.get('length_sec', '?')
+			seed = config.get('seed', '?')
 
 			rows.append(html.Tr([
 				html.Td(f'#{job["id"]}'),
 				html.Td(html.Span(status, className=badge_class)),
-				html.Td(variant),
-				html.Td(f'{gens}G × {seeds}S'),
+				html.Td(f'{length_sec} s'),
+				html.Td(f'seed {seed}'),
 				html.Td(job.get('description', '')),
 				html.Td(_format_time(job.get('started_at', ''))),
 				html.Td(_format_time(job.get('finished_at', ''))),
@@ -65,8 +64,8 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 
 		return html.Table(children=[
 				html.Thead(html.Tr([
-					html.Th('ID'), html.Th('Status'), html.Th('Variant'),
-					html.Th('Scale'), html.Th('Description'),
+					html.Th('ID'), html.Th('Status'), html.Th('Length'),
+					html.Th('Seed'), html.Th('Description'),
 					html.Th('Started'), html.Th('Finished'), html.Th(''),
 				])),
 				html.Tbody(rows),

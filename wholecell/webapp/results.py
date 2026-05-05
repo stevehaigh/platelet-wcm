@@ -60,7 +60,7 @@ def find_sim_dirs(out_path: str) -> List[str]:
 			sim_dirs.append(candidate)
 			continue
 		for sub in os.listdir(candidate):
-			if VARIANT_PATTERN.fullmatch(sub) or sub.startswith('wildtype_'):
+			if VARIANT_PATTERN.fullmatch(sub):
 				sim_dirs.append(candidate)
 				break
 
@@ -76,8 +76,7 @@ def find_variants(sim_dir: str) -> List[str]:
 
 	for name in sorted(os.listdir(sim_dir)):
 		path = os.path.join(sim_dir, name)
-		if os.path.isdir(path) and (
-				VARIANT_PATTERN.fullmatch(name) or name.startswith('wildtype_')):
+		if os.path.isdir(path) and VARIANT_PATTERN.fullmatch(name):
 			variants.append(name)
 	return variants
 
