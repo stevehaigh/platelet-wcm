@@ -14,7 +14,7 @@ RUN echo "alias ls='ls --color=auto'" >> ~/.bashrc \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       gcc gfortran make curl \
+       gcc g++ gfortran make curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Consistent OpenBLAS results
