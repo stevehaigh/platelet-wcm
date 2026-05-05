@@ -1,0 +1,22 @@
+# Minimal requirements for platelet CI (pytest + mypy).
+# Trimmed from requirements.txt — only packages needed for models/platelet/,
+# reconstruction/platelet/, and the wholecell framework paths they use.
+# Full requirements.txt (including E. coli / Cython / deploy deps) is still
+# used for Docker builds and the webapp.
+
+# ── Core science ──────────────────────────────────────────────────────────────
+numpy==1.26.3
+scipy==1.11.4
+matplotlib==3.7.1
+Unum==4.2.1
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==7.3.1
+pytest-cov==4.1.0
+mock==5.0.2
+
+# ── Type checking ─────────────────────────────────────────────────────────────
+mypy==1.3.0
+types-mock==5.0.0.6
+types-PyYAML==6.0.12.9
+types-requests==2.30.0.0

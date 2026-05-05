@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Platelet unit + integration + regression tests ────────────────────────
+  test:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11.5"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-platelet-ci.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-platelet-ci.txt
+
+      - name: Run platelet tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          OPENBLAS_NUM_THREADS: "1"
+          MPLBACKEND: Agg
+        run: |
+          python -m pytest models/platelet/tests/ -v --tb=short
+
+  # ── Type checking (platelet paths only) ───────────────────────────────────
+  typecheck:
+    name: mypy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.5"
+          cache: pip
+          cache-dependency-path: requirements-platelet-ci.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-platelet-ci.txt
+
+      - name: mypy — platelet paths
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m mypy \
+            models/platelet/ \
+            reconstruction/platelet/ \
+            runscripts/manual/runPlateletSim.py \
+            runscripts/manual/analysisPlatelet.py

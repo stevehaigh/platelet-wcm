@@ -11,7 +11,7 @@ an AttributeError, while doing nothing.
 
 
 _STUB_MEDIA_ID = 'platelet_resting'
-_STUB_MEDIA = {_STUB_MEDIA_ID: {}}   # empty environment — no exchange molecules
+_STUB_MEDIA: dict[str, dict] = {_STUB_MEDIA_ID: {}}   # empty environment — no exchange molecules
 
 
 def empty_exchange_data_from_concentrations(concentrations):
