@@ -13,8 +13,8 @@ on:
 env:
   ACR_REGISTRY: wcecoliacr.azurecr.io
   RESOURCE_GROUP: wcecoli-rg
-  ACI_NAME: wcecoli-webapp
-  ACI_DNS: wcecoli-webapp
+  ACI_NAME: platelet-wcm
+  ACI_DNS: platelet-wcm
   ACI_LOCATION: uksouth
   STORAGE_ACCOUNT: wcecolistorage
   FILE_SHARE: wcecoli-out
