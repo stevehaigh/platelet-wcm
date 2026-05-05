@@ -145,8 +145,13 @@ K_IP3R = {
 
 # IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
 #   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
-# γ_IP3R taken from Zschauer 1988 (Purvis Table 1 row "Ca²⁺ release from DTS").
-GAMMA_IP3R_S = 10.0e-12          # 10 pS = single-channel conductance, A/V
+# Phase 2 calibration (lab-book 2026-05-01): the 10 pS Zschauer 1988
+# single-channel conductance applied at face value gives a resting IP3R flux
+# ~17 000× larger than SERCA can match (~112 000 vs ~6 600 ions/s in a 6 fL
+# cell with 1328 channels), draining the DTS in ~0.35 s. γ_IP3R is therefore
+# treated as a whole-cell *effective* conductance, calibrated from the
+# SERCA-balance condition: γ = 6 600 / (N · Po,rest · NA/zF · |ΔV|) ≈ 0.6 fS.
+GAMMA_IP3R_S = 0.6e-15           # 0.6 fS = whole-cell effective conductance, A/V
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
