@@ -32,9 +32,9 @@ before adding the upstream receptor cascade that would generate IP3 in a real
 cell:
 
 ```
-v0.2:  IP3 forcing → Ca²⁺ core    (IP3R + SERCA + PMCA + SOCE)
-v0.3:  Upstream receptor cascade  (P2Y1 → Gq → PLCβ → IP3 production)
-v0.4:  P2Y12 modulation           (Gi → AC → cAMP → PKA → IP3R inhibition)
+v0.2:  IP3 forcing -> Ca^2^+ core    (IP3R + SERCA + PMCA + SOCE)
+v0.3:  Upstream receptor cascade  (P2Y1 -> Gq -> PLCbeta -> IP3 production)
+v0.4:  P2Y12 modulation           (Gi -> AC -> cAMP -> PKA -> IP3R inhibition)
 ```
 
 Each milestone is independently testable.
@@ -105,27 +105,27 @@ At rest, cytosolic Ca²⁺ is ~100 nM; DTS Ca²⁺ is ~250 µM (a ~2,500-fold
 gradient maintained by SERCA). On stimulation:
 
 ```
-Agonist → P2Y1 → Gq → PLCβ → IP3   [v0.3; forced time curve in v0.2]
+Agonist -> P2Y1 -> Gq -> PLCbeta -> IP3   [v0.3; forced time curve in v0.2]
                                   |
-                                  ↓
+                                  v
 IP3R [DTS membrane; 6-state Markov model]
-  Ca²⁺ floods cytosol (peak ~300–500 nM)
+  Ca^2^+ floods cytosol (peak ~300-500 nM)
     |
-    |- SERCA [DTS membrane; E1/E2 cycle]     2 Ca²⁺/ATP; refills DTS store
+    |- SERCA [DTS membrane; E1/E2 cycle]     2 Ca^2^+/ATP; refills DTS store
     |
-    |- PMCA  [plasma membrane; 5-state]      1 Ca²⁺/ATP; ejects Ca²⁺ from cell
-    |    `- CaM [cytosolic Ca²⁺ buffer]      Ca₄·CaM activates PMCA ~5×
+    |- PMCA  [plasma membrane; 5-state]      1 Ca^2^+/ATP; ejects Ca^2^+ from cell
+    |    `- CaM [cytosolic Ca^2^+ buffer]      Ca_4.CaM activates PMCA ~5x
     |
     `- DTS depletion
-         `- STIM1 EF-hand releases DTS Ca²⁺
-              `- STIM1 monomers dimerise → active sensor
-                   `- STIM1 dimers translocate to ER–PM puncta
+         `- STIM1 EF-hand releases DTS Ca^2^+
+              `- STIM1 monomers dimerise -> active sensor
+                   `- STIM1 dimers translocate to ER-PM puncta
                         `- gates Orai1 [plasma membrane; MWC allosteric]
-                             SOCE: extracellular Ca²⁺ enters cytosol
+                             SOCE: extracellular Ca^2^+ enters cytosol
 
 Basal / resting:
-  Constant PM Ca²⁺ leak (~75 ions/s; TRPC / NCX-reverse / constitutive)
-    ←→  PMCA basal extrusion + minimal SOCE (full DTS; few STIM1 dimers)
+  Constant PM Ca^2^+ leak (~75 ions/s; TRPC / NCX-reverse / constitutive)
+    <-->  PMCA basal extrusion + minimal SOCE (full DTS; few STIM1 dimers)
 ```
 
 ### 2.3 Implementation status
@@ -281,12 +281,13 @@ This means **you cannot model agonist dose-response until v0.3**. The
 time curve shape is taken directly from Dolan 2014 Fig S2:
 
 ```
-IP3(t) = IP3_rest × [1 + (fold−1) × (1 − e^{−t/τ_rise}) × e^{−max(0, t−t_peak)/τ_decay}]
+IP3(t) = IP3_rest x [1 + (fold-1) x (1 - exp(-t/tau_rise))
+                          x exp(-max(0, t-t_peak)/tau_decay)]
 
 fold     = 5.5   (peak amplitude relative to rest)
-τ_rise   = 3.0 s
+tau_rise   = 3.0 s
 t_peak   = 3.0 s
-τ_decay  = 60.0 s
+tau_decay  = 60.0 s
 ```
 
 At each timestep the IP3 count is *set* from the curve, not integrated, and
@@ -351,20 +352,20 @@ Open probability — fourth-power tetramer cooperativity (all four IP3R
 subunits must be in conducting conformation):
 
 ```
-P_o = ((0.9 · IP3R_a + 0.1 · IP3R_o) / IP3R_total)⁴
+P_o = ((0.9 . IP3R_a + 0.1 . IP3R_o) / IP3R_total)^4
 ```
 
 Ca²⁺ flux through IP3R (Purvis 2008 eq. 13 / Dolan 2014 eq. 4):
 
 ```
-J_IP3R = γ_IP3R × N_IP3R × P_o × (V_IM − E_Ca,IM) × N_A/(zF)
+J_IP3R = gamma_IP3R x N_IP3R x P_o x (V_IM - E_Ca,IM) x N_A/(zF)
 
-γ_IP3R   = 10 pS = 10 × 10⁻¹² A/V    Zschauer 1988 single-channel
+gamma_IP3R   = 10 pS = 10 x 10^-^1^2 A/V    Zschauer 1988 single-channel
                                      (cited via Purvis 2008 Table 1, row
-                                     "Ca²⁺ release from DTS")
-V_IM     = −60 mV                    DTS membrane potential (Dolan 2014
-                                     cluster analysis; §5, §6.8 D6)
-E_Ca,IM  = (RT/zF) × ln([Ca²⁺]_dts / [Ca²⁺]_cyt)   Nernst potential, z=2
+                                     "Ca^2^+ release from DTS")
+V_IM     = -60 mV                    DTS membrane potential (Dolan 2014
+                                     cluster analysis; sec.5, sec.6.8 D6)
+E_Ca,IM  = (RT/zF) x ln([Ca^2^+]_dts / [Ca^2^+]_cyt)   Nernst potential, z=2
 ```
 
 The driving force `(V_IM − E_Ca,IM)`: at resting [Ca²⁺]_dts/[Ca²⁺]_cyt = 2 500,
@@ -391,8 +392,8 @@ Six-state enzymatic cycle for the SERCA3b isoform expressed in platelets
 (Purvis 2008 Table 1; ref. Dode 2002 for isoform-specific kinetics):
 
 ```
-E2 ⇌ E1 ⇌ E1·Ca²⁺ → E1P·Ca²⁺ ⇌ E2P·Ca²⁺ → E2P → E2
-          ↑ (cytosol)                      ↓ (DTS)
+E2 <-> E1 <-> E1.Ca^2^+ -> E1P.Ca^2^+ <-> E2P.Ca^2^+ -> E2P -> E2
+          ^ (cytosol)                      v (DTS)
 ```
 
 Each cycle transports 2 Ca²⁺ ions from cytosol to DTS at the cost of 1 ATP.
@@ -439,7 +440,7 @@ diagnosed pre-Phase 1 (lab-book 2026-05-01).
 #### Basal path (Caride 2007 steps 4–5)
 
 ```
-PMCA + Ca²⁺_cyt ⇌ PMCA·Ca²⁺ → PMCA + Ca²⁺_ex
+PMCA + Ca^2^+_cyt <-> PMCA.Ca^2^+ -> PMCA + Ca^2^+_ex
               k_on, k_off       k_cat
 ```
 
@@ -459,9 +460,9 @@ Derived basal KM = (k_off + k_cat)/k_on = 5.55 µM.
 #### CaM-activated path (Caride 2007 steps 8–10; step 11 omitted)
 
 ```
-PMCA + Ca₄·CaM    ⇌ Ca₄·CaM·PMCA                   (step 8)
-Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca               (step 9)
-Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex            (step 10)
+PMCA + Ca_4.CaM    <-> Ca_4.CaM.PMCA                   (step 8)
+Ca_4.CaM.PMCA + Ca^2^+ <-> Ca_4.CaM.PMCA.Ca               (step 9)
+Ca_4.CaM.PMCA.Ca -> Ca_4.CaM.PMCA + Ca^2^+_ex            (step 10)
 ```
 
 Step 11 (`Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺`, slow CaM deactivation) is
@@ -511,8 +512,8 @@ binding events transfer 2 Ca²⁺ at once (the slow N-lobe pair, then the
 fast C-lobe pair, captured as a single µM⁻²·s⁻¹ rate per step).
 
 ```
-CaM_free   + 2 Ca²⁺ ⇌ Ca₂·CaM      (step 6, slow)
-Ca₂·CaM    + 2 Ca²⁺ ⇌ Ca₄·CaM      (step 7, fast)
+CaM_free   + 2 Ca^2^+ <-> Ca_2.CaM      (step 6, slow)
+Ca_2.CaM    + 2 Ca^2^+ <-> Ca_4.CaM      (step 7, fast)
 ```
 
 | Constant | Value | Step | Source |
@@ -546,8 +547,8 @@ pieces:
 #### 1. STIM1 sensor cycle (mass-action, detailed-balance initial conditions)
 
 ```
-STIM1·Ca²⁺_dts ⇌ STIM1_free + Ca²⁺_dts        Ca²⁺ release from EF-hand
-2 STIM1_free   ⇌ STIM1_dim                    dimerisation = active sensor
+STIM1.Ca^2^+_dts <-> STIM1_free + Ca^2^+_dts        Ca^2^+ release from EF-hand
+2 STIM1_free   <-> STIM1_dim                    dimerisation = active sensor
 ```
 
 | Constant | Value | Source |
@@ -574,9 +575,9 @@ binds. Each bound STIM2 stabilises the open state by a factor `f`, giving
 the standard MWC form:
 
 ```
-P_open = (L · (1 + a·Sf·Ka)⁴) /
-         (L · (1 + a·Sf·Ka)⁴ + (1 + Sf·Ka)⁴)    [closed-favoured]
-       — equivalently rearranged with the f cooperativity factor —
+P_open = (L . (1 + a.Sf.Ka)^4) /
+         (L . (1 + a.Sf.Ka)^4 + (1 + Sf.Ka)^4)    [closed-favoured]
+       -- equivalently rearranged with the f cooperativity factor --
        (Hoover 2011 Fig. 4 best-fit parameters)
 ```
 
@@ -600,8 +601,8 @@ has translocated into ER–PM puncta near Orai clusters. Dolan eq. 2 makes
 this a Hill function of cytosolic Ca²⁺:
 
 ```
-qp = α · [Ca²⁺]_cyt^n / (KM^n + [Ca²⁺]_cyt^n) + baseline
-Sf = qp · STIM1_dim     # effective STIM2 ligand for the MWC
+qp = alpha . [Ca^2^+]_cyt^n / (KM^n + [Ca^2^+]_cyt^n) + baseline
+Sf = qp . STIM1_dim     # effective STIM2 ligand for the MWC
 ```
 
 | Constant | Value | Source |
@@ -619,12 +620,12 @@ Sf = qp · STIM1_dim     # effective STIM2 ligand for the MWC
 #### 4. SOCE current (Dolan 2014 eq. 4)
 
 ```
-I_SOC = γ_SOC × N_orai_channels × P_open × (V_PM − E_Ca,PM) × N_A/(zF)
+I_SOC = gamma_SOC x N_orai_channels x P_open x (V_PM - E_Ca,PM) x N_A/(zF)
 
-γ_SOC = 0.3 fS                      effective conductance, calibrated
-                                    (literature 24 fS, see §6.8 D3)
-V_PM   = −60 mV                     plasma membrane potential
-E_Ca,PM = (RT/zF) × ln([Ca²⁺]_ex / [Ca²⁺]_cyt)    Nernst potential, z=2
+gamma_SOC = 0.3 fS                      effective conductance, calibrated
+                                    (literature 24 fS, see sec.6.8 D3)
+V_PM   = -60 mV                     plasma membrane potential
+E_Ca,PM = (RT/zF) x ln([Ca^2^+]_ex / [Ca^2^+]_cyt)    Nernst potential, z=2
 N_orai_channels = ORAI1_count / 4   (4 monomers/tetramer)
 ```
 
@@ -819,8 +820,8 @@ See §3.6 for the full constant tables. Headline values:
 ### 5.9 IP3 forcing curve (Dolan 2014 Fig. S2 fit)
 
 ```
-IP3(t) = IP3_rest × (1 + (fold − 1)
-         × (1 − e^(−t/τ_rise)) × e^(−max(0, t−t_peak)/τ_decay))
+IP3(t) = IP3_rest x (1 + (fold - 1)
+         x (1 - e^(-t/tau_rise)) x e^(-max(0, t-t_peak)/tau_decay))
 ```
 
 | Constant | Value | Source |

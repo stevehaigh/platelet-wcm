@@ -50,15 +50,15 @@ platelet-wcm/
 |   |   `-- initial_conditions.py   # sets initial counts on bulk views
 |   |-- processes/
 |   |   |-- resting_decay.py  # exponential decay (Burkhart 2012; inert at 200 s)
-|   |   `-- calcium_dynamics.py     # ★ the headline process (thin wrapper)
+|   |   `-- calcium_dynamics.py     # * the headline process (thin wrapper)
 |   |-- listeners/
 |   |   |-- mass.py                 # dryMass / proteinMass etc.
-|   |   `-- calcium_trace.py        # ★ 14-column Ca²⁺ recording
+|   |   `-- calcium_trace.py        # * 14-column Ca^2^+ recording
 |   |-- analysis/
 |   |   |-- single/                 # one-sim plots
-|   |   |   |-- calcium_trace.py    # ★ 5-panel headline figure
+|   |   |   |-- calcium_trace.py    # * 5-panel headline figure
 |   |   |   `-- scaffold_summary.py
-|   |   `-- phase3_dolan_fig4.py    # ★ Phase 3 two-condition comparison
+|   |   `-- phase3_dolan_fig4.py    # * Phase 3 two-condition comparison
 |   `-- tests/
 |       |-- sim/
 |       |   |-- test_simulation.py  # boots the engine
@@ -68,19 +68,19 @@ platelet-wcm/
 |           `-- test_phase3.py      # Phase 3 baseline lock (4 tests)
 |
 |-- reconstruction/platelet/        # platelet "knowledge base"
-|   |-- simulation_data.py          # SimulationDataPlatelet — the parameter object
+|   |-- simulation_data.py          # SimulationDataPlatelet -- the parameter object
 |   |-- raw_data/molecules.tsv      # canonical molecule list
 |   `-- dataclasses/
 |       |-- constants.py
 |       |-- molecule_groups.py
-|       |-- internal_state.py       # ★ the 27-species inventory + initial conditions
+|       |-- internal_state.py       # * the 27-species inventory + initial conditions
 |       |-- external_state.py
 |       `-- process/
-|           `-- calcium_signalling.py   # ★★★ THE biology file — ODE + rate constants
+|           `-- calcium_signalling.py   # *** THE biology file -- ODE + rate constants
 |
 |-- runscripts/manual/
-|   |-- runPlateletSim.py           # ★ single-condition CLI entry point
-|   |-- runPhase3.py                # ★ Phase 3 two-condition driver
+|   |-- runPlateletSim.py           # * single-condition CLI entry point
+|   |-- runPhase3.py                # * Phase 3 two-condition driver
 |   |-- analysisPlatelet.py         # invokes the analysis plots
 |   `-- webapp.py                   # webapp entry point
 |
@@ -366,7 +366,7 @@ sed -n '38,97p' reconstruction/platelet/dataclasses/internal_state.py
 # Show the wiring
 cat models/platelet/sim/simulation.py
 
-# Run all three biology conditions while talking — each ~30 s
+# Run all three biology conditions while talking -- each ~30 s
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py walk_transient --length 200
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
@@ -376,7 +376,7 @@ PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py \
         walk_resting --length 300 --no-ip3-forcing
 
-# Phase 3 driver — runs both ±Ca²⁺ conditions and writes the comparison plot
+# Phase 3 driver -- runs both +/-Ca^2^+ conditions and writes the comparison plot
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg \
     pyenv exec python runscripts/manual/runPhase3.py walk_phase3 --length 200
 
