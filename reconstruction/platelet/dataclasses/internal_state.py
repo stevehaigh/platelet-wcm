@@ -60,9 +60,14 @@ _MOLECULES = [
 	('IP3R_i2[dts]',      5.110e-4,    25,            'protein'),     # inhibited-2
 	('IP3R_s[dts]',       5.110e-4,    1,             'protein'),     # shut
 	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
-	('SERCA_E1[dts]',     1.814e-4,    5_920,         'protein'),     # E1 (cytosol-facing, empty)
+	# E1 ↔ E1·Ca pre-equilibrated at cyt=100 nM (lab-book 2026-05-05 fix iii):
+	# E1·Ca / E1 = k_bind_f · cyt² / k_bind_r = 1000 · 0.01 / 10 = 1.0
+	# so the (E1 + E1·Ca = 5926) Dolan total splits ~2963 each. The Dolan
+	# Table S1 values (5920, 6) are not at binding equilibrium for our ODE
+	# and produced a spurious 118 k ions/s cyt → E1·Ca pulse on t=0.
+	('SERCA_E1[dts]',     1.814e-4,    2_963,         'protein'),     # E1 (cytosol-facing, empty)
 	('SERCA_E2[dts]',     1.814e-4,    5_927,         'protein'),     # E2 (DTS-facing, empty)
-	('SERCA_E1Ca[dts]',   1.814e-4,    6,             'protein'),     # E1·2Ca²⁺
+	('SERCA_E1Ca[dts]',   1.814e-4,    2_963,         'protein'),     # E1·2Ca²⁺
 	('SERCA_E1PCa[dts]',  1.814e-4,    7,             'protein'),     # E1P·2Ca²⁺ (phosphorylated)
 	('SERCA_E2PCa[dts]',  1.814e-4,    4,             'protein'),     # E2P·2Ca²⁺
 	('SERCA_E2P[dts]',    1.814e-4,    28,            'protein'),     # E2P (Ca²⁺ released to DTS)

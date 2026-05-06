@@ -265,6 +265,20 @@ PUNCTA = {
 # rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
 GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
 
+# ── Basal plasma-membrane Ca²⁺ leak ──────────────────────────────────────
+# A small constant cyt influx that compensates PMCA outflow at rest, keeping
+# the cytosolic resting concentration at ~100 nM. Biologically this represents
+# unidentified background Ca²⁺ entry pathways (TRPC, NCX reverse, residual
+# constitutive permeability — Sage & Rink 1985–1990; Brandman & Liou 2010
+# review). Calibrated against the steady-state PM balance condition
+# J_SOCE + J_leak = J_PMCA at cyt=100 nM, DTS=250 µM:
+#   PMCA quasi-eq outflow at cyt=100 nM ≈ k_cat · PMCA·Ca_eq ≈ 5.5 · 14 = 77
+#   SOCE at full DTS / basal STIM1_dim ≈ 6
+#   ⇒ leak ≈ 71 ions/s, rounded to 75
+# This is the (ii) addition diagnosed in lab-book 2026-05-05; before this
+# term the model had no PM-side cyt source large enough to balance PMCA.
+J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
+
 # Number of monomers per Orai1 tetramer (CRAC channel pore-forming subunit).
 ORAI_SUBUNITS_PER_CHANNEL = 4
 
@@ -641,6 +655,10 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	)
 	dy[_IDX['CA2_CYT[c]']] += soce_ions_s
 	# The extracellular reservoir is treated as infinite (no debit).
+
+	# Basal plasma-membrane Ca²⁺ leak — compensates PMCA outflow at rest
+	# so the resting cyt steady state sits at ~100 nM (lab-book 2026-05-05).
+	dy[_IDX['CA2_CYT[c]']] += J_PM_LEAK_IONS_S
 
 	# IP3 is forced when `ip3_forced` is True; otherwise it free-floats
 	# (decay/regeneration handled by upstream processes in v0.3+).
