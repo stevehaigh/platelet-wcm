@@ -21,8 +21,8 @@ Python 3.11.5 via pyenv. Run all commands from the repo root.
 # Install dependencies
 pip install -r requirements.txt
 
-# Run a 60-second simulation
-PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py out/my_run --length 60
+# Run a 200-second IP3-stimulated simulation (Phase 1 transient)
+PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py out/my_run --length 200
 
 # Generate analysis plots
 PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py out/my_run
@@ -30,6 +30,28 @@ PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py out/my_run
 # Run tests
 PYTHONPATH=$PWD python -m pytest models/platelet/tests/
 ```
+
+The simulation supports three biologically-distinct conditions, controlled by
+two CLI flags:
+
+```bash
+# Resting / un-stimulated (no IP3 stimulus)
+python runscripts/manual/runPlateletSim.py out/resting --length 300 --no-ip3-forcing
+
+# Phase 1 transient with extracellular Ca²⁺ (Dolan 2014 nominal — default)
+python runscripts/manual/runPlateletSim.py out/transient --length 200
+
+# Phase 3 EDTA condition (no extracellular Ca²⁺ — SOCE inactive)
+python runscripts/manual/runPlateletSim.py out/edta --length 200 --ca-ex-mM 0
+
+# Phase 3 driver: runs both ±extracellular-Ca²⁺ conditions and produces
+# the Dolan 2014 Fig. 4 comparison figure
+python runscripts/manual/runPhase3.py out/phase3 --length 200
+```
+
+The same conditions are available in the webapp Configure tab as form fields
+(Extracellular Ca²⁺ mM, IP3 forcing checkbox) and as three presets:
+🩸 IP3 transient (+Ca²⁺), 🧪 EDTA transient, 🛌 Resting.
 
 Set `OPENBLAS_NUM_THREADS=1` in your shell profile for consistent numerical results.
 See [`docs/create-pyenv.md`](docs/create-pyenv.md) for full environment setup.

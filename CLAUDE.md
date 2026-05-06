@@ -23,7 +23,7 @@ the performance-critical `.pyx` modules from wcEcoli have been removed.
 pip install -r requirements.txt
 
 # Run a simulation (no ParCa — sim_data is constructed directly)
-PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py [sim_outdir] --length 60
+PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py [sim_outdir] --length 200
 
 # Generate analysis plots
 PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py [sim_outdir]
@@ -31,12 +31,48 @@ PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py [sim_outdir]
 # Pick a specific plot
 PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py [sim_outdir] --plot calcium_trace
 
+# Run the Phase 3 two-condition validation (with vs without extracellular Ca²⁺)
+PYTHONPATH=$PWD python runscripts/manual/runPhase3.py [sim_outdir] --length 200
+
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it
 ```
 
 All runscripts support `-h` for full options.
+
+### Run-time conditions
+
+`runPlateletSim.py` exposes three CLI flags that change the biology being
+simulated, beyond simulation length and seed:
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--length N` | 60 | Simulation length in seconds |
+| `--seed N` | 0 | RNG seed (currently no stochastic processes use it) |
+| `--ca-ex-mM X` | 1.2 | Extracellular Ca²⁺ in mM. Set `0` for the Dolan Fig. 4 EDTA / no-extracellular-Ca²⁺ condition (SOCE inactive, PM leak inactive). |
+| `--no-ip3-forcing` | (off) | Disable the Dolan Fig. S2 IP3 time curve, so IP3 stays at its 50 nM baseline. Use for an at-rest / un-stimulated sim. |
+
+Where each behaviour is defined in code:
+
+- **Extracellular Ca²⁺** is the module-level constant `CA_EX_UM` in
+  `reconstruction/platelet/dataclasses/process/calcium_signalling.py`. The
+  runscript overrides it via `cs_mod.CA_EX_UM = ca_ex_mM * 1000.0` before
+  the sim is constructed; `_ode_rhs` reads it on every ODE step. Both the
+  SOCE current and the basal PM Ca²⁺ leak are gated on `CA_EX_UM > 0`.
+- **IP3 forcing** is the class attribute `CalciumDynamics._ip3_forced` in
+  `models/platelet/processes/calcium_dynamics.py`. The runscript overrides
+  it before constructing `PlateletSimulation`. When `True`, the
+  `CalciumDynamics` process passes `ip3_forced=True` into the ODE solver,
+  which applies `ip3_forcing_uM(t)` (the Dolan Fig. S2 fit, also in
+  `calcium_signalling.py`) to the IP3 state variable each step.
+
+The same conditions are exposed on the **webapp** Configure tab as form
+fields (Extracellular Ca²⁺ mM, IP3 forcing checkbox). The three webapp
+presets — IP3 transient (+Ca²⁺), EDTA transient, Resting — are defined
+in `wholecell/webapp/tabs/configure.py:PRESETS` and differ in exactly
+those three knobs (length, `ca_ex_mM`, `ip3_forced`). The Phase 3 driver
+`runPhase3.py` runs the +Ca²⁺ and EDTA conditions back-to-back.
 
 ## Tests & Type Checking
 

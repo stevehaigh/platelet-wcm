@@ -694,9 +694,19 @@ lifecycle:
 
 The class attribute `_ip3_forced` (default `True`,
 `calcium_dynamics.py:39`) controls whether the Dolan Fig. S2 IP3 time
-curve is applied or whether IP3 evolves via the ODE alone. v0.3 will
-set this to `False` once the upstream P2Y1 process produces IP3
+curve is applied or whether IP3 evolves via the ODE alone. The
+runscript exposes this as the `--no-ip3-forcing` CLI flag (and the
+webapp Configure tab as a checkbox); both override the class attribute
+before `PlateletSimulation` is constructed. v0.3 will set this to
+`False` permanently once the upstream P2Y1 process produces IP3
 endogenously.
+
+Similarly, the module-level `cs_mod.CA_EX_UM` constant in
+`calcium_signalling.py` (default 1.2 mM × 1000 = 1200 µM) is
+overridden by `runPlateletSim.py`'s `--ca-ex-mM` flag — set to 0 for
+the Dolan Fig. 4 EDTA condition. Both the SOCE current and the basal
+PM Ca²⁺ leak are gated on `CA_EX_UM > 0` (`_ode_rhs` line ~652);
+under EDTA both are physically zero.
 
 #### `models/platelet/listeners/calcium_trace.py`
 
