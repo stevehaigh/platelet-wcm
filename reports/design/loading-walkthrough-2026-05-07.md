@@ -16,50 +16,50 @@ when, and where does the very first output value come from.
 
 ```
 runPlateletSim.main()                         # runscripts/manual/runPlateletSim.py:169
-    ├── argparse → length_sec, seed, ca_ex_mM, ip3_forced
-    │
-    └── run_platelet_sim()                    # line 66
-            ├── cs_mod.CA_EX_UM = ca_ex_mM × 1000     # module-attribute override
-            ├── CalciumDynamics._ip3_forced = …       # class-attribute override
-            │
-            ├── SimulationDataPlatelet()              # build the knowledge base in code
-            ├── persist sim_data under kb/            # for downstream analysis
-            │
-            ├── PlateletSimulation(simData=…, lengthSec=…, …)
-            │       └── Simulation.__init__           # wholecell/sim/simulation.py:116
-            │               ├── kwarg parsing, output-dir prep, RNG seed
-            │               └── self._initialize(sim_data)         # line 164
-            │                       ├── instantiate states, processes, listeners
-            │                       ├── state.initialize() for each state
-            │                       ├── state.allocate() for each state
-            │                       ├── _initialConditionsFunction(sim_data)  # 197
-            │                       ├── process.initialize() for each process
-            │                       ├── listener.initialize() + .allocate()
-            │                       ├── state.calculateMass()          # initial mass
-            │                       ├── listener.initialUpdate()       # attr values
-            │                       └── logger.initialize(self)        # ← FIRST ROW
-            │                                ├── opens TableWriter per state/listener
-            │                                ├── tableCreate() on each (attrs JSON)
-            │                                └── copyData → tableAppend (t=0 row)
-            │
-            └── sim.run()                             # line 252
-                    └── run_incremental(lengthSec + initialTime)        # line 267
+    |-- argparse → length_sec, seed, ca_ex_mM, ip3_forced
+    |
+    `-- run_platelet_sim()                    # line 66
+            |-- cs_mod.CA_EX_UM = ca_ex_mM × 1000     # module-attribute override
+            |-- CalciumDynamics._ip3_forced = …       # class-attribute override
+            |
+            |-- SimulationDataPlatelet()              # build the knowledge base in code
+            |-- persist sim_data under kb/            # for downstream analysis
+            |
+            |-- PlateletSimulation(simData=…, lengthSec=…, …)
+            |       `-- Simulation.__init__           # wholecell/sim/simulation.py:116
+            |               |-- kwarg parsing, output-dir prep, RNG seed
+            |               `-- self._initialize(sim_data)         # line 164
+            |                       |-- instantiate states, processes, listeners
+            |                       |-- state.initialize() for each state
+            |                       |-- state.allocate() for each state
+            |                       |-- _initialConditionsFunction(sim_data)  # 197
+            |                       |-- process.initialize() for each process
+            |                       |-- listener.initialize() + .allocate()
+            |                       |-- state.calculateMass()          # initial mass
+            |                       |-- listener.initialUpdate()       # attr values
+            |                       `-- logger.initialize(self)        # ← FIRST ROW
+            |                                |-- opens TableWriter per state/listener
+            |                                |-- tableCreate() on each (attrs JSON)
+            |                                `-- copyData → tableAppend (t=0 row)
+            |
+            `-- sim.run()                             # line 252
+                    `-- run_incremental(lengthSec + initialTime)        # line 267
                             while time < end:
                                 _simulationStep += 1
                                 _timeTotal += _timeStepSec
                                 _pre_evolve_state()          # line 319
                                 for processes in _processClasses:
                                     _evolveState(processes)  # line 334
-                                        ├── state.updateQueries()    # current totals
-                                        ├── process.calculateRequest()  # requests
-                                        ├── state.partition(processes)  # allocate
-                                        ├── process.evolveState()    # biology step
-                                        ├── process.wasTimeStepShortEnough()
-                                        └── state.merge(processes)
+                                        |-- state.updateQueries()    # current totals
+                                        |-- process.calculateRequest()  # requests
+                                        |-- state.partition(processes)  # allocate
+                                        |-- process.evolveState()    # biology step
+                                        |-- process.wasTimeStepShortEnough()
+                                        `-- state.merge(processes)
                                 _post_evolve_state()         # line 377
-                                        ├── state.calculateMass()
-                                        ├── listener.update()
-                                        └── logger.append → tableAppend  # ← OUTPUT ROW
+                                        |-- state.calculateMass()
+                                        |-- listener.update()
+                                        `-- logger.append → tableAppend  # ← OUTPUT ROW
 ```
 
 For the platelet model with default settings the loop runs ~200 times

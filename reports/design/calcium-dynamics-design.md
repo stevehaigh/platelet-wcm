@@ -111,16 +111,16 @@ Agonist → P2Y1 → Gq → PLCβ → IP3   [v0.3; forced time curve in v0.2]
 IP3R [DTS membrane; 6-state Markov model]
   Ca²⁺ floods cytosol (peak ~300–500 nM)
     |
-    ├─ SERCA [DTS membrane; E1/E2 cycle]     2 Ca²⁺/ATP; refills DTS store
+    |- SERCA [DTS membrane; E1/E2 cycle]     2 Ca²⁺/ATP; refills DTS store
     |
-    ├─ PMCA  [plasma membrane; 5-state]      1 Ca²⁺/ATP; ejects Ca²⁺ from cell
-    |    └─ CaM [cytosolic Ca²⁺ buffer]      Ca₄·CaM activates PMCA ~5×
+    |- PMCA  [plasma membrane; 5-state]      1 Ca²⁺/ATP; ejects Ca²⁺ from cell
+    |    `- CaM [cytosolic Ca²⁺ buffer]      Ca₄·CaM activates PMCA ~5×
     |
-    └─ DTS depletion
-         └─ STIM1 EF-hand releases DTS Ca²⁺
-              └─ STIM1 monomers dimerise → active sensor
-                   └─ STIM1 dimers translocate to ER–PM puncta
-                        └─ gates Orai1 [plasma membrane; MWC allosteric]
+    `- DTS depletion
+         `- STIM1 EF-hand releases DTS Ca²⁺
+              `- STIM1 monomers dimerise → active sensor
+                   `- STIM1 dimers translocate to ER–PM puncta
+                        `- gates Orai1 [plasma membrane; MWC allosteric]
                              SOCE: extracellular Ca²⁺ enters cytosol
 
 Basal / resting:
