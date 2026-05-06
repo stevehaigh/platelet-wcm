@@ -1,8 +1,7 @@
 # Loading & runtime walkthrough — platelet-wcm — 2026-05-07
 
 A complete trace from `python runscripts/manual/runPlateletSim.py` to
-the first row of output values on disk, with file/line references you
-can open live during the walkthrough.
+the first row of output values on disk, with file/line references.
 
 Companion to `code-walkthrough-2026-05-07.md` (file-by-file repo tour),
 `demo-2026-05-07.md` (feature demo flow), and
@@ -18,7 +17,7 @@ when, and where does the very first output value come from.
 runPlateletSim.main()                              # runPlateletSim.py:169
   ├── argparse → length_sec, seed, ca_ex_mM, ip3_forced
   └── run_platelet_sim()                           # line 66
-      ├── cs_mod.CA_EX_UM = ca_ex_mM × 1000        # module override
+      ├── cs_mod·CA_EX_UM = ca_ex_mM × 1000        # module override
       ├── CalciumDynamics._ip3_forced = …        # class override
       │
       ├── SimulationDataPlatelet()                 # build the knowledge base
@@ -78,13 +77,12 @@ directory under `out/`, calls `write_metadata()` (saves
 before the simulation is constructed**:
 
 ```python
-cs_mod.CA_EX_UM = float(ca_ex_mM) * 1000.0          # extracellular Ca^2^+ in uM
+cs_mod·CA_EX_UM = float(ca_ex_mM) * 1000.0          # extracellular Ca²⁺ in uM
 CalciumDynamics._ip3_forced = bool(ip3_forced)      # Dolan IP3 forcing on/off
 ```
 
 This is the *only* mutation point for these conditions; the ODE and
 listener read them on every step from the same module-level globals.
-Simple, deliberate, easy to point at during the walkthrough.
 
 ### 2. Build the knowledge base — `SimulationDataPlatelet()`
 
@@ -137,7 +135,7 @@ The base class's `__init__` does the actual work
 
 ### 4. Wire everything up — `Simulation._initialize(sim_data)` (line 164)
 
-This single method is the most important one to know. In execution
+This is where the main execution happens. In execution
 order:
 
 ```
@@ -200,7 +198,7 @@ references with no data behind them.
 def initialize(self, sim, sim_data):
     super().initialize(sim, sim_data)
     self._solver = sim_data.process.calcium_signalling     # ODE module
-    # 27-species view; see calcium_signalling.MOLECULE_NAMES
+    # 27-species view; see calcium_signalling·MOLECULE_NAMES
     self._molecules = self.bulkMoleculesView(self._solver.molecule_names)
     self._atp = self.bulkMoleculesView(np.array(['ATP[c]'], …))  # ATP debit
 ```
@@ -301,7 +299,7 @@ That value is the count `361` from the initial-conditions table
 converted to nM:
 
 ```
-361 / (6.022e23 × 6e-15 × 10^-^6) × 1000  ≈  99.9 nM
+361 / (6.022e23 × 6e-15 × 10⁻⁶) × 1000  ≈  99.9 nM
 ```
 
 It's *not* the result of any ODE step — it's the initial-conditions
@@ -313,7 +311,7 @@ during that single 1 s integration. That single-timestep jump is the
 
 ---
 
-## What's worth memorising for tomorrow
+## Key points
 
 1. **The entry point is `run_platelet_sim()` in
    `runscripts/manual/runPlateletSim.py` (line 66).** Two
@@ -339,51 +337,3 @@ during that single 1 s integration. That single-timestep jump is the
    — same `copyData()` pattern as the initial write, just at every
    step instead of once.
 
----
-
-## Suggested live commands during this walkthrough
-
-```bash
-# Open the entry point and the runscript bridge
-sed -n '60,120p' runscripts/manual/runPlateletSim.py
-
-# Open the Simulation base class — main loop is at line 267
-sed -n '252,300p' wholecell/sim/simulation.py
-
-# Open the per-timestep flow — the five-stage dance at line 334
-sed -n '334,376p' wholecell/sim/simulation.py
-
-# Open the Disk logger — initialize() writes t=0; append() writes each step
-cat wholecell/loggers/disk.py
-
-# BulkMolecules is a numpy container with priority-weighted partitioning
-sed -n '60,140p' wholecell/states/bulk_molecules.py
-
-# After a sim: prove CalciumTrace/ca_cyt_nM has 201 rows for a 200 s run
-PYTHONPATH=$PWD pyenv exec python -c "
-from wholecell.io.tablereader import TableReader
-import sys
-ct = TableReader(sys.argv[1])
-print('ca_cyt_nM length:', len(ct.readColumn('ca_cyt_nM').flatten()))
-print('first three:',     ct.readColumn('ca_cyt_nM').flatten()[:3])
-" \
-  out/<run>/platelet_stub_000000/000000/generation_000000/000000/\
-      simOut/CalciumTrace
-```
-
----
-
-## The four demo-prep docs together
-
-| Doc | Angle |
-|---|---|
-| `demo-2026-05-07.md` | Watch it run — webapp click-through + Q&A |
-| `code-walkthrough-2026-05-07.md` | Tour the repo — file by file |
-| `loading-walkthrough-2026-05-07.md` | **This doc** — temporal trace from CLI to first output value |
-| `biology-overview-2026-05-07.md` | See the biology — components + validation, no code |
-
-Use this loading-walkthrough doc when the question is *"how does it
-actually work?"*, the code-walkthrough when the question is *"where do
-I find X?"*, the biology overview when the question is *"what biology
-is in there?"*, and the demo cheatsheet when the question is *"what
-should I show?"*.

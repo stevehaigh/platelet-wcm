@@ -119,7 +119,7 @@ Create flat files analogous to `reconstruction/ecoli/flat/`:
 ```tsv
 # reconstruction/platelet/flat/calcium_signalling_reactions.tsv
 reaction_id       forward_rate  reverse_rate  stoichiometry
-P2Y1_ADP_BINDING  1.0e7         10.0          ADP[e]:-1, P2Y1[m]:-1, ADP:P2Y1[m]:+1
+P2Y1_ADP_BINDING  1.0e7        10.0       ADP[e]:-1, P2Y1[m]:-1, ADP:P2Y1[m]:+1
 GAQ_ACTIVATION    5.0e5         0.1           ADP:P2Y1[m]:-1, Gaq-GDP[m]:-1, ...
 PLCB_ACTIVATION                1.0e6         1.0          ...
 PIP2_HYDROLYSIS                50.0          0            ...
@@ -175,7 +175,7 @@ class CalciumSignalling:
                 rev *= y[i] ** S[i, j]
             rates.append(fwd - rev)
 
-        dy = sp.Matrix(S) * sp.Matrix(rates)
+        dy = sp·Matrix(S) * sp·Matrix(rates)
         J = dy.jacobian(y)
 
         # Compile to callable numpy functions
@@ -211,14 +211,14 @@ import wholecell.processes.process as process
 from wholecell.utils import units
 
 
-class CalciumSignalling(process.Process):
+class CalciumSignalling(process·Process):
     _name = "CalciumSignalling"
 
     def initialize(self, sim, sim_data):
         super().initialize(sim, sim_data)
         self.nAvogadro = sim_data.constants.n_avogadro.asNumber(1 / units.mol)
         self.cellDensity = sim_data.constants.cell_density.asNumber(
-            units.g / units.L)
+            units.g / units·L)
 
         # The ODE solver from the dataclass
         self.solver = sim_data.process.calcium_signalling

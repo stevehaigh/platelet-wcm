@@ -53,7 +53,7 @@ platelet-wcm/
 │   │   └── calcium_dynamics.py     # * the headline process (thin wrapper)
 │   ├── listeners/
 │   │   ├── mass.py                 # dryMass / proteinMass etc.
-│   │   └── calcium_trace.py        # * 14-column Ca^2^+ recording
+│   │   └── calcium_trace.py        # * 14-column Ca²⁺ recording
 │   ├── analysis/
 │   │   ├── single/                 # one-sim plots
 │   │   │   ├── calcium_trace.py    # * 5-panel headline figure
