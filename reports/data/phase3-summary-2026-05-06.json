@@ -1,0 +1,46 @@
+{
+	"with_extracellular_ca": {
+		"peak_cyt_nM": 298.90401859847225,
+		"peak_t_s": 1.0,
+		"dts_min_uM": 0.0
+	},
+	"without_extracellular_ca": {
+		"peak_cyt_nM": 298.0737296579209,
+		"peak_t_s": 1.0,
+		"dts_min_uM": 0.0
+	},
+	"soce_differential_nM": 0.830288940551327,
+	"criteria": [
+		{
+			"criterion": "Active (+Ca_ex)",
+			"rule": "peak Ca_cyt > 200 nM",
+			"measured": "299 nM",
+			"passed": true
+		},
+		{
+			"criterion": "Active (\u2212Ca_ex)",
+			"rule": "peak Ca_cyt > 200 nM",
+			"measured": "298 nM",
+			"passed": true
+		},
+		{
+			"criterion": "SOCE differential",
+			"rule": "|peak(+) \u2212 peak(\u2212)| \u2265 100 nM",
+			"measured": "1 nM",
+			"passed": false
+		},
+		{
+			"criterion": "Peak in Dolan \u00b130% (+Ca_ex)",
+			"rule": "315\u2013585 nM",
+			"measured": "299 nM",
+			"passed": false
+		},
+		{
+			"criterion": "Peak in Dolan \u00b130% (\u2212Ca_ex)",
+			"rule": "192\u2013358 nM",
+			"measured": "298 nM",
+			"passed": true
+		}
+	],
+	"plot_path": "/Users/steve/github/platelet-wcm/out/phase3_2026-05-06/phase3_dolan_fig4.png"
+}
