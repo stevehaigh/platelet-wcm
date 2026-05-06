@@ -25,7 +25,7 @@ store-operated entry refilling the DTS.
                      |                                       |
 [IP3 spike] --> IP3R (DTS membrane) --> Ca²⁺_cyt rises --> +-- PMCA (PM) --> Ca²⁺_ex
                                             |              |
-                                            +-- CaM ladder (cytosolic buffer; activates PMCA)
+                                            +-- CaM ladder (buffer; activates PMCA)
                                             |
                                             +-- SERCA (DTS) --> refill DTS Ca²⁺ store
 ```

@@ -49,7 +49,7 @@ platelet-wcm/
 │   │   ├── simulation.py           # PlateletSimulation: wires processes + listeners
 │   │   └── initial_conditions.py   # sets initial counts on bulk views
 │   ├── processes/
-│   │   ├── resting_decay.py        # exponential protein decay (Burkhart 2012, t½ = 7 days; inert at 200-s timescales)
+│   │   ├── resting_decay.py  # exponential decay (Burkhart 2012; inert at 200 s)
 │   │   └── calcium_dynamics.py     # ★ the headline process (thin wrapper)
 │   ├── listeners/
 │   │   ├── mass.py                 # dryMass / proteinMass etc.
@@ -85,7 +85,7 @@ platelet-wcm/
 │   └── webapp.py                   # webapp entry point
 │
 ├── reports/                        # docs + artefacts (per-session)
-│   ├── design/                     # design docs (calcium-dynamics-design.md is the as-built reference)
+│   ├── design/   # design docs (calcium-dynamics-design.md = as-built ref)
 │   ├── data/                       # provenance + saved JSON snapshots
 │   ├── figures/                    # rendered figures (incl. Phase 3 result)
 │   └── lab-books/                  # dated session journals
@@ -370,9 +370,11 @@ cat models/platelet/sim/simulation.py
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py walk_transient --length 200
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
-    pyenv exec python runscripts/manual/runPlateletSim.py walk_edta --length 200 --ca-ex-mM 0
+    pyenv exec python runscripts/manual/runPlateletSim.py \
+        walk_edta --length 200 --ca-ex-mM 0
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
-    pyenv exec python runscripts/manual/runPlateletSim.py walk_resting --length 300 --no-ip3-forcing
+    pyenv exec python runscripts/manual/runPlateletSim.py \
+        walk_resting --length 300 --no-ip3-forcing
 
 # Phase 3 driver — runs both ±Ca²⁺ conditions and writes the comparison plot
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg \

@@ -313,8 +313,9 @@ This recalibration is **Phase 2, issue #48** (re-derive resting IC + calibrate I
 ```bash
 PYTHONPATH=. python3 -m pytest models/platelet/tests/             # 9 tests, all pass
 PYTHONPATH=. python3 runscripts/manual/runPlateletSim.py --length 200 platelet_smoke
-PYTHONPATH=. python3 runscripts/manual/analysisPlatelet.py platelet_smoke --plot calcium_trace
-make pdfs                                                          # rebuild reports/pdf/*.pdf
+PYTHONPATH=. python3 runscripts/manual/analysisPlatelet.py \
+    platelet_smoke --plot calcium_trace
+make pdfs  # rebuild reports/pdf/*.pdf
 ```
 
 **Gotcha:** the v0.2 platelet sim cytosolic CaM concentration is $\sim$5.66 µM (20 481 / 6 fL), about 3× higher than the Caride 2007 CHO cells. Caride's rate constants are fine (CaM Ca²⁺-binding is intensive in concentration), but the *count*-based mass-action terms in our ODE need careful unit conversion when CaM appears as an enzyme-side count.

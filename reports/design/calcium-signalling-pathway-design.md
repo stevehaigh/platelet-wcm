@@ -86,7 +86,8 @@ _SPECIES = [
 
 _REACTIONS = [
     # (reaction_id,         kf,      kr,    stoichiometry)
-    ('IP3R_CA_RELEASE',     100.0,   0.0,   {'IP3R_o[dts]': -1, 'CA2[dts]': -1, 'CA2[c]': +1}),
+    ('IP3R_CA_RELEASE',  100.0, 0.0,
+     {'IP3R_o[dts]': -1, 'CA2[dts]': -1, 'CA2[c]': +1}),
     ('SERCA_REUPTAKE',      4.0,     0.0,   {'CA2[c]': -1, 'CA2[dts]': +1}),
     # ... full list from calcium-data-provenance.md
 ]
@@ -117,9 +118,9 @@ Create flat files analogous to `reconstruction/ecoli/flat/`:
 
 ```tsv
 # reconstruction/platelet/flat/calcium_signalling_reactions.tsv
-reaction_id                    forward_rate  reverse_rate  stoichiometry
-P2Y1_ADP_BINDING               1.0e7         10.0         ADP[e]:-1, P2Y1[m]:-1, ADP:P2Y1[m]:+1
-GAQ_ACTIVATION                 5.0e5         0.1          ADP:P2Y1[m]:-1, Gaq-GDP[m]:-1, ...
+reaction_id       forward_rate  reverse_rate  stoichiometry
+P2Y1_ADP_BINDING  1.0e7         10.0          ADP[e]:-1, P2Y1[m]:-1, ADP:P2Y1[m]:+1
+GAQ_ACTIVATION    5.0e5         0.1           ADP:P2Y1[m]:-1, Gaq-GDP[m]:-1, ...
 PLCB_ACTIVATION                1.0e6         1.0          ...
 PIP2_HYDROLYSIS                50.0          0            ...
 IP3R_BINDING                   8.0e6         2.0          ...

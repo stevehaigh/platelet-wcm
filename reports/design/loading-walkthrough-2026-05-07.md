@@ -29,38 +29,37 @@ runPlateletSim.main()                         # runscripts/manual/runPlateletSim
             │       └── Simulation.__init__           # wholecell/sim/simulation.py:116
             │               ├── kwarg parsing, output-dir prep, RNG seed
             │               └── self._initialize(sim_data)         # line 164
-            │                       ├── instantiate internal_states, processes, listeners
+            │                       ├── instantiate states, processes, listeners
             │                       ├── state.initialize() for each state
             │                       ├── state.allocate() for each state
-            │                       ├── self._initialConditionsFunction(sim_data)   # ← initial molecule counts land here  (line 197)
-            │                       ├── process.initialize() for each process       # ← creates BulkMoleculesViews
+            │                       ├── _initialConditionsFunction(sim_data)  # 197
+            │                       ├── process.initialize() for each process
             │                       ├── listener.initialize() + .allocate()
-            │                       ├── state.calculateMass()                       # initial mass numbers
-            │                       ├── listener.initialUpdate()                    # initial listener attribute values
-            │                       └── logger.initialize(self)                     # ← FIRST OUTPUT ROW WRITTEN  (line 234)
-            │                                ├── opens TableWriter for Main + every state + every listener
-            │                                ├── tableCreate() on each (writes attributes JSON)
-            │                                └── copyData(sim) → tableAppend() on each (writes the t=0 values)
+            │                       ├── state.calculateMass()          # initial mass
+            │                       ├── listener.initialUpdate()       # attr values
+            │                       └── logger.initialize(self)        # ← FIRST ROW
+            │                                ├── opens TableWriter per state/listener
+            │                                ├── tableCreate() on each (attrs JSON)
+            │                                └── copyData → tableAppend (t=0 row)
             │
             └── sim.run()                             # line 252
                     └── run_incremental(lengthSec + initialTime)        # line 267
                             while time < end:
                                 _simulationStep += 1
                                 _timeTotal += _timeStepSec
-                                _pre_evolve_state()          # line 319 — adjustTimeStep, hooks, reset mass diffs
+                                _pre_evolve_state()          # line 319
                                 for processes in _processClasses:
                                     _evolveState(processes)  # line 334
-                                        ├── state.updateQueries()        # views see current totals
-                                        ├── process.calculateRequest()   # request molecules
-                                        ├── state.partition(processes)   # allocate per priority
-                                        ├── process.evolveState()        # the actual biology this step
+                                        ├── state.updateQueries()    # current totals
+                                        ├── process.calculateRequest()  # requests
+                                        ├── state.partition(processes)  # allocate
+                                        ├── process.evolveState()    # biology step
                                         ├── process.wasTimeStepShortEnough()
                                         └── state.merge(processes)
                                 _post_evolve_state()         # line 377
                                         ├── state.calculateMass()
                                         ├── listener.update()
-                                        └── logger.append(sim) → copyData → tableAppend
-                                                                         # ← OUTPUT ROW FOR THIS STEP WRITTEN
+                                        └── logger.append → tableAppend  # ← OUTPUT ROW
 ```
 
 For the platelet model with default settings the loop runs ~200 times
@@ -95,9 +94,9 @@ Simple, deliberate, easy to point at during the walkthrough.
 ```python
 self.constants       = Constants()
 self.molecule_groups = MoleculeGroups()
-self.internal_state  = InternalState()      # reads _MOLECULES tuple, builds bulk_data structured array
+self.internal_state  = InternalState()    # builds bulk_data from _MOLECULES
 self.external_state  = ExternalState()
-self.process         = Process(self)        # instantiates RestingDecay + CalciumSignalling
+self.process         = Process(self)      # RestingDecay + CalciumSignalling
 ```
 
 `Process(sim_data)` instantiates `CalciumSignalling`, which wires up
@@ -116,7 +115,7 @@ object to `kb/` so downstream analysis can load it without rebuilding.
 class PlateletSimulation(Simulation):
     _internalStateClasses = (BulkMolecules, UniqueMolecules)
     _externalStateClasses = (LocalEnvironment,)
-    _processClasses = ((RestingDecay, CalciumDynamics),)        # one group, two processes
+    _processClasses = ((RestingDecay, CalciumDynamics),)  # one group
     _listenerClasses = (Mass, CalciumTrace)
     _initialConditionsFunction = calcInitialConditions
 ```
@@ -172,7 +171,7 @@ order:
 
 220-222  state.calculateMass()                # initial mass numbers
 224-226  external_state.update()              # media timeline applied
-228-230  listener.initialUpdate()             # listeners compute their first attribute values
+228-230  listener.initialUpdate()    # first attribute values
 
 232-234  for each logger: initialize(self)
             ← OPENS TableWriters AND WRITES THE t=0 ROWS
@@ -201,9 +200,9 @@ references with no data behind them.
 ```python
 def initialize(self, sim, sim_data):
     super().initialize(sim, sim_data)
-    self._solver = sim_data.process.calcium_signalling           # the rate-constant + ODE module
-    self._molecules = self.bulkMoleculesView(self._solver.molecule_names)   # view over 27 species
-    self._atp = self.bulkMoleculesView(np.array(['ATP[c]'], …))             # view for ATP debit
+    self._solver = sim_data.process.calcium_signalling     # ODE module
+    self._molecules = self.bulkMoleculesView(self._solver.molecule_names)  # 27 species
+    self._atp = self.bulkMoleculesView(np.array(['ATP[c]'], …))  # ATP debit
 ```
 
 The views are **not the data** — they're handles into the
@@ -220,7 +219,7 @@ moment the t=0 values get to disk.
 ```python
 self.mainFile = TableWriter(os.path.join(self.outDir, "Main"))
 self.mainFile.writeAttributes(initialTime=…, startTime=…)
-self.createTables(sim)        # opens TableWriter for each state + each listener; writes their attributes JSON
+self.createTables(sim)     # TableWriter per state/listener; attrs JSON
 self.copyData(sim)            # ← writes the FIRST ROW of every column file
 ```
 
@@ -245,9 +244,9 @@ while self.time() < run_until and not self._isDead:
     self._simulationStep += 1
     self._timeTotal += self._timeStepSec      # advance simulated clock
     self._pre_evolve_state()                  # adjust dt, reset mass diffs
-    for processes in self._processClasses:    # = ((RestingDecay, CalciumDynamics),) — one group
+    for processes in self._processClasses:  # one group
         self._evolveState(processes)          # ↓
-    self._post_evolve_state()                 # state mass, listener.update, logger.append
+    self._post_evolve_state()        # state.mass, listener.update, logger.append
 ```
 
 Note `_processClasses` is a *tuple of tuples* — the outer tuple is
@@ -360,7 +359,7 @@ cat wholecell/loggers/disk.py
 # Show that BulkMolecules is just a numpy container with priority-weighted partitioning
 sed -n '60,140p' wholecell/states/bulk_molecules.py
 
-# After running a sim, prove that simOut/CalciumTrace/ca_cyt_nM has 201 rows for a 200 s run
+# After a sim: prove CalciumTrace/ca_cyt_nM has 201 rows for a 200 s run
 PYTHONPATH=$PWD pyenv exec python -c "
 from wholecell.io.tablereader import TableReader
 import sys

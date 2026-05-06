@@ -574,7 +574,8 @@ binds. Each bound STIM2 stabilises the open state by a factor `f`, giving
 the standard MWC form:
 
 ```
-P_open = (L · (1 + a·Sf·Ka)⁴) / (L · (1 + a·Sf·Ka)⁴ + (1 + Sf·Ka)⁴)         [closed-favoured]
+P_open = (L · (1 + a·Sf·Ka)⁴) /
+         (L · (1 + a·Sf·Ka)⁴ + (1 + Sf·Ka)⁴)    [closed-favoured]
        — equivalently rearranged with the f cooperativity factor —
        (Hoover 2011 Fig. 4 best-fit parameters)
 ```
@@ -818,7 +819,8 @@ See §3.6 for the full constant tables. Headline values:
 ### 5.9 IP3 forcing curve (Dolan 2014 Fig. S2 fit)
 
 ```
-IP3(t) = IP3_rest × (1 + (fold − 1) × (1 − e^(−t/τ_rise)) × e^(−max(0, t−t_peak)/τ_decay))
+IP3(t) = IP3_rest × (1 + (fold − 1)
+         × (1 − e^(−t/τ_rise)) × e^(−max(0, t−t_peak)/τ_decay))
 ```
 
 | Constant | Value | Source |

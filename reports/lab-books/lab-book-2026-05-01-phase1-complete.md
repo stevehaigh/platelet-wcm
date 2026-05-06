@@ -71,7 +71,9 @@ Basal path (steps 4–5):
 
 CaM-activated path (steps 8–10):
   PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA  +  Ca²⁺  ⇌  Ca₄·CaM·PMCA·Ca  →  Ca₄·CaM·PMCA + Ca²⁺_ex
-                    k8 = 0.2 µM⁻¹s⁻¹                k9 = 50 µM⁻¹s⁻¹            k10 = 30 s⁻¹
+                    k8 = 0.2 µM⁻¹s⁻¹
+                    k9 = 50 µM⁻¹s⁻¹
+                    k10 = 30 s⁻¹
 ```
 
 Step 11 (slow CaM dissociation, τ ≈ 20 min) is omitted for Phase 1 — it accumulates
@@ -275,14 +277,16 @@ prepared (IP₃ can switch from forced to endogenous in the `ip3_forced` flag).
 ```bash
 # Run the simulation (200 s) and generate the plot
 PYTHONPATH=. python3 runscripts/manual/runPlateletSim.py --length 200 platelet_smoke
-PYTHONPATH=. python3 runscripts/manual/analysisPlatelet.py platelet_smoke --plot calcium_trace
+PYTHONPATH=. python3 runscripts/manual/analysisPlatelet.py \
+    platelet_smoke --plot calcium_trace
 
 # Unit tests (9 tests, all should pass)
 PYTHONPATH=. python3 -m pytest models/platelet/tests/ -v
 
 # Quick ODE sanity check (no sim runner needed)
 PYTHONPATH=. python3 -c "
-from reconstruction.platelet.dataclasses.process.calcium_signalling import CalciumSignalling, MOLECULE_NAMES
+from reconstruction.platelet.dataclasses.process.calcium_signalling import (
+    CalciumSignalling, MOLECULE_NAMES)
 import numpy as np
 cs = CalciumSignalling(None)
 print('ODE imports OK; N_SPECIES =', len(MOLECULE_NAMES))
