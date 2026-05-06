@@ -14,21 +14,6 @@ from dash.dependencies import Input, Output, State
 # what the model is doing biologically).
 PRESETS = [
 	{
-		'id': 'preset-smoke',
-		'label': '⚡ Smoke test (60 s)',
-		'description': (
-			'60-second platelet simulation with IP3 stimulus. Fastest check '
-			'that the engine runs end-to-end and writes listener data.'
-		),
-		'config': {
-			'length_sec':  60,
-			'seed':         0,
-			'ca_ex_mM':   1.2,
-			'ip3_forced': True,
-			'description': 'Smoke test — 60 s',
-		},
-	},
-	{
 		'id': 'preset-transient',
 		'label': '🩸 IP3 Ca²⁺ transient (200 s, +Ca²⁺)',
 		'description': (
@@ -118,7 +103,7 @@ def layout() -> html.Div:
 				dcc.Input(id='config-length-sec', type='number', value=200, min=1,
 					style={'width': '100%'}),
 				html.Div(
-					'Simulated wall-clock seconds. Typical: 60 (smoke), 200 (transient), 300+ (resting).',
+					'Simulated wall-clock seconds. Typical: 200 (transient response) or 300+ (resting / steady-state inspection).',
 					style={'color': '#57606a', 'fontSize': '12px', 'marginTop': '4px'},
 				),
 			]),
