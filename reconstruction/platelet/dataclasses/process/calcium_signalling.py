@@ -644,21 +644,23 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	# Solve MWC for channel-level open probability.
 	po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
 
-	# SOC current via Eq. 4: I = γ · N · Po · (ψ_PM − E_Ca,PM) · NA/(zF)
-	if ca_cyt > 0.0 and CA_EX_UM > 0.0:
+	# SOC current via Eq. 4: I = γ · N · Po · (ψ_PM − E_Ca,PM) · NA/(zF).
+	# Only computed when there is extracellular Ca²⁺ to flow in. Under the
+	# Dolan Fig. 4 EDTA / no-extracellular-Ca condition (CA_EX_UM = 0) both
+	# the SOCE current and the basal PM leak are physically zero — both are
+	# Ca²⁺ inflows from outside, and there is no outside Ca²⁺ to source.
+	if CA_EX_UM > 0.0 and ca_cyt > 0.0:
 		e_ca_pm_v = RT_OVER_zF_V * math.log(CA_EX_UM / ca_cyt)
-	else:
-		e_ca_pm_v = 0.0
-	driving_pm_v = V_PM_V - e_ca_pm_v
-	soce_ions_s = (
-		-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
-	)
-	dy[_IDX['CA2_CYT[c]']] += soce_ions_s
-	# The extracellular reservoir is treated as infinite (no debit).
+		driving_pm_v = V_PM_V - e_ca_pm_v
+		soce_ions_s = (
+			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
+		)
+		dy[_IDX['CA2_CYT[c]']] += soce_ions_s
 
-	# Basal plasma-membrane Ca²⁺ leak — compensates PMCA outflow at rest
-	# so the resting cyt steady state sits at ~100 nM (lab-book 2026-05-05).
-	dy[_IDX['CA2_CYT[c]']] += J_PM_LEAK_IONS_S
+		# Basal plasma-membrane Ca²⁺ leak — compensates PMCA outflow at rest
+		# so the resting cyt steady state sits at ~100 nM (lab-book 2026-05-05).
+		dy[_IDX['CA2_CYT[c]']] += J_PM_LEAK_IONS_S
+	# The extracellular reservoir is treated as infinite (no debit).
 
 	# IP3 is forced when `ip3_forced` is True; otherwise it free-floats
 	# (decay/regeneration handled by upstream processes in v0.3+).

@@ -26,12 +26,12 @@ import numpy as np
 import math
 
 import wholecell.listeners.listener
+from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_IDX,
 	_UM_PER_COUNT_CYT,
 	_UM_PER_COUNT_DTS,
 	_mwc_open_fraction,
-	CA_EX_UM,
 	GAMMA_SOC_S,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
@@ -40,6 +40,9 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	STIM_MONOMERS_PER_DIMER,
 	V_PM_V,
 )
+# CA_EX_UM is read via cs_mod.CA_EX_UM rather than imported by value,
+# so a runscript that overrides it (e.g. for the Phase 3 EDTA condition)
+# is reflected in the listener's SOCE trace.
 
 
 class CalciumTrace(wholecell.listeners.listener.Listener):
@@ -129,14 +132,16 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		stim2_p = qp * (stim1_dim / STIM_MONOMERS_PER_DIMER)
 		n_orai_channels = orai / ORAI_SUBUNITS_PER_CHANNEL
 		po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
-		if ca_cyt_uM > 0.0 and CA_EX_UM > 0.0:
-			e_ca_pm_v = RT_OVER_zF_V * math.log(CA_EX_UM / ca_cyt_uM)
+		# SOCE current — physically zero when there is no extracellular Ca²⁺
+		# (Dolan Fig. 4 EDTA condition); see calcium_signalling._ode_rhs.
+		if cs_mod.CA_EX_UM > 0.0 and ca_cyt_uM > 0.0:
+			e_ca_pm_v = RT_OVER_zF_V * math.log(cs_mod.CA_EX_UM / ca_cyt_uM)
+			driving_pm_v = V_PM_V - e_ca_pm_v
+			soce_ions_s = (
+				-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
+			)
 		else:
-			e_ca_pm_v = 0.0
-		driving_pm_v = V_PM_V - e_ca_pm_v
-		soce_ions_s = (
-			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
-		)
+			soce_ions_s = 0.0
 		# Convert ions/s in cytosol → nM/s (cyt volume).
 		self.soce_flux_nMs = float(soce_ions_s * _UM_PER_COUNT_CYT * 1e3)
 
