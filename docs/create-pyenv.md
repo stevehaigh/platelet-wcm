@@ -122,15 +122,15 @@ This page goes through the Python environment setup steps in more detail.
    understands the version of Python and its installed libraries. This enables
    code completion, visual debugging, click-through to library source code, etc.
 
-   > PyCharm >  
-   > Preferences >  
-   > Project: platelet-wcm >  
-   > Project Interpreter >  
-   > gear ⚙️ >  
-   > Add... >  
-   > Virtualenv Environment >  
-   > Existing environment >  
-   > Interpreter >  
+   > PyCharm > 
+   > Preferences > 
+   > Project: platelet-wcm > 
+   > Project Interpreter > 
+   > gear ️ > 
+   > Add... > 
+   > Virtualenv Environment > 
+   > Existing environment > 
+   > Interpreter > 
    > [run `pyenv which python` in a shell to find the python location, something
    > like `/usr/local/var/pyenv/versions/platelet-wcm/python`, and paste that path
    > into the text box or navigate there].

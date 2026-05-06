@@ -51,7 +51,7 @@ python runscripts/manual/runPhase3.py out/phase3 --length 200
 
 The same conditions are available in the webapp Configure tab as form fields
 (Extracellular Ca²⁺ mM, IP3 forcing checkbox) and as three presets:
-🩸 IP3 transient (+Ca²⁺), 🧪 EDTA transient, 🛌 Resting.
+IP3 transient (+Ca²⁺), EDTA transient, Resting.
 
 Set `OPENBLAS_NUM_THREADS=1` in your shell profile for consistent numerical results.
 See [`docs/create-pyenv.md`](docs/create-pyenv.md) for full environment setup.

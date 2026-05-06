@@ -15,7 +15,7 @@ from dash.dependencies import Input, Output, State
 PRESETS = [
 	{
 		'id': 'preset-transient',
-		'label': '🩸 IP3 Ca²⁺ transient (200 s, +Ca²⁺)',
+		'label': 'IP3 Ca²⁺ transient (200 s, +Ca²⁺)',
 		'description': (
 			'Phase 1 reproduction: 200 s with IP3 forcing on (Dolan 2014 '
 			'Fig. S2 curve) and 1.2 mM extracellular Ca²⁺. Headline '
@@ -23,15 +23,15 @@ PRESETS = [
 		),
 		'config': {
 			'length_sec': 200,
-			'seed':         0,
-			'ca_ex_mM':   1.2,
+			'seed': 0,
+			'ca_ex_mM': 1.2,
 			'ip3_forced': True,
 			'description': 'IP3 transient (+Ca²⁺) — 200 s',
 		},
 	},
 	{
 		'id': 'preset-edta',
-		'label': '🧪 EDTA transient (200 s, no Ca²⁺_ex)',
+		'label': 'EDTA transient (200 s, no Ca²⁺_ex)',
 		'description': (
 			'Phase 3 EDTA condition: 200 s with IP3 forcing on but '
 			'extracellular Ca²⁺ = 0. SOCE is correctly inactive; compare '
@@ -39,15 +39,15 @@ PRESETS = [
 		),
 		'config': {
 			'length_sec': 200,
-			'seed':         0,
-			'ca_ex_mM':   0.0,
+			'seed': 0,
+			'ca_ex_mM': 0.0,
 			'ip3_forced': True,
 			'description': 'IP3 transient (EDTA) — 200 s',
 		},
 	},
 	{
 		'id': 'preset-resting',
-		'label': '🛌 Resting (300 s, no stimulus)',
+		'label': 'Resting (300 s, no stimulus)',
 		'description': (
 			'300 s with IP3 forcing OFF — no stimulus. Useful for '
 			'inspecting the model at rest and verifying the resting '
@@ -55,8 +55,8 @@ PRESETS = [
 		),
 		'config': {
 			'length_sec': 300,
-			'seed':         0,
-			'ca_ex_mM':   1.2,
+			'seed': 0,
+			'ca_ex_mM': 1.2,
 			'ip3_forced': False,
 			'description': 'Resting (no stimulus) — 300 s',
 		},
@@ -174,10 +174,10 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 	preset_lookup = {p['id']: p for p in PRESETS}
 
 	@app.callback(
-		Output('config-length-sec',  'value'),
-		Output('config-seed',        'value'),
-		Output('config-ca-ex-mM',    'value'),
-		Output('config-ip3-forced',  'value'),
+		Output('config-length-sec', 'value'),
+		Output('config-seed', 'value'),
+		Output('config-ca-ex-mM', 'value'),
+		Output('config-ip3-forced', 'value'),
 		Output('config-description', 'value'),
 		Output('preset-description', 'children'),
 		[Input(pid, 'n_clicks') for pid in preset_ids],
@@ -197,10 +197,10 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 	@app.callback(
 		Output('config-status', 'children'),
 		Input('config-run-button', 'n_clicks'),
-		State('config-length-sec',  'value'),
-		State('config-seed',        'value'),
-		State('config-ca-ex-mM',    'value'),
-		State('config-ip3-forced',  'value'),
+		State('config-length-sec', 'value'),
+		State('config-seed', 'value'),
+		State('config-ca-ex-mM', 'value'),
+		State('config-ip3-forced', 'value'),
 		State('config-description', 'value'),
 		prevent_initial_call=True,
 	)
@@ -210,11 +210,11 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 			return ''
 
 		config = {
-			'length_sec':   int(length_sec or 60),
-			'seed':         int(seed or 0),
-			'ca_ex_mM':     float(ca_ex_mM if ca_ex_mM is not None else 1.2),
-			'ip3_forced':   'on' in (ip3_forced_list or []),
-			'description':  description or '',
+			'length_sec': int(length_sec or 60),
+			'seed': int(seed or 0),
+			'ca_ex_mM': float(ca_ex_mM if ca_ex_mM is not None else 1.2),
+			'ip3_forced': 'on' in (ip3_forced_list or []),
+			'description': description or '',
 		}
 
 		msg = on_submit(config)

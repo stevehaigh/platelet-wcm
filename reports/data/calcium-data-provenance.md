@@ -351,10 +351,10 @@ isoform:
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| k_on  | 10 µM⁻¹·s⁻¹ | Ca²⁺ binding (basal, no CaM) |
-| k_off | 50 s⁻¹      | Ca²⁺ unbinding (basal, no CaM) |
-| k_cat | 5.5 s⁻¹     | Turnover (V_max basal) |
-| KM    | 5.55 µM     | Derived: (k_off + k_cat) / k_on |
+| k_on | 10 µM⁻¹·s⁻¹ | Ca²⁺ binding (basal, no CaM) |
+| k_off | 50 s⁻¹ | Ca²⁺ unbinding (basal, no CaM) |
+| k_cat | 5.5 s⁻¹ | Turnover (V_max basal) |
+| KM | 5.55 µM | Derived: (k_off + k_cat) / k_on |
 
 **Verified ✓ (Zotero, Caride 2007 itemKey YLIICDWW, 2026-04-23)** — the source
 table directly lists "k4 (s⁻¹ µM⁻¹) 10" for Ca²⁺ binding, "k4r (s⁻¹) 50" for
@@ -689,7 +689,7 @@ Hill function.
 
 ### What we still need
 
-1. ~~**Dolan 2014 Supporting Material**~~ ✅ OBTAINED — Table S1 representative ICs
+1. ~~**Dolan 2014 Supporting Material**~~ ✓ OBTAINED — Table S1 representative ICs
    extracted. IP3 forcing function shape documented. Clustering analysis confirms
    responsive configurations require high VIM and high IP3R/SERCA ratio.
 

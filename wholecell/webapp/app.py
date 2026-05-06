@@ -53,7 +53,7 @@ def create_app(out_path: str = None, repo_root: str = None,
 
 	app.layout = html.Div([
 		# WIP banner
-		html.Div('🚧 Work in Progress — experimental, not for production use 🚧',
+		html.Div('Work in Progress — experimental, not for production use',
 			className='wip-banner'),
 
 		# Header

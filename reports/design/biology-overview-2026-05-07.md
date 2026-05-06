@@ -62,9 +62,9 @@ on the CLI:
 
 | Condition | What it tests |
 |---|---|
-| 🩸 **IP3 transient (+Ca²⁺_ex)** | Canonical activation. IP3R-driven release, SERCA reuptake, SOCE refilling. Phase 1 acceptance criterion: peak in 200–800 nM band. |
-| 🧪 **EDTA transient (no Ca²⁺_ex)** | Isolates IP3R contribution by removing extracellular Ca²⁺. SOCE inactive (no source); PM leak inactive. Compares against the +Ca_ex condition to test SOCE dependence (Dolan 2014 Fig. 4). |
-| 🛌 **Resting (no stimulus)** | IP3 stays at 50 nM baseline; no transient driven. Inspects the model's rest behaviour. |
+| **IP3 transient (+Ca²⁺_ex)** | Canonical activation. IP3R-driven release, SERCA reuptake, SOCE refilling. Phase 1 acceptance criterion: peak in 200–800 nM band. |
+| **EDTA transient (no Ca²⁺_ex)** | Isolates IP3R contribution by removing extracellular Ca²⁺. SOCE inactive (no source); PM leak inactive. Compares against the +Ca_ex condition to test SOCE dependence (Dolan 2014 Fig. 4). |
+| **Resting (no stimulus)** | IP3 stays at 50 nM baseline; no transient driven. Inspects the model's rest behaviour. |
 
 Plus a Phase 3 driver that runs the +Ca_ex and EDTA conditions
 back-to-back and produces the Dolan Fig. 4 comparison figure.
@@ -72,7 +72,9 @@ back-to-back and produces the Dolan Fig. 4 comparison figure.
 ## What v0.2 reproduces
 
 Validated against Dolan 2014 Fig. 4 + Fig. 3B filtering criteria, run
-2026-05-06 (figure: `reports/figures/phase3-dolan-fig4-2026-05-06.png`):
+2026-05-06.
+
+![Phase 3 validation — cytosolic Ca²⁺, DTS Ca²⁺, and acceptance-criteria pass/fail for the +Ca²⁺_ex (1.2 mM) and EDTA (0 mM) conditions; figure rendered by `runscripts/manual/runPhase3.py`](/Users/steve/github/platelet-wcm/reports/figures/phase3-dolan-fig4-2026-05-06.png)
 
 - ✓ Peak Ca²⁺_cyt > 200 nM with extracellular Ca²⁺ (299 nM measured)
 - ✓ Peak Ca²⁺_cyt > 200 nM under EDTA (298 nM measured)

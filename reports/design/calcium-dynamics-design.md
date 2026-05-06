@@ -1086,7 +1086,7 @@ Phase 3 validation against Dolan 2014 Fig. 4 was implemented as a
 two-condition driver (`runscripts/manual/runPhase3.py`) and a
 comparison plot (`models/platelet/analysis/phase3_dolan_fig4.py`) on
 2026-05-06. See lab-book `2026-05-06-phase3-results.md` for the full
-write-up; figure at `reports/figures/phase3-dolan-fig4-2026-05-06.png`.
+write-up; figure at `/Users/steve/github/platelet-wcm/reports/figures/phase3-dolan-fig4-2026-05-06.png`.
 
 Acceptance criteria (Dolan 2014 Fig. 3B + lab-book Phase 3 framing):
 

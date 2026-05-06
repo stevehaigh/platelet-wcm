@@ -226,15 +226,15 @@ of Python and its installed libraries.** This enables code completion, usage doc
 in context, visual debugging, warnings about code problems, click-through to library
 source code, and many other features for working with Python code.
 
-  PyCharm >  
-  Preferences >  
-  Project: platelet-wcm >  
-  Project Interpreter >  
-  gear ⚙️ >  
-  Add... >  
-  Virtualenv Environment >  
-  Existing environment >  
-  Interpreter >  
+  PyCharm > 
+  Preferences > 
+  Project: platelet-wcm > 
+  Project Interpreter > 
+  gear ️ > 
+  Add... > 
+  Virtualenv Environment > 
+  Existing environment > 
+  Interpreter > 
   [run `pyenv which python` in a shell to find the python location, something
   like `/usr/local/var/pyenv/versions/platelet-wcm/python`, and paste that path into
   the text box or navigate there].
@@ -243,7 +243,7 @@ source code, and many other features for working with Python code.
 
   Recommended:
 
-  * `Cmd-D` (or Ctrl-D) "Edit > Find > Add Selection for Next Occurrence".  
+  * `Cmd-D` (or Ctrl-D) "Edit > Find > Add Selection for Next Occurrence". 
     This is like `find_under_expand` in Sublime Text. Cmd-G (or Ctrl-G) works like Sublime's `find_under_expand_skip`.
   * `Cmd-[` and `Cmd-]`: Navigate Back and Forward, like in a web browser.
   * `F2`: Next Bookmark, `Shift-F2`: Previous Bookmark, `Cmd-F2`: Toggle Bookmarks.
