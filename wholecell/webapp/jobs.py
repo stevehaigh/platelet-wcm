@@ -157,18 +157,22 @@ class JobManager:
 		in_container = os.environ.get('PLATELET_WEBAPP_MODE') == 'container'
 		length_sec = int(config.get('length_sec', 60))
 		seed = int(config.get('seed', 0))
+		ca_ex_mM = float(config.get('ca_ex_mM', 1.2))
+		ip3_forced = bool(config.get('ip3_forced', True))
 
 		try:
 			# Phase 1: Simulation
-			cmd_sim = self._build_cmd(
-				[
-					'python', 'runscripts/manual/runPlateletSim.py',
-					sim_outdir,
-					'--length', str(length_sec),
-					'--seed', str(seed),
-					'--no-log-to-shell',
-				],
-				in_container, out_root)
+			sim_args = [
+				'python', 'runscripts/manual/runPlateletSim.py',
+				sim_outdir,
+				'--length', str(length_sec),
+				'--seed', str(seed),
+				'--ca-ex-mM', str(ca_ex_mM),
+				'--no-log-to-shell',
+			]
+			if not ip3_forced:
+				sim_args.append('--no-ip3-forcing')
+			cmd_sim = self._build_cmd(sim_args, in_container, out_root)
 			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
 				cwd=self.repo_root if in_container else None)
 			if proc.returncode != 0:

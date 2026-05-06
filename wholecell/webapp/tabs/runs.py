@@ -44,12 +44,21 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 			config = json.loads(job.get('config_json', '{}'))
 			length_sec = config.get('length_sec', '?')
 			seed = config.get('seed', '?')
+			ca_ex_mM = config.get('ca_ex_mM')
+			ip3_forced = config.get('ip3_forced', True)
+			# Compact one-cell summary of the biological condition.
+			cond_parts = []
+			if ca_ex_mM is not None:
+				cond_parts.append(
+					f'Ca²⁺_ex={ca_ex_mM} mM' if ca_ex_mM > 0 else 'EDTA')
+			cond_parts.append('IP3 ON' if ip3_forced else 'rest')
+			condition = ' · '.join(cond_parts)
 
 			rows.append(html.Tr([
 				html.Td(f'#{job["id"]}'),
 				html.Td(html.Span(status, className=badge_class)),
 				html.Td(f'{length_sec} s'),
-				html.Td(f'seed {seed}'),
+				html.Td(condition),
 				html.Td(job.get('description', '')),
 				html.Td(_format_time(job.get('started_at', ''))),
 				html.Td(_format_time(job.get('finished_at', ''))),
@@ -65,7 +74,7 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 		return html.Table(children=[
 				html.Thead(html.Tr([
 					html.Th('ID'), html.Th('Status'), html.Th('Length'),
-					html.Th('Seed'), html.Th('Description'),
+					html.Th('Condition'), html.Th('Description'),
 					html.Th('Started'), html.Th('Finished'), html.Th(''),
 				])),
 				html.Tbody(rows),

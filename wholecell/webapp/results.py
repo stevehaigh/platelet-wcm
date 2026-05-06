@@ -23,15 +23,21 @@ def dir_timestamp(path: str) -> str:
 
 
 def explore_run_options(out_path: str) -> List[dict]:
-	"""Build run dropdown options for the Explore tab (variant + timestamp label)."""
+	"""Build run dropdown options for the Explore tab.
 
+	Label format: ``<sim_dir basename> <timestamp>`` — the basename is
+	the user-visible run name (for webapp jobs that's
+	``<timestamp>___<description>``), which is more useful than the
+	internal variant name (always ``platelet_stub_<seed>``).
+	"""
 	options = []
 	for sim_dir in find_sim_dirs(out_path):
 		ts = dir_timestamp(sim_dir)
+		sim_name = os.path.basename(sim_dir.rstrip(os.sep))
 		for variant in find_variants(sim_dir):
 			cells = find_cells(sim_dir, variant)
 			if cells:
-				label = f"{variant} {ts}" if ts else variant
+				label = f"{sim_name} {ts}" if ts else sim_name
 				options.append({'label': label, 'value': f"{sim_dir}|{variant}"})
 	return options
 

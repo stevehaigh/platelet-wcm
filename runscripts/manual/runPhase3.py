@@ -75,17 +75,24 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _run_one_condition(condition_dir: str, label: str, length_sec: int,
 		seed: int, ca_ex_mM: float, log_to_shell: bool) -> str:
-	"""Run a single condition into condition_dir/, return its simOut path."""
+	"""Run a single condition into condition_dir/, return its simOut path.
+
+	Phase 3 always uses IP3 forcing (the spike is the stimulus we're
+	testing the SOCE-shape response to); the comparison is over
+	extracellular Ca²⁺ only.
+	"""
 	fp.makedirs(condition_dir)
 	write_metadata(condition_dir,
 		description=f'phase3 — {label}',
-		seed=seed, length_sec=length_sec, ca_ex_mM=ca_ex_mM)
+		seed=seed, length_sec=length_sec, ca_ex_mM=ca_ex_mM,
+		ip3_forced=True)
 	paths = run_platelet_sim(
 		condition_dir,
 		length_sec=length_sec,
 		seed=seed,
 		log_to_shell=log_to_shell,
 		ca_ex_mM=ca_ex_mM,
+		ip3_forced=True,
 	)
 	return paths['sim_out_dir']
 

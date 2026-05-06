@@ -18,16 +18,23 @@ from wholecell.webapp import results
 
 
 def make_run_options(out_path: str) -> List[dict]:
-	"""Build dropdown options from available simulation directories."""
+	"""Build dropdown options from available simulation directories.
 
+	Label format: ``<sim_dir basename> (<cell_count>) <timestamp>``.
+	The basename is the user-visible run name — for webapp jobs that's
+	``<timestamp>___<description>``, more useful than the internal
+	variant name (always ``platelet_stub_<seed>``).
+	"""
 	options = []
 	for sim_dir in results.find_sim_dirs(out_path):
 		ts = results.dir_timestamp(sim_dir)
+		sim_name = os.path.basename(sim_dir.rstrip(os.sep))
 		for variant in results.find_variants(sim_dir):
 			cells = results.find_cells(sim_dir, variant)
 			if cells:
 				cell_count = f"{len(cells)} cell{'s' if len(cells) > 1 else ''}"
-				label = f"{variant} ({cell_count}) {ts}" if ts else f"{variant} ({cell_count})"
+				label = f"{sim_name} ({cell_count}) {ts}" if ts \
+					else f"{sim_name} ({cell_count})"
 				value = f"{sim_dir}|{variant}"
 				options.append({'label': label, 'value': value})
 	return options

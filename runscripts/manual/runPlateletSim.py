@@ -10,6 +10,7 @@ import os
 import pickle
 import sys
 
+from models.platelet.processes.calcium_dynamics import CalciumDynamics
 from models.platelet.sim.simulation import PlateletSimulation
 from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
 from reconstruction.platelet.simulation_data import SimulationDataPlatelet
@@ -19,6 +20,7 @@ import wholecell.utils.filepath as fp
 
 DEFAULT_OUTDIR = 'platelet_manual'
 DEFAULT_CA_EX_MM = 1.2     # Dolan 2014 nominal extracellular [Ca²⁺]
+DEFAULT_IP3_FORCED = True  # Dolan 2014 Fig. S2 IP3 time curve as the v0.2 stimulus
 
 
 def resolve_sim_path(sim_outdir):
@@ -30,7 +32,8 @@ def resolve_sim_path(sim_outdir):
 	return os.path.join(fp.ROOT_PATH, 'out', sim_outdir)
 
 
-def write_metadata(sim_path, description, seed, length_sec, ca_ex_mM):
+def write_metadata(sim_path, description, seed, length_sec, ca_ex_mM,
+		ip3_forced):
 	"""Write a small metadata file for a local platelet run."""
 	metadata = {
 		'git_hash': fp.git_hash(),
@@ -41,6 +44,7 @@ def write_metadata(sim_path, description, seed, length_sec, ca_ex_mM):
 		'seed': seed,
 		'length_sec': length_sec,
 		'ca_ex_mM': ca_ex_mM,
+		'ip3_forced': ip3_forced,
 		'variant': 'platelet_stub',
 		'analysis_type': None,
 		}
@@ -60,21 +64,30 @@ def write_sim_data(sim_path, sim_data):
 
 
 def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
-		ca_ex_mM=DEFAULT_CA_EX_MM):
+		ca_ex_mM=DEFAULT_CA_EX_MM, ip3_forced=DEFAULT_IP3_FORCED):
 	"""Create sim_data, write it to disk, and run a platelet simulation.
 
 	Output is written to the E. coli-compatible nested structure so the
 	webapp's Inspect Data tab can discover platelet runs automatically:
 	  {sim_path}/platelet_stub_{seed:06d}/{seed:06d}/generation_000000/000000/simOut/
 
-	`ca_ex_mM` overrides the extracellular Ca²⁺ concentration used by the
-	calcium signalling ODE (Dolan 2014 default = 1.2 mM). Setting this to
-	0 reproduces the Dolan Fig. 4 EDTA condition.
+	Args:
+		ca_ex_mM: extracellular Ca²⁺ concentration (Dolan 2014 default = 1.2 mM).
+			Set to 0 to reproduce the Dolan Fig. 4 EDTA condition.
+		ip3_forced: if True (default), apply the Dolan 2014 Fig. S2 IP3 time
+			curve as a stimulus. Set to False for a true "resting" sim — IP3
+			stays at its baseline 50 nM and no transient is driven.
 	"""
 	# Override the module-level CA_EX_UM (in µM) before constructing the
 	# CalciumSignalling solver. Phase 3 path A: this is how the
 	# Dolan Fig. 4 with-vs-without extracellular Ca²⁺ comparison is run.
 	cs_mod.CA_EX_UM = float(ca_ex_mM) * 1000.0
+
+	# Override the IP3 forcing flag on the process class before the sim
+	# is constructed. Mirrors the cs_mod.CA_EX_UM pattern; lets a
+	# resting / un-stimulated sim be run from the CLI without editing
+	# the process source.
+	CalciumDynamics._ip3_forced = bool(ip3_forced)
 
 	sim_data = SimulationDataPlatelet()
 	write_sim_data(sim_path, sim_data)
@@ -142,7 +155,14 @@ def build_parser():
 			  'Default = {:.1f} (Dolan 2014 nominal). '
 			  'Set to 0 for the Dolan Fig. 4 EDTA / no-extracellular-Ca '
 			  'condition.'.format(DEFAULT_CA_EX_MM)))
-	parser.set_defaults(log_to_shell=True)
+	parser.add_argument(
+		'--no-ip3-forcing',
+		dest='ip3_forced',
+		action='store_false',
+		help=('Disable the Dolan 2014 Fig. S2 IP3 time curve so the model '
+			  'runs at rest (no stimulus). Default behaviour applies the '
+			  'IP3 forcing.'))
+	parser.set_defaults(log_to_shell=True, ip3_forced=DEFAULT_IP3_FORCED)
 	return parser
 
 
@@ -155,19 +175,22 @@ def main(argv=None):
 
 	description = os.path.basename(os.path.normpath(sim_path)) or sim_path
 	write_metadata(sim_path, description, args.seed, args.length_sec,
-		args.ca_ex_mM)
+		args.ca_ex_mM, args.ip3_forced)
 	paths = run_platelet_sim(
 		sim_path,
 		length_sec=args.length_sec,
 		seed=args.seed,
 		log_to_shell=args.log_to_shell,
 		ca_ex_mM=args.ca_ex_mM,
+		ip3_forced=args.ip3_forced,
 		)
 
 	print('Wrote platelet run to {}'.format(paths['sim_path']))
 	print('simOut: {}'.format(paths['sim_out_dir']))
 	if args.ca_ex_mM != DEFAULT_CA_EX_MM:
 		print('Extracellular Ca²⁺ override: {:.2f} mM'.format(args.ca_ex_mM))
+	if not args.ip3_forced:
+		print('IP3 forcing disabled — running at rest (no stimulus)')
 
 
 if __name__ == '__main__':
