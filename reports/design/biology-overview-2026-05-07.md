@@ -44,6 +44,7 @@ both ATPase pumps (SERCA, PMCA).
 | **STIM1 sensor cycle** | DTS-bound (Ca-loaded, inactive) ⇌ free monomer ⇌ dimer (active sensor); detailed-balance rate constants | Dolan 2014 + Hoover & Lewis 2011 |
 | **Orai1 / SOCE** | Monod–Wyman–Changeux allosteric model: STIM2 dimers translocate into puncta (Hill function on cytosolic Ca²⁺), bind Orai1 tetramers cooperatively; channel opening as fraction of bound STIM2 | Hoover & Lewis 2011, Dolan 2014 puncta entry (eq. 2 + eq. 4) |
 | **IP3 production** | v0.2 placeholder: pre-programmed time curve fitted to Dolan Fig. S2 (5.5× rise, τ_rise=3 s, τ_decay=60 s). v0.3 will replace with P2Y1 / Gq / PLCβ cascade. | Dolan 2014 Fig. S2 |
+| **Resting protein decay** | Exponential decay of all non-calcium-pathway proteins, t½ = 7 days. Implemented as a per-step Binomial draw on each protein count. Operates on platelet-lifespan timescales — *inert on the 200 s transient horizon* (expected loss ~0.02 % over 200 s) — retained for v0.5+ multi-day-scope work. | Burkhart et al. 2012 |
 
 ## Compartments and copy numbers (Dolan 2014 Table S1, except where noted)
 

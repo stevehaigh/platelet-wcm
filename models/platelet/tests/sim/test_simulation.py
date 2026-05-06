@@ -33,18 +33,26 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 		return sim
 
 	def test_simulation_data_exposes_process_namespace(self):
+		"""sim_data exposes the process sub-namespaces the simulation needs."""
+		from reconstruction.platelet.dataclasses.process.calcium_signalling import (
+			MOLECULE_NAMES as _CALCIUM_NAMES,
+		)
 		self.assertTrue(hasattr(self.sim_data, 'process'))
-		self.assertTrue(hasattr(self.sim_data.process, 'platelet_stub'))
-		np.testing.assert_array_equal(
-			self.sim_data.process.platelet_stub.molecule_names,
-			self.sim_data.internal_state.bulk_molecules.bulk_data['id'],
+		self.assertTrue(hasattr(self.sim_data.process, 'calcium_signalling'))
+		self.assertTrue(hasattr(self.sim_data.process, 'resting_decay'))
+		# CalciumSignalling exposes the 27-species ODE state vector.
+		self.assertEqual(
+			tuple(self.sim_data.process.calcium_signalling.molecule_names),
+			tuple(_CALCIUM_NAMES),
 			)
 
-	def test_platelet_simulation_initializes_stub_process(self):
+	def test_platelet_simulation_wires_real_processes(self):
+		"""Both real biological processes are wired into the sim and the
+		BulkMolecules state matches the configured initial counts."""
 		sim = self.make_simulation()
 
-		self.assertIn('PlateletStub', sim.processes)
-		self.assertTrue(sim.processes['PlateletStub'].initialized)
+		self.assertIn('CalciumDynamics', sim.processes)
+		self.assertIn('RestingDecay', sim.processes)
 		np.testing.assert_array_equal(
 			sim.internal_states['BulkMolecules'].container.counts(),
 			self.sim_data.internal_state.bulk_molecules.initial_counts,
@@ -86,8 +94,8 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 		payload = pickle.dumps(self.sim_data, protocol=pickle.HIGHEST_PROTOCOL)
 		restored = pickle.loads(payload)
 		np.testing.assert_array_equal(
-			restored.process.platelet_stub.molecule_names,
-			self.sim_data.process.platelet_stub.molecule_names,
+			restored.process.calcium_signalling.molecule_names,
+			self.sim_data.process.calcium_signalling.molecule_names,
 			)
 
 	def test_run_platelet_sim_writes_local_output(self):

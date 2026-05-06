@@ -49,8 +49,7 @@ platelet-wcm/
 │   │   ├── simulation.py           # PlateletSimulation: wires processes + listeners
 │   │   └── initial_conditions.py   # sets initial counts on bulk views
 │   ├── processes/
-│   │   ├── platelet_stub.py        # no-op anchor process
-│   │   ├── resting_decay.py        # tiny demonstrator
+│   │   ├── resting_decay.py        # exponential protein decay (Burkhart 2012, t½ = 7 days; inert at 200-s timescales)
 │   │   └── calcium_dynamics.py     # ★ the headline process (thin wrapper)
 │   ├── listeners/
 │   │   ├── mass.py                 # dryMass / proteinMass etc.
@@ -181,7 +180,7 @@ asked "where is the EDTA fix?", line ~652 (the `CA_EX_UM > 0` guard).
 `wholecell.sim.simulation.Simulation` and declares:
 - `_internalStateClasses = (BulkMolecules, UniqueMolecules)`
 - `_externalStateClasses = (LocalEnvironment,)`
-- `_processClasses = ((PlateletStub, RestingDecay, CalciumDynamics),)`
+- `_processClasses = ((RestingDecay, CalciumDynamics),)`
 - `_listenerClasses = (Mass, CalciumTrace)`
 - `_initialConditionsFunction = calcInitialConditions`
 

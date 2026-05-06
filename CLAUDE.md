@@ -125,13 +125,13 @@ Each timestep:
 
 Processes run in **dependency-ordered groups**. Within a group, processes share a
 partition step. The current platelet model has a single group:
-`(PlateletStub, RestingDecay, CalciumDynamics)`.
+`(RestingDecay, CalciumDynamics)`.
 
 ### Core Abstractions
 
 | Concept | Base class | Platelet impl | Purpose |
 |---------|-----------|---------------|---------|
-| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (PlateletStub, RestingDecay, CalciumDynamics) | Biological submodels that modify state |
+| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
 | **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace) | Observe and record data each timestep |
 | **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
