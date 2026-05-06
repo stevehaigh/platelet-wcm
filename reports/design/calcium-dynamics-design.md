@@ -78,21 +78,76 @@ The E. coli model is a useful architectural template, not a biological one.
 
 ---
 
-## 2. Signal pathway (brief)
+## 2. Signal pathway
 
 See `reports/calcium-signalling-pathway-design.md` for the full biology.
 
-At rest, cytosolic Ca²⁺ is ~100 nM, DTS Ca²⁺ is ~250 µM. On stimulation:
+### 2.1 Trigger and IP3 generation
+
+Platelet Ca²⁺ signalling is initiated when an agonist — typically ADP released
+from a damaged vessel wall, or thromboxane A₂ produced by the platelet itself —
+binds a surface GPCR. The primary receptor for ADP-driven Ca²⁺ signalling is
+**P2Y1**, a Gq-coupled receptor. Ligand binding activates the Gq α-subunit,
+which stimulates **phospholipase Cβ (PLCβ)**. PLCβ cleaves the membrane
+phospholipid PIP₂ (phosphatidylinositol 4,5-bisphosphate) into two second
+messengers: **IP3** (inositol 1,4,5-trisphosphate), which enters the cytosol,
+and DAG (diacylglycerol), which remains membrane-bound and activates PKC. IP3
+is the key trigger: it binds the IP3 receptor (IP3R) on the DTS membrane and
+gates Ca²⁺ release.
+
+**In v0.2, IP3 is not produced by this pathway.** It is instead driven by a
+pre-programmed time curve matching the Dolan 2014 Fig. S2 shape (§3.2). The
+full upstream cascade (P2Y1 → Gq → PLCβ → IP3) is scheduled for v0.3.
+
+### 2.2 Ca²⁺ signal flow
+
+At rest, cytosolic Ca²⁺ is ~100 nM; DTS Ca²⁺ is ~250 µM (a ~2,500-fold
+gradient maintained by SERCA). On stimulation:
 
 ```
-IP3 spike
-  └─ IP3R (DTS membrane): opens → Ca²⁺ floods cytosol (peak ~400 nM)
-       ├─ SERCA (DTS membrane): Ca²⁺-ATPase refills the DTS store
-       ├─ PMCA (plasma membrane): Ca²⁺-ATPase ejects Ca²⁺ from cell
-       └─ DTS depletion → STIM1 oligomerises → gates Orai1 → SOCE
+Agonist → P2Y1 → Gq → PLCβ → IP3   [v0.3; forced time curve in v0.2]
+                                  |
+                                  ↓
+IP3R [DTS membrane; 6-state Markov model]
+  Ca²⁺ floods cytosol (peak ~300–500 nM)
+    |
+    ├─ SERCA [DTS membrane; E1/E2 cycle]     2 Ca²⁺/ATP; refills DTS store
+    |
+    ├─ PMCA  [plasma membrane; 5-state]      1 Ca²⁺/ATP; ejects Ca²⁺ from cell
+    |    └─ CaM [cytosolic Ca²⁺ buffer]      Ca₄·CaM activates PMCA ~5×
+    |
+    └─ DTS depletion
+         └─ STIM1 EF-hand releases DTS Ca²⁺
+              └─ STIM1 monomers dimerise → active sensor
+                   └─ STIM1 dimers translocate to ER–PM puncta
+                        └─ gates Orai1 [plasma membrane; MWC allosteric]
+                             SOCE: extracellular Ca²⁺ enters cytosol
+
+Basal / resting:
+  Constant PM Ca²⁺ leak (~75 ions/s; TRPC / NCX-reverse / constitutive)
+    ←→  PMCA basal extrusion + minimal SOCE (full DTS; few STIM1 dimers)
 ```
 
-Key compartments: cytosol (6 fL, Purvis 2008 direct measurement), DTS (0.258 fL = 4.3% of cytosol, Purvis 2008 glucose-6-phosphatase staining), extracellular (treated as an infinite reservoir at fixed 1.2 mM, Dolan 2014).
+### 2.3 Implementation status
+
+| Component | Biology | v0.2 status |
+|-----------|---------|-------------|
+| IP3 production | P2Y1 → Gq → PLCβ → IP3 | **Forced time curve** (§3.2); real upstream cascade in v0.3 |
+| IP3R | 6-state Sneyd & Dufour Markov; biphasic Ca²⁺ activation + inhibition | **Implemented** |
+| SERCA | E1/E2 enzymatic cycle; 2 Ca²⁺ / ATP | **Implemented** |
+| PMCA | 5-state CaM-coupled scheme (basal steps 4–5; CaM-activated steps 8–10) | **Implemented** (Phase 1) |
+| Calmodulin | Ca₂·CaM → Ca₄·CaM ladder; cytosolic Ca²⁺ buffer + PMCA activator | **Implemented** (Phase 1) |
+| SOCE | STIM1 sensor cycle + Hoover/Dolan MWC + Orai1 conductance | **Implemented** (Phase 1) |
+| Basal PM Ca²⁺ leak | Background permeability (TRPC / NCX-reverse / constitutive) | **Implemented** (Phase 2a) |
+| P2Y12 modulation | Gi → ↓cAMP → ↓PKA → IP3R sensitisation | **v0.4** (not started) |
+
+### 2.4 Key compartments
+
+| Compartment | Volume | Ca²⁺ at rest | Role |
+|-------------|--------|--------------|------|
+| Cytosol | 6.0 fL (Purvis 2008 direct measurement) | ~100 nM (361 molecules) | Signal integration; all soluble processes |
+| DTS (dense tubular system) | 0.258 fL = 4.3% of cytosol (Purvis 2008 glucose-6-phosphatase staining) | ~250 µM (38,842 molecules) | Intracellular Ca²⁺ store; ER equivalent |
+| Extracellular / OCS | infinite reservoir | 1.2 mM (fixed; Dolan 2014) | SOCE Ca²⁺ source; PMCA sink |
 
 ---
 
