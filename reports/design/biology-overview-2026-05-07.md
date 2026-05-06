@@ -21,13 +21,13 @@ store-operated entry refilling the DTS.
 ## The pathway, as wired in v0.2
 
 ```
-                +-- SOCE: STIM1 (DTS) --> Orai1 (PM) -- + 1.2 mM Ca_ex
-                |                                       |
-[IP3 spike] --> IP3R (DTS) --> Ca_cyt rises ---------> +-- PMCA (PM) --> Ca_ex
-                                  |                    |
+                +-- SOCE: STIM1 (DTS) -→ Orai1 (PM) — + 1.2 mM Ca_ex
+                │                                       │
+[IP3 spike] -→ IP3R (DTS) -→ Ca_cyt rises --------→ +-- PMCA (PM) -→ Ca_ex
+                                  │                    │
                                   +-- CaM ladder (buffer; activates PMCA)
-                                  |
-                                  +-- SERCA (DTS) --> refill DTS store
+                                  │
+                                  +-- SERCA (DTS) -→ refill DTS store
 ```
 
 Five mechanisms coupled through cytosolic Ca²⁺. ATP is consumed by

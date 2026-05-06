@@ -26,72 +26,72 @@ parameters, plots), look in `models/platelet/` and
 
 ```
 platelet-wcm/
-|-- wholecell/                      # framework (inherited, mostly untouched)
-|   |-- sim/simulation.py           # the time-stepping loop
-|   |-- processes/process.py        # Process base class
-|   |-- listeners/listener.py       # Listener base class
-|   |-- states/                  # BulkMolecules, UniqueMolecules, LocalEnv
-|   |-- views/view.py               # how processes ask states for molecules
-|   |-- io/tablereader.py           # columnar I/O (zlib + JSON attrs)
-|   |-- io/tablewriter.py
-|   `-- webapp/                     # Dash UI (4 tabs)
-|       |-- app.py                  # Dash app factory
-|       |-- jobs.py                 # SQLite job queue + subprocess runner
-|       |-- results.py              # filesystem scan of out/
-|       `-- tabs/
-|           |-- configure.py        # 3 biologically-distinct presets + form
-|           |-- runs.py             # job-status polling table
-|           |-- inspect_data.py     # listener data browser
-|           `-- explore.py          # analysis plot browser
-|
-|-- models/platelet/                # platelet model
-|   |-- sim/
-|   |   |-- simulation.py        # PlateletSimulation: wires processes/listeners
-|   |   `-- initial_conditions.py   # sets initial counts on bulk views
-|   |-- processes/
-|   |   |-- resting_decay.py # protein decay (Burkhart 2012; inert at 200 s)
-|   |   `-- calcium_dynamics.py     # * the headline process (thin wrapper)
-|   |-- listeners/
-|   |   |-- mass.py                 # dryMass / proteinMass etc.
-|   |   `-- calcium_trace.py        # * 14-column Ca^2^+ recording
-|   |-- analysis/
-|   |   |-- single/                 # one-sim plots
-|   |   |   |-- calcium_trace.py    # * 5-panel headline figure
-|   |   |   `-- scaffold_summary.py
-|   |   `-- phase3_dolan_fig4.py    # * Phase 3 two-condition comparison
-|   `-- tests/
-|       |-- sim/
-|       |   |-- test_simulation.py  # boots the engine
-|       |   `-- test_regression.py  # 60 s golden-run tolerance suite
-|       `-- analysis/
-|           |-- test_analysis.py    # plot-pipeline smoke
-|           `-- test_phase3.py      # Phase 3 baseline lock (4 tests)
-|
-|-- reconstruction/platelet/        # platelet "knowledge base"
-|   |-- simulation_data.py       # SimulationDataPlatelet (parameter object)
-|   |-- raw_data/molecules.tsv      # canonical molecule list
-|   `-- dataclasses/
-|       |-- constants.py
-|       |-- molecule_groups.py
-|       |-- internal_state.py    # 27-species inventory + initial conditions
-|       |-- external_state.py
-|       `-- process/
-|           `-- calcium_signalling.py    # *** THE biology file (ODE+rates)
-|
-|-- runscripts/manual/
-|   |-- runPlateletSim.py           # * single-condition CLI entry point
-|   |-- runPhase3.py                # * Phase 3 two-condition driver
-|   |-- analysisPlatelet.py         # invokes the analysis plots
-|   `-- webapp.py                   # webapp entry point
-|
-|-- reports/                        # docs + artefacts (per-session)
-|   |-- design/   # design docs (calcium-dynamics-design.md = as-built ref)
-|   |-- data/                       # provenance + saved JSON snapshots
-|   |-- figures/                    # rendered figures (incl. Phase 3 result)
-|   `-- lab-books/                  # dated session journals
-|
-|-- docs/                        # contributor docs (style, env, dev tools)
-`-- docker/                         # runtime + webapp images
+├── wholecell/                      # framework (inherited, mostly untouched)
+│   ├── sim/simulation.py           # the time-stepping loop
+│   ├── processes/process.py        # Process base class
+│   ├── listeners/listener.py       # Listener base class
+│   ├── states/                  # BulkMolecules, UniqueMolecules, LocalEnv
+│   ├── views/view.py               # how processes ask states for molecules
+│   ├── io/tablereader.py           # columnar I/O (zlib + JSON attrs)
+│   ├── io/tablewriter.py
+│   └── webapp/                     # Dash UI (4 tabs)
+│       ├── app.py                  # Dash app factory
+│       ├── jobs.py                 # SQLite job queue + subprocess runner
+│       ├── results.py              # filesystem scan of out/
+│       └── tabs/
+│           ├── configure.py        # 3 biologically-distinct presets + form
+│           ├── runs.py             # job-status polling table
+│           ├── inspect_data.py     # listener data browser
+│           └── explore.py          # analysis plot browser
+│
+├── models/platelet/                # platelet model
+│   ├── sim/
+│   │   ├── simulation.py        # PlateletSimulation: wires processes/listeners
+│   │   └── initial_conditions.py   # sets initial counts on bulk views
+│   ├── processes/
+│   │   ├── resting_decay.py # protein decay (Burkhart 2012; inert at 200 s)
+│   │   └── calcium_dynamics.py     # * the headline process (thin wrapper)
+│   ├── listeners/
+│   │   ├── mass.py                 # dryMass / proteinMass etc.
+│   │   └── calcium_trace.py        # * 14-column Ca^2^+ recording
+│   ├── analysis/
+│   │   ├── single/                 # one-sim plots
+│   │   │   ├── calcium_trace.py    # * 5-panel headline figure
+│   │   │   └── scaffold_summary.py
+│   │   └── phase3_dolan_fig4.py    # * Phase 3 two-condition comparison
+│   └── tests/
+│       ├── sim/
+│       │   ├── test_simulation.py  # boots the engine
+│       │   └── test_regression.py  # 60 s golden-run tolerance suite
+│       └── analysis/
+│           ├── test_analysis.py    # plot-pipeline smoke
+│           └── test_phase3.py      # Phase 3 baseline lock (4 tests)
+│
+├── reconstruction/platelet/        # platelet "knowledge base"
+│   ├── simulation_data.py       # SimulationDataPlatelet (parameter object)
+│   ├── raw_data/molecules.tsv      # canonical molecule list
+│   └── dataclasses/
+│       ├── constants.py
+│       ├── molecule_groups.py
+│       ├── internal_state.py    # 27-species inventory + initial conditions
+│       ├── external_state.py
+│       └── process/
+│           └── calcium_signalling.py    # *** THE biology file (ODE+rates)
+│
+├── runscripts/manual/
+│   ├── runPlateletSim.py           # * single-condition CLI entry point
+│   ├── runPhase3.py                # * Phase 3 two-condition driver
+│   ├── analysisPlatelet.py         # invokes the analysis plots
+│   └── webapp.py                   # webapp entry point
+│
+├── reports/                        # docs + artefacts (per-session)
+│   ├── design/   # design docs (calcium-dynamics-design.md = as-built ref)
+│   ├── data/                       # provenance + saved JSON snapshots
+│   ├── figures/                    # rendered figures (incl. Phase 3 result)
+│   └── lab-books/                  # dated session journals
+│
+├── docs/                        # contributor docs (style, env, dev tools)
+└── docker/                         # runtime + webapp images
 ```
 
 Stars (★) mark the files most likely to come up in walkthrough Q&A.
@@ -366,7 +366,7 @@ sed -n '38,97p' reconstruction/platelet/dataclasses/internal_state.py
 # Show the wiring
 cat models/platelet/sim/simulation.py
 
-# Run all three biology conditions while talking -- each ~30 s
+# Run all three biology conditions while talking — each ~30 s
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py walk_t --length 200
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
@@ -376,12 +376,12 @@ PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py \
         walk_resting --length 300 --no-ip3-forcing
 
-# Phase 3 driver -- runs both +/-Ca conditions, writes comparison plot
+# Phase 3 driver — runs both +/-Ca conditions, writes comparison plot
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg \
     pyenv exec python runscripts/manual/runPhase3.py walk_phase3 --length 200
 
 # Show the deviations table
-grep -A 200 "^### 6.8" reports/design/calcium-dynamics-design.md | head -200
+grep -A 200 "^### 6.8" reports/design/calcium-dynamics-design.md │ head -200
 
 # Show the override sites for the run-time conditions
 grep -n 'CA_EX_UM\|_ip3_forced' \

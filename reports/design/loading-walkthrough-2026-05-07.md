@@ -16,49 +16,49 @@ when, and where does the very first output value come from.
 
 ```
 runPlateletSim.main()                              # runPlateletSim.py:169
-  |-- argparse -> length_sec, seed, ca_ex_mM, ip3_forced
-  `-- run_platelet_sim()                           # line 66
-      |-- cs_mod.CA_EX_UM = ca_ex_mM x 1000        # module override
-      |-- CalciumDynamics._ip3_forced = ...        # class override
-      |
-      |-- SimulationDataPlatelet()                 # build the knowledge base
-      |-- persist sim_data under kb/               # for analysis
-      |
-      |-- PlateletSimulation(simData=..., lengthSec=..., ...)
-      |     `-- Simulation.__init__                # simulation.py:116
-      |          |-- kwarg parsing, output-dir prep, RNG seed
-      |          `-- self._initialize(sim_data)    # line 164
-      |               |-- instantiate states, processes, listeners
-      |               |-- state.initialize() for each state
-      |               |-- state.allocate() for each state
-      |               |-- _initialConditionsFunction(sim_data)  # line 197
-      |               |-- process.initialize() for each process
-      |               |-- listener.initialize() + .allocate()
-      |               |-- state.calculateMass()    # initial mass
-      |               |-- listener.initialUpdate() # initial attr values
-      |               `-- logger.initialize(self)  # FIRST ROW (line 234)
-      |                    |-- open TableWriter per state/listener
-      |                    |-- tableCreate() on each (attrs JSON)
-      |                    `-- copyData -> tableAppend (t=0 row)
-      |
-      `-- sim.run()                                # line 252
-            `-- run_incremental(lengthSec + initialTime)  # line 267
+  ├── argparse → length_sec, seed, ca_ex_mM, ip3_forced
+  └── run_platelet_sim()                           # line 66
+      ├── cs_mod.CA_EX_UM = ca_ex_mM × 1000        # module override
+      ├── CalciumDynamics._ip3_forced = …        # class override
+      │
+      ├── SimulationDataPlatelet()                 # build the knowledge base
+      ├── persist sim_data under kb/               # for analysis
+      │
+      ├── PlateletSimulation(simData=…, lengthSec=…, …)
+      │     └── Simulation.__init__                # simulation.py:116
+      │          ├── kwarg parsing, output-dir prep, RNG seed
+      │          └── self._initialize(sim_data)    # line 164
+      │               ├── instantiate states, processes, listeners
+      │               ├── state.initialize() for each state
+      │               ├── state.allocate() for each state
+      │               ├── _initialConditionsFunction(sim_data)  # line 197
+      │               ├── process.initialize() for each process
+      │               ├── listener.initialize() + .allocate()
+      │               ├── state.calculateMass()    # initial mass
+      │               ├── listener.initialUpdate() # initial attr values
+      │               └── logger.initialize(self)  # FIRST ROW (line 234)
+      │                    ├── open TableWriter per state/listener
+      │                    ├── tableCreate() on each (attrs JSON)
+      │                    └── copyData → tableAppend (t=0 row)
+      │
+      └── sim.run()                                # line 252
+            └── run_incremental(lengthSec + initialTime)  # line 267
                   while time < end:
                       _simulationStep += 1
                       _timeTotal += _timeStepSec
                       _pre_evolve_state()          # line 319
                       for processes in _processClasses:
                           _evolveState(processes)  # line 334
-                            |-- state.updateQueries()    # current totals
-                            |-- process.calculateRequest()  # requests
-                            |-- state.partition(processes)  # allocate
-                            |-- process.evolveState()    # biology step
-                            |-- process.wasTimeStepShortEnough()
-                            `-- state.merge(processes)
+                            ├── state.updateQueries()    # current totals
+                            ├── process.calculateRequest()  # requests
+                            ├── state.partition(processes)  # allocate
+                            ├── process.evolveState()    # biology step
+                            ├── process.wasTimeStepShortEnough()
+                            └── state.merge(processes)
                       _post_evolve_state()         # line 377
-                            |-- state.calculateMass()
-                            |-- listener.update()
-                            `-- logger.append -> tableAppend  # OUTPUT
+                            ├── state.calculateMass()
+                            ├── listener.update()
+                            └── logger.append → tableAppend  # OUTPUT
 ```
 
 For the platelet model with default settings the loop runs ~200 times
@@ -143,9 +143,9 @@ order:
 ```
 166-168  collect _processClasses into a flat set
 170-172  instantiate each state, process, listener
-            (just _orderedAbstractionReference -- calls cls() on each)
+            (just _orderedAbstractionReference — calls cls() on each)
 174      append default listeners (EvaluationTime)
-176      _initLoggers()  -> creates Shell logger and (if logToDisk) Disk logger
+176      _initLoggers()  → creates Shell logger and (if logToDisk) Disk logger
 
 181-186  for each internal_state:
             assign seeded RandomState
@@ -157,7 +157,7 @@ order:
             (creates the underlying numpy arrays at the right size)
 
 197      self._initialConditionsFunction(sim_data)
-            <- FIRST POINT WHERE MOLECULE COUNTS BECOME REAL
+            ← FIRST POINT WHERE MOLECULE COUNTS BECOME REAL
 
 199-204  for each process: initialize(sim, sim_data)
             (creates BulkMoleculesView / UniqueMoleculesView /
@@ -166,14 +166,14 @@ order:
 209-210  for each listener: allocate()
 
 212      self._timeTotal = self.initialTime()
-            <- simulated clock = 0 (or whatever initialTime kwarg was)
+            ← simulated clock = 0 (or whatever initialTime kwarg was)
 
 220-222  state.calculateMass()                # initial mass numbers
 224-226  external_state.update()              # media timeline applied
 228-230  listener.initialUpdate()    # first attribute values
 
 232-234  for each logger: initialize(self)
-            <- OPENS TableWriters AND WRITES THE t=0 ROWS
+            ← OPENS TableWriters AND WRITES THE t=0 ROWS
 ```
 
 ### 5. Initial conditions — `models/platelet/sim/initial_conditions.py`
@@ -202,7 +202,7 @@ def initialize(self, sim, sim_data):
     self._solver = sim_data.process.calcium_signalling     # ODE module
     # 27-species view; see calcium_signalling.MOLECULE_NAMES
     self._molecules = self.bulkMoleculesView(self._solver.molecule_names)
-    self._atp = self.bulkMoleculesView(np.array(['ATP[c]'], ...))  # ATP debit
+    self._atp = self.bulkMoleculesView(np.array(['ATP[c]'], …))  # ATP debit
 ```
 
 The views are **not the data** — they're handles into the
@@ -218,9 +218,9 @@ moment the t=0 values get to disk.
 
 ```python
 self.mainFile = TableWriter(os.path.join(self.outDir, "Main"))
-self.mainFile.writeAttributes(initialTime=..., startTime=...)
+self.mainFile.writeAttributes(initialTime=…, startTime=…)
 self.createTables(sim)     # TableWriter per state/listener; attrs JSON
-self.copyData(sim)            # <- writes the FIRST ROW of every column file
+self.copyData(sim)            # ← writes the FIRST ROW of every column file
 ```
 
 `copyData()` (line 95) calls `sim.tableAppend(mainFile)` (writes `time`
@@ -287,7 +287,7 @@ integration); steps 3, 4, 5 are bookkeeping.
 state.calculateMass()         # update Mass listener inputs
 listener.update()             # CalciumTrace re-reads, computes columns
 hook.postEvolveState(self)
-logger.append(sim) -> copyData(sim) -> tableAppend on every column file
+logger.append(sim) → copyData(sim) → tableAppend on every column file
 ```
 
 The new row of `ca_cyt_nM`, `ca_dts_uM`, etc. is now on disk. The loop
@@ -301,7 +301,7 @@ That value is the count `361` from the initial-conditions table
 converted to nM:
 
 ```
-361 / (6.022e23 x 6e-15 x 10^-^6) x 1000  ~=  99.9 nM
+361 / (6.022e23 × 6e-15 × 10^-^6) × 1000  ≈  99.9 nM
 ```
 
 It's *not* the result of any ODE step — it's the initial-conditions
@@ -347,13 +347,13 @@ during that single 1 s integration. That single-timestep jump is the
 # Open the entry point and the runscript bridge
 sed -n '60,120p' runscripts/manual/runPlateletSim.py
 
-# Open the Simulation base class -- main loop is at line 267
+# Open the Simulation base class — main loop is at line 267
 sed -n '252,300p' wholecell/sim/simulation.py
 
-# Open the per-timestep flow -- the five-stage dance at line 334
+# Open the per-timestep flow — the five-stage dance at line 334
 sed -n '334,376p' wholecell/sim/simulation.py
 
-# Open the Disk logger -- initialize() writes t=0; append() writes each step
+# Open the Disk logger — initialize() writes t=0; append() writes each step
 cat wholecell/loggers/disk.py
 
 # BulkMolecules is a numpy container with priority-weighted partitioning
