@@ -29,7 +29,7 @@ COPY . /platelet-wcm
 WORKDIR /platelet-wcm
 
 ENV PYTHONPATH=/platelet-wcm
-ENV WCECOLI_WEBAPP_MODE=container
+ENV PLATELET_WEBAPP_MODE=container
 ENV WEBAPP_PORT=80
 EXPOSE 80
 

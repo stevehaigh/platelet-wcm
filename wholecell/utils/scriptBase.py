@@ -390,43 +390,6 @@ class ScriptBase(metaclass=abc.ABCMeta):
 			choices=constants.PROTEIN_DEGRADATION_COMBO_OPTIONS,
 			help='Select desired protein degradation rate combination to map simuated proteins to.')
 
-	def define_parca_options(self, parser, run_parca_option=False):
-		# type: (argparse.ArgumentParser, bool) -> None
-		"""Define Parca task options EXCEPT the elongation options."""
-
-		if run_parca_option:
-			self.define_parameter_bool(parser, 'run_parca', True,
-				help='Run the Parca. The alternative, --no-run-parca, is useful'
-					 ' to run more cell sims without rerunning the Parca.'
-					 ' For that to work, the CLI args must specify the'
-					 ' --timestamp and the same --description, --id, and'
-					 ' --storage-root as a previous workflow that ran the Parca'
-					 ' in order to locate its storage path. --no-run-parca makes'
-					 ' other Parca CLI options irrelevant (the options below,'
-					 ' through --no-debug-parca).')
-
-		self.define_parameter_operons(parser)
-		self.define_parameter_new_genes(parser)
-		self.define_parameter_protein_degradation_combo(parser)
-		self.define_parameter_bool(parser, 'ribosome_fitting', True,
-			help="Fit ribosome expression to protein synthesis demands.")
-		self.define_parameter_bool(parser, 'rnapoly_fitting', True,
-			help="Fit RNA polymerase expression to protein synthesis demands.")
-		self.define_parameter_bool(parser, 'remove_rrna_operons', False,
-		    help="Remove the seven rRNA operons. Does not have any effect if"
-		         " operon option is set to 'off'.")
-		self.define_parameter_bool(parser, 'remove_rrff', False,
-		    help="Remove the rrfF gene. If operon option is set to 'on',"
-		         " removes the rrfF gene from the rrnD operon.")
-		self.define_parameter_bool(parser, 'stable_rrna', False,
-			help="Make the mature rRNA molecules stable.")
-
-		self.define_parameter_bool(parser, 'debug_parca', False,
-			help='Make Parca calculate only one arbitrarily-chosen transcription'
-				 ' factor condition when adjusting gene expression levels, leaving'
-				 ' the other TFs at their input levels for faster Parca debugging.'
-				 ' DO NOT USE THIS FOR A MEANINGFUL SIMULATION.')
-
 	def define_sim_loop_options(self, parser, manual_script=False):
 		# type: (argparse.ArgumentParser, bool) -> None
 		"""Define options for running a series of sims."""

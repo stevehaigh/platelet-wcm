@@ -161,7 +161,7 @@ jobs:
             --azure-file-volume-account-name ${{ env.STORAGE_ACCOUNT }} \
             --azure-file-volume-account-key ${{ secrets.AZURE_STORAGE_KEY }} \
             --azure-file-volume-mount-path /platelet-wcm/out \
-            --environment-variables WCECOLI_WEBAPP_MODE=container WEBAPP_PORT=80
+            --environment-variables PLATELET_WEBAPP_MODE=container WEBAPP_PORT=80
 
       - name: Verify deployment
         run: |

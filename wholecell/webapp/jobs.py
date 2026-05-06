@@ -135,7 +135,7 @@ class JobManager:
 	def _run_job(self, job: Dict[str, Any]) -> None:
 		"""Execute a platelet simulation job — sim then analysis plots.
 
-		When running inside a container (WCECOLI_WEBAPP_MODE=container),
+		When running inside a container (PLATELET_WEBAPP_MODE=container),
 		uses local Python subprocess. Otherwise, shells out to Docker.
 		"""
 
@@ -154,7 +154,7 @@ class JobManager:
 		self._update_status(job_id, 'simulating', output_dir=out_path,
 			pid=os.getpid())
 
-		in_container = os.environ.get('WCECOLI_WEBAPP_MODE') == 'container'
+		in_container = os.environ.get('PLATELET_WEBAPP_MODE') == 'container'
 		length_sec = int(config.get('length_sec', 60))
 		seed = int(config.get('seed', 0))
 
@@ -199,7 +199,7 @@ class JobManager:
 			return args
 		return [
 			'docker', 'run', '--rm',
-			'-v', f'{out_root}:/wcEcoli/out',
+			'-v', f'{out_root}:/platelet-wcm/out',
 			self.docker_image,
 		] + args
 
