@@ -113,7 +113,7 @@ IP3R [DTS membrane; 6-state Markov model]
     |
     |- SERCA [DTS membrane; E1/E2 cycle]     2 Ca^2^+/ATP; refills DTS store
     |
-    |- PMCA  [plasma membrane; 5-state]      1 Ca^2^+/ATP; ejects Ca^2^+ from cell
+    |- PMCA  [plasma membrane; 5-state]      1 Ca/ATP; ejects Ca from cell
     |    `- CaM [cytosolic Ca^2^+ buffer]      Ca_4.CaM activates PMCA ~5x
     |
     `- DTS depletion

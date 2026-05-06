@@ -30,7 +30,7 @@ platelet-wcm/
 |   |-- sim/simulation.py           # the time-stepping loop
 |   |-- processes/process.py        # Process base class
 |   |-- listeners/listener.py       # Listener base class
-|   |-- states/                     # BulkMolecules, UniqueMolecules, LocalEnvironment
+|   |-- states/                  # BulkMolecules, UniqueMolecules, LocalEnv
 |   |-- views/view.py               # how processes ask states for molecules
 |   |-- io/tablereader.py           # columnar I/O (zlib + JSON attrs)
 |   |-- io/tablewriter.py
@@ -46,10 +46,10 @@ platelet-wcm/
 |
 |-- models/platelet/                # platelet model
 |   |-- sim/
-|   |   |-- simulation.py           # PlateletSimulation: wires processes + listeners
+|   |   |-- simulation.py        # PlateletSimulation: wires processes/listeners
 |   |   `-- initial_conditions.py   # sets initial counts on bulk views
 |   |-- processes/
-|   |   |-- resting_decay.py  # exponential decay (Burkhart 2012; inert at 200 s)
+|   |   |-- resting_decay.py # protein decay (Burkhart 2012; inert at 200 s)
 |   |   `-- calcium_dynamics.py     # * the headline process (thin wrapper)
 |   |-- listeners/
 |   |   |-- mass.py                 # dryMass / proteinMass etc.
@@ -68,15 +68,15 @@ platelet-wcm/
 |           `-- test_phase3.py      # Phase 3 baseline lock (4 tests)
 |
 |-- reconstruction/platelet/        # platelet "knowledge base"
-|   |-- simulation_data.py          # SimulationDataPlatelet -- the parameter object
+|   |-- simulation_data.py       # SimulationDataPlatelet (parameter object)
 |   |-- raw_data/molecules.tsv      # canonical molecule list
 |   `-- dataclasses/
 |       |-- constants.py
 |       |-- molecule_groups.py
-|       |-- internal_state.py       # * the 27-species inventory + initial conditions
+|       |-- internal_state.py    # 27-species inventory + initial conditions
 |       |-- external_state.py
 |       `-- process/
-|           `-- calcium_signalling.py   # *** THE biology file -- ODE + rate constants
+|           `-- calcium_signalling.py    # *** THE biology file (ODE+rates)
 |
 |-- runscripts/manual/
 |   |-- runPlateletSim.py           # * single-condition CLI entry point
@@ -90,7 +90,7 @@ platelet-wcm/
 |   |-- figures/                    # rendered figures (incl. Phase 3 result)
 |   `-- lab-books/                  # dated session journals
 |
-|-- docs/                           # contributor-facing docs (style, env, dev tools)
+|-- docs/                        # contributor docs (style, env, dev tools)
 `-- docker/                         # runtime + webapp images
 ```
 
@@ -368,7 +368,7 @@ cat models/platelet/sim/simulation.py
 
 # Run all three biology conditions while talking -- each ~30 s
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
-    pyenv exec python runscripts/manual/runPlateletSim.py walk_transient --length 200
+    pyenv exec python runscripts/manual/runPlateletSim.py walk_t --length 200
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py \
         walk_edta --length 200 --ca-ex-mM 0
@@ -376,7 +376,7 @@ PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 \
     pyenv exec python runscripts/manual/runPlateletSim.py \
         walk_resting --length 300 --no-ip3-forcing
 
-# Phase 3 driver -- runs both +/-Ca^2^+ conditions and writes the comparison plot
+# Phase 3 driver -- runs both +/-Ca conditions, writes comparison plot
 PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg \
     pyenv exec python runscripts/manual/runPhase3.py walk_phase3 --length 200
 
