@@ -299,7 +299,7 @@ That value is the count `361` from the initial-conditions table
 converted to nM:
 
 ```
-361 / (6.022e23 × 6e-15 × 10⁻⁶) × 1000  ≈  99.9 nM
+361 / (6.022 × 10²³ × 6 × 10⁻¹⁵ × 10⁻⁶) × 1000  ≈  99.9 nM
 ```
 
 It's *not* the result of any ODE step — it's the initial-conditions
