@@ -74,7 +74,7 @@ platelet-wcm/
 │   └── dataclasses/
 │       ├── constants.py
 │       ├── molecule_groups.py
-│       ├── internal_state.py       # ★ the 27-species inventory + ICs
+│       ├── internal_state.py       # ★ the 27-species inventory + initial conditions
 │       ├── external_state.py
 │       └── process/
 │           └── calcium_signalling.py   # ★★★ THE biology file — ODE + rate constants
@@ -146,7 +146,7 @@ Two interesting details to point out:
 - The SERCA `E1 / E1·Ca` counts are 2963 / 2963 (Phase 2a (iii)
   pre-equilibration), *not* Dolan's verbatim 5920 / 6 — comment
   in-line explains why.
-- The CaM ladder ICs are derived from detailed-balance at 100 nM cyt,
+- The CaM ladder initial conditions are derived from detailed-balance at 100 nM cyt,
   not Dolan Table S1.
 
 ### 4. `reconstruction/platelet/dataclasses/process/calcium_signalling.py` ★★★

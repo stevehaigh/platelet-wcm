@@ -225,7 +225,7 @@ in the analysis.
 The implementation currently carries **27 ODE state variables** — the 22 in
 the original v0.2 design plus 6 added in Phase 1 (CaM Ca²⁺-binding ladder
 and PMCA·CaM complex sub-states) — and one fixed constant (extracellular
-Ca²⁺). Two ICs differ from Dolan 2014 Table S1; both deviations are noted
+Ca²⁺). Two initial counts differ from Dolan 2014 Table S1; both deviations are noted
 in the table and explained in §6.8.
 
 > **Code:** species ordering for the ODE state vector is
@@ -378,11 +378,11 @@ strong inward (DTS → cyt) gradient when the channel opens.
 > and `:117` respectively. Pre-factor `NA_OVER_zF` and Nernst coefficient
 > `RT_OVER_zF_V` at `:111` / `:110`.
 
-Implementation note (Phase 2 finding): with γ_IP3R = 10 pS and the IC at
+Implementation note (Phase 2 finding): with γ_IP3R = 10 pS and the initial conditions giving
 DTS = 250 µM, the resting IP3R inflow (~112 k ions/s) exceeds SERCA cycle
 throughput (~6 k ions/s after the binding step equilibrates), so the model's
 natural fixed-point DTS sits well below 250 µM. γ recalibration alone does
-not recover the Dolan IC — see §6.8 D7 and lab-book 2026-05-05 for the full
+not recover the Dolan initial conditions — see §6.8 D7 and lab-book 2026-05-05 for the full
 diagnosis.
 
 ### 3.4 SERCA: E1–E2 cycle
@@ -469,7 +469,7 @@ Step 11 (`Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺`, slow CaM deactivation) is
 far longer than the 200 s transient — and including it caused PMCA to
 accumulate in a dead-end `PMCA·CaM` state within ~30 s of activation
 (early Phase 1 finding, lab-book 2026-05-01). The `PMCA_CaM[pl]` state
-variable is retained at IC = 0 for mass-conservation bookkeeping and
+variable is retained at an initial count of 0 for mass-conservation bookkeeping and
 listener output but is never written to by the ODE. The Caride `k11` /
 `k11r` constants are defined in `K_CAM_PMCA` but currently unused; they
 will be re-enabled if the v0.3 longer-timescale work needs them.
@@ -522,7 +522,7 @@ Ca₂·CaM    + 2 Ca²⁺ ⇌ Ca₄·CaM      (step 7, fast)
 | `k7`  | 170.4 µM⁻²s⁻¹ | 7 fwd | Caride 2007 T3 |
 | `k7r` | 1.551 s⁻¹     | 7 rev | Caride 2007 T3 |
 
-Total CaM = 20 481 (Dolan 2014 Table S1). The Dolan IC (CaM_free=20 465,
+Total CaM = 20 481 (Dolan 2014 Table S1). The Dolan initial conditions (CaM_free=20 465,
 Ca₂·CaM=15, Ca₄·CaM=1) is *not* at equilibrium for our explicit Caride
 ladder at 100 nM cyt — using it caused a ~34 k Ca²⁺ ion loading burst on
 t=0. We override with the detailed-balance solution (CaM_free=20 062,
@@ -543,7 +543,7 @@ mass-action SOCE model with the Hoover & Lewis 2011 MWC (Monod–Wyman–Changeu
 allosteric scheme as adopted by Dolan 2014 (issues #45/#46). Three coupled
 pieces:
 
-#### 1. STIM1 sensor cycle (mass-action, detailed-balance ICs)
+#### 1. STIM1 sensor cycle (mass-action, detailed-balance initial conditions)
 
 ```
 STIM1·Ca²⁺_dts ⇌ STIM1_free + Ca²⁺_dts        Ca²⁺ release from EF-hand
@@ -552,12 +552,12 @@ STIM1·Ca²⁺_dts ⇌ STIM1_free + Ca²⁺_dts        Ca²⁺ release from EF-h
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| `k_release_f` | 0.1 s⁻¹ | chosen so detailed balance at the Dolan IC gives `k_release_r` |
-| `k_release_r` | 3.475 × 10⁻³ µM⁻¹s⁻¹ | derived: `k_release_f × STIM1_Ca / (STIM1_free × ca_dts)` at IC |
-| `k_dim_f`     | 1.15 × 10⁻⁴ count⁻¹s⁻¹ | derived: `k_dim_r × STIM1_dim / STIM1_free²` at IC |
-| `k_dim_r`     | 1.0 s⁻¹ | choice; pairs with derived k_dim_f to land Dolan IC at detailed balance |
+| `k_release_f` | 0.1 s⁻¹ | chosen so detailed balance at the Dolan initial conditions gives `k_release_r` |
+| `k_release_r` | 3.475 × 10⁻³ µM⁻¹s⁻¹ | derived: `k_release_f × STIM1_Ca / (STIM1_free × ca_dts)` at initial conditions |
+| `k_dim_f`     | 1.15 × 10⁻⁴ count⁻¹s⁻¹ | derived: `k_dim_r × STIM1_dim / STIM1_free²` at initial conditions |
+| `k_dim_r`     | 1.0 s⁻¹ | choice; pairs with derived k_dim_f to land Dolan initial conditions at detailed balance |
 
-The Dolan 2014 Table S1 IC (`STIM1_Ca`=3 805, `STIM1_free`=438, `STIM1_dim`=22)
+The Dolan 2014 Table S1 initial conditions (`STIM1_Ca`=3 805, `STIM1_free`=438, `STIM1_dim`=22)
 is held at exact detailed balance by this choice — STIM1 sub-states do not
 drift at rest.
 
@@ -783,7 +783,7 @@ See §3.3 for the full transition table. Conductance:
 | Constant | Value | Source / note |
 |----------|-------|---------------|
 | `γ_IP3R` | 10 pS = 10⁻¹¹ A/V | Zschauer 1988 (cited via Purvis 2008 T1). Phase 2 calibration question — see §6.8 D7 |
-| `N_IP3R` (total channels in Po formula) | sum of 6 sub-states (1 328 at IC) | Dolan 2014 Table S1 |
+| `N_IP3R` (total channels in Po formula) | sum of 6 sub-states (1 328 at initial conditions) | Dolan 2014 Table S1 |
 | Po form | `((0.9·a + 0.1·o)/total)⁴` | Purvis 2008 T1 footnote (4-subunit cooperativity) |
 
 ### 5.5 SERCA cycle (SERCA3b; Purvis 2008 T1, Dode 2002 isoform kinetics)
@@ -983,10 +983,10 @@ the leak magnitude is correct for cyt-balance but cyt sits at ~3 nM after
 the transient because SERCA siphons leak flux into DTS faster than the leak
 can replenish.
 
-**D5 — SERCA E1 / E1·Ca IC: Dolan Table S1 (5 920, 6) → pre-equilibrated
+**D5 — SERCA E1 / E1·Ca initial conditions: Dolan Table S1 (5 920, 6) → pre-equilibrated
 (2 963, 2 963).** At cyt = 100 nM the SERCA binding equilibrium gives
 `E1·Ca / E1 = k_bind_f · cyt² / k_bind_r = 1000 · 0.01 / 10 = 1.0`. Dolan's
-verbatim Table S1 IC is far from this — using it produced a ~118 k ions/s
+verbatim Table S1 initial conditions are far from this — using them produced a ~118 k ions/s
 spurious cyt → E1·Ca pulse on t=0 (lab-book 2026-05-05 Phase 2a (iii)). We
 redistribute the (E1 + E1·Ca = 5 926) total ~equally; **SERCA total is
 preserved at 11 892**. The other SERCA sub-states (E2, E1P·Ca, E2P·Ca, E2P)
@@ -1002,7 +1002,7 @@ substantial effects on both IP3R and SOCE inflows.
 
 **D7 — γ_IP3R: Zschauer 1988 10 pS face-value (kept) — open Phase 2 question.**
 The 10 pS value is a single-channel patch-clamp measurement (Zschauer 1988;
-cited via Purvis 2008 Table 1). At γ = 10 pS with the Dolan IC, the Phase 1
+cited via Purvis 2008 Table 1). At γ = 10 pS with the Dolan initial conditions, the Phase 1
 simulation produces a Ca²⁺ peak in the 200–800 nM acceptance band but
 empties DTS in ~0.35 s. The 2026-05-01 lab book proposed `γ_IP3R = 0.6 fS`
 calibrated against a SERCA cycle throughput of ~6 600 ions/s; the 2026-05-05
@@ -1047,7 +1047,7 @@ criteria:
 **Current state (lab-book 2026-05-05 sweep):** at γ_IP3R = 10 pS the system
 is in an unstable regime and DTS drains to 0 at rest. At γ_IP3R ≤ 2 × 10⁻¹³
 the system is stable but settles at cyt ≈ 3–25 nM and DTS ≈ 400–450 µM —
-neither matches Dolan's IC. The cyt-side balance is correct (§6.8 D4); the
+neither matches Dolan's initial conditions. The cyt-side balance is correct (§6.8 D4); the
 DTS side is bottlenecked by SERCA `k_release_r` reversing at full DTS (§3.4,
 §6.8 D7). This is the live Phase 2 issue (#48).
 
@@ -1192,7 +1192,7 @@ only for visibility; reviewers should push back if they disagree.
 
 *Document status: living design / as-built reference. Last revised
 2026-05-06 to capture Phase 1 (CaM ladder + 5-state CaM-coupled PMCA +
-MWC SOCE) and Phase 2a (basal PM Ca²⁺ leak, SERCA IC pre-equilibration).
+MWC SOCE) and Phase 2a (basal PM Ca²⁺ leak, SERCA initial-conditions pre-equilibration).
 Cross-references to lab books `lab-book-2026-05-01-phase1-complete.md` and
 `lab-book-2026-05-05-phase2a-investigation.md` are authoritative for the
 diagnoses behind §6.8.*
