@@ -1,0 +1,95 @@
+{
+	"source": {
+		"citation": "Dolan AT, Diamond SL (2014). Systems Modeling of Ca²⁺ Homeostasis and Mobilization in Platelets Mediated by IP3 and Store-Operated Ca²⁺ Entry. Biophysical Journal 106(9):2049–2060.",
+		"doi": "10.1016/j.bpj.2014.03.028",
+		"figure": "Figure 4 (panels A and C) and Figure 3 (panel B filtering criteria)",
+		"extraction_method": "Literature values read directly from Dolan 2014 figure captions, panel axes, and accompanying text. Not pixel-digitised — the JSON ranges reflect what can be defended from the reported figure annotations.",
+		"extraction_date": "2026-05-06",
+		"extracted_by": "lab-book-2026-05-06-pivot-to-phase3.md"
+	},
+
+	"resting_state": {
+		"description": "Reference resting concentrations Dolan accepts as physiologic. Filtering criterion: 25 nM ≤ Ca_cyt ≤ 100 nM, 100 µM ≤ Ca_dts ≤ 400 µM (Fig 3B).",
+		"ca_cyt_nM": {"value": 75, "range_lo": 25, "range_hi": 100, "source": "Fig 3A, Rink 1990"},
+		"ca_dts_uM": {"value": 250, "range_lo": 100, "range_hi": 400, "source": "Fig 3A, Sage 2011"},
+		"ip3_nM": {"value": 130, "range_lo": 10, "range_hi": 200, "source": "Fig 3A, Nakagawa 2002"}
+	},
+
+	"with_extracellular_ca": {
+		"label": "+Ca_ex",
+		"ca_ex_mM": 1.2,
+		"description": "Dolan 2014 Fig 4C blue trace: representative model run at 10× IP3 dose, [Ca²⁺]_ex = 1.2 mM. Stimulus begins at t=20 s in Fig 4A; t=0 in Fig 4C is the moment of stimulation.",
+		"peak_cyt_nM": {
+			"value": 450, "range_lo": 400, "range_hi": 500,
+			"panel": "Fig 4C left, blue line; Fig 4A top-left mean ~325 nM with population spread to ~500 nM"
+		},
+		"peak_time_after_stim_s": {
+			"value": 30, "range_lo": 15, "range_hi": 40,
+			"source": "Text: 'Ca²⁺_cyt generally peaks within 15–20 s of IP3 application' (p. 2055); Fig 4C blue peak ~30 s into the run"
+		},
+		"plateau_cyt_nM": {
+			"value": 225, "range_lo": 200, "range_hi": 275,
+			"panel": "Fig 4C left, blue trace at t = 80–120 s sustains at ~200–250 nM"
+		},
+		"dts_min_uM": {
+			"value": 150, "range_lo": 120, "range_hi": 180,
+			"panel": "Fig 4A bottom-left"
+		},
+		"return_to_baseline_s": {
+			"value": null, "note": "Sustained plateau; cyt does not return to baseline within Fig 4C 120-s window"
+		}
+	},
+
+	"without_extracellular_ca": {
+		"label": "−Ca_ex / EDTA",
+		"ca_ex_mM": 0.0,
+		"ca_ex_dolan_actual_pM": 1.0,
+		"description": "Dolan 2014 Fig 4C red trace: same 10× IP3 dose, [Ca²⁺]_ex = 1 pM (modelled as EDTA condition). For our reproduction we set CA_EX_UM = 0 (true EDTA) — Dolan's 1 pM is numerically the same as zero for our parameter ranges.",
+		"peak_cyt_nM": {
+			"value": 275, "range_lo": 225, "range_hi": 325,
+			"panel": "Fig 4C left, red line"
+		},
+		"peak_time_after_stim_s": {
+			"value": 20, "range_lo": 10, "range_hi": 30,
+			"source": "Text: '[Ca²⁺]_cyt peaks earlier in simulations without Ca_ex' (p. 2055); Fig 4C red peak ~20 s"
+		},
+		"plateau_cyt_nM": {
+			"value": null, "note": "No sustained plateau under EDTA — the SOCE-driven plateau in the +Ca_ex condition is absent"
+		},
+		"return_to_baseline_s": {
+			"value": 60, "range_lo": 40, "range_hi": 80,
+			"panel": "Fig 4C left, red trace returns to ~75 nM by t≈80 s"
+		},
+		"dts_min_uM": {
+			"value": 100, "range_lo": 80, "range_hi": 130,
+			"panel": "Fig 4A bottom-right; deeper depletion than +Ca_ex; remains low (no refilling)"
+		}
+	},
+
+	"acceptance_criteria": {
+		"description": "Phase 3 validation criteria for the platelet-wcm v0.2 model, derived directly from Dolan 2014 Fig 3B filtering criteria. The model must reproduce qualitatively the SOCE-dependent shape difference between +Ca_ex and −Ca_ex.",
+		"active": {
+			"rule": "max([Ca²⁺]_cyt) > 200 nM after IP3 stimulus",
+			"applies_to": "both conditions",
+			"source": "Fig 3B 'Active' filter"
+		},
+		"stable_in_edta": {
+			"rule": "max DTS leak < 0.015 µM/s under EDTA",
+			"applies_to": "EDTA condition only",
+			"source": "Fig 3B 'Stable in EDTA' filter"
+		},
+		"soce_differential": {
+			"rule": "|peak(+Ca_ex) − peak(−Ca_ex)| ≥ 100 nM",
+			"applies_to": "comparison",
+			"source": "Fig 3B 'SOCE' filter"
+		},
+		"peak_amplitude_with_ca": {
+			"rule": "peak +Ca_ex within ±30% of Dolan reference (315–585 nM)",
+			"source": "Lab book Phase 3 acceptance band"
+		},
+		"peak_amplitude_without_ca": {
+			"rule": "peak −Ca_ex within ±30% of Dolan reference (193–358 nM)",
+			"source": "Lab book Phase 3 acceptance band"
+		}
+	}
+}
