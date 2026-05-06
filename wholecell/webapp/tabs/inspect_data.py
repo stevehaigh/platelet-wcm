@@ -121,11 +121,31 @@ def layout(out_path: str) -> html.Div:
 
 		# Hidden store for overlay traces
 		dcc.Store(id='inspect-overlay-traces', data=[]),
+
+		# Periodic refresh of run-options dropdowns so newly-completed
+		# webapp jobs appear without restarting the server.
+		dcc.Interval(id='inspect-refresh-interval', interval=5000, n_intervals=0),
 	])
 
 
 def register_callbacks(app: dash.Dash, out_path: str) -> None:
 	"""Register all Inspect tab callbacks."""
+
+	@app.callback(
+		Output('inspect-run', 'options', allow_duplicate=True),
+		Output('inspect-overlay-run', 'options', allow_duplicate=True),
+		Input('inspect-refresh-interval', 'n_intervals'),
+		prevent_initial_call=True,
+	)
+	def refresh_run_options(n_intervals):
+		"""Re-scan out/ for new runs and update the dropdown options.
+
+		Polls every 5 s (Interval). The user's current selection
+		(`inspect-run.value`) is left alone — Dash preserves it as long
+		as the same option is still present in the new list.
+		"""
+		new_options = make_run_options(out_path)
+		return new_options, new_options
 
 	@app.callback(
 		Output('inspect-listener', 'options'),

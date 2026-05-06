@@ -39,11 +39,30 @@ def layout(out_path: str) -> html.Div:
 		]),
 
 		html.Div(id='explore-plots-container'),
+
+		# Periodic refresh of run-options dropdowns so newly-completed
+		# webapp jobs appear without restarting the server.
+		dcc.Interval(id='explore-refresh-interval', interval=5000, n_intervals=0),
 	])
 
 
 def register_callbacks(app: dash.Dash, out_path: str) -> None:
 	"""Register Explore tab callbacks."""
+
+	@app.callback(
+		Output('explore-left-run', 'options', allow_duplicate=True),
+		Output('explore-right-run', 'options', allow_duplicate=True),
+		Input('explore-refresh-interval', 'n_intervals'),
+		prevent_initial_call=True,
+	)
+	def refresh_run_options(n_intervals):
+		"""Re-scan out/ for new runs and update both Explore dropdowns.
+
+		Polls every 5 s. User's current selection is preserved by Dash
+		so long as the same value is still present in the refreshed list.
+		"""
+		new_options = results.explore_run_options(out_path)
+		return new_options, new_options
 
 	@app.callback(
 		Output('explore-plots-container', 'children'),
