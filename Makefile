@@ -39,13 +39,14 @@ deploy:
 
 # ── Reports: Markdown → PDF ───────────────────────────────────────────────────
 
-REPORTS_MD  := $(wildcard reports/*.md)
+REPORTS_MD  := $(shell find reports -name '*.md' -not -path 'reports/pdf/*')
 REPORTS_PDF := $(patsubst reports/%.md,reports/pdf/%.pdf,$(REPORTS_MD))
 
 pdfs: $(REPORTS_PDF)
 	@echo "Built $(words $(REPORTS_PDF)) PDF(s) into reports/pdf/"
 
-reports/pdf/%.pdf: reports/%.md reports/pandoc-header.tex | reports/pdf
+reports/pdf/%.pdf: reports/%.md reports/pandoc-header.tex
+	@mkdir -p $(dir $@)
 	pandoc "$<" -o "$@" \
 		--pdf-engine=xelatex \
 		--variable=geometry:margin=2.5cm \
@@ -58,9 +59,6 @@ reports/pdf/%.pdf: reports/%.md reports/pandoc-header.tex | reports/pdf
 		-H reports/pandoc-header.tex \
 		--toc --toc-depth=2 \
 		--metadata title="$(notdir $(basename $<))"
-
-reports/pdf:
-	mkdir -p $@
 
 pdfs-clean:
 	rm -rf reports/pdf
