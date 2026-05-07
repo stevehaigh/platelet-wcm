@@ -322,7 +322,7 @@ the 2:1 Ca²⁺:ATP stoichiometry of SERCA3b).
 | n + IP3 → o (opening) | k₂ = 37.4 µM⁻¹·s⁻¹, l₄ = 1.7 µM⁻¹·s⁻¹, k₋₂ = 1.4 s⁻¹, l₋₄ = 2.5 µM⁻¹·s⁻¹, L₅ = 54.7 µM |
 | o + Ca²⁺ → a (activation) | k₄ = 4 µM⁻¹·s⁻¹, L₅ = 54.7 µM, l₆ = 4707 s⁻¹, L₁ = 0.12 µM, k₋₄ = 0.54 µM⁻¹·s⁻¹, l₋₆ = 11.4 s⁻¹ |
 | a + Ca²⁺ → i2 (inhibition) | Same as n → i1 |
-| o → s (shutting) | k₃ = 11 µM⁻¹·s⁻¹, L₅ = 54.7 µM, k₋₃ = 29.8 s⁻¹ |
+| o → s (shutting) | k₃ = 11 s⁻¹, L₅ = 54.7 µM, k₋₃ = 29.8 s⁻¹ |
 | Channel open probability | Po = (0.9·IP3Ra/IP3Rtotal + 0.1·IP3Ro/IP3Rtotal)⁴ |
 
 **Verified ✓ (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23)** — rate constants

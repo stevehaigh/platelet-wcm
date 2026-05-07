@@ -187,19 +187,24 @@ K_CAM = {
 	'k7r':   1.551,   # reverse                  (s⁻¹)        step 7 rev
 }
 
-# ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–11) ──────────
-# Ca₄·CaM binds free PMCA (step 8), then the complex binds and pumps Ca²⁺
-# with ~5× higher k_cat (step 10 vs step 5).  Step 11 is PMCA·CaM slow
-# deactivation (k11=10 s⁻¹); we include it for mass conservation but it
-# operates on a ~20 min timescale so it rarely fires.
+# ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
+# Ca₄·CaM binds free PMCA (step 8), the complex binds and pumps Ca²⁺ with
+# ~5× higher k_cat than basal (step 10 vs step 5). Step 11 dissociates 4
+# Ca²⁺ from the active complex (Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt) and
+# step 12 is the slow CaM dissociation (PMCA·CaM → PMCA + CaM, k12 = 0.033
+# s⁻¹, τ ~ 30 s). Both 11 and 12 are required for mass conservation: with
+# 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
+# previously worked around by omitting step 11 entirely; restored
+# 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
 K_CAM_PMCA = {
 	'k8':   0.2,       # PMCA + Ca₄·CaM → Ca₄·CaM·PMCA  (µM⁻¹·s⁻¹) step 8 fwd
 	'k8r':  8.0e-4,    # reverse                         (s⁻¹)       step 8 rev
 	'k9':  50.0,       # Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca (µM⁻¹·s⁻¹) step 9
 	'k9r': 10.0,       # reverse                         (s⁻¹)
 	'k10': 30.0,       # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹) step 10
-	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺ (s⁻¹)    step 11 fwd
+	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt (s⁻¹) step 11 fwd
 	'k11r':  7.332e-4, # reverse (µM⁻⁴·s⁻¹)                          step 11 rev
+	'k12':  0.033,     # PMCA·CaM → PMCA + CaM_free (s⁻¹) step 12 (slow); no rev
 }
 
 
@@ -583,14 +588,16 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['CA2_CYT[c]']]  += -v_pmca_bind
 	# Catalysis ejects Ca²⁺ to the extracellular reservoir (not tracked).
 
-	# ── PMCA CaM-activated path (Caride 2007 steps 8–10) ────────────
-	# Step 11 (slow CaM deactivation, τ ≈ 20 min) is omitted for Phase 1:
-	# it operates on a timescale far beyond the 200 s transient and including
-	# it caused PMCA to accumulate in a dead-end PMCA·CaM state within 30 s.
+	# ── PMCA CaM-activated path (Caride 2007 steps 8–12) ────────────
+	# Full 5-state Caride scheme. Restored 2026-05-07 after Phase 0 audit
+	# found step 12 (slow CaM dissociation, k₁₂ = 0.033 s⁻¹, τ ~ 30 s) was
+	# missing and step 11 was therefore disabled to work around the
+	# resulting accumulation bug. Now both are present.
 	#
-	# Mass balance (steps 8–10 only):
-	#   d/dt(PMCA + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca) = 0  ✓
-	#   d/dt(Ca4_CaM + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca) = 0  ✓ (CaM stays bound)
+	# Mass balance (full cycle):
+	#   d/dt(PMCA + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca + PMCA_CaM) = 0  ✓
+	#   d/dt(CaM_free + Ca4_CaM + Ca4_CaM_PMCA + Ca4_CaM_PMCA_Ca + PMCA_CaM)
+	#       (plus Ca2_CaM via the upstream ladder) = 0  ✓
 	#
 	# Step 8: PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
 	# Ca₄·CaM in µM; PMCA as count — gives rate in count·s⁻¹.
@@ -607,14 +614,25 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	# Step 10: Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex  (activated extrusion)
 	# Recycles the empty Ca₄·CaM·PMCA complex back to step 9 — PMCA is not consumed.
 	v_cam_pmca_cat = K_CAM_PMCA['k10'] * ca4_cam_pmca_ca
+	# Step 11: Ca₄·CaM·PMCA ⇌ PMCA·CaM + 4 Ca²⁺_cyt
+	# k11r in µM⁻⁴·s⁻¹ — at rest cyt ≈ 0.1 µM the reverse is ~7e-8 s⁻¹
+	# and effectively zero, so this is a near-irreversible Ca²⁺ release.
+	v_cam_pmca_release = (
+		K_CAM_PMCA['k11'] * ca4_cam_pmca
+		- K_CAM_PMCA['k11r'] * pmca_cam * (ca_cyt ** 4)
+	)
+	# Step 12: PMCA·CaM → PMCA + CaM_free (slow CaM dissociation, no reverse)
+	v_cam_dissoc = K_CAM_PMCA['k12'] * pmca_cam
 
-	dy[_IDX['PMCA[pl]']]             += -v_cam_bind_pmca
+	dy[_IDX['PMCA[pl]']]             += -v_cam_bind_pmca + v_cam_dissoc
 	dy[_IDX['Ca4_CaM[c]']]           += -v_cam_bind_pmca  # CaM leaves free pool on step 8 fwd
-	dy[_IDX['Ca4_CaM_PMCA[pl]']]     += +v_cam_bind_pmca - v_cam_pmca_bind + v_cam_pmca_cat
+	dy[_IDX['Ca4_CaM_PMCA[pl]']]     += +v_cam_bind_pmca - v_cam_pmca_bind + v_cam_pmca_cat - v_cam_pmca_release
 	dy[_IDX['Ca4_CaM_PMCA_Ca[pl]']]  += +v_cam_pmca_bind - v_cam_pmca_cat
-	# PMCA_CaM[pl] is left at zero (step 11 omitted for Phase 1).
+	dy[_IDX['PMCA_CaM[pl]']]         += +v_cam_pmca_release - v_cam_dissoc
+	dy[_IDX['CaM_free[c]']]          += +v_cam_dissoc       # CaM returns to free pool on step 12
 	# Step 9 fwd removes one Ca²⁺_cyt; step 10 ejects it extracellularly.
-	dy[_IDX['CA2_CYT[c]']]           += -v_cam_pmca_bind
+	# Step 11 fwd releases 4 Ca²⁺ to cyt (reverse consumes 4).
+	dy[_IDX['CA2_CYT[c]']]           += -v_cam_pmca_bind + 4.0 * v_cam_pmca_release
 
 	# ── STIM1 cycle (mass-action; calibrated to Dolan IC detailed balance) ─
 	v_stim1_release = (
