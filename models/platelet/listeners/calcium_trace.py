@@ -50,8 +50,14 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 
 	_name = 'CalciumTrace'
 
+	# If set by a runscript, a lightweight CSV is written here each timestep
+	# with an immediate flush so a live-plot viewer can tail it in real time.
+	# Format: time,ca_cyt_nM,ca_dts_uM,ip3_nM,soce_flux_nMs
+	_live_path = None
+
 	def __init__(self, *args, **kwargs):
 		self._bulk_molecules = None
+		self._live_file = None
 		super().__init__(*args, **kwargs)
 
 	def initialize(self, sim, sim_data):
@@ -95,6 +101,10 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
 		self.registerLoggedQuantity('IP₃\n(nM)',         'ip3_nM',        '.1f')
 		self.registerLoggedQuantity('SOCE\n(nM/s)',      'soce_flux_nMs', '.2f')
+
+		if self._live_path is not None:
+			self._live_file = open(self._live_path, 'w', buffering=1)
+			self._live_file.write('time,ca_cyt_nM,ca_dts_uM,ip3_nM,soce_flux_nMs\n')
 
 	def update(self):
 		counts = self._bulk_molecules.counts()
@@ -169,3 +179,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pmca_free=self.pmca_free,
 			pmca_ca=self.pmca_ca,
 		)
+		if self._live_file is not None:
+			self._live_file.write(
+				f'{self.time():.0f},{self.ca_cyt_nM:.2f},'
+				f'{self.ca_dts_uM:.3f},{self.ip3_nM:.2f},{self.soce_flux_nMs:.4f}\n'
+			)

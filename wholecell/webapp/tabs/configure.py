@@ -26,7 +26,26 @@ PRESETS = [
 			'seed': 0,
 			'ca_ex_mM': 1.2,
 			'ip3_forced': True,
+			'ip3_delay_s': 0,
 			'description': 'IP3 transient (+Ca²⁺) — 200 s',
+		},
+	},
+	{
+		'id': 'preset-delayed-transient',
+		'label': 'IP3 transient (60 s settle + 200 s, +Ca²⁺)',
+		'description': (
+			'Model settles at its natural fixed point for 60 s, then the '
+			'Dolan 2014 Fig. S2 IP3 stimulus is applied. Supervisor-suggested '
+			'approach: ignore the start-up transient and read the Ca²⁺ '
+			'response from a settled baseline.'
+		),
+		'config': {
+			'length_sec': 260,
+			'seed': 0,
+			'ca_ex_mM': 1.2,
+			'ip3_forced': True,
+			'ip3_delay_s': 60,
+			'description': 'IP3 transient (60 s settle, +Ca²⁺) — 260 s',
 		},
 	},
 	{
@@ -42,6 +61,7 @@ PRESETS = [
 			'seed': 0,
 			'ca_ex_mM': 0.0,
 			'ip3_forced': True,
+			'ip3_delay_s': 0,
 			'description': 'IP3 transient (EDTA) — 200 s',
 		},
 	},
@@ -58,6 +78,7 @@ PRESETS = [
 			'seed': 0,
 			'ca_ex_mM': 1.2,
 			'ip3_forced': False,
+			'ip3_delay_s': 0,
 			'description': 'Resting (no stimulus) — 300 s',
 		},
 	},
@@ -129,6 +150,18 @@ def layout() -> html.Div:
 				),
 			]),
 			html.Div([
+				html.Label('IP3 stimulus delay (seconds)'),
+				dcc.Input(id='config-ip3-delay-s', type='number', value=0, min=0,
+					step=10, style={'width': '100%'}),
+				html.Div(
+					'Settling time before IP3 forcing starts. 0 = immediate (legacy). 60 = supervisor-suggested: let the model reach its natural fixed point first.',
+					style={'color': '#57606a', 'fontSize': '12px', 'marginTop': '4px'},
+				),
+			]),
+		]),
+
+		html.Div(className='grid-2', style={'marginBottom': '20px'}, children=[
+			html.Div([
 				html.Label('IP3 forcing'),
 				dcc.Checklist(
 					id='config-ip3-forced',
@@ -177,6 +210,7 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		Output('config-length-sec', 'value'),
 		Output('config-seed', 'value'),
 		Output('config-ca-ex-mM', 'value'),
+		Output('config-ip3-delay-s', 'value'),
 		Output('config-ip3-forced', 'value'),
 		Output('config-description', 'value'),
 		Output('preset-description', 'children'),
@@ -191,8 +225,8 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		p = preset_lookup[triggered]['config']
 		desc = preset_lookup[triggered]['description']
 		ip3_value = ['on'] if p['ip3_forced'] else []
-		return (p['length_sec'], p['seed'], p['ca_ex_mM'], ip3_value,
-			p['description'], desc)
+		return (p['length_sec'], p['seed'], p['ca_ex_mM'],
+			p.get('ip3_delay_s', 0), ip3_value, p['description'], desc)
 
 	@app.callback(
 		Output('config-status', 'children'),
@@ -200,12 +234,13 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		State('config-length-sec', 'value'),
 		State('config-seed', 'value'),
 		State('config-ca-ex-mM', 'value'),
+		State('config-ip3-delay-s', 'value'),
 		State('config-ip3-forced', 'value'),
 		State('config-description', 'value'),
 		prevent_initial_call=True,
 	)
-	def submit_run(n_clicks, length_sec, seed, ca_ex_mM, ip3_forced_list,
-			description):
+	def submit_run(n_clicks, length_sec, seed, ca_ex_mM, ip3_delay_s,
+			ip3_forced_list, description):
 		if not n_clicks:
 			return ''
 
@@ -213,6 +248,7 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 			'length_sec': int(length_sec or 60),
 			'seed': int(seed or 0),
 			'ca_ex_mM': float(ca_ex_mM if ca_ex_mM is not None else 1.2),
+			'ip3_delay_s': float(ip3_delay_s if ip3_delay_s is not None else 0),
 			'ip3_forced': 'on' in (ip3_forced_list or []),
 			'description': description or '',
 		}

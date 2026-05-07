@@ -37,6 +37,8 @@ class CalciumDynamics(process.Process):
 
 	# Set to False in v0.3 once the P2Y1 upstream process is in place.
 	_ip3_forced = True
+	# Seconds of settling time before the IP3 stimulus begins (default 0 = immediate).
+	_ip3_delay = 0.0
 
 	def __init__(self):
 		super(CalciumDynamics, self).__init__()
@@ -58,7 +60,8 @@ class CalciumDynamics(process.Process):
 		t_sim = self.time()
 
 		self._delta, self._atp_cost = self._solver.molecules_to_next_time_step(
-			counts, dt, t_sim, ip3_forced=self._ip3_forced)
+			counts, dt, t_sim, ip3_forced=self._ip3_forced,
+			ip3_delay=self._ip3_delay)
 
 		# Request molecules we need to take away (negative deltas).
 		requests = np.maximum(-self._delta, 0)

@@ -158,6 +158,7 @@ class JobManager:
 		length_sec = int(config.get('length_sec', 60))
 		seed = int(config.get('seed', 0))
 		ca_ex_mM = float(config.get('ca_ex_mM', 1.2))
+		ip3_delay_s = float(config.get('ip3_delay_s', 0))
 		ip3_forced = bool(config.get('ip3_forced', True))
 
 		try:
@@ -172,6 +173,8 @@ class JobManager:
 			]
 			if not ip3_forced:
 				sim_args.append('--no-ip3-forcing')
+			if ip3_delay_s > 0:
+				sim_args.extend(['--ip3-delay', str(ip3_delay_s)])
 			cmd_sim = self._build_cmd(sim_args, in_container, out_root)
 			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
 				cwd=self.repo_root if in_container else None)

@@ -288,17 +288,20 @@ ORAI_SUBUNITS_PER_CHANNEL = 4
 STIM_MONOMERS_PER_DIMER = 2
 
 
-def ip3_forcing_uM(t):
+def ip3_forcing_uM(t, delay=0.0):
 	"""Dolan 2014 Fig. S2 IP3 time curve, returning concentration in µM.
 
 	Plateau-decay approximation: rises ~5.5× over 3 s, decays with τ=60 s.
-	At t<=0 returns the resting baseline so the curve is well-defined for
-	any sub-step the BDF solver evaluates.
+	`delay` shifts the stimulus onset: the curve is flat at the resting
+	baseline for t < delay and begins rising at t = delay.
+	At t_eff <= 0 returns the resting baseline so the curve is well-defined
+	for any sub-step the BDF solver evaluates.
 	"""
-	if t <= 0:
+	t_eff = t - delay
+	if t_eff <= 0:
 		return IP3_REST_UM
-	rise = 1.0 - np.exp(-t / IP3_TAU_RISE)
-	decay = np.exp(-max(0.0, t - IP3_T_PEAK) / IP3_TAU_DECAY)
+	rise = 1.0 - np.exp(-t_eff / IP3_TAU_RISE)
+	decay = np.exp(-max(0.0, t_eff - IP3_T_PEAK) / IP3_TAU_DECAY)
 	return IP3_REST_UM * (1.0 + (IP3_FOLD - 1.0) * rise * decay)
 
 
@@ -437,7 +440,7 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 	return po, sf
 
 
-def _ode_rhs(t, y, t_sim_start, ip3_forced):
+def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	"""Right-hand side of the calcium ODE.
 
 	`y` carries integer-equivalent counts (continuous floats during
@@ -451,7 +454,7 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	ca_cyt = max(y[_IDX['CA2_CYT[c]']], 0.0) * _UM_PER_COUNT_CYT
 	ca_dts = max(y[_IDX['CA2_DTS[dts]']], 0.0) * _UM_PER_COUNT_DTS
 	if ip3_forced:
-		ip3 = ip3_forcing_uM(t_sim_start + t)
+		ip3 = ip3_forcing_uM(t_sim_start + t, delay=ip3_delay)
 	else:
 		ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
 
@@ -666,7 +669,7 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced):
 	# (decay/regeneration handled by upstream processes in v0.3+).
 	if ip3_forced:
 		# Drive IP3 count toward the curve without integrating the ODE on it.
-		target_count = ip3_forcing_uM(t_sim_start + t) / _UM_PER_COUNT_CYT
+		target_count = ip3_forcing_uM(t_sim_start + t, delay=ip3_delay) / _UM_PER_COUNT_CYT
 		dy[_IDX['IP3[c]']] = (target_count - y[_IDX['IP3[c]']]) / 0.1
 
 	return dy
@@ -688,7 +691,8 @@ class CalciumSignalling:
 		self.molecule_names = np.array(MOLECULE_NAMES, dtype='U30')
 		self.n_species = N_SPECIES
 
-	def molecules_to_next_time_step(self, counts, dt, t_sim, ip3_forced=False):
+	def molecules_to_next_time_step(self, counts, dt, t_sim, ip3_forced=False,
+			ip3_delay=0.0):
 		"""Run one outer timestep of the calcium ODE.
 
 		Returns
@@ -704,7 +708,7 @@ class CalciumSignalling:
 		sol = solve_ivp(
 			_ode_rhs, (0.0, dt), y0,
 			method='BDF',
-			args=(t_sim, ip3_forced),
+			args=(t_sim, ip3_forced, ip3_delay),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,
