@@ -522,19 +522,21 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	else:
 		po_channel = 0.0
 
-	# IP3R Ca²⁺ flux via the Nernst form (Purvis eq. 13 / Dolan eq. 4).
-	# I = γ_IP3R · N_channels · Po⁴ · (ψ_IM − E_Ca,IM); we want ions/s into
-	# the cytosol (positive when ψ_IM is more inside-negative than E_Ca).
+	# IP3R Ca²⁺ flux via the Nernst form (Dolan 2014 Table 1 / Purvis eq. 13).
+	# I = γ_IP3R · N · Po⁴ · (ψ_IM − E_Ca,IM); we want ions/s into the
+	# cytosol (positive when ψ_IM is more inside-negative than E_Ca).
 	#
-	# Sneyd-Dufour 2002 describes a per-*subunit* 6-state ladder; the
-	# tetrameric channel has 4 such subunits and Po⁴ encodes the cooperative
-	# gating constraint (all 4 subunits must be in conducting states).
-	# Therefore the multiplier is N_channels = ip3r_subunit_total / 4, NOT
-	# ip3r_subunit_total. Earlier code used ip3r_total directly with a
-	# rationale that "Po⁴ already accounts for cooperativity"; that's a
-	# double-count and gave a 4× overstated basal leak (~110 k → ~28 k
-	# ions/s at Dolan IC; 2026-05-07 lab book "DTS drain investigation").
-	n_ip3r_channels = ip3r_total / 4.0
+	# N follows Dolan's convention: the listed `IP3R total` (Burkhart 2012
+	# ITPR2 protein count, ~1 328) is used directly, with Po⁴ encoding the
+	# tetrameric cooperative-gating constraint. Each sub-state count is
+	# treated as a "channel-level state via one representative subunit",
+	# rather than as raw subunit population (= 4 × N_channels). This is a
+	# convention choice rather than a strict reading of Sneyd-Dufour 2002,
+	# but it matches Dolan 2014 Table 1 and our flux calibration is
+	# anchored against her numbers.
+	# A 2026-05-07 attempt to use N_channels = ip3r_total / 4 was reverted;
+	# see lab-book-2026-05-07-dts-drain-investigation.md for the audit.
+	n_ip3r_channels = ip3r_total
 	# IP3R Ca²⁺ flux via the Nernst form. When DTS is empty there is no Ca²⁺
 	# to release; setting flux=0 prevents a phantom influx that arises when
 	# e_ca_im defaults to 0 (giving a -60 mV driving force from an empty store).

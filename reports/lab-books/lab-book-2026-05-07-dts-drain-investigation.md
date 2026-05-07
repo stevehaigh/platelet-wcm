@@ -253,6 +253,89 @@ Files changed in this step:
 - `reports/data/rest-converged-2026-05-07.json` — re-run output
   (overwritten).
 
+## Step 1 reverted — Dolan Table 1 audit changed the picture
+
+Independent audit of Dolan & Diamond 2014 Table 1 prompted by the
+"is there a calsequestrin-like buffer?" question (next section).
+Findings relevant to /4:
+
+- The "Channel open probability (P_α,IPR)" row in Dolan's Table 1
+  defines `P_α = (0.9·IPR_a/IPR_total + 0.1·IPR_o/IPR_total)⁴`
+  — **identical to our code**, with the ⁴ already encoding the
+  tetrameric cooperative gating.
+- The "Ca²⁺ release from DTS via IP3R" rate law is
+  `N_IPR · P_α · γ_IP3R · ΔV` where `N_IPR` is Dolan's listed
+  IP3R count (1 328, from Burkhart 2012 ITPR2 protein abundance).
+- So Dolan multiplies by the *full* listed total, not /4. This is
+  internally consistent if you read each sub-state count as a
+  "channel-level state via one representative subunit" rather than
+  as a raw subunit population. It's a convention choice, not strictly
+  wrong per Sneyd-Dufour 2002, but it does mean our /4 fix
+  *deviates from Dolan*.
+
+Our calibrated downstream constants (`J_PM_LEAK`, `γ_SOC`,
+`K_STIM['k_dim_f']`) are anchored against the Dolan-convention
+flux. Reverting to N = 1 328 keeps the model faithful to her
+published numbers.
+
+**The deeper problem stands**: at IP3 = 50 nM and ca_cyt = 100 nM,
+our Markov-chain equilibrium gives Po⁴ = 3.6×10⁻⁴ while Dolan's
+Table S1 IC has Po⁴ = 1.65×10⁻⁵ — 22× lower. No channel-count
+adjustment closes that gap; the issue is in the **sub-state
+populations Sneyd-Dufour predicts at rest**, not in the multiplier
+in front of the flux. So the /4 was solving the wrong problem.
+
+### Decision: revert /4
+
+- `n_ip3r_channels = ip3r_total` (Dolan convention restored).
+- Phase 3 acceptance returns to 4/5 (peak +Ca_ex 392 nM, −Ca_ex
+  325 nM, SOCE differential 67 nM).
+- `test_phase3.py` baselines reverted to the 4/5 lock.
+- Real fix lives in Step 2 (Sneyd-Dufour Po formula / l₆ gating)
+  and/or Step 3 (DTS Ca²⁺ buffer like calreticulin).
+
+## Calsequestrin-like buffer in Dolan & Diamond 2014?
+
+Searched the main paper + supplement for `calsequestrin`,
+`calreticulin`, `calbindin`, `chromogranin`, `buffer`, `lumen`,
+`sequester`, `binding capacity`, `Bmax`. **No match.**
+
+What Dolan actually has on the DTS side:
+
+| Mechanism | Effect | Calsequestrin-like? |
+|---|---|---|
+| `Ca²⁺_dts → Ca²⁺_cyt` IM passive leak (γ_leak = 0.7 pS·µm²) | small *outward* leak across DTS membrane | No (drains DTS, not buffers) |
+| `STIM1 + Ca²⁺_dts ↔ STIM1·Ca²⁺` | EF-hand Ca²⁺ binding on the DTS-luminal side of STIM1 | Sort of (1:1 stoichiometry; ~4 265 sites at saturation = ~10% of free DTS pool) |
+| (no calsequestrin / calreticulin / calbindin in the species list) | — | — |
+
+So Dolan does **not** have a calsequestrin-style high-capacity
+buffer. Her resting-state stability comes from parameter balance
+(PMCA = SOCE, IP3R = SERCA) plus an explicit Monte Carlo filter
+(`<5 µM Δ[Ca²⁺]_dts over 333 s after Ca_ex removal`); only 0.06%
+of 2.6M sampled ICs survive that filter.
+
+The user's recollection of a calsequestrin-like buffer was incorrect
+(verified 2026-05-07). A real DTS buffer remains a plausible v0.2.5
+addition, but it would be *new biology relative to Dolan*, not a
+reproduction of her scheme.
+
+---
+
+## Outstanding next steps
+
+1. **Step 2 — Sneyd-Dufour Po formula and l₆ gating**: candidate 4
+   from earlier. The 22× gap in Po⁴ (Dolan IC vs our Markov
+   equilibrium) is the binding constraint on resting-state stability.
+   Steve is searching references; may need to cite non-platelet
+   electrophysiology to estimate the right rate-law form.
+2. **Step 3 — DTS Ca²⁺ buffer (calreticulin or generic high-capacity
+   sink)**: not a Dolan reproduction but biologically plausible
+   v0.2.5 addition. Checking PaxDb for human-platelet calreticulin
+   (CALR) abundance to set initial conditions if we go this route.
+3. **Re-derive `J_PM_LEAK`, `γ_SOC`, `k_dim_f`**: deferred until
+   the upstream IP3R-leak issue is resolved. Calibrating these
+   first would move the anchor to a still-wrong fixed point.
+
 ---
 
 *Branch:* `main` · *Status:* in progress · *Linked issues:* #19 (closed),

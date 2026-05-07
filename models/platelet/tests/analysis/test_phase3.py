@@ -6,19 +6,16 @@ tolerance of the current baseline. Locks Phase 3 output against future
 drift — analogous to ``test_regression.py`` but for the two-condition
 comparison.
 
-Baseline (seed=0, length=200 s, both conditions, post-IP3R-subunit-/4
-fix 2026-05-07):
-  +Ca_ex peak Ca_cyt:  ~391 nM at t=1 s
-  −Ca_ex peak Ca_cyt:  ~362 nM at t=1 s   (1% over Dolan ±30% ceiling)
-  SOCE differential:   ~29 nM   (still FAILS Dolan ≥100 nM criterion)
+Baseline (seed=0, length=200 s, both conditions, 2026-05-07 after the
+Caride k_12 fix and STIM1 dimer-count fix; Dolan-convention IP3R N
+restored):
+  +Ca_ex peak Ca_cyt:  ~392 nM at t=1 s
+  −Ca_ex peak Ca_cyt:  ~325 nM at t=1 s
+  SOCE differential:   ~67 nM   (FAILS Dolan ≥100 nM criterion;
+                                 documented as the open issue tracked
+                                 in #24, not a regression)
 
-Phase 3 acceptance: 3 of 5 (regressed from 4/5 with the IP3R subunit
-correction). The −Ca_ex peak criterion flipped FAIL because the
-slower drain after correcting the 4× IP3R-channel-count overstatement
-lets cyt build higher in the EDTA condition. Diagnosis in
-lab-book-2026-05-07-dts-drain-investigation.md; expected to recover
-once downstream calibration (J_PM_LEAK, γ_SOC, k_dim_f) is rerun
-against the corrected leak.
+Phase 3 acceptance now passes 4 of 5 criteria.
 """
 
 import os
@@ -101,26 +98,20 @@ class TestPhase3DolanFig4(unittest.TestCase):
 	# ── Acceptance-criteria pass/fail count ───────────────────────────────────
 
 	def test_criteria_pass_count(self):
-		"""3 of 5 acceptance criteria pass after the IP3R subunit /4 fix.
+		"""4 of 5 acceptance criteria pass at the current baseline.
 
-		Two failing criteria:
-		- SOCE differential (29 nM, target ≥ 100 nM) — depends on the
-		  resting-state DTS depletion issue tracked in #24 and the
-		  candidate-2 work (DTS Ca²⁺ buffers).
-		- −Ca_ex peak in Dolan ±30% (362 nM, ceiling 358 nM) — flipped
-		  FAIL when the 4× IP3R-leak overstatement was corrected; the
-		  slower drain lets cyt build higher in EDTA. Recovery expected
-		  once J_PM_LEAK and other calibrated knobs are re-derived
-		  against the corrected leak.
+		The remaining failing criterion — SOCE differential — depends on
+		the resting-state DTS depletion issue tracked in #24. Documented
+		in design doc §6.8 D7 and the 2026-05-06/07 lab books.
 
 		Asserting the count locks the current state. A future fix that
-		recovers either criterion ticks this test up to 4/5 or 5/5.
+		recovers the SOCE differential criterion would tick this test up
+		to 5/5.
 		"""
 		passed = sum(1 for c in self.summary['criteria'] if c['passed'])
-		self.assertEqual(passed, 3,
-			f'Expected 3/5 Phase 3 criteria at the post-IP3R-subunit-/4 '
-			f'baseline; got {passed}. If a fix landed, update this '
-			f'assertion and the lab book entry.')
+		self.assertEqual(passed, 4,
+			f'Expected 4/5 Phase 3 criteria; got {passed}. If a fix landed, '
+			f'update this assertion and the lab book entry.')
 
 
 if __name__ == '__main__':
