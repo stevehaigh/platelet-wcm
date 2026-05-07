@@ -1,0 +1,133 @@
+{
+  "source": "Huang et al. 2021, Sci Rep 11:12358 \u2014 Suppl. Datafile 1 (MOESM1)",
+  "doi": "10.1038/s41598-021-91661-x",
+  "method": "NSAF-based copy number per platelet",
+  "records": [
+    {
+      "uniprot": "P27797",
+      "gene": "CALR",
+      "description": "calreticulin (ER lumen)",
+      "plt_copies": 20323.76442856835,
+      "plt_copies_raw": "20323.764428568349",
+      "function_class": "18 Signaling & adapter proteins",
+      "plt_blueprint_log2fpkm": "5.6386812993664099"
+    },
+    {
+      "uniprot": "P14625",
+      "gene": "HSP90B1",
+      "description": "GRP94 / endoplasmin (ER lumen)",
+      "plt_copies": 14385.435464342467,
+      "plt_copies_raw": "14385.435464342467",
+      "function_class": "09 Membrane & protein trafficking",
+      "plt_blueprint_log2fpkm": "3.39076186172018"
+    },
+    {
+      "uniprot": "P11021",
+      "gene": "HSPA5",
+      "description": "BiP / GRP78 (ER lumen)",
+      "plt_copies": 27858.271457807343,
+      "plt_copies_raw": "27858.271457807343",
+      "function_class": "06 ER & Golgi proteins",
+      "plt_blueprint_log2fpkm": "2.5489166223437101"
+    },
+    {
+      "uniprot": "O43852",
+      "gene": "CALU",
+      "description": "calumenin (ER lumen)",
+      "plt_copies": 5318.6746032857145,
+      "plt_copies_raw": "5318.6746032857145",
+      "function_class": "06 ER & Golgi proteins",
+      "plt_blueprint_log2fpkm": "6.2855226750347803"
+    },
+    {
+      "uniprot": "Q9HB07",
+      "gene": "CALU2",
+      "description": "calumenin-2 (ER lumen)",
+      "plt_copies": 784.2739953829787,
+      "plt_copies_raw": "784.27399538297868",
+      "function_class": "11 Mitochondrial proteins",
+      "plt_blueprint_log2fpkm": "2.9343350616266601"
+    },
+    {
+      "uniprot": "Q14257",
+      "gene": "RCN2",
+      "description": "reticulocalbin-2 (ER lumen)",
+      "plt_copies": 986.1478795362776,
+      "plt_copies_raw": "986.14787953627763",
+      "function_class": "06 ER & Golgi proteins",
+      "plt_blueprint_log2fpkm": "1.3391489577770199"
+    },
+    {
+      "uniprot": "Q15293",
+      "gene": "RCN1",
+      "description": "reticulocalbin-1 (ER lumen)",
+      "plt_copies": 1187.3822424743203,
+      "plt_copies_raw": "1187.3822424743203",
+      "function_class": "06 ER & Golgi proteins",
+      "plt_blueprint_log2fpkm": "1.45039854408918"
+    },
+    {
+      "uniprot": "P31415",
+      "gene": "CASQ1",
+      "description": "calsequestrin-1 (cardiac SR; absent)",
+      "plt_copies": null,
+      "plt_copies_raw": "NOT IN PROTEOME",
+      "function_class": "",
+      "plt_blueprint_log2fpkm": ""
+    },
+    {
+      "uniprot": "O14958",
+      "gene": "CASQ2",
+      "description": "calsequestrin-2 (cardiac SR; absent)",
+      "plt_copies": null,
+      "plt_copies_raw": "NOT IN PROTEOME",
+      "function_class": "",
+      "plt_blueprint_log2fpkm": ""
+    },
+    {
+      "uniprot": "Q14571",
+      "gene": "ITPR2",
+      "description": "IP3R type 2 (DTS membrane)",
+      "plt_copies": 1688.338092998519,
+      "plt_copies_raw": "1688.338092998519",
+      "function_class": "10 Membrane receptors & channels",
+      "plt_blueprint_log2fpkm": "4.9472895433958701"
+    },
+    {
+      "uniprot": "Q93084",
+      "gene": "ATP2A3",
+      "description": "SERCA3 (DTS membrane)",
+      "plt_copies": 16263.05657835762,
+      "plt_copies_raw": "16263.05657835762",
+      "function_class": "18 Signaling & adapter proteins",
+      "plt_blueprint_log2fpkm": "8.0062749089060805"
+    },
+    {
+      "uniprot": "Q01082",
+      "gene": "ATP2B4",
+      "description": "PMCA4 (PM)",
+      "plt_copies": 4563.584828086295,
+      "plt_copies_raw": "4563.5848280862947",
+      "function_class": "01 Cytoskeleton actin-myosin",
+      "plt_blueprint_log2fpkm": "5.0410424281923696"
+    },
+    {
+      "uniprot": "Q13586",
+      "gene": "STIM1",
+      "description": "STIM1 (DTS membrane sensor)",
+      "plt_copies": 7422.526115277372,
+      "plt_copies_raw": "7422.5261152773719",
+      "function_class": "18 Signaling & adapter proteins",
+      "plt_blueprint_log2fpkm": "6.1879945149817104"
+    },
+    {
+      "uniprot": "Q96D31",
+      "gene": "ORAI1",
+      "description": "Orai1 (PM CRAC pore)",
+      "plt_copies": 1657.9330750465117,
+      "plt_copies_raw": "1657.9330750465117",
+      "function_class": "10 Membrane receptors & channels",
+      "plt_blueprint_log2fpkm": "6.1044757118656996"
+    }
+  ]
+}

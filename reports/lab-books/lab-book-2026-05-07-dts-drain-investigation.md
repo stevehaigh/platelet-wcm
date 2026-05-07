@@ -321,20 +321,270 @@ reproduction of her scheme.
 
 ---
 
+## Step 3 — DTS Ca²⁺ buffer (calreticulin)
+
+PaxDb / Huang 2021 proteome look-up confirms calreticulin (CALR) is
+present in human platelets at high abundance and identifies the
+candidate primary luminal buffer.
+
+### Proteome audit — human platelet ER-luminal Ca²⁺ binders
+
+Source: Huang J., Swieringa F., Solari F.A., et al. "Assessment of
+a complete and classified platelet proteome from genome-wide
+transcripts of human platelets and megakaryocytes covering platelet
+functions." *Sci Rep* 11, 12358 (2021). DOI:
+10.1038/s41598-021-91661-x. NSAF-based copy-number per platelet,
+merged across 5 cohorts. Data extracted from Suppl. Datafile 1
+(MOESM1) and saved to
+`reports/data/huang-2021-platelet-abundance.json`.
+
+| Protein | UniProt | Copies/platelet | Notes |
+|---|---|---|---|
+| **CALR (calreticulin)** | P27797 | **20 324** | ER lumen; primary candidate |
+| HSPA5 (BiP / GRP78) | P11021 | 27 858 | ER lumen chaperone with Ca²⁺ binding |
+| HSP90B1 (GRP94) | P14625 | 14 385 | ER lumen chaperone, Ca²⁺-binding domain |
+| CALU (calumenin) | O43852 | 5 318 | EF-hand Ca²⁺ binder, ER lumen |
+| RCN1 / RCN2 | Q15293 / Q14257 | 1 187 / 986 | EF-hand Ca²⁺ binders |
+| CALU2 | Q9HB07 | 784 | calumenin-2 |
+| CASQ1 (calsequestrin-1) | P31415 | **NOT IN PROTEOME** | cardiac/skeletal SR isoform; absent |
+| CASQ2 (calsequestrin-2) | O14958 | **NOT IN PROTEOME** | cardiac/skeletal SR isoform; absent |
+
+Calsequestrin proper is confirmed absent — platelets use
+calreticulin as the cardiac-SR-equivalent DTS-luminal buffer. This
+is consistent with the Sage 1992 / Brass 2007 platelet biology
+reviews.
+
+### Reference-point check vs our IC (sanity)
+
+| Protein | Huang 2021 | Our IC (Dolan/Burkhart 2012) | Δ |
+|---|---|---|---|
+| ITPR2 | 1 688 | 1 328 | +27% |
+| ATP2A3 (SERCA) | 16 263 | 11 892 | +37% |
+| STIM1 | 7 423 | 4 265 | +74% |
+| Orai1 | 1 658 | 1 447 | +14% |
+| **ATP2B4 (PMCA4)** | **4 564** | **769** | **+493%** |
+| CALM1 | n.d. | 20 481 | Huang did not detect |
+
+Most match within 30–70%. **PMCA4 is 6× higher in Huang than our
+IC** — a separate calibration question to flag (we may be
+significantly underestimating the PMCA pump capacity, which would
+matter for the post-spike decay rate). For now, capture as a v0.3
+follow-up; not blocking for the buffer addition.
+
+### Minimal CALR-buffer model design
+
+**Stoichiometry / capacity** (per CALR molecule):
+- Bmax = 25 Ca²⁺ binding sites per molecule. Source: Baksh &
+  Michalak 1991 (*JBC* 266:21458–21465) reported ~25 Ca²⁺ binding
+  sites in the C-domain (low-affinity, high-capacity); reaffirmed
+  in Nakamura *et al.* 2001 reviews. Well-established consensus
+  number used in subsequent ER-buffer modelling (Wagner & Keizer
+  1994, Smith *et al.* 1996, Camacho & Lechleiter 1995).
+
+**Affinity**:
+- Kd = 1 mM = 1 000 µM (low affinity, high capacity, characteristic
+  of cardiac SR / platelet DTS luminal buffers). Source: Smith *et
+  al.* 1996 (*Biophys J* 70:2538–2545) used Kd = 1 mM in their
+  endoplasmic-reticulum buffer model; Baksh & Michalak 1991 measured
+  Kd ≈ 2 mM for the C-domain alone. Range in literature
+  ~200 µM – 2 mM; 1 mM is a defensible mid-range pick. Sensitivity
+  analysis is a v0.3 follow-up.
+
+**Kinetics** (treating sites as independent, no cooperativity):
+- k_on = 0.1 µM⁻¹·s⁻¹ (= 10⁵ M⁻¹·s⁻¹). Fast, diffusion-limited
+  rate consistent with literature ER buffer models (Wagner & Keizer
+  1994, Klingauf & Neher 1997).
+- k_off = k_on × Kd = 0.1 × 1 000 = **100 s⁻¹**. Fast equilibrium
+  on the buffer side; effectively quasi-static at our 1 s outer
+  timestep.
+
+**Total binding sites**:
+N_sites = 20 324 CALR × 25 sites/molecule = **508 100 sites**.
+
+**Pre-equilibrated initial conditions** (at [Ca²⁺]_DTS_free = 250 µM):
+- Bound fraction = [Ca]/(Kd + [Ca]) = 250/1 250 = **0.20**.
+- CALR_sites_Ca initial = 0.20 × 508 100 = **101 620**.
+- CALR_sites_free initial = 0.80 × 508 100 = **406 480**.
+- Sanity check: detailed balance at IC →
+  k_on × sites_free × ca_dts = k_off × sites_Ca →
+  0.1 × 406 480 × 250 = 100 × 101 620 → 1.0162×10⁷ = 1.0162×10⁷ ✓
+
+**Convention** for [Ca²⁺]_DTS in the rest of the model:
+- `CA2_DTS[dts]` continues to mean **free DTS Ca²⁺** (matches
+  Mag-Fura-2 experimental measurements that read free Ca²⁺ only).
+- Buffer-bound Ca²⁺ is tracked separately in `CALR_sites_Ca[dts]`.
+- IP3R and SERCA fluxes act on `CA2_DTS` (free pool only).
+- Total DTS Ca²⁺ = `CA2_DTS + CALR_sites_Ca`. With pre-equilibrated
+  IC, total goes from the current 38 842 ions to
+  38 842 + 101 620 = **140 462 ions** (3.6× the previous total
+  pool). Roughly matches the literature estimate that ~70–80% of
+  ER Ca²⁺ is buffer-bound at rest.
+
+**ODE term** (1 free Ca²⁺ + 1 free site → 1 bound site):
+
+    v_calr = k_on × CALR_sites_free × [Ca²⁺]_DTS_free
+             − k_off × CALR_sites_Ca
+
+    d/dt CA2_DTS         += −v_calr  # free Ca²⁺ ions leave
+    d/dt CALR_sites_free += −v_calr  # free sites consumed
+    d/dt CALR_sites_Ca   += +v_calr  # bound sites gained
+
+Mass conservation: CALR_sites_free + CALR_sites_Ca = 508 100
+constant; total DTS Ca²⁺ (free + CALR_sites_Ca) only changes via
+SERCA / IP3R fluxes (buffer is internal redistribution).
+
+### Expected effects
+
+1. **Resting state**: when DTS is being drained by IP3R basal leak,
+   the buffer releases Ca²⁺ on a ~10 ms timescale, slowing the free
+   pool's decline. The total available DTS Ca²⁺ (~140 k ions vs
+   38 k) gives the pool more "headroom" before it bottoms out.
+2. **Phase 3 transient**: peak amplitude may rise (more total Ca²⁺
+   feeding the cytosol via IP3R drainage) but the broader pool
+   means the SOCE-driven plateau is more likely to materialise in
+   the +Ca_ex condition. **SOCE differential** may improve.
+3. **Resting fixed point**: still uncertain — adding the buffer
+   doesn't directly fix the IP3R Markov-chain Po⁴ gap (candidate 4),
+   but it raises the question "does the model now sustain DTS at
+   a non-zero free [Ca²⁺]?" empirically. If the answer is yes, then
+   the resting-state issue may be partially resolved without
+   needing the Sneyd-Dufour rate-law audit.
+
+### Stretch goal — richer multi-buffer model
+
+Filed as a v0.3 tracked issue (`#XX`, see commit message):
+
+> The other ER-luminal Ca²⁺ binders (HSPA5, HSP90B1, CALU, RCN1/2)
+> are real and abundant in the platelet proteome. A multi-buffer
+> model would improve quantitative agreement with experimental
+> store-depletion / refilling kinetics, capture distinct fast/slow
+> buffer pools, and provide the publication-grade biological
+> completeness story. Marginal value over CALR alone is expected
+> to be small for the Phase 3 / 4 acceptance criteria (CALR carries
+> ~70% of the total Ca²⁺-binding capacity by site count), so this
+> is a v0.3+ extension rather than a v0.2.5 deliverable. Each
+> buffer needs its own k_on, Kd, Bmax from literature; collectively
+> ~1–2 days of careful sourcing + parameterisation.
+
+### Result
+
+**The buffer alone does not help — and during stimulation it makes
+things substantially worse.** Empirical numbers:
+
+| Metric | No buffer (4/5 baseline) | + CALR buffer | Comment |
+|---|---|---|---|
+| Resting Ca²⁺_cyt (6000 s convergence, no IP3) | 2169 nM | 2240 nM | unchanged |
+| Resting Ca²⁺_DTS_free | 0.06 µM | 0.07 µM | still empty |
+| Resting CALR_sites_Ca | (n/a) | 34 (of 508 100 — fully unloaded) | buffer drained too |
+| Phase 3 +Ca_ex peak | 392 nM | **8 949 nM** | **23×** higher |
+| Phase 3 −Ca_ex peak | 325 nM | **8 904 nM** | 27× higher |
+| Phase 3 SOCE differential | 67 nM | 45 nM | unchanged direction |
+| Phase 3 criteria pass | 4/5 | **2/5** | both peak-band criteria fail |
+
+So the buffer:
+- Doesn't alter the resting fixed point (DTS still drains; buffer
+  just drains alongside)
+- During the IP3 transient, releases all its Ca²⁺ into the
+  cytosol over the spike, amplifying the peak by ~23× (way more
+  than the ~3.7× reservoir-size scaling alone would predict)
+
+### Diagnosis — the buffer reveals a hidden positive feedback
+
+The 23× peak amplification (vs 3.7× reservoir scaling) shows the
+model has a positive feedback loop that the limited free-DTS pool
+was previously masking by running out of substrate:
+
+1. IP3R drains free DTS → cyt rises
+2. Higher cyt → more Ca₄·CaM forms (k₆ × cyt² × CaM_free)
+3. Ca₄·CaM binds free PMCA → Ca₄·CaM·PMCA → eventually fires step 11
+4. Step 11 (Caride k₁₁ = 10 s⁻¹) releases **4 Ca²⁺ ions per
+   complex per second** back to cyt
+5. More cyt Ca²⁺ feeds back into (2)
+
+Without the CALR buffer, the DTS exhausts in seconds and the
+feedback chokes off. With the buffer, the DTS gets continuously
+re-supplied from the bound pool, the feedback runs longer, and the
+peak runs away.
+
+Two interpretations:
+
+- **Mechanical**: the CaM·PMCA cycle (steps 8–12) was calibrated
+  by Caride 2007 in a CHO-cell context with their own SERCA / IP3R
+  rate balance; in our coupled platelet ODE the k₁₁ → k₆ → k₈ → k₁₁
+  loop is unstable when the DTS reservoir is replenished. The
+  cycle's net "1 Ca²⁺ extruded per turnover" arithmetic is correct
+  per cycle, but the *transient overshoot* before settling can be
+  large.
+- **Biological**: real platelets don't show 9 µM cytosolic Ca²⁺
+  spikes — peaks are in the 200–800 nM range. So the runaway is
+  not a model feature; it's an instability that's been silently
+  capped by DTS-emptying since Phase 1. Our pre-buffer 4/5 was
+  *partially achieved* by an upstream pathology hiding a downstream
+  pathology.
+
+### Decision: hold (don't commit)
+
+Three things rule out simply committing the buffer right now:
+
+1. Phase 3 regressed 4/5 → 2/5 (acceptance criteria failure).
+2. The runaway exposes a structural feedback issue that needs a
+   separate diagnostic before adding more biology on top.
+3. The buffer's value (DTS retention at rest) doesn't materialise
+   at all — DTS is still empty at the converged fixed point.
+
+So the right move is to **leave the buffer code uncommitted** and
+return to the upstream issue first. The lab book entry stays as
+documentation of the design and this finding. Two paths to consider:
+
+- **Path α** (recommended): pursue candidate 4 — audit the
+  Sneyd-Dufour Po formula and l₆ gating against the originals;
+  potentially audit the CaM-PMCA k₁₁ dynamics for the stability
+  question raised here. Once IP3R basal Po⁴ is in the
+  Dolan-implied 1.65×10⁻⁵ range and the CaM-PMCA loop is verified
+  not to runaway, *then* add the buffer back as a clean structural
+  improvement on top of a stable substrate.
+- **Path β**: keep the buffer code change uncommitted in the
+  working tree but pause to think — possibly cap CALR sites
+  per-molecule (use 5 instead of 25 to reduce capacity 5×) as a
+  compromise; this is parameter-engineering rather than physical
+  motivation, so I'd push against it.
+
+This finding is itself dissertation-relevant: "We attempted to add
+calreticulin as the platelet DTS-luminal Ca²⁺ buffer based on
+Huang 2021 proteome (20 324 copies × 25 sites = 508 100 binding
+sites). The addition revealed a previously-masked positive feedback
+between cytosolic Ca₄·CaM accumulation and the Caride 2007 k₁₁
+4-Ca²⁺ release path; without the buffer, DTS-emptying capped the
+feedback at biologically reasonable peaks (~300–400 nM); with the
+buffer, the feedback runs out to ~9 µM. We deferred the buffer
+addition until the IP3R Markov-chain Po⁴ resting-state gap (Phase 0
+candidate 4) and the Caride k₁₁ stability question are resolved."
+
+That's a real result.
+
+### Update — code change reverted in working tree
+
+The IC additions, K_CALR constants, MOLECULE_NAMES entries, and
+ODE rhs term are kept in place locally for the next session but
+**not committed**. If the session ends without continuing, revert
+them by `git restore reconstruction/platelet/dataclasses/process/calcium_signalling.py reconstruction/platelet/dataclasses/internal_state.py`.
+
+---
+
 ## Outstanding next steps
 
 1. **Step 2 — Sneyd-Dufour Po formula and l₆ gating**: candidate 4
    from earlier. The 22× gap in Po⁴ (Dolan IC vs our Markov
-   equilibrium) is the binding constraint on resting-state stability.
-   Steve is searching references; may need to cite non-platelet
-   electrophysiology to estimate the right rate-law form.
-2. **Step 3 — DTS Ca²⁺ buffer (calreticulin or generic high-capacity
-   sink)**: not a Dolan reproduction but biologically plausible
-   v0.2.5 addition. Checking PaxDb for human-platelet calreticulin
-   (CALR) abundance to set initial conditions if we go this route.
-3. **Re-derive `J_PM_LEAK`, `γ_SOC`, `k_dim_f`**: deferred until
-   the upstream IP3R-leak issue is resolved. Calibrating these
-   first would move the anchor to a still-wrong fixed point.
+   equilibrium) is the binding constraint on resting-state stability
+   *if* the buffer alone isn't enough. Steve is searching
+   references; may need to cite non-platelet electrophysiology to
+   estimate the right rate-law form.
+2. **Re-derive `J_PM_LEAK`, `γ_SOC`, `k_dim_f`**: deferred until
+   the buffer addition is settled. Calibrating these first would
+   move the anchor to a still-wrong fixed point.
+3. **PMCA copy number**: Huang 2021 reports ATP2B4 ≈ 4 564 vs our
+   769 (6× higher). Worth a separate calibration revisit; may
+   matter for the post-spike decay rate.
 
 ---
 
