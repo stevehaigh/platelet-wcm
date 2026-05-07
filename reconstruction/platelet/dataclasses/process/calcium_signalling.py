@@ -210,8 +210,11 @@ K_CAM_PMCA = {
 
 # ── SOCE: Dolan 2014 MWC + STIM1 dimerisation (Hoover & Lewis 2011 frame) ─
 # STIM1 cycle (mass-action) — keeps the dimer pool size as a state variable.
-# Rate constants chosen so the Dolan 2014 Table S1 resting IC (st_Ca=3805,
-# st_free=438, st_dim=22) is at detailed balance.
+# `STIM1_dim` is counted in DIMER PARTICLES (matches Dolan Table S1
+# "STIM1₂ (11)") — 1 dimerisation event consumes 2 free monomers and
+# creates 1 dimer particle. Rate constants chosen so the Dolan 2014
+# Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at
+# detailed balance.
 K_STIM = {
 	# STIM1·Ca²⁺_dts ↔ STIM1_free + Ca²⁺_dts (Ca²⁺ release from STIM EF-hand)
 	'k_release_f':   0.1,      # forward (s⁻¹)
@@ -220,9 +223,9 @@ K_STIM = {
 	#               = 0.1 × 3805 / (438 × 250) = 3.475e-3 µM⁻¹·s⁻¹
 	'k_release_r':   3.475e-3, # reverse (µM⁻¹·s⁻¹)
 	# 2 STIM1_free ↔ STIM1_dim — diffusion-limited dimerisation.
-	# k_dim_f from detailed balance at Dolan IC:
-	#   k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 22 / 438² ≈ 1.15e-4
-	'k_dim_f':      1.15e-4,   # forward (count⁻¹·s⁻¹)
+	# k_dim_f from detailed balance at Dolan IC (dimer-particle count):
+	#   k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 11 / 438² ≈ 5.73e-5
+	'k_dim_f':      5.73e-5,   # forward (count⁻¹·s⁻¹)
 	'k_dim_r':       1.0,      # reverse (s⁻¹)
 }
 
@@ -287,9 +290,9 @@ J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
 # Number of monomers per Orai1 tetramer (CRAC channel pore-forming subunit).
 ORAI_SUBUNITS_PER_CHANNEL = 4
 
-# Number of monomers per STIM1 dimer (sensor unit that binds Orai). The
-# Dolan/Hoover MWC counts ligand sites in dimer units; our STIM1_dim count
-# carries the dimer count directly (already monomer-pair-equivalent).
+# Number of monomers per STIM1 dimer (sensor unit that binds Orai). Used
+# for total-monomer mass-balance accounting (free + STIM1_Ca + 2·STIM1_dim
+# is conserved). The MWC and listener treat STIM1_dim as dimer particles.
 STIM_MONOMERS_PER_DIMER = 2
 
 
@@ -655,11 +658,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	else:
 		hill = 0.0
 	qp = PUNCTA['alpha'] * hill + PUNCTA['baseline']
-	# STIM_dim count in our state vector is the dimer count (Dolan Table S1
-	# lists 11 dimers ≡ "22 monomer-equivs"; we tracked it as "22" but the
-	# MWC binding stoichiometry is per *dimer*. Half the dim count = dimers.
-	stim2_dimers = st_dim / STIM_MONOMERS_PER_DIMER
-	stim2_p = qp * stim2_dimers
+	# STIM1_dim count in our state vector = dimer particles directly
+	# (Dolan Table S1 lists 11 dimers; we now match that convention).
+	stim2_p = qp * st_dim
 	# Total Orai *channels* (tetramers).
 	n_orai_channels = orai_total / ORAI_SUBUNITS_PER_CHANNEL
 	# Solve MWC for channel-level open probability.

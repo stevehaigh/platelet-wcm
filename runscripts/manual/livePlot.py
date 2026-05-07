@@ -104,8 +104,8 @@ def build_figure():
 	line_dts, = ax_dts.plot([], [], color='seagreen', lw=1.8)
 	line_soce, = ax_soce.plot([], [], color='darkorange', lw=1.5)
 
-	ax_cyt.set_ylabel('[Ca²⁺]_cyt  (nM)', fontsize=10)
-	ax_dts.set_ylabel('[Ca²⁺]_DTS  (µM)', fontsize=10)
+	ax_cyt.set_ylabel(r'[Ca$^{2+}$]$_\mathrm{cyt}$  (nM)', fontsize=10)
+	ax_dts.set_ylabel(r'[Ca$^{2+}$]$_\mathrm{DTS}$  (µM)', fontsize=10)
 	ax_soce.set_ylabel('SOCE flux  (nM/s)', fontsize=10)
 	ax_soce.set_xlabel('Simulation time  (s)', fontsize=10)
 

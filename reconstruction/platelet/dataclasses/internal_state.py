@@ -95,7 +95,7 @@ _MOLECULES = [
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)
-	('STIM1_dim[dts]',    1.285e-4,    22,            'protein'),     # dimer (monomer-equiv count; 11 dimers)
+	('STIM1_dim[dts]',    2.570e-4,    11,            'protein'),     # 11 STIM1 dimer particles (Dolan Table S1)
 	# ── Orai1 (CRAC channel pore-forming subunit) ──
 	('ORAI1[pl]',         5.108e-5,    1_447,         'protein'),     # 30,768 Da; tetramerises to form ~360 channels
 ]

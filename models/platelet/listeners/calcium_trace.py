@@ -10,7 +10,7 @@ Columns written:
   ca_dts_uM         — DTS stored Ca²⁺ (µM)
   ip3_nM            — IP₃ concentration (nM)
   soce_flux_nMs     — instantaneous SOCE influx rate into cytosol (nM/s)
-  stim1_dim         — STIM1 dimer count (monomer-equivalent units)
+  stim1_dim         — STIM1 dimer particle count (Dolan Table S1 convention)
   cam_free          — free calmodulin count
   ca2_cam           — Ca₂·CaM count (N-lobe loaded)
   ca4_cam           — Ca₄·CaM count (fully loaded; activates PMCA)
@@ -37,7 +37,6 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
 	RT_OVER_zF_V,
-	STIM_MONOMERS_PER_DIMER,
 	V_PM_V,
 )
 # CA_EX_UM is read via cs_mod.CA_EX_UM rather than imported by value,
@@ -139,7 +138,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		else:
 			hill = 0.0
 		qp = PUNCTA['alpha'] * hill + PUNCTA['baseline']
-		stim2_p = qp * (stim1_dim / STIM_MONOMERS_PER_DIMER)
+		# stim1_dim is dimer particle count; MWC takes dimers directly.
+		stim2_p = qp * stim1_dim
 		n_orai_channels = orai / ORAI_SUBUNITS_PER_CHANNEL
 		po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
 		# SOCE current — physically zero when there is no extracellular Ca²⁺
