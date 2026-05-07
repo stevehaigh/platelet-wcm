@@ -523,15 +523,18 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 		po_channel = 0.0
 
 	# IP3R Ca²⁺ flux via the Nernst form (Purvis eq. 13 / Dolan eq. 4).
-	# I = γ_IP3R · N_channels · Po · (ψ_IM − E_Ca,IM); we want ions/s into
+	# I = γ_IP3R · N_channels · Po⁴ · (ψ_IM − E_Ca,IM); we want ions/s into
 	# the cytosol (positive when ψ_IM is more inside-negative than E_Ca).
-	# Number of IP3R *channels* = ip3r_total / 4 (subunits sum to channels×4
-	# in Sneyd & Dufour); total subunit count is what Dolan Table S1 uses,
-	# treated here as "N_channels" since each Sneyd subunit count tracks one
-	# tetramer's worth of state — Po⁴ already accounts for the cooperativity.
-	# Total IP3R channel count, in monomer-equivalent units used by the
-	# Dolan IC (sum of the 6 subunit-state counts).
-	n_ip3r_channels = ip3r_total
+	#
+	# Sneyd-Dufour 2002 describes a per-*subunit* 6-state ladder; the
+	# tetrameric channel has 4 such subunits and Po⁴ encodes the cooperative
+	# gating constraint (all 4 subunits must be in conducting states).
+	# Therefore the multiplier is N_channels = ip3r_subunit_total / 4, NOT
+	# ip3r_subunit_total. Earlier code used ip3r_total directly with a
+	# rationale that "Po⁴ already accounts for cooperativity"; that's a
+	# double-count and gave a 4× overstated basal leak (~110 k → ~28 k
+	# ions/s at Dolan IC; 2026-05-07 lab book "DTS drain investigation").
+	n_ip3r_channels = ip3r_total / 4.0
 	# IP3R Ca²⁺ flux via the Nernst form. When DTS is empty there is no Ca²⁺
 	# to release; setting flux=0 prevents a phantom influx that arises when
 	# e_ca_im defaults to 0 (giving a -60 mV driving force from an empty store).
