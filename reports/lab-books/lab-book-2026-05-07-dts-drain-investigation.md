@@ -452,7 +452,7 @@ SERCA / IP3R fluxes (buffer is internal redistribution).
 
 ### Stretch goal — richer multi-buffer model
 
-Filed as a v0.3 tracked issue (`#XX`, see commit message):
+Filed as **#25** (v0.3 stretch):
 
 > The other ER-luminal Ca²⁺ binders (HSPA5, HSP90B1, CALU, RCN1/2)
 > are real and abundant in the platelet proteome. A multi-buffer
@@ -538,11 +538,11 @@ documentation of the design and this finding. Two paths to consider:
 
 - **Path α** (recommended): pursue candidate 4 — audit the
   Sneyd-Dufour Po formula and l₆ gating against the originals;
-  potentially audit the CaM-PMCA k₁₁ dynamics for the stability
-  question raised here. Once IP3R basal Po⁴ is in the
-  Dolan-implied 1.65×10⁻⁵ range and the CaM-PMCA loop is verified
-  not to runaway, *then* add the buffer back as a clean structural
-  improvement on top of a stable substrate.
+  audit the CaM-PMCA k₁₁ dynamics for the stability question
+  raised here (now filed as **#26**). Once IP3R basal Po⁴ is in
+  the Dolan-implied 1.65×10⁻⁵ range and the CaM-PMCA loop is
+  verified not to runaway, *then* add the buffer back as a clean
+  structural improvement on top of a stable substrate.
 - **Path β**: keep the buffer code change uncommitted in the
   working tree but pause to think — possibly cap CALR sites
   per-molecule (use 5 instead of 25 to reduce capacity 5×) as a
