@@ -320,15 +320,36 @@ the 2:1 Ca²⁺:ATP stoichiometry of SERCA3b).
 |------------|------------|
 | n + Ca²⁺ → i1 (inhibition) | k₁ = 0.64 µM⁻¹·s⁻¹, L₁ = 0.12 µM, **L₃ = 0.025 µM**, l₂ = 1.7 s⁻¹, k₋₁ = 0.04 s⁻¹, l₋₂ = 0.8 s⁻¹ |
 | n + IP3 → o (opening) | k₂ = 37.4 µM⁻¹·s⁻¹, l₄ = 1.7 µM⁻¹·s⁻¹, k₋₂ = 1.4 s⁻¹, l₋₄ = 2.5 µM⁻¹·s⁻¹, L₅ = 54.7 µM |
-| o + Ca²⁺ → a (activation) | k₄ = 4 µM⁻¹·s⁻¹, L₅ = 54.7 µM, l₆ = 4707 s⁻¹, L₁ = 0.12 µM, k₋₄ = 0.54 µM⁻¹·s⁻¹, l₋₆ = 11.4 s⁻¹ |
+| o + Ca²⁺ → a (activation) | k₄ = 4 µM⁻¹·s⁻¹, L₅ = 54.7 µM, l₆ = 4707 s⁻¹, L₁ = 0.12 µM, k₋₄ = 0.54 s⁻¹, l₋₆ = 11.4 s⁻¹ |
 | a + Ca²⁺ → i2 (inhibition) | Same as n → i1 |
-| o → s (shutting) | k₃ = 11 s⁻¹, L₅ = 54.7 µM, k₋₃ = 29.8 s⁻¹ |
+| o → s (shutting) | **k₃ = 0.11 s⁻¹** (Sneyd-Dufour 2002 Fig 4 + body text), L₅ = 54.7 µM, k₋₃ = 29.8 s⁻¹ |
 | Channel open probability | Po = (0.9·IP3Ra/IP3Rtotal + 0.1·IP3Ro/IP3Rtotal)⁴ |
 
-**Verified ✓ (Zotero, Purvis 2008 itemKey Z5W8RMLQ, 2026-04-23)** — rate constants
-match Purvis Table 1 / Sneyd & Dufour 2002. Earlier revisions of this table omitted
-**L₃ = 0.025 µM** from the n→i1 row; this is a real Sneyd/Purvis equilibrium
-constant for the inhibitory site and is required by the rate-law expression.
+**Verified ✓ (Sneyd & Dufour 2002 PDF audit, 2026-05-08)** — all rate
+constants match the original Sneyd & Dufour 2002 *PNAS* 99:2398–2403
+Fig 4 caption, with two corrections to the previous Purvis-2008-derived
+revision of this table:
+
+1. **k₃ corrected: 11 → 0.11 s⁻¹** (factor 100×). Sneyd-Dufour 2002
+   Fig 4 caption gives `k₃ = 0.11 s⁻¹·µM⁻¹` (the µM⁻¹ in the unit is
+   a typo — the φ₃ formula `k₃·L₅/(L₅+c)` is dimensionally consistent
+   only when k₃ is s⁻¹; their body text confirms "φ₃ ≈ 0.1 s⁻¹"). The
+   Purvis 2008 Table 1 figure of "11 s⁻¹" appears to be a 100×
+   transcription error from the primary source. This affects the
+   o → s "shutting" rate of the Sneyd-Dufour ladder; correcting it
+   collapses the s state population from ~3.8% to ~0.04% at the
+   IP3 = 50 nM, ca_cyt = 100 nM resting equilibrium, matching Dolan
+   Table S1's reported `s ≈ 0`.
+
+2. **k₋₄ unit corrected: µM⁻¹·s⁻¹ → s⁻¹**. Sneyd-Dufour Fig 4 caption
+   gives `k₋₄ = 0.54 s⁻¹` and the φ₋₄ formula `L₁(k₋₄+l₋₆)/(L₁+c)`
+   requires k₋₄ in s⁻¹ for dimensional consistency. The previous
+   `µM⁻¹·s⁻¹` annotation was a documentation typo; the value (0.54)
+   was always right.
+
+Earlier (2026-04-23) revisions of this table also omitted **L₃ = 0.025 µM**
+from the n→i1 row; this is a real Sneyd/Purvis equilibrium constant for the
+inhibitory site and is required by the rate-law expression.
 Add it back when implementing the rate laws (issue #25).
 
 ### Ca²⁺ release through IP3R

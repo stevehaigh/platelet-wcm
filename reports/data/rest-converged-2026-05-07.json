@@ -1,30 +1,30 @@
 {
   "integration_length_s": 6000.0,
-  "max_drift_count_per_s": 2.1600499167107046e-12,
+  "max_drift_count_per_s": 4.656613983300417e-10,
   "converged_concentrations": {
-    "ca_cyt_nM": 2169.1474306254213,
-    "ca_dts_uM": 1.283617884767092,
+    "ca_cyt_nM": 2240.2334500112665,
+    "ca_dts_uM": 0.0671780953793488,
     "ip3_nM": 50.094099413262484
   },
   "totals": {
     "IP3R": 1327.9999999999998,
-    "SERCA": 11892.000000000015,
-    "PMCA": 768.999999999864,
-    "CaM": 20480.999999999858,
-    "STIM1": 4264.999999999997
+    "SERCA": 11891.999999999995,
+    "PMCA": 769.0000000042476,
+    "CaM": 20481.000000004224,
+    "STIM1": 4264.999999999996
   },
   "species": [
     {
       "species": "CA2_CYT[c]",
       "initial_count": 361,
-      "converged_count": 7838,
-      "d_count_per_s_at_converged": 2.1600499167107046e-12
+      "converged_count": 8094,
+      "d_count_per_s_at_converged": 4.547473508864641e-13
     },
     {
       "species": "CA2_DTS[dts]",
       "initial_count": 38842,
-      "converged_count": 199,
-      "d_count_per_s_at_converged": 3.552713678800501e-15
+      "converged_count": 10,
+      "d_count_per_s_at_converged": -4.656613983300417e-10
     },
     {
       "species": "IP3[c]",
@@ -35,103 +35,103 @@
     {
       "species": "IP3R_n[dts]",
       "initial_count": 809,
-      "converged_count": 99,
+      "converged_count": 96,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "IP3R_o[dts]",
       "initial_count": 261,
       "converged_count": 1,
-      "d_count_per_s_at_converged": 3.019806626980426e-14
+      "d_count_per_s_at_converged": 2.7755575615628914e-17
     },
     {
       "species": "IP3R_a[dts]",
       "initial_count": 65,
-      "converged_count": 397,
-      "d_count_per_s_at_converged": -2.842170943040401e-14
+      "converged_count": 398,
+      "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "IP3R_i1[dts]",
       "initial_count": 167,
-      "converged_count": 36,
+      "converged_count": 35,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "IP3R_i2[dts]",
       "initial_count": 25,
-      "converged_count": 795,
+      "converged_count": 798,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "IP3R_s[dts]",
       "initial_count": 1,
       "converged_count": 0,
-      "d_count_per_s_at_converged": -1.7763568394002505e-15
+      "d_count_per_s_at_converged": -2.7755575615628914e-17
     },
     {
       "species": "SERCA_E1[dts]",
       "initial_count": 2963,
-      "converged_count": 309,
-      "d_count_per_s_at_converged": 0.0
+      "converged_count": 291,
+      "d_count_per_s_at_converged": -2.3283064365386963e-10
     },
     {
       "species": "SERCA_E2[dts]",
       "initial_count": 5927,
-      "converged_count": 2699,
+      "converged_count": 2689,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "SERCA_E1Ca[dts]",
       "initial_count": 2963,
-      "converged_count": 2067,
-      "d_count_per_s_at_converged": 0.0
+      "converged_count": 2073,
+      "d_count_per_s_at_converged": 2.3283064365386963e-10
     },
     {
       "species": "SERCA_E1PCa[dts]",
       "initial_count": 7,
-      "converged_count": 2510,
+      "converged_count": 2518,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "SERCA_E2PCa[dts]",
       "initial_count": 4,
-      "converged_count": 1434,
+      "converged_count": 1439,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "SERCA_E2P[dts]",
       "initial_count": 28,
-      "converged_count": 2873,
+      "converged_count": 2883,
       "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "PMCA[pl]",
       "initial_count": 765,
       "converged_count": 22,
-      "d_count_per_s_at_converged": -7.105427357601002e-15
+      "d_count_per_s_at_converged": -4.263256414560601e-14
     },
     {
       "species": "PMCA_Ca[pl]",
       "initial_count": 4,
       "converged_count": 9,
-      "d_count_per_s_at_converged": 7.105427357601002e-15
+      "d_count_per_s_at_converged": 4.263256414560601e-14
     },
     {
       "species": "STIM1_free[dts]",
       "initial_count": 438,
-      "converged_count": 3057,
-      "d_count_per_s_at_converged": 3.552713678800501e-15
+      "converged_count": 3133,
+      "d_count_per_s_at_converged": -1.1102230246251565e-16
     },
     {
       "species": "STIM1_Ca[dts]",
       "initial_count": 3805,
-      "converged_count": 136,
-      "d_count_per_s_at_converged": -3.552713678800501e-15
+      "converged_count": 7,
+      "d_count_per_s_at_converged": 1.1102230246251565e-16
     },
     {
       "species": "STIM1_dim[dts]",
       "initial_count": 11,
-      "converged_count": 536,
+      "converged_count": 562,
       "d_count_per_s_at_converged": 0.0
     },
     {
@@ -143,26 +143,26 @@
     {
       "species": "CaM_free[c]",
       "initial_count": 20062,
-      "converged_count": 10,
+      "converged_count": 9,
       "d_count_per_s_at_converged": -1.4210854715202004e-14
     },
     {
       "species": "Ca2_CaM[c]",
       "initial_count": 200,
-      "converged_count": 38,
-      "d_count_per_s_at_converged": 1.0373923942097463e-12
+      "converged_count": 36,
+      "d_count_per_s_at_converged": 2.984279490192421e-13
     },
     {
       "species": "Ca4_CaM[c]",
       "initial_count": 219,
-      "converged_count": 19694,
-      "d_count_per_s_at_converged": -1.0231815394945443e-12
+      "converged_count": 19698,
+      "d_count_per_s_at_converged": -2.8421709430404007e-13
     },
     {
       "species": "Ca4_CaM_PMCA[pl]",
       "initial_count": 0,
       "converged_count": 4,
-      "d_count_per_s_at_converged": -6.039613253960852e-14
+      "d_count_per_s_at_converged": -5.684341886080802e-14
     },
     {
       "species": "Ca4_CaM_PMCA_Ca[pl]",
@@ -173,8 +173,8 @@
     {
       "species": "PMCA_CaM[pl]",
       "initial_count": 0,
-      "converged_count": 725,
-      "d_count_per_s_at_converged": 3.552713678800501e-15
+      "converged_count": 724,
+      "d_count_per_s_at_converged": 0.0
     }
   ]
 }

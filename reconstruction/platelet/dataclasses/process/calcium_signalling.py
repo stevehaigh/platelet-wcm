@@ -128,10 +128,14 @@ K_IP3R = {
 	'k_m1':  0.04,    #                  reverse    (s⁻¹)
 	'k2':   37.4,     # n+IP3 ↔ o forward           (µM⁻¹·s⁻¹)
 	'k_m2':  1.4,     #              reverse        (s⁻¹)
-	'k3':   11.0,     # o ↔ s   forward             (µM⁻¹·s⁻¹)
+	# k3 was 11.0 in Purvis 2008 Table 1; the Sneyd-Dufour 2002 primary
+	# source (Fig 4 caption + body text confirming "φ₃ ≈ 0.1 s⁻¹" at
+	# resting [Ca²⁺]) has 0.11 s⁻¹. Purvis appears to have transcribed
+	# 100× too large; Sneyd-Dufour 2002 audit 2026-05-08 corrected.
+	'k3':    0.11,    # o ↔ s   forward             (s⁻¹)
 	'k_m3': 29.8,     #          reverse            (s⁻¹)
 	'k4':    4.0,     # o+Ca ↔ a forward            (µM⁻¹·s⁻¹)
-	'k_m4':  0.54,    #            reverse          (µM⁻¹·s⁻¹)
+	'k_m4':  0.54,    #            reverse          (s⁻¹)  — Sneyd-Dufour Fig 4
 	'l2':    1.7,     # appears inside the n→i1 / a→i2 φ-function (s⁻¹)
 	'l_m2':  0.8,     # appears in the reverse  (s⁻¹)
 	'l4':    1.7,     # n→o φ-function           (µM⁻¹·s⁻¹)
