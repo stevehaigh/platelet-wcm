@@ -45,6 +45,22 @@ REPORTS_PDF := $(patsubst reports/%.md,reports/pdf/%.pdf,$(REPORTS_MD))
 pdfs: $(REPORTS_PDF)
 	@echo "Built $(words $(REPORTS_PDF)) PDF(s) into reports/pdf/"
 
+# External-audience reports: no ToC, title comes from the document's YAML
+# frontmatter rather than the filename. Listed before the generic rule so
+# Make picks the more specific pattern for `reports/external/*.md`.
+reports/pdf/external/%.pdf: reports/external/%.md reports/pandoc-header.tex
+	@mkdir -p $(dir $@)
+	pandoc "$<" -o "$@" \
+		--pdf-engine=xelatex \
+		--variable=geometry:margin=2.5cm \
+		--variable=fontsize:11pt \
+		--variable=mainfont:"STIX Two Text" \
+		--variable=monofont:"Menlo" \
+		--variable=colorlinks:true \
+		--variable=linkcolor:blue \
+		--variable=urlcolor:blue \
+		-H reports/pandoc-header.tex
+
 reports/pdf/%.pdf: reports/%.md reports/pandoc-header.tex
 	@mkdir -p $(dir $@)
 	pandoc "$<" -o "$@" \
