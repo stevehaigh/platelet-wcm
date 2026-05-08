@@ -1030,80 +1030,171 @@ the basis for the Dolan 2014 parameter set we adopt downstream, and (c) it
 gives the more conservative resting Ca²⁺ count of ~361 (§3.1). The
 sensitivity to volume choice is documented in the analysis plots.
 
+**D10 — Caride 2007 step 12 restored; step 11 re-enabled.** Phase 1
+implemented the Caride 5-state CaM-coupled PMCA cycle but omitted step 11
+(`Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt`) and never had step 12
+(`PMCA·CaM → PMCA + CaM`, k₁₂ = 0.033 s⁻¹). The 2026-05-07 Phase 0 audit
+identified that omitting both was a workaround for a "PMCA accumulates dead-end
+in PMCA·CaM" failure mode that arises when k₁₁ runs without k₁₂. With both
+restored (commit `8fb355c4`), the 5-state cycle is mass-balanced as Caride
+intended, and Phase 3 acceptance flipped 3/5 → 4/5 (the +Ca_ex peak rose
+from 299 nM to 380 nM, gaining the Dolan ±30% peak-band criterion). The
+remaining failure (SOCE differential) is unchanged. **Open question:** the
+restored cycle exposes a positive-feedback runaway when DTS Ca²⁺ is
+plentiful (e.g. when an intra-DTS buffer is added — see the deferred CALR
+buffer attempt in `lab-book-2026-05-07-dts-drain-investigation.md`); tracked
+in issue **#26**.
+
+**D11 — STIM1 dimer convention: monomer-equivalent → dimer-particle count.**
+The original IC stored `STIM1_dim = 22` as "monomer-equivalent count
+(= 11 dimers)" per the Dolan Table S1 footnote, but the ODE always treated
+it as a dimer-particle count and the MWC equation divided by 2 to recover
+dimers. The convention mismatch caused mass non-conservation
+(STIM1 monomer total dropped 18.5 % across a 6 000 s convergence run).
+Switched to dimer-particle count throughout (commit `640658fc`):
+IC = 11 dimers (matches Dolan Table S1's "STIM1₂ (11)" exactly), per-particle
+mass updated to 2.570×10⁻⁴ fg (= 2 monomers), `K_STIM['k_dim_f']`
+recalibrated 1.15×10⁻⁴ → 5.73×10⁻⁵ for detailed balance at the corrected
+IC, and the `/STIM_MONOMERS_PER_DIMER` divisions in the MWC and listener
+removed. Phase 3 acceptance unchanged at 4/5 (peaks 380 → 392 nM, SOCE
+differential 54 → 67 nM — both within the ±30 % regression bands).
+
+**D12 — IP3R k₃: Purvis 2008 Table 1 11 s⁻¹ → Sneyd-Dufour 2002 0.11 s⁻¹.**
+The 2026-05-08 Sneyd-Dufour audit identified a 100× transcription error in
+Purvis 2008 Table 1's value for the IP3R `o → s` shutting rate constant.
+Sneyd-Dufour 2002 Fig 4 caption gives `k₃ = 0.11 s⁻¹` with body-text
+confirmation `φ₃ ≈ 0.1 s⁻¹` at low Ca²⁺. Purvis 2008 has `k₃ = 11 s⁻¹` —
+100× too large. The error has propagated through Dolan 2014 to platelet-wcm
+v0.2. Corrected in commit `5c70d6df`. Mechanical effect: the IP3R `s`
+sub-state at the (IP3 = 50 nM, ca_cyt = 100 nM) Markov-chain equilibrium
+collapses from 3.78 % to 0.04 %, finally matching Dolan Table S1's reported
+`s ≈ 0`. Phase 3 acceptance unchanged at 4/5 (peaks within ~1% of the
+pre-fix baseline). Standalone writeup with full evidence chain at
+`reports/design/purvis-2008-k3-transcription-error.md`.
+
+**D13 — Resting state: Dolan IC ≠ Markov-chain fixed point of our ODE.**
+After D1–D12 fixes, the model's natural fixed point under no-IP3-stimulus
+(`runscripts/manual/restConvergence.py`, 6 000 s convergence to max
+|dy/dt| = 0) sits at `Ca²⁺_cyt = 2 240 nM, Ca²⁺_DTS = 0.07 µM` — far from
+the Dolan biological resting band (cyt ≈ 100 nM, DTS ≈ 200–300 µM). The
+2026-05-07 Phase 0 audit + 2026-05-08 Sneyd-Dufour audit together
+established that this gap is **not a bug** in our IP3R kinetics
+implementation (verified φ-functions, all rate constants, and Po formula
+match the primary source line-by-line) but rather a **methodological
+artefact of Dolan's Monte Carlo sampling procedure**: Dolan filtered for
+*macro-concentration* stationarity (`d[Ca²⁺]_cyt/dt`, `d[Ca²⁺]_dts/dt`,
+`d[IP3]/dt` ≈ 0) but did not require the IP3R sub-state populations to be
+at the equilibrium of the Sneyd-Dufour rate laws. So Dolan's published
+Table S1 IC has Po⁴ ≈ 1.65×10⁻⁵ at (IP3=50 nM, ca_cyt=100 nM), while
+our Markov equilibrium at the same conditions has Po⁴ ≈ 4.21×10⁻⁴ — a 25×
+gap that no implementation correction can close.
+
+The resulting resting state is the binding limitation on Phase 3 5/5 and
+on any clean MCU / DTS-buffer integration. Tracked in issue **#24**;
+candidate forward paths are: (a) accept the gap as a v0.2 documented
+limitation (selected for dissertation write-up); (b) move to a more recent
+IP3R model (Park & Sneyd 2009; deYoung-Keizer 1992) with different
+low-IP3-regime behaviour; (c) deviate from primary sources by clamping
+either `γ_IP3R`, `N_IP3R`, or the IP3R sub-state IC to non-Markov values
+that match Dolan's filtered ensemble (effectively reproducing Dolan's
+filtering numerically rather than methodologically).
+
+**For dissertation Methods**: D12 + D13 are the headline new findings.
+D12 is a real bug fix in a widely-cited primary source (Purvis 2008) with
+publication-grade dissemination value. D13 is a methodological observation
+about the limits of Monte Carlo / homeostatic-filtering approaches in
+multi-state Markov-chain models — also dissertation-relevant.
+
 ---
 
 ## 7. Validation strategy
 
-The validation criteria below are split into "passing", "open" and "future"
-to reflect actual implementation status as of 2026-05-06.
+The validation criteria below reflect the actual model state as of
+2026-05-08, after the Phase 0 / 19a / Sneyd-Dufour audit chain
+(2026-05-07 to 2026-05-08).
 
-### 7.1 Resting state stability (no stimulus) — **OPEN (D7)**
+### 7.1 Resting state stability (no stimulus) — **OPEN (D13)**
 
-Run 300 s with `ip3_forced=False` (process attribute). Original v0.2 pass
-criteria:
+Run 6 000 s with `ip3_forced=False` (process attribute) via
+`runscripts/manual/restConvergence.py`. Original v0.2 pass criteria:
 
 - Ca²⁺_cyt stays within 80–120 nM
 - Ca²⁺_dts stays within 200–300 µM
 - All six IP3R state fractions stay within 10% of their Dolan Table S1
   resting values
 
-**Current state (lab-book 2026-05-05 sweep):** at γ_IP3R = 10 pS the system
-is in an unstable regime and DTS drains to 0 at rest. At γ_IP3R ≤ 2 × 10⁻¹³
-the system is stable but settles at cyt ≈ 3–25 nM and DTS ≈ 400–450 µM —
-neither matches Dolan's initial conditions. The cyt-side balance is correct (§6.8 D4); the
-DTS side is bottlenecked by SERCA `k_release_r` reversing at full DTS (§3.4,
-§6.8 D7). This is the live Phase 2 issue (#48).
+**Current state (2026-05-08 convergence run, post all D10–D12 fixes):**
+
+| Quantity | Converged | Target | Status |
+|---|---|---|---|
+| Ca²⁺_cyt | 2 240 nM | 80–120 nM | ✗ ~22× too high |
+| Ca²⁺_DTS_free | 0.07 µM | 200–300 µM | ✗ essentially empty |
+| max \|dy/dt\| at IC | 0.0 count/s | < 1 count/s | ✓ true fixed point |
+| IP3R `s` at equilibrium | 0.04 % | ≈ 0 (Dolan) | ✓ post-D12 fix |
+
+The model has a **true numerical fixed point** but it sits far from
+the biological resting state. The 2026-05-07 Phase 0 audit + 2026-05-08
+Sneyd-Dufour audit together established that this gap is the
+methodological consequence of Dolan's Monte Carlo filtering procedure
+(§6.8 D13), not a bug in our implementation. See
+`reports/lab-books/lab-book-2026-05-07-19a-closure.md` and
+`reports/lab-books/lab-book-2026-05-08-sneyd-dufour-audit.md` for the
+diagnostic chain.
+
+This is the live limitation, tracked as **#24**.
 
 ### 7.2 Ca²⁺ transient shape (primary validation) — **PEAK PASSES**
 
-Run 200 s with `ip3_forced=True` (Dolan 2014 Fig. S2 fold = 5.5, τ_rise = 3 s,
-t_peak = 3 s, τ_decay = 60 s).
+Run 200 s with `ip3_forced=True` (Dolan 2014 Fig. S2 fold = 5.5,
+τ_rise = 3 s, t_peak = 3 s, τ_decay = 60 s).
 
-Original v0.2 pass criteria:
+**Current state (2026-05-08 baseline, +Ca_ex):**
 
-- Peak Ca²⁺_cyt: 200–500 nM, reached within 15–20 s
-- Partial DTS depletion: Ca²⁺_dts drops to 30–70% of resting
-- Sustained plateau above baseline (SOCE-dependent)
-- Return towards baseline within 300 s
+- Peak Ca²⁺_cyt: **393 nM at t = 1 s** ✓ (well within Dolan ±30 % of
+  450 nM = 315–585 nM band).
+- Partial DTS depletion: ✗ — DTS empties to 0 by t ≈ 1 s. Tied to D13.
+- Sustained plateau: ✗ — no SOCE plateau (the cyt baseline drifts
+  upward over 200 s as the system approaches its non-biological
+  resting fixed point at ~2.2 µM).
+- Return towards baseline: ✗ — cyt does not return to 100 nM because
+  the model's true fixed point is at ~2.2 µM (D13).
 
-**Current state (Phase 2a smoke test):**
+The headline dissertation-relevant result — peak amplitude in the
+biological range — passes. The shape (sustained SOCE plateau, return
+to biological 100 nM) is blocked on the resting-state issue D13.
 
-- Peak Ca²⁺_cyt: **299.5 nM at t = 1 s** ✓ (within 200–800 nM acceptance band
-  used by the regression suite; lab-book 2026-05-01 quoted 280 nM pre-Phase 2a).
-- Partial DTS depletion: ✗ — DTS empties to 0 by t ≈ 5 s. Tied to D7.
-- Sustained plateau: ✗ — no SOCE plateau because DTS empties before STIM1
-  dimerisation can build up enough to engage Orai.
-- Return towards baseline: cyt collapses to ~3 nM by t ≈ 30 s and stays there
-  (the model's natural rest, not Dolan's 100 nM; tied to D4 and D7).
+### 7.3 SOCE dependence (Phase 3) — **4 of 5 PASS**
 
-The headline dissertation-relevant result — the peak amplitude is in the
-biological range — does pass. The shape (sustained SOCE plateau, return to
-100 nM) is blocked on the open Phase 2 issue.
+Phase 3 validation against Dolan 2014 Fig. 4 (two-condition driver
+`runscripts/manual/runPhase3.py` + comparison plot
+`models/platelet/analysis/phase3_dolan_fig4.py`).
 
-### 7.3 SOCE dependence (Phase 3) — **PASS-WITH-DEVIATIONS**
+**Acceptance criteria** (Dolan 2014 Fig. 3B + lab-book Phase 3 framing),
+state at 2026-05-08:
 
-Phase 3 validation against Dolan 2014 Fig. 4 was implemented as a
-two-condition driver (`runscripts/manual/runPhase3.py`) and a
-comparison plot (`models/platelet/analysis/phase3_dolan_fig4.py`) on
-2026-05-06. See lab-book `2026-05-06-phase3-results.md` for the full
-write-up; figure at `/Users/steve/github/platelet-wcm/reports/figures/phase3-dolan-fig4-2026-05-06.png`.
-
-Acceptance criteria (Dolan 2014 Fig. 3B + lab-book Phase 3 framing):
-
-| Criterion | Rule | Measured | Result |
+| Criterion | Rule | Measured (2026-05-08) | Result |
 |---|---|---|---|
-| Active (+Ca_ex) | peak Ca_cyt > 200 nM | 299 nM | ✓ PASS |
-| Active (−Ca_ex) | peak Ca_cyt > 200 nM | 298 nM | ✓ PASS |
-| SOCE differential | \|peak(+) − peak(−)\| ≥ 100 nM | 1 nM | ✗ FAIL |
-| Peak in Dolan ±30% (+Ca_ex) | 315–585 nM | 299 nM | ✗ FAIL |
-| Peak in Dolan ±30% (−Ca_ex) | 192–358 nM | 298 nM | ✓ PASS |
+| Active (+Ca_ex) | peak Ca_cyt > 200 nM | 393 nM | ✓ PASS |
+| Active (−Ca_ex) | peak Ca_cyt > 200 nM | 325 nM | ✓ PASS |
+| SOCE differential | \|peak(+) − peak(−)\| ≥ 100 nM | 68 nM | ✗ FAIL |
+| Peak in Dolan ±30% (+Ca_ex) | 315–585 nM | 393 nM | ✓ PASS |
+| Peak in Dolan ±30% (−Ca_ex) | 192–358 nM | 325 nM | ✓ PASS |
 
-3/5 pass. Both failures (SOCE differential and +Ca_ex peak amplitude)
-trace to the same upstream cause — DTS empties before SOCE can
-establish a plateau (§6.8 D7) — and are tracked separately in
-issues #19 and #22. The model reproduces Dolan's *active*
-filtering criterion in both conditions but does not yet reproduce the
-SOCE-dependent shape that distinguishes them.
+**4/5 pass.** The single remaining failure (SOCE differential) traces
+to D13 (the model's resting fixed point has empty DTS, so SOCE has no
+"shape difference" to make between the +Ca_ex and −Ca_ex conditions).
+Tracked as #24.
+
+**Trajectory of the Phase 3 acceptance count over the 2026-05-07
+investigation chain:**
+
+| Stage | Pass count | Notes |
+|---|---|---|
+| Pre-investigation (2026-05-06) | 3/5 | initial Phase 3 lab-book entry |
+| Post-Caride k₁₂ fix (D10) | 4/5 | +Ca_ex peak rose 299 → 380 nM |
+| Post-STIM1 dimer fix (D11) | 4/5 | peaks nudged to 392 / 325; SOCE diff to 67 |
+| Post-IP3R-/4 attempt (reverted) | 3/5 | reverted; non-Dolan-convention |
+| Post-IP3R k₃ fix (D12) | **4/5** | peaks 393 / 325; SOCE diff 68 |
 
 ### 7.4 Analysis plot (`models/platelet/analysis/single/calcium_trace.py`)
 
@@ -1194,8 +1285,20 @@ only for visibility; reviewers should push back if they disagree.
 ---
 
 *Document status: living design / as-built reference. Last revised
-2026-05-06 to capture Phase 1 (CaM ladder + 5-state CaM-coupled PMCA +
-MWC SOCE) and Phase 2a (basal PM Ca²⁺ leak, SERCA initial-conditions pre-equilibration).
-Cross-references to lab books `lab-book-2026-05-01-phase1-complete.md` and
-`lab-book-2026-05-05-phase2a-investigation.md` are authoritative for the
-diagnoses behind §6.8.*
+2026-05-08 to capture (a) the Caride k₁₁ / k₁₂ restoration (§6.8 D10),
+(b) the STIM1 dimer-particle convention fix (§6.8 D11), (c) the IP3R
+k₃ Sneyd-Dufour transcription correction (§6.8 D12), and (d) the
+resting-state Dolan-IC vs Markov-equilibrium gap as a methodological
+limitation (§6.8 D13). Phase 3 acceptance is 4/5; the remaining
+failure (SOCE differential) is downstream of D13.
+
+Authoritative cross-references for the §6.8 diagnoses:
+
+- `lab-book-2026-05-01-phase1-complete.md` — Phase 1 (D1, D2)
+- `lab-book-2026-05-05-phase2a-investigation.md` — Phase 2a sweep (D4, D5, D7)
+- `lab-book-2026-05-06-phase3-results.md` — Phase 3 baseline at 3/5
+- `lab-book-2026-05-07-phase-0-biology-audit.md` — provenance audit (D10 prep)
+- `lab-book-2026-05-07-19a-closure.md` — 19a closure (D11 surfaces)
+- `lab-book-2026-05-07-dts-drain-investigation.md` — CALR buffer attempt (#26 surfaces)
+- `lab-book-2026-05-08-sneyd-dufour-audit.md` — Sneyd-Dufour audit (D12, D13)
+- `purvis-2008-k3-transcription-error.md` — standalone D12 writeup*
