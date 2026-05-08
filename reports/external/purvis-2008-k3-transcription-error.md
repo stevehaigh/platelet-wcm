@@ -1,7 +1,7 @@
 ---
 title: "Possible Typographical Error in 2008 Paper by Purvis et al."
 date: 2026-05-08
-author: "[Author]"
+author: "Steve Haigh"
 keywords: IP3 receptor, Sneyd-Dufour, Purvis, Dolan, platelet calcium signalling, type-2 IP3R, rate constant, transcription error
 ---
 
@@ -10,13 +10,13 @@ keywords: IP3 receptor, Sneyd-Dufour, Purvis, Dolan, platelet calcium signalling
 ## Abstract
 
 The widely-cited platelet calcium-signalling model of Purvis et al.
-{2} records the IP3 receptor (type-2) closing rate constant as
-`k₃ = 11 s⁻¹` in its Table 1. The original Sneyd & Dufour {1}
-source paper that {2} cites for these kinetics gives
+(2) records the IP3 receptor (type-2) closing rate constant as
+`k₃ = 11 s⁻¹` in its Table 1. The original Sneyd & Dufour (1)
+source paper that (2) cites for these kinetics gives
 `k₃ = 0.11 s⁻¹` (Fig 4 caption, with body-text confirmation that
 `φ₃ ≈ 0.1 s⁻¹` at low cytosolic Ca²⁺). The Purvis value is 100×
 too large. The error has propagated into at least one downstream
-modelling paper {3} and into independent re-implementations of
+modelling paper (3) and into independent re-implementations of
 the same kinetic scheme. The mechanical effect on transient
 dose-response simulations is small, which is why the error has
 been able to persist; the IP3R `s` sub-state population at
@@ -25,12 +25,12 @@ from ~3.8 % (with `k₃ = 11`) to ~0.04 % (with `k₃ = 0.11`). A
 short dimensional argument fixes the value unambiguously to
 `k₃ = 0.11 s⁻¹`. This note describes the error, its propagation,
 and the dimensional reasoning that resolves it, to assist anyone
-using the Sneyd-Dufour 2002 type-2 IP3R kinetic scheme via {2}
+using the Sneyd-Dufour 2002 type-2 IP3R kinetic scheme via (2)
 or downstream papers.
 
 ## 1. The rate constant in question
 
-Sneyd & Dufour {1} introduce a 6-state Markov-chain model for
+Sneyd & Dufour (1) introduce a 6-state Markov-chain model for
 one subunit of the type-2 IP3 receptor, with states `R` (rest),
 `O` (open), `A` (activated), `S` (shut), `I₁`, `I₂`
 (inactivated). The constant `k₃` is the rate-law parameter for
@@ -67,7 +67,7 @@ formula in which `k₃` carries a `µM⁻¹` factor.
 
 ### 2.1 Cross-check: are the other `k_i` annotations also typos?
 
-Worth verifying, because in the Sneyd-Dufour {1} Fig 4 caption
+Worth verifying, because in the Sneyd-Dufour (1) Fig 4 caption
 the constants `k₁, k₂, k₃, k₄` are all annotated with the same
 `s⁻¹·µM⁻¹` units. They are not all typos; only `k₃` is.
 
@@ -90,7 +90,7 @@ checking each formula individually.
 
 ## 3. The primary source
 
-Two pieces of evidence in the original Sneyd & Dufour {1} paper
+Two pieces of evidence in the original Sneyd & Dufour (1) paper
 pin `k₃` to **0.11 s⁻¹** numerically:
 
 1. **Fig 4 caption** (the parameter listing): "k₃ = 0.11 s⁻¹·µM⁻¹"
@@ -111,29 +111,29 @@ caption when interpreted with the corrected units.
 
 ## 4. The transcription in Purvis 2008
 
-Purvis et al. {2} Table 1 (page 4072) records the IP3R rate
+Purvis et al. (2) Table 1 (page 4072) records the IP3R rate
 constants for the closing transition as
 
 > `k₃ = 11 s⁻¹    L₅ = 54.7 µM    k₋₃ = 29.8 s⁻¹`
 
-The 17 other Sneyd-Dufour rate constants in {2} Table 1 (`k₁`,
+The 17 other Sneyd-Dufour rate constants in (2) Table 1 (`k₁`,
 `k₋₁`, `k₂`, `k₋₂`, `k₄`, `k₋₄`, `l₂`, `l₋₂`, `l₄`, `l₋₄`,
-`l₆`, `l₋₆`, `L₁`, `L₃`, `L₅`) match the {1} Fig 4 values
+`l₆`, `l₋₆`, `L₁`, `L₃`, `L₅`) match the (1) Fig 4 values
 exactly. **Only `k₃` is mis-transcribed**, and only by a clean
 factor of 100×.
 
-The Purvis {2} table records the units correctly (`s⁻¹`, not
+The Purvis (2) table records the units correctly (`s⁻¹`, not
 `s⁻¹·µM⁻¹`). The error is in the value, not the unit annotation.
 
 ## 5. Could the ×100 have been intentional?
 
-It is worth considering charitably whether Purvis et al. {2}
+It is worth considering charitably whether Purvis et al. (2)
 deliberately multiplied by 100. A careful transcriber, reading
-the {1} caption's `s⁻¹·µM⁻¹` annotation literally, might have
+the (1) caption's `s⁻¹·µM⁻¹` annotation literally, might have
 multiplied by a "characteristic" Ca²⁺ concentration to convert
 into `s⁻¹` and recorded the result as their representation of
 the rate. With `[Ca²⁺] = 100 µM`,
-`0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly the Purvis {2}
+`0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly the Purvis (2)
 value.
 
 Three reasons this is unlikely to be the actual mechanism:
@@ -151,29 +151,29 @@ Three reasons this is unlikely to be the actual mechanism:
    reinterpreter would more likely choose `c ≈ 0.1–1 µM` (the
    resting / transient range), which gives `0.011–0.11 s⁻¹` — not
    `11 s⁻¹`.
-2. **The Sneyd & Dufour {1} body text is unambiguous.** The
+2. **The Sneyd & Dufour (1) body text is unambiguous.** The
    "`φ₃ ≈ 0.1 s⁻¹`, time constant ~10 s" statement on
    page 2401 directly specifies the rate. A deliberate
-   reinterpretation in {2} would have to also override that —
+   reinterpretation in (2) would have to also override that —
    i.e., the transcriber would have to read the caption value,
    multiply it by 100, *and* believe the body-text estimate was
    wrong. That is a much stronger claim than "I assumed the
    caption units."
-3. **No footnote in the {2} table flags any unit conversion.**
+3. **No footnote in the (2) table flags any unit conversion.**
    A deliberate calibration adjustment from a primary source
    would conventionally be flagged with an annotation
-   ("rate constants converted from {1} by multiplication by
-   [...]"). The {2} table carries no such annotation; the row
+   ("rate constants converted from (1) by multiplication by
+   [...]"). The (2) table carries no such annotation; the row
    is presented as a verbatim transcription. The 17 other
-   K_IP3R rate constants in {2} match {1} exactly, with no
+   K_IP3R rate constants in (2) match (1) exactly, with no
    conversion factor, and `k₋₄` is correctly transcribed
-   (0.54 s⁻¹) despite the {1} caption also labelling `k₋₄`
-   units inconsistently with the formula. So {2} was reading
+   (0.54 s⁻¹) despite the (1) caption also labelling `k₋₄`
+   units inconsistently with the formula. So (2) was reading
    values, not "fixing" units.
 
 The simplest hypothesis is therefore a digit-shift transcription
 error (`0.11 → 11`) — the kind of typo that survives proof-reading
-because the surrounding rate constants in {2} Table 1 (e.g.
+because the surrounding rate constants in (2) Table 1 (e.g.
 `l₂ = 1.7`, `l₋₆ = 11.4`, `k₋₃ = 29.8`) are all
 single-digit-to-low-double-digit values, and `k₃ = 11 s⁻¹` does
 not stand out as obviously wrong on casual inspection.
@@ -183,22 +183,22 @@ not stand out as obviously wrong on casual inspection.
 Four factors plausibly contribute to this 100× error surviving 18
 years of citation:
 
-1. **The primary {1} Fig 4 caption itself contains a
+1. **The primary (1) Fig 4 caption itself contains a
    unit-annotation typo** (`s⁻¹·µM⁻¹` instead of `s⁻¹` for `k₃`),
    making the value `0.11` look as though it might need to be
    multiplied by some characteristic [Ca²⁺] to give a rate.
-2. **The {1} body-text correction is buried** in the Results
+2. **The (1) body-text correction is buried** in the Results
    and Discussion section. The unambiguous statement
    "`φ₃ ≈ 0.1 s⁻¹`" is part of a larger paragraph comparing
    model predictions to other published rate measurements; a
    reader pulling rate constants from the figure caption can
    easily miss the qualitative confirmation that follows.
-3. **The {2} Table 1 is rotated 90° on the printed page** (a
+3. **The (2) Table 1 is rotated 90° on the printed page** (a
    landscape table — common when a reaction-rate inventory is
    too wide for the standard text column). The rate constants
    are presented in a tall narrow column in small font, oriented
    sideways relative to the surrounding body text. This raises
-   the cost of cross-checking against the {1} source: a reader
+   the cost of cross-checking against the (1) source: a reader
    wanting to verify `k₃` has to either rotate the printed
    page, rotate the screen view, or mentally re-orient — and
    then read across cramped formula cells in a small typeface.
@@ -215,7 +215,7 @@ years of citation:
    population by a few percent at typical resting cytosolic
    Ca²⁺ levels and changes the channel open probability `Po⁴`
    by less than ~20 %. None of the dose-response observables
-   plotted in {1} Figs 4–8, or in subsequent platelet-Ca²⁺
+   plotted in (1) Figs 4–8, or in subsequent platelet-Ca²⁺
    models that use the same kinetics, are sensitive enough to
    the `O → S` rate to expose the error without a deliberate
    sub-state audit.
@@ -237,7 +237,7 @@ equilibrium, evaluated at typical resting conditions
 | `s` | **3.78 %** | **0.04 %** |
 
 The `s` population collapses by approximately two orders of
-magnitude, finally matching the Dolan & Diamond {3} Table S1
+magnitude, finally matching the Dolan & Diamond (3) Table S1
 representative initial-condition value of `S ≈ 0`. Other
 sub-state populations move by less than two percentage points,
 because the ladder's overall flux balance is dominated by the
@@ -258,11 +258,11 @@ without notice.
 A reader wishing to verify the analysis above can do so without
 running any simulation:
 
-1. **Check the {1} Fig 4 caption value**: it lists
+1. **Check the (1) Fig 4 caption value**: it lists
    `k₃ = 0.11` (with the `s⁻¹·µM⁻¹` annotation discussed in §2).
-2. **Check the {1} body text** (Results and Discussion,
+2. **Check the (1) body text** (Results and Discussion,
    page 2401): "`φ₃ ≈ 0.1 s⁻¹`".
-3. **Check {2} Table 1** (page 4072, in the "IP3R closing"
+3. **Check (2) Table 1** (page 4072, in the "IP3R closing"
    row): `k₃ = 11 s⁻¹`.
 4. **Confirm the dimensional argument** in §2: the formula
    `φ₃ = k₃·L₅/(L₅+c)` is dimensionally consistent with `φ₃`
@@ -270,21 +270,21 @@ running any simulation:
 
 The Markov-chain equilibrium calculation in §7 is reproducible
 by constructing the 6-state transition rate matrix from the
-φ-functions in {1} (`φ₁, φ₂, φ₋₂, φ₃, φ₄, φ₋₄, φ₅`) plus the
+φ-functions in (1) (`φ₁, φ₂, φ₋₂, φ₃, φ₄, φ₋₄, φ₅`) plus the
 constant reverse rates (`k₋₁ + l₋₂` for `i₁ → n` and `i₂ → a`,
 and `k₋₃` for `S → O`), substituting the parameter values from
-the {1} Fig 4 caption, and solving the linear system
+the (1) Fig 4 caption, and solving the linear system
 `Q·p = 0, Σpᵢ = 1` for the stationary distribution. Standard
 linear-algebra libraries (e.g. NumPy `linalg.solve`) handle
 this in a few lines.
 
 ## 9. Implications for downstream models
 
-Anyone using the {1} type-2 IP3R kinetics by way of {2} Table 1
+Anyone using the (1) type-2 IP3R kinetics by way of (2) Table 1
 should re-check their `k₃` value against the primary source.
 Models known to be in the citation chain include at least
-{3} (which inherits the {2} Table 1 `k₃ = 11 s⁻¹`); a forward-
-citation search ("cited by {2}" filtered for IP3R kinetics
+(3) (which inherits the (2) Table 1 `k₃ = 11 s⁻¹`); a forward-
+citation search ("cited by (2)" filtered for IP3R kinetics
 implementations) would likely identify others.
 
 The fix is trivial: `k₃ = 11 s⁻¹` becomes `k₃ = 0.11 s⁻¹`, a
@@ -294,7 +294,7 @@ by ~1 % or less), so models with calibrated downstream
 parameters will not need recalibration. The qualitative impact
 is on sub-state populations at resting Ca²⁺, where the
 corrected `k₃` brings the `S` sub-state into agreement with the
-{3} Table S1 (which reports `S ≈ 0`).
+(3) Table S1 (which reports `S ≈ 0`).
 
 The methodological lesson is that a quantitative parameter widely
 re-used across two decades of platelet calcium-signalling models
@@ -305,12 +305,12 @@ error without running any simulation.
 
 ## 10. Suggested correction
 
-For models built on the {2} Table 1 or {3} Table 1 IP3R
+For models built on the (2) Table 1 or (3) Table 1 IP3R
 kinetics:
 
 ```
-- k₃ = 11 s⁻¹      (Purvis et al. {2} Table 1)
-+ k₃ = 0.11 s⁻¹    (Sneyd & Dufour {1} Fig 4 + body text;
+- k₃ = 11 s⁻¹      (Purvis et al. (2) Table 1)
++ k₃ = 0.11 s⁻¹    (Sneyd & Dufour (1) Fig 4 + body text;
                     100× correction)
 ```
 
@@ -318,18 +318,18 @@ No other rate constants are affected.
 
 ## References
 
-{1} Sneyd, J. & Dufour, J.-F. (2002). A dynamic model of the
+(1) Sneyd, J. & Dufour, J.-F. (2002). A dynamic model of the
 type-2 inositol trisphosphate receptor. *Proceedings of the
 National Academy of Sciences*, 99(4):2398–2403.
 https://doi.org/10.1073/pnas.032281999
 
-{2} Purvis, J. E., Chatterjee, M. S., Brass, L. F. & Diamond, S.
+(2) Purvis, J. E., Chatterjee, M. S., Brass, L. F. & Diamond, S.
 L. (2008). A molecular signaling model of platelet
 phosphoinositide and calcium regulation during homeostasis and
 P2Y1 activation. *Blood*, 112(10):4069–4079.
 https://doi.org/10.1182/blood-2008-05-157883
 
-{3} Dolan, A. T. & Diamond, S. L. (2014). Systems modeling of
+(3) Dolan, A. T. & Diamond, S. L. (2014). Systems modeling of
 Ca²⁺ homeostasis and mobilization in platelets mediated by IP3
 and store-operated Ca²⁺ entry. *Biophysical Journal*,
 106(9):2049–2060.
