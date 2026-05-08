@@ -8,21 +8,25 @@ keywords: IP3 receptor, Sneyd-Dufour, Purvis, Dolan, platelet calcium signalling
 # Possible Typographical Error in 2008 Paper by Purvis et al.
 
 ## Abstract
-
 The widely-cited platelet calcium-signalling model of Purvis et al.
 (2) records the IP3 receptor (type-2) closing rate constant as
-`k₃ = 11 s⁻¹` in its Table 1. The original Sneyd & Dufour (1)
-source paper that (2) cites for these kinetics gives
-`k₃ = 0.11 s⁻¹` (Fig 4 caption, with body-text confirmation that
-`φ₃ ≈ 0.1 s⁻¹` at low cytosolic Ca²⁺). The Purvis value is 100×
-too large. The error has propagated into at least one downstream
+`k₃ = 11 s⁻¹` in its Table 1.
+
+The original Sneyd & Dufour (1) source paper that (2) cites for
+these kinetics gives `k₃ = 0.11 s⁻¹` (Fig 4 caption, with body-text
+confirmation that `φ₃ ≈ 0.1 s⁻¹` at low cytosolic Ca²⁺).
+
+The Purvis value is 100× too large.
+
+The error has propagated into at least one downstream
 modelling paper (3) and into independent re-implementations of
 the same kinetic scheme. The mechanical effect on transient
 dose-response simulations is small, which is why the error has
 been able to persist; the IP3R `s` sub-state population at
 resting cytosolic Ca²⁺ is the most affected quantity, shifting
-from ~3.8 % (with `k₃ = 11`) to ~0.04 % (with `k₃ = 0.11`). A
-short dimensional argument fixes the value unambiguously to
+from ~3.8 % (with `k₃ = 11`) to ~0.04 % (with `k₃ = 0.11`).
+
+A short dimensional argument fixes the value unambiguously to
 `k₃ = 0.11 s⁻¹`. This note describes the error, its propagation,
 and the dimensional reasoning that resolves it, to assist anyone
 using the Sneyd-Dufour 2002 type-2 IP3R kinetic scheme via (2)
@@ -45,8 +49,6 @@ Sneyd-Dufour-style equilibrium-constant parameter. The reverse
 rate `k₋₃ = 29.8 s⁻¹` is a constant, not a φ-function.
 
 ## 2. Dimensional analysis: why `k₃` must have units `s⁻¹`
-
-The argument is short and forced by the structure of the rate law.
 
 The state `o` is a count (or fraction); for the ODE term
 `do/dt ⊃ −φ₃(c) · o` to give a dimensionally correct rate
@@ -114,69 +116,43 @@ caption when interpreted with the corrected units.
 Purvis et al. (2) Table 1 (page 4072) records the IP3R rate
 constants for the closing transition as
 
-> `k₃ = 11 s⁻¹    L₅ = 54.7 µM    k₋₃ = 29.8 s⁻¹`
+> `k₃ = 11 s⁻¹·µM⁻¹    L₅ = 54.7 µM    k₋₃ = 29.8 s⁻¹`
+
+i.e. with the **same `s⁻¹·µM⁻¹` unit annotation** as the
+Sneyd & Dufour (1) Fig 4 caption (carrying forward the
+documentary typo identified in §2), but with the value listed as
+**11** rather than the original **0.11**.
 
 The 17 other Sneyd-Dufour rate constants in (2) Table 1 (`k₁`,
 `k₋₁`, `k₂`, `k₋₂`, `k₄`, `k₋₄`, `l₂`, `l₋₂`, `l₄`, `l₋₄`,
 `l₆`, `l₋₆`, `L₁`, `L₃`, `L₅`) match the (1) Fig 4 values
-exactly. **Only `k₃` is mis-transcribed**, and only by a clean
-factor of 100×.
-
-The Purvis (2) table records the units correctly (`s⁻¹`, not
-`s⁻¹·µM⁻¹`). The error is in the value, not the unit annotation.
+exactly. **Only `k₃` is mis-transcribed**, and only in the
+numerical value (by a clean factor of 100×).
 
 ## 5. Could the ×100 have been intentional?
 
-It is worth considering charitably whether Purvis et al. (2)
-deliberately multiplied by 100. A careful transcriber, reading
-the (1) caption's `s⁻¹·µM⁻¹` annotation literally, might have
-multiplied by a "characteristic" Ca²⁺ concentration to convert
-into `s⁻¹` and recorded the result as their representation of
-the rate. With `[Ca²⁺] = 100 µM`,
-`0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly the Purvis (2)
+It is worth considering whether Purvis et al. (2)
+deliberately multiplied by 100. The most natural such hypothesis:
+a careful transcriber reads the (1) caption's `s⁻¹·µM⁻¹`
+annotation literally, recognises that `0.11 µM⁻¹·s⁻¹` cannot
+plausibly be a unimolecular rate constant (the `O → S`
+transition has no second molecule to bind), multiplies by a
+"characteristic" Ca²⁺ concentration to convert into `s⁻¹`, and
+records the result. With `[Ca²⁺] = 100 µM`,
+`0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly the (2) numerical
 value.
 
-Three reasons this is unlikely to be the actual mechanism:
+This hypothesis is unlikely as the resulting rate would be `s⁻¹`
+(not `s⁻¹·µM⁻¹`), and a transcriber would have updated the
+unit annotation accordingly. The fact that the units are kept
+unchanged rules out a deliberate unit-conversion mechanism.
 
-1. **`100 µM` is not a meaningful characteristic [Ca²⁺] for the
-   `O → S` transition.** Cytosolic Ca²⁺ in the contexts where
-   IP3R kinetics matter ranges over about five orders of
-   magnitude: ~10 nM at rest, ~1 µM at the peak of an IP3-evoked
-   transient, ~10 µM at saturating patch-pipette concentrations.
-   100 µM is far above any cytosolic regime; it would more
-   naturally correspond to luminal (ER / DTS) concentrations,
-   but the `O → S` transition is gated by *cytosolic* Ca²⁺ via
-   the `(L₅ + c)` denominator. Picking 100 µM here would be a
-   category error, not a deliberate calibration. A careful
-   reinterpreter would more likely choose `c ≈ 0.1–1 µM` (the
-   resting / transient range), which gives `0.011–0.11 s⁻¹` — not
-   `11 s⁻¹`.
-2. **The Sneyd & Dufour (1) body text is unambiguous.** The
-   "`φ₃ ≈ 0.1 s⁻¹`, time constant ~10 s" statement on
-   page 2401 directly specifies the rate. A deliberate
-   reinterpretation in (2) would have to also override that —
-   i.e., the transcriber would have to read the caption value,
-   multiply it by 100, *and* believe the body-text estimate was
-   wrong. That is a much stronger claim than "I assumed the
-   caption units."
-3. **No footnote in the (2) table flags any unit conversion.**
-   A deliberate calibration adjustment from a primary source
-   would conventionally be flagged with an annotation
-   ("rate constants converted from (1) by multiplication by
-   [...]"). The (2) table carries no such annotation; the row
-   is presented as a verbatim transcription. The 17 other
-   K_IP3R rate constants in (2) match (1) exactly, with no
-   conversion factor, and `k₋₄` is correctly transcribed
-   (0.54 s⁻¹) despite the (1) caption also labelling `k₋₄`
-   units inconsistently with the formula. So (2) was reading
-   values, not "fixing" units.
+A deliberate calibration adjustment from a primary source
+would conventionally be flagged with an annotation. The (2)
+table carries no such annotation.
 
 The simplest hypothesis is therefore a digit-shift transcription
-error (`0.11 → 11`) — the kind of typo that survives proof-reading
-because the surrounding rate constants in (2) Table 1 (e.g.
-`l₂ = 1.7`, `l₋₆ = 11.4`, `k₋₃ = 29.8`) are all
-single-digit-to-low-double-digit values, and `k₃ = 11 s⁻¹` does
-not stand out as obviously wrong on casual inspection.
+error (`0.11 → 11`).
 
 ## 6. Why the error has persisted
 
@@ -193,32 +169,21 @@ years of citation:
    model predictions to other published rate measurements; a
    reader pulling rate constants from the figure caption can
    easily miss the qualitative confirmation that follows.
-3. **The (2) Table 1 is rotated 90° on the printed page** (a
-   landscape table — common when a reaction-rate inventory is
-   too wide for the standard text column). The rate constants
-   are presented in a tall narrow column in small font, oriented
-   sideways relative to the surrounding body text. This raises
-   the cost of cross-checking against the (1) source: a reader
-   wanting to verify `k₃` has to either rotate the printed
-   page, rotate the screen view, or mentally re-orient — and
-   then read across cramped formula cells in a small typeface.
-   The cognitive friction makes both the original transcription
-   error more likely and subsequent catches less likely. (As a
-   methodological observation: published reference tables that
-   rely on rotated layouts trade page-compactness against
-   downstream cross-checking and reuse cost.)
-4. **The macroscopic effect of the error is small.** The IP3R
-   `O ↔ S` transition is a minor side branch of the 6-state
-   ladder; the dominant `O ↔ A` rates are 4–5 orders of magnitude
-   faster (`l₆ = 4707 s⁻¹`) and carry essentially all of the
-   gating signal. A 100× error in `k₃` shifts the `S` sub-state
-   population by a few percent at typical resting cytosolic
-   Ca²⁺ levels and changes the channel open probability `Po⁴`
-   by less than ~20 %. None of the dose-response observables
-   plotted in (1) Figs 4–8, or in subsequent platelet-Ca²⁺
-   models that use the same kinetics, are sensitive enough to
-   the `O → S` rate to expose the error without a deliberate
-   sub-state audit.
+3. **The (2) Table 1 is rotated 90° on the printed page.**
+   A reader wanting to verify `k₃` has to either rotate the
+   printed page, rotate the screen view, or bend to an awkward
+   angle, then read across cramped formula cells in a small
+   typeface. The cognitive friction makes both the original
+   transcription error more likely and subsequent catches less
+   likely.
+4. **The macroscopic effect of the error is small.**
+   A 100× error in `k₃` shifts the `S` sub-state population
+   by a few percent at typical resting cytosolic Ca²⁺ levels
+   and changes the channel open probability `Po⁴` by less than
+   ~20 %. None of the dose-response observables plotted in (1)
+   Figs 4–8, or in subsequent platelet-Ca²⁺ models that use the
+   same kinetics, are sensitive enough to the `O → S` rate to
+   expose the error without a deliberate sub-state audit.
 
 ## 7. Mechanical impact: what changes when `k₃` is corrected
 
@@ -262,21 +227,11 @@ running any simulation:
    `k₃ = 0.11` (with the `s⁻¹·µM⁻¹` annotation discussed in §2).
 2. **Check the (1) body text** (Results and Discussion,
    page 2401): "`φ₃ ≈ 0.1 s⁻¹`".
-3. **Check (2) Table 1** (page 4072, in the "IP3R closing"
+3. **Check (2) Table 1** (page 4072, in the IP3R closing
    row): `k₃ = 11 s⁻¹`.
 4. **Confirm the dimensional argument** in §2: the formula
    `φ₃ = k₃·L₅/(L₅+c)` is dimensionally consistent with `φ₃`
    in `s⁻¹` only when `k₃` has units `s⁻¹`.
-
-The Markov-chain equilibrium calculation in §7 is reproducible
-by constructing the 6-state transition rate matrix from the
-φ-functions in (1) (`φ₁, φ₂, φ₋₂, φ₃, φ₄, φ₋₄, φ₅`) plus the
-constant reverse rates (`k₋₁ + l₋₂` for `i₁ → n` and `i₂ → a`,
-and `k₋₃` for `S → O`), substituting the parameter values from
-the (1) Fig 4 caption, and solving the linear system
-`Q·p = 0, Σpᵢ = 1` for the stationary distribution. Standard
-linear-algebra libraries (e.g. NumPy `linalg.solve`) handle
-this in a few lines.
 
 ## 9. Implications for downstream models
 
@@ -286,22 +241,6 @@ Models known to be in the citation chain include at least
 (3) (which inherits the (2) Table 1 `k₃ = 11 s⁻¹`); a forward-
 citation search ("cited by (2)" filtered for IP3R kinetics
 implementations) would likely identify others.
-
-The fix is trivial: `k₃ = 11 s⁻¹` becomes `k₃ = 0.11 s⁻¹`, a
-one-line constant change. The macroscopic impact on transient
-dose-response simulations is small (peak Ca²⁺ amplitudes shift
-by ~1 % or less), so models with calibrated downstream
-parameters will not need recalibration. The qualitative impact
-is on sub-state populations at resting Ca²⁺, where the
-corrected `k₃` brings the `S` sub-state into agreement with the
-(3) Table S1 (which reports `S ≈ 0`).
-
-The methodological lesson is that a quantitative parameter widely
-re-used across two decades of platelet calcium-signalling models
-was wrong by two orders of magnitude. Routine re-audit of
-intermediate references against primary sources is worthwhile, and
-the dimensional-analysis approach in §2 can catch this class of
-error without running any simulation.
 
 ## 10. Suggested correction
 
@@ -315,6 +254,18 @@ kinetics:
 ```
 
 No other rate constants are affected.
+
+## 11. AI assistance
+An AI assistant (Anthropic Claude) was used during the broader
+platelet calcium-signalling modelling work in which this
+discrepancy was identified, including to cross-reference
+rate-constant values from primary-source PDFs against
+intermediate-source tables.
+
+The same assistant was also used to help draft this note.
+All factual claims, the dimensional analysis, and the
+bibliographic citations have been verified by the author
+against the cited primary sources.
 
 ## References
 
