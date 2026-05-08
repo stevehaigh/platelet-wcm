@@ -55,6 +55,61 @@ s⁻¹` ✓ — matches the body text exactly. With `k₃ = 11`,
 `φ₃(c → 0) = 11 s⁻¹` — 100× too fast, time-constant ~91 ms instead
 of the paper's 10 s.
 
+### Dimensional analysis (why the caption's `µM⁻¹` annotation must be the typo)
+
+The dimensional argument is worth making explicit, because the
+caption's unit annotation looks plausible at first glance.
+
+**Forward derivation — what units must `k₃` have?**
+
+In the Sneyd-Dufour ODE, the `O → S` transition contributes:
+
+    do/dt ⊃ −φ₃(c) · o
+    ds/dt ⊃ +φ₃(c) · o
+
+The state variable `o` is a fraction (or count) — dimensionless,
+or `count`. For `do/dt` to have the correct units (`fraction/s`
+or `count/s`), `φ₃` must have units of `s⁻¹`.
+
+Then, walking the formula `φ₃ = k₃·L₅ / (L₅ + c)` outward:
+
+| Quantity | Units |
+|---|---|
+| `(L₅ + c)` (denominator) | `µM` |
+| `φ₃` (required) | `s⁻¹` |
+| Therefore numerator `k₃·L₅` | `s⁻¹ · µM` |
+| `L₅` | `µM` |
+| Therefore **`k₃`** | **`s⁻¹`** |
+
+So `k₃` must be in `s⁻¹`. The Fig 4 caption's `s⁻¹·µM⁻¹`
+annotation is dimensionally inconsistent with the formula.
+
+**Cross-check — are the other `k_i` annotations also typos?**
+
+Worth verifying, because if `k₃`'s `µM⁻¹` is a typo, you might
+suspect the same of `k₁`, `k₂`, `k₄`. They aren't.
+
+| Constant | Caption units | Formula it appears in | Numerator structure | Verdict |
+|---|---|---|---|---|
+| `k₁` | s⁻¹·µM⁻¹ | `(k₁L₁ + l₂)·c / (L₁ + c(1 + L₁/L₃))` | `(s⁻¹·µM⁻¹)·µM = s⁻¹`, then `× c (µM)` = `s⁻¹·µM` | ✓ correct |
+| `k₂` | s⁻¹·µM⁻¹ | `(k₂L₃ + l₄c) / (...)` | same as k₁ | ✓ correct |
+| `k₃` | s⁻¹·µM⁻¹ | `k₃·L₅ / (L₅ + c)` | `(s⁻¹·µM⁻¹)·µM = s⁻¹`, but **no `c` factor** | ✗ wrong; needs k₃ in s⁻¹ |
+| `k₄` | s⁻¹·µM⁻¹ | `(k₄L₅ + l₆)·c / (L₅ + c)` | same as k₁ | ✓ correct |
+
+The structural difference: `φ₁`, `φ₂`, `φ₄` all have a `c`
+factor in the numerator (because they describe transitions that
+involve binding a Ca²⁺ ion or IP3 ion — the rate is proportional
+to the binding-partner concentration). `φ₃` does not have a `c`
+factor — the `O → S` transition is a unimolecular conformational
+change, no second molecule binding. So `k₃` cannot legitimately
+carry the same `s⁻¹·µM⁻¹` units as its neighbours; the caption
+appears to have copy-pasted the same unit annotation across all
+four `k_i` without checking each formula individually.
+
+This is a well-defined, single-line typo in the published Sneyd-Dufour
+2002 caption. The body text "`φ₃ ≈ 0.1 s⁻¹`" is the correct
+specification.
+
 ## The transcription
 
 Purvis J.E., Chatterjee M.S., Brass L.F., Diamond S.L. 2008.
@@ -80,6 +135,52 @@ the leading `0.` or implicitly multiplied by a characteristic
 [Ca²⁺] (×100 µM gives 11). Without an erratum from Purvis *et al.*
 or correspondence with the authors we can't be certain of the
 exact mechanism, only the magnitude (factor 100×).
+
+### Could the ×100 have been intentional?
+
+It's worth considering charitably: a careful transcriber, noticing
+the caption's `s⁻¹·µM⁻¹` annotation but reading the formula as
+written, might have multiplied by a "characteristic" `[Ca²⁺]` to
+convert into `s⁻¹` and reasoned the result was the rate they
+should record in their own Table 1. With `[Ca²⁺] = 100 µM`,
+`0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly what Purvis records.
+
+Three reasons this is unlikely to be the actual mechanism:
+
+1. **`100 µM` is not a meaningful characteristic [Ca²⁺] for the
+   o→s transition.** Cytosolic Ca²⁺ ranges over five orders of
+   magnitude (~10 nM resting, ~1 µM transient peak, ~10 µM patch-
+   pipette saturating). 100 µM is far above any cytosolic regime
+   and would only correspond to luminal (DTS / SR) concentrations
+   — but the o→s transition is gated by *cytosolic* Ca²⁺ via the
+   `(L₅ + c)` denominator. Picking 100 µM here would be a category
+   error, not a deliberate calibration. The reader would naturally
+   reach for `[Ca²⁺] ≈ 0.1–1 µM` (resting/transient cyt range);
+   that gives `0.011–0.11 s⁻¹`, not `11 s⁻¹`.
+2. **Sneyd-Dufour's body text is unambiguous.** The "`φ₃ ≈ 0.1 s⁻¹`,
+   time constant ~10 s" statement on page 2401 directly specifies
+   the φ₃ rate. A deliberate reinterpretation by Purvis would have
+   to also override that — i.e., the transcriber would have to
+   read the caption value, multiply it by 100, *and* believe the
+   body-text estimate was wrong. That's a much stronger claim
+   than just "I assumed the caption units."
+3. **No footnote or explicit annotation in Purvis Table 1.** A
+   deliberate calibration adjustment from a primary source would
+   conventionally be flagged with a "rate constants converted from
+   Sneyd-Dufour 2002 by multiplication by [...]" footnote.
+   Purvis Table 1 carries no such annotation; the row is
+   presented as a verbatim transcription. The 17 other K_IP3R rate
+   constants match Sneyd-Dufour exactly with no conversion factor,
+   and Purvis's own `k₋₄` row correctly transcribes Sneyd-Dufour's
+   value (0.54 s⁻¹) despite Sneyd-Dufour's caption labelling
+   `k₋₄` units inconsistently with the formula too — so Purvis
+   was reading values, not "fixing" units.
+
+The simplest hypothesis remains a digit-shift transcription error
+(`0.11 → 11`) — exactly the kind of typo that survives proof-reading
+because the surrounding rate constants (4, 11.4, 4707, etc.) are
+all in the same order of magnitude and `11 s⁻¹` doesn't look
+unreasonable on its face.
 
 ## The propagation
 
