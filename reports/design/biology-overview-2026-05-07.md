@@ -1,4 +1,6 @@
-# Platelet WCM — biology overview (v0.2)
+# Platelet WCM — biology overview (v0.2.6)
+
+> *Last updated: 2026-05-11 (Phase 2 buffer biology + IP3R/SERCA retune)*
 
 A single-cell, deterministic model of intracellular Ca²⁺ dynamics in a
 resting / activating human platelet. Reproduces the IP3-mediated
@@ -8,52 +10,76 @@ against Dolan & Diamond 2014 *Biophys. J.* 106:2049–2060 Fig. 4.
 ## The biological story we tell
 
 A platelet at rest holds cytosolic Ca²⁺ at ~100 nM against an
-extracellular concentration of ~1.2 mM and a cytoplasmic store
-concentration of ~250 µM, by balancing pumps and channels across two
-membranes. On stimulation (collagen, thrombin, ADP), receptors generate
-inositol-1,4,5-trisphosphate (IP3); IP3 opens IP3 receptors on the
-dense tubular system (DTS, the platelet's ER equivalent) and Ca²⁺
-floods the cytosol. Cytosolic Ca²⁺ then drives granule secretion,
-integrin activation and shape change. The transient resolves over
-seconds-to-minutes via SERCA reuptake, plasma-membrane extrusion, and
-store-operated entry refilling the DTS.
+extracellular concentration of ~1.2 mM and a cytoplasmic-store
+(dense tubular system, DTS) free concentration of ~250 µM, by balancing
+pumps and channels across two membranes. Most of the cellular Ca²⁺ is
+*bound*, not free: calmodulin and gelsolin buffer the cytosol;
+calreticulin buffers the DTS lumen. On stimulation (collagen, thrombin,
+ADP), receptors generate inositol-1,4,5-trisphosphate (IP3); IP3 opens
+IP3 receptors on the DTS and Ca²⁺ floods the cytosol, where it drives
+granule secretion, integrin activation and shape change. The transient
+resolves over seconds-to-minutes via SERCA reuptake, plasma-membrane
+extrusion (PMCA), and store-operated entry (Orai1/STIM1) refilling the
+DTS from the extracellular space.
 
-## The pathway, as wired in v0.2
+## The pathway, as wired in v0.2.6
 
 ```
                 +-- SOCE: STIM1 (DTS) -→ Orai1 (PM) — + 1.2 mM Ca_ex
                 │                                       │
+                │             +-- CALR / CALR-P (DTS luminal buffer)
+                │             │
 [IP3 spike] -→ IP3R (DTS) -→ Ca_cyt rises --------→ +-- PMCA (PM) -→ Ca_ex
                                   │                    │
-                                  +-- CaM ladder (buffer; activates PMCA)
+                                  +-- CaM ladder (buffer + activates PMCA)
+                                  │
+                                  +-- Gelsolin / GSN (cyt buffer; coarse-grained)
                                   │
                                   +-- SERCA (DTS) -→ refill DTS store
 ```
 
-Five mechanisms coupled through cytosolic Ca²⁺. ATP is consumed by
+Seven mechanisms coupled through cytosolic Ca²⁺. ATP is consumed by
 both ATPase pumps (SERCA, PMCA).
 
 ## Components, with the published kinetic model adopted for each
 
 | Mechanism | Kinetic model | Source |
 |---|---|---|
-| **IP3R** | 6-state Markov chain (n / o / a / i1 / i2 / s); Po = ((0.9·a + 0.1·o)/total)⁴ tetramer cooperativity; Nernst flux | Sneyd & Dufour 2002 (rates), Purvis & Bhatt 2008 (parameterisation), Zschauer 1988 (single-channel γ) |
-| **SERCA** | 6-state E1/E2 enzymatic cycle (E2 ⇌ E1 ⇌ E1·Ca → E1P·Ca ⇌ E2P·Ca → E2P → E2); 1 ATP / 2 Ca²⁺ | Dode 2002 (isoform 3b kinetics), Purvis 2008 (rate constants) |
+| **IP3R** | deYoung-Keizer 1992 / Li-Rinzel 1994 reduction: one slow inactivation variable `h` + quasi-steady activation `m∞(IP3, Ca)`; Po = m∞⁴ × h tetrameric cooperativity; Nernst flux with γ_IP3R = **0.175 pS** (calibrated, see dissertation-notes §3.1) | deYoung & Keizer 1992 *PNAS* 89:9895; Li & Rinzel 1994 *J Theor Biol* 166:461; Bezprozvanny 1991 / Mak & Foskett 1997 (γ range) |
+| **SERCA** | 6-state E1/E2 enzymatic cycle (E2 ⇌ E1 ⇌ E1·Ca → E1P·Ca ⇌ E2P·Ca → E2P → E2); k_bind_f = 500 µM⁻²·s⁻¹ (Purvis 2008 halved in Phase 2 retune); 1 ATP / 2 Ca²⁺ | Dode 2002 (isoform 3b kinetics), Purvis 2008 (rate constants) |
 | **PMCA** | 5-state CaM-coupled scheme: basal path (Ca²⁺ binding → extrusion, V_max = 5.5 s⁻¹) **plus** Ca₄·CaM-activated path (V_max = 30 s⁻¹, ~5.5× faster); 1 ATP / Ca²⁺ | Caride et al. 2007 Table 3 |
-| **Calmodulin** | Two-lobe Ca²⁺-binding ladder: CaM_free ⇌ Ca₂·CaM ⇌ Ca₄·CaM; ~20 481 molecules; acts as cytosolic Ca²⁺ buffer + PMCA activator | Caride et al. 2007 steps 6–7 |
+| **Calmodulin** | Two-lobe Ca²⁺-binding ladder: CaM_free ⇌ Ca₂·CaM ⇌ Ca₄·CaM; ~20 481 molecules; cytosolic Ca²⁺ buffer + PMCA activator | Caride et al. 2007 steps 6–7 |
+| **Cytosolic buffer (gelsolin proxy)** | Coarse-grained 1:1 site binding; 800 000 effective Ca²⁺ sites at Kd = 1 µM, k_off = 100 s⁻¹ (fast equilibrium). Represents gelsolin + annexins + Ca·ATP combined | Burkhart 2012 + Yin & Stossel 1979 (copy range); Sage & Rink 1985 (buffer ratio target) |
+| **CALR C-domain** | 508 100 low-affinity Ca²⁺ sites at Kd = 1 mM, k_off = 1 000 s⁻¹ (20 324 CALR × 25 sites). Fast equilibrium. The dominant DTS luminal buffer | Burkhart 2012; Vassilakos 1998; Baksh & Michalak 1991 |
+| **CALR P-domain** | 20 324 high-affinity Ca²⁺ sites at Kd = 1 µM, k_off = 1 s⁻¹ (1 site per CALR). Slow release; provides ~20 k Ca²⁺ reserve during transient DTS depletion | Vassilakos 1998 |
 | **STIM1 sensor cycle** | DTS-bound (Ca-loaded, inactive) ⇌ free monomer ⇌ dimer (active sensor); detailed-balance rate constants | Dolan 2014 + Hoover & Lewis 2011 |
-| **Orai1 / SOCE** | Monod–Wyman–Changeux allosteric model: STIM2 dimers translocate into puncta (Hill function on cytosolic Ca²⁺), bind Orai1 tetramers cooperatively; channel opening as fraction of bound STIM2 | Hoover & Lewis 2011, Dolan 2014 puncta entry (eq. 2 + eq. 4) |
-| **IP3 production** | v0.2 placeholder: pre-programmed time curve fitted to Dolan Fig. S2 (5.5× rise, τ_rise=3 s, τ_decay=60 s). v0.3 will replace with P2Y1 / Gq / PLCβ cascade. | Dolan 2014 Fig. S2 |
-| **Resting protein decay** | Exponential decay of all non-calcium-pathway proteins, t½ = 7 days. Implemented as a per-step Binomial draw on each protein count. Operates on platelet-lifespan timescales — *inert on the 200 s transient horizon* (expected loss ~0.02 % over 200 s) — retained for v0.5+ multi-day-scope work. | Burkhart et al. 2012 |
+| **Orai1 / SOCE** | Monod–Wyman–Changeux allosteric model: STIM1 dimers translocate into puncta (Hill function on cytosolic Ca²⁺), bind Orai1 tetramers cooperatively; channel opening as fraction of bound STIM1 | Hoover & Lewis 2011, Dolan 2014 eq. 2 + eq. 4 |
+| **IP3 production** | v0.2 placeholder: pre-programmed time curve fitted to Dolan Fig. S2 (5.5× rise, τ_rise = 3 s, τ_decay = 60 s). v0.3 will replace with explicit GPCR → Gαq → PLCβ → PIP2 cleavage (Mazet, Tindall, Gibbins & Fry 2020 is the canonical reference). | Dolan 2014 Fig. S2; Mazet et al. 2020 (v0.3 target) |
+| **Resting protein decay** | Exponential decay of all non-calcium-pathway proteins, t½ = 7 days. Operates on platelet-lifespan timescales — *inert on the 200 s transient horizon* — retained for v0.5+ multi-day-scope work | Burkhart et al. 2012 |
 
-## Compartments and copy numbers (Dolan 2014 Table S1, except where noted)
+## Compartments and copy numbers
 
 | Compartment | Volume | Key species & counts |
 |---|---|---|
-| Cytosol | 6 fL (Purvis 2008 direct) | 361 Ca²⁺ (100 nM), 181 IP3 (50 nM), 20 481 CaM, 10.8 M ATP |
-| DTS (cytoplasmic store) | 0.258 fL (4.3 % of cyt) | 38 842 Ca²⁺ (250 µM), 1 328 IP3R (across 6 sub-states), 11 892 SERCA (across 6 sub-states), 4 265 STIM1 (across 3 sub-states) |
+| Cytosol | 6 fL | 361 Ca²⁺ (100 nM free), 181 IP3 (50 nM), **20 481 CaM** (ladder of 3 states), **800 000 GSN sites** (727 k free / 73 k bound at rest), 10.8 M ATP |
+| DTS (cytoplasmic store) | 0.258 fL (4.3 % of cyt) | 38 842 Ca²⁺ (250 µM free), **508 100 CALR C-domain sites** (406 k free / 102 k bound), **20 324 CALR P-domain sites** (~81 free / 20 k bound), 1 328 IP3R (gated via single `h` variable), 11 892 SERCA (6 sub-states), 4 265 STIM1 (3 sub-states) |
 | Plasma membrane | (surface) | 769 PMCA (5 sub-states), 1 447 Orai1 monomers (≈ 360 tetrameric channels) |
 | Extracellular | infinite reservoir | fixed 1.2 mM Ca²⁺ |
+
+Total cellular Ca²⁺ accounting at rest (including bound):
+
+| Pool | Count | µM-equivalent |
+|---|---|---|
+| Cytosol free | 361 | 100 nM |
+| Cytosol bound (CaM ladder) | ~1 280 | ~355 nM |
+| Cytosol bound (GSN, coarse) | ~73 000 | ~20 µM |
+| DTS free | 38 842 | 250 µM |
+| DTS bound (STIM1) | ~3 800 | ~25 µM |
+| DTS bound (CALR C-domain) | ~101 600 | ~656 µM |
+| DTS bound (CALR P-domain) | ~20 200 | ~131 µM |
+
+Resting bound:free ratio: cyt ≈ 200:1; DTS ≈ 3.2:1 (free + bound;
+buffering is dominant) → ~73 % of DTS Ca²⁺ is buffer-bound at rest.
 
 ## What we can ask the model
 
@@ -62,65 +88,136 @@ on the CLI:
 
 | Condition | What it tests |
 |---|---|
-| **IP3 transient (+Ca²⁺_ex)** | Canonical activation. IP3R-driven release, SERCA reuptake, SOCE refilling. Phase 1 acceptance criterion: peak in 200–800 nM band. |
+| **IP3 transient (+Ca²⁺_ex)** | Canonical activation. IP3R-driven release, SERCA reuptake, SOCE refilling. Acceptance criterion: peak in 200–800 nM band. |
 | **EDTA transient (no Ca²⁺_ex)** | Isolates IP3R contribution by removing extracellular Ca²⁺. SOCE inactive (no source); PM leak inactive. Compares against the +Ca_ex condition to test SOCE dependence (Dolan 2014 Fig. 4). |
-| **Resting (no stimulus)** | IP3 stays at 50 nM baseline; no transient driven. Inspects the model's rest behaviour. |
+| **Resting (no stimulus)** | IP3 stays at 50 nM baseline; no transient driven. Inspects long-time stability. |
 
 Plus a Phase 3 driver that runs the +Ca_ex and EDTA conditions
-back-to-back and produces the Dolan Fig. 4 comparison figure.
+back-to-back and produces the Dolan Fig. 4 comparison figure, and a
+60 s-baseline + 240 s-IP3 transient plot (`plotCaBoundFree.py`) showing
+free vs bound Ca²⁺ in both compartments.
 
-## What v0.2 reproduces
+## What v0.2.6 reproduces
 
-Validated against Dolan 2014 Fig. 4 + Fig. 3B filtering criteria, run
-2026-05-06.
+Validated against Dolan 2014 Fig. 4 + Fig. 3B filtering criteria, after
+the Phase 2 buffer biology commit (`7f4a9ffd`, 2026-05-11).
 
-![Phase 3 validation — cytosolic Ca²⁺, DTS Ca²⁺, and acceptance-criteria pass/fail for the +Ca²⁺_ex (1.2 mM) and EDTA (0 mM) conditions; figure rendered by `runscripts/manual/runPhase3.py`](/Users/steve/github/platelet-wcm/reports/figures/phase3-dolan-fig4-2026-05-06.png)
+### Resting state (no IP3 stimulus, integrated to 600 s)
 
-- ✓ Peak Ca²⁺_cyt > 200 nM with extracellular Ca²⁺ (299 nM measured)
-- ✓ Peak Ca²⁺_cyt > 200 nM under EDTA (298 nM measured)
-- ✓ Peak under EDTA within Dolan's ±30 % band (192–358 nM)
-- ✓ SOCE current correctly zero under EDTA (no Ca²⁺ source)
-- ✓ STIM1 dimers rise from 22 to ~810 on store depletion (sensing works)
-- ✗ SOCE peak differential ≥ 100 nM between conditions (measured 1 nM)
-- ✗ Peak with extracellular Ca²⁺ within Dolan's ±30 % band (measured 299 nM, band 315–585 nM)
+| Quantity | Dolan target | Model |
+|---|---|---|
+| Cytosolic [Ca²⁺] free | 100 nM | **109 nM** ✓ |
+| DTS [Ca²⁺] free | 200–300 µM | **264 µM** ✓ |
+| IP3 | 50 nM baseline | 50 nM ✓ |
 
-3 of 5 Dolan acceptance criteria pass. The two failures share one
-upstream cause — the DTS empties before SOCE can build a sustained
-plateau — documented as a v0.2 known limitation (design doc §6.8 D7).
+For the first time in this project, the model has a **stable
+biologically realistic resting fixed point**. Previous versions
+(pre-Phase-2) drifted to cyt > 1 µM and DTS → 0 with no IP3 forcing,
+because the DTS had no luminal buffer to absorb SERCA's pumping.
 
-## What v0.2 does *not* yet model
+### Phase 3 transient response (200 s, ±Ca²⁺_ex)
+
+![Phase 3 validation figure — 2026-05-11 (Phase 2 buffer biology)](../figures/phase3-dolan-fig4-2026-05-11.png)
+
+| Acceptance criterion | Result |
+|---|---|
+| Active (+Ca_ex): peak Ca²⁺_cyt > 200 nM | ✓ 345 nM |
+| Active (−Ca_ex): peak Ca²⁺_cyt > 200 nM | ✓ 345 nM |
+| Peak (+Ca_ex) in Dolan ±30 % band (315–585 nM) | ✓ 345 nM |
+| Peak (−Ca_ex) in Dolan ±30 % band (192–358 nM) | ✓ 345 nM |
+| SOCE differential: |peak(+) − peak(−)| ≥ 100 nM | ✗ ~0 nM (peak-timing issue, see below) |
+
+**4 of 5 Dolan acceptance criteria pass.** The remaining failure (SOCE
+differential ≈ 0) traces to peak timing rather than buffer error: the
+cyt peak occurs at t ≈ 1 s after IP3 onset, before STIM1 dimerisation
+has activated SOCE — so the ±Ca_ex condition cannot influence the
+peak height in our model. Real biology may bridge this gap via P2X1
+(see "What v0.2.6 does *not* yet model" below).
+
+### Free / bound Ca²⁺ during transient
+
+![Free vs bound Ca²⁺ during 60 s baseline + 240 s IP3 transient](../figures/ca-bound-free-2026-05-11.png)
+
+Generated by `runscripts/manual/plotCaBoundFree.py`. Shows free Ca²⁺,
+CaM-bound, GSN-bound, CALR C-domain, CALR P-domain, STIM1-bound, and
+IP3 forcing curve all in one figure.
+
+## What v0.2.6 does *not* yet model
+
+The dissertation gap-catalogue is in `reports/dissertation-notes.md`;
+this is the short version, ordered by impact.
 
 | Biology | Status | Tracked as |
 |---|---|---|
-| Mitochondrial Ca²⁺ uniporter (MCU + mNCX) — captures Ca²⁺ during the spike, slowly releases over minutes | Not implemented; three platelet MCU papers in `source-info/calcium-papers/` (Ajanel 2025, Ghatge 2026, Shehwar 2025) | Issue **#22** |
-| P2Y1 / Gq / PLCβ upstream cascade — endogenous IP3 production from ADP signalling | v0.2 uses a forced curve | Phase v0.3 |
-| P2Y12 / Gi / cAMP / PKA modulation — negative regulation of activation | Not implemented | Phase v0.4 |
-| GPVI signalling cascade — collagen-mediated activation pathway | Not implemented | (Dunster 2015 reference in pile) |
-| Granule release (dense and α-granules) | Not implemented (cargo molecules in inventory but no exocytosis kinetics) | Phase v0.3 |
-| Integrin αIIbβ3 inside-out signalling | Not implemented | Phase v0.6 (optional) |
-| cAMP / cGMP / NO suppression at rest | Not implemented (Kleppe 2018 reference in pile) | Future |
+| **P2X1 (ATP-gated cation channel)** | Not modelled. The fast Ca²⁺ entry that drives the *first* cyt spike during activation, before IP3R/SOCE engage. Most likely candidate for closing the SOCE-differential gap. | dissertation-notes §7.1; v0.2.7 candidate |
+| **Other DTS luminal buffers** — HSP90B1 (GRP94), CALU, RCN1/2 (CREC family) | Not modelled. Would help retain free DTS [Ca²⁺] > 0 during transient (currently drops to ~0 µM at peak). Papers in `source-info/calcium-papers/`. | Issue **#25** |
+| **Mitochondrial Ca²⁺ uniporter (MCU + mNCX)** | Not modelled. Captures Ca²⁺ during the spike, slowly releases over minutes. Three platelet MCU papers in `source-info/calcium-papers/` (Ajanel 2025, Ghatge 2026, Shehwar 2025). | Issue **#22** |
+| **Dense granule Ca²⁺ store** | Not modelled. Platelet-specific high-concentration acidic Ca²⁺ store (50–100 mM total); NAADP/TPC-sensitive release. | dissertation-notes §7.2; v0.3+ |
+| **Surface-Connected Canalicular System (SCS)** | Not modelled as a separate compartment. Doubles–triples the effective PM surface area for SOCE/PMCA. PM rate constants implicitly absorb this. | dissertation-notes §6.2; v0.3+ |
+| **IP3R clustering / microdomain Ca²⁺** | Not modelled. Treated as a well-mixed population of 1 328 independent channels. | dissertation-notes §6.3; v0.3+ |
+| **P2Y₁ / Gq / PLCβ upstream cascade** — endogenous IP3 production from ADP signalling | v0.2 uses a forced curve. Canonical replacement: Mazet et al. 2020. | Phase v0.3 (#9, #10) |
+| **P2Y₁₂ / Gi / cAMP / PKA modulation** — negative regulation of activation | Not modelled | Phase v0.4 |
+| **GPVI signalling cascade** — collagen-mediated activation pathway | Not modelled (Dunster 2015 reference available) | Phase v0.4 |
+| **Granule release** (dense and α-granules) | Not modelled (cargo molecules in inventory but no exocytosis kinetics) | Phase v0.3 (#15) |
+| **Gelsolin's cytoskeletal dual role** | Modelled only as a passive Ca²⁺ buffer; in real biology, Ca²⁺-bound gelsolin actively severs actin filaments during platelet shape change | dissertation-notes §7.5; v0.3+ |
+| **Integrin αIIbβ3 inside-out signalling** | Not modelled | Phase v0.6 (optional) |
+| **cAMP / cGMP / NO suppression at rest** | Not modelled (Kleppe 2018 reference available) | Future |
+
+## Known calibration questions
+
+Documented in `reports/dissertation-notes.md`:
+
+- **§3.2** — SERCA cycle flux is still ~2–3× too high at rest vs the
+  literature SERCA3b kinetic prediction (the Phase 2 halving brought
+  it from 4–5× to 2–3×, but Purvis 2008's k_bind_f is still above
+  Dode 2002's measured Vmax / Km would predict). Closing this further
+  would let the cyt buffer ratio drop from the current ~200:1 toward
+  Sage & Rink 1985's measured ~50:1.
+- **§3.1** — γ_IP3R = 0.175 pS is a *calibration anchor* coupled to
+  the SERCA rate constants and the cyt buffer load, not an
+  independent measurement. Any of those changing requires γ to be
+  re-derived.
+- **§4.1** — Po = m∞⁴ × h chosen over Li-Rinzel original m∞³ × h
+  for consistency with Dolan's tetrameric Po⁴ convention; switching
+  would shift γ_IP3R by ~6.5×.
 
 ## Design philosophy
 
 Reuse a validated published model where one exists; deviate only when
 the published model is genuinely incompatible with the framework or
-the biology. Nine deviations from primary sources are catalogued in
-design doc §6.8, each with the deviation's value, the reason, and a
-pointer to the lab-book entry that diagnosed it. Examples: SERCA
-E1 / E1·Ca initial counts pre-equilibrated for binding (D5);
-γ_SOC calibrated against rest balance vs the Hoover face-value
-single-channel conductance (D3); a basal plasma-membrane Ca²⁺ leak
-(D4) added because Dolan 2014 has no PM leak term and the rest
-balance requires one. The dissertation lead is *"reproduce Dolan
-where possible, deviate honestly where necessary, document every
-deviation."*
+the biology. Major deviations from primary sources are catalogued in
+the design doc + dissertation-notes, each with the deviation's value,
+the reason, and a pointer to the lab-book entry that diagnosed it.
+Examples:
+
+- IP3R replaced from Sneyd-Dufour to deYoung-Keizer (Phase 1, #27) —
+  the Sneyd-Dufour calibration regime (IP3 = 10 µM) didn't extrapolate
+  to resting IP3 = 50 nM.
+- γ_IP3R reduced from Zschauer 1988's 10 pS to 0.175 pS (Phase 4, #30
+  → Phase 2) — bilayer measurements don't transfer to physiological
+  conditions; calibrated against analytical SERCA cycle flux instead.
+- CALR + cyt buffer added (Phase 2, #28) — Dolan's model was severely
+  under-buffered on both sides; our model now reflects luminal +
+  cytosolic biology with documented residual gaps.
+
+The dissertation lead is *"reproduce Dolan where possible, deviate
+honestly where necessary, document every deviation."*
 
 ## Primary references
 
 - **Dolan & Diamond 2014** *Biophys. J.* 106:2049–2060 — the validation target
-- **Purvis & Bhatt 2008** *Plos Comp Biol* 4:e1000050 — kinetic parameterisation foundation
+- **Purvis & Bhatt 2008** *PLoS Comp Biol* 4:e1000050 — kinetic parameterisation foundation
+- **deYoung & Keizer 1992** *PNAS* 89:9895; **Li & Rinzel 1994** *J Theor Biol* 166:461 — IP3R model
+- **Dode et al. 2002** *J Biol Chem* — SERCA3b kinetics
 - **Caride et al. 2007** *J Biol Chem* — PMCA isoform 4b 5-state scheme
-- **Sneyd & Dufour 2002** *PNAS* — IP3R 6-state Markov model
-- **Hoover & Lewis 2011** *PNAS* — Orai/STIM CRAC channel MWC framework
+- **Vassilakos et al. 1998**; **Baksh & Michalak 1991** — CALR Ca²⁺-binding
 - **Burkhart et al. 2012** *Blood* — platelet proteome reference (copy numbers)
-- All in `source-info/calcium-papers/`; per-value provenance in `reports/data/calcium-data-provenance.md`.
+- **Sage & Rink 1985** — platelet cytosolic Ca²⁺ buffering ratio measurement
+- **Yin & Stossel 1979** — original platelet gelsolin characterisation
+- **Hoover & Lewis 2011** *PNAS* — Orai/STIM CRAC channel MWC framework
+- **Mazet, Tindall, Gibbins & Fry 2020** *Sci. Rep.* 10:13889 — canonical PI cycle reference for v0.3
+
+All in `source-info/calcium-papers/`; per-value provenance in
+`reports/data/calcium-data-provenance.md`. Comprehensive limitations
+and assumptions for the dissertation write-up in
+`reports/dissertation-notes.md`.
