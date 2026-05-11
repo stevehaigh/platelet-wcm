@@ -257,7 +257,7 @@ source) but practically minor in transient amplitudes.
 
 ## Why the error persisted
 
-Three contributing factors made this 100× error survive 18 years
+Four contributing factors made this 100× error survive 18 years
 of citation:
 
 1. **The primary Sneyd-Dufour 2002 Fig 4 caption itself contains
@@ -271,7 +271,22 @@ of citation:
    model predictions to other published rate measurements. Easy
    to miss when transcribing rate constants from the figure
    caption.
-3. **The macroscopic effect is small** — the IP3R `o ↔ s`
+3. **Purvis 2008 Table 1 is rotated 90° on the printed page**
+   (a "landscape" or "rotated" table — common in journals when a
+   table is too wide for the standard text column). The rate
+   constants are presented in a tall narrow column, in small
+   font, oriented sideways relative to the surrounding body text.
+   This *significantly raises the cost of cross-checking* against
+   the Sneyd-Dufour 2002 source: a reader who wants to verify
+   `k₃` has to either rotate the printed page, rotate the screen,
+   or mentally re-orient — and then read across cramped formula
+   cells in a small typeface. The cognitive friction makes
+   transcription errors both more likely to be made and *less*
+   likely to be caught in subsequent reads. (This is itself a
+   methodological observation worth flagging: published reference
+   tables that rely on rotated layouts trade off table-fits-on-page
+   compactness for proofreading and re-use cost.)
+4. **The macroscopic effect is small** — the IP3R `o ↔ s`
    transition is a minor side-branch of the 6-state ladder; the
    dominant `o ↔ a` rates are 4-5 orders of magnitude faster and
    carry essentially all of the gating signal. A 100× error in

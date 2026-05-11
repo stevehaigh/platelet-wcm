@@ -10,13 +10,11 @@ keywords: IP3 receptor, Sneyd-Dufour, Purvis, Dolan, platelet calcium signalling
 ## Abstract
 The widely-cited platelet calcium-signalling model of Purvis et al.
 (2) records the IP3 receptor (type-2) closing rate constant as
-`k₃ = 11 s⁻¹` in its Table 1.
-
-The original Sneyd & Dufour (1) source paper that (2) cites for
-these kinetics gives `k₃ = 0.11 s⁻¹` (Fig 4 caption, with body-text
-confirmation that `φ₃ ≈ 0.1 s⁻¹` at low cytosolic Ca²⁺).
-
-The Purvis value is 100× too large.
+`k₃ = 11 s⁻¹·µM⁻¹` in its Table 1. The original Sneyd & Dufour (1)
+source paper that (2) cites for these kinetics gives `k₃ = 0.11 s⁻¹·µM⁻¹`
+(Fig 4 caption, with body-text confirmation that `φ₃ ≈ 0.1 s⁻¹`
+at low cytosolic Ca²⁺). The Purvis value is 100× too large.
+Both papers state the units as `s⁻¹·µM⁻¹`, the value should be `s⁻¹`.
 
 The error has propagated into at least one downstream
 modelling paper (3) and into independent re-implementations of
@@ -67,11 +65,11 @@ Working outward from the formula:
 So `k₃` must be in `s⁻¹`. There is no consistent reading of the
 formula in which `k₃` carries a `µM⁻¹` factor.
 
-### 2.1 Cross-check: are the other `k_i` annotations also typos?
+### 2.1 Cross-check: are the other `k_i` annotations also incorrect?
 
-Worth verifying, because in the Sneyd-Dufour (1) Fig 4 caption
-the constants `k₁, k₂, k₃, k₄` are all annotated with the same
-`s⁻¹·µM⁻¹` units. They are not all typos; only `k₃` is.
+The Sneyd-Dufour (1) Fig 4 caption constants `k₁, k₂, k₃, k₄` are all
+annotated with `s⁻¹·µM⁻¹` units. They are not all errors; only `k₃` is
+incorrect.
 
 | Constant | Caption units | Where it appears | Numerator structure | Verdict |
 |---|---|---|---|---|
@@ -80,7 +78,7 @@ the constants `k₁, k₂, k₃, k₄` are all annotated with the same
 | `k₃` | s⁻¹·µM⁻¹ | `k₃ · L₅ / (L₅ + c)` | `(s⁻¹·µM⁻¹)·µM = s⁻¹`, but **no `c` factor** in numerator; ÷ µM denominator → `µM⁻¹·s⁻¹` | ✗ wrong dimensions for a rate |
 | `k₄` | s⁻¹·µM⁻¹ | `(k₄L₅ + l₆) · c / (L₅ + c)` | analogous to `k₁` | ✓ correct |
 
-The structural difference is that `φ₁`, `φ₂`, `φ₄` describe
+The difference is that `φ₁`, `φ₂`, `φ₄` describe
 transitions involving binding of a Ca²⁺ or IP3 ion, so the rate is
 proportional to the binding-partner concentration and a `c`
 factor appears in the numerator. `φ₃` describes a unimolecular
@@ -108,7 +106,7 @@ low `c`:
 
 $$\varphi_3(c \to 0) = \frac{k_3 \cdot L_5}{L_5} = k_3$$
 
-so `k₃ ≈ 0.11 s⁻¹` — consistent with the value listed in the
+`k₃ = 0.11 s⁻¹` — consistent with the value listed in the
 caption when interpreted with the corrected units.
 
 ## 4. The transcription in Purvis 2008
@@ -121,13 +119,12 @@ constants for the closing transition as
 i.e. with the **same `s⁻¹·µM⁻¹` unit annotation** as the
 Sneyd & Dufour (1) Fig 4 caption (carrying forward the
 documentary typo identified in §2), but with the value listed as
-**11** rather than the original **0.11**.
+11 rather than the original 0.11.
 
 The 17 other Sneyd-Dufour rate constants in (2) Table 1 (`k₁`,
 `k₋₁`, `k₂`, `k₋₂`, `k₄`, `k₋₄`, `l₂`, `l₋₂`, `l₄`, `l₋₄`,
 `l₆`, `l₋₆`, `L₁`, `L₃`, `L₅`) match the (1) Fig 4 values
-exactly. **Only `k₃` is mis-transcribed**, and only in the
-numerical value (by a clean factor of 100×).
+exactly. Only the `k₃` value is mis-transcribed.
 
 ## 5. Could the ×100 have been intentional?
 
@@ -142,10 +139,10 @@ records the result. With `[Ca²⁺] = 100 µM`,
 `0.11 µM⁻¹·s⁻¹ × 100 µM = 11 s⁻¹` — exactly the (2) numerical
 value.
 
-This hypothesis is unlikely as the resulting rate would be `s⁻¹`
-(not `s⁻¹·µM⁻¹`), and a transcriber would have updated the
+This hypothesis is unlikely as the resulting rate would then have
+been `s⁻¹`, and a transcriber would have updated the
 unit annotation accordingly. The fact that the units are kept
-unchanged rules out a deliberate unit-conversion mechanism.
+unchanged suggests no deliberate unit-conversion mechanism.
 
 A deliberate calibration adjustment from a primary source
 would conventionally be flagged with an annotation. The (2)
@@ -201,7 +198,7 @@ equilibrium, evaluated at typical resting conditions
 | `i₂` | 13.6 % | 14.2 % |
 | `s` | **3.78 %** | **0.04 %** |
 
-The `s` population collapses by approximately two orders of
+The `s` population reduces by approximately two orders of
 magnitude, finally matching the Dolan & Diamond (3) Table S1
 representative initial-condition value of `S ≈ 0`. Other
 sub-state populations move by less than two percentage points,
