@@ -333,6 +333,16 @@ by IP3-3-kinase and IP3-5-phosphatase. Forcing IP3 directly:
 - Misses the finite-pool / desensitisation effects
 - Decouples Ca²⁺ release from upstream receptor signalling
 
+**Canonical reference for closing this gap**: Mazet, Tindall, Gibbins
+& Fry 2020 *Sci. Rep.* 10:13889 — a platelet-specific ODE model of
+the full PI cycle informed by single-cell-type data. The paper
+explicitly warns against using "mosaic" rate constants from unrelated
+cell types (a methodology critique highly relevant to our broader
+calibration questions, e.g. SERCA constants in §3.2). The Mazet et al.
+rate constants are the natural source for v0.3 PLCβ / PIP2 dynamics
+when we replace the forced-IP3 Dolan curve with an explicit upstream
+pathway. PDF in `source-info/calcium-papers/`.
+
 v0.3 receptor-signalling work (#9, #10) would close this.
 
 ### 7.5 Cytoskeletal coupling (gelsolin's dual role)

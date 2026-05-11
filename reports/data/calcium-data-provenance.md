@@ -94,7 +94,7 @@ that extracellular Ca²⁺ can restock the DTS.
 | Shehwar 2025 | Shehwar et al. | Review: platelets and mitochondria calcium connection |
 | Kleppe 2018 | Kleppe et al., J. Theor. Biol. 444:1-11 | **ODE model of inhibitory NO/cGMP/cAMP pathway**; includes PKA/PKG effects on IP3R |
 | Dunster 2015 | Dunster et al., PLoS Comput. Biol. 11:e1004118 | **ODE model of GPVI → Syk → PLCγ2 pathway**; rate constants for upstream signalling |
-| Mazet 2020 | Mazet et al., Commun. Biol. 3:1-13 | **ODE model of the PI cycle**; rate constants for PIP2 hydrolysis and resynthesis |
+| Mazet 2020 | Mazet, Tindall, Gibbins & Fry. *Sci. Rep.* 10:13889 | **Platelet-specific ODE model of the full PI cycle**; canonical reference for v0.3+ receptor-PLC-IP3 work (replacing our current forced-IP3 Dolan Fig S2 approximation). Cautions against using "mosaic" rate constants from unrelated cell types. |
 
 
 ---
