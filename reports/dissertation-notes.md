@@ -109,32 +109,37 @@ family buffers for v0.3+.
 
 ## 3. Flux-rate calibration
 
-### 3.1 γ_IP3R = 0.35 pS is coupled to SERCA rate constants
+### 3.1 γ_IP3R = 0.175 pS is coupled to SERCA rate constants
 
-- **Decision (2026-05-11, Phase 4 / commit `1699ac1f`)**: γ_IP3R reduced
-  from 10 pS (Zschauer 1988 bilayer) to 0.35 pS (calibrated to balance
-  SERCA at the Dolan resting state).
-- **Derivation**: at cyt = 100 nM, DTS = 250 µM, the 6-state SERCA cycle
-  steady-state flux is 112 570 ions/s (analytical solution of the linear
-  system using Purvis 2008 / Dode 2002 rate constants). γ_required =
-  112 570 / (N × Po × driving × NA / zF) = 0.344 pS, rounded to 0.35.
+- **Original Phase 4 calibration (2026-05-11, commit `1699ac1f`)**: γ_IP3R
+  reduced from 10 pS (Zschauer 1988 bilayer) to 0.35 pS, calibrated
+  against the analytical 6-state SERCA cycle steady-state flux at the
+  Dolan resting state (cyt = 100 nM, DTS = 250 µM) = 112 570 ions/s.
+- **Updated Phase 2 retune (2026-05-11, commit `7f4a9ffd`)**: γ_IP3R
+  halved to **0.175 pS** alongside halving SERCA `k_bind_f` (1 000 →
+  500 µM⁻²·s⁻¹), preserving resting balance at the new lower flux level
+  (~57 k ions/s instead of 113 k). This was the coupled flux reduction
+  needed to keep Phase 3 peaks in the Dolan band after the CALR buffer
+  added a Ca²⁺ reserve to the DTS.
 - **Why this matters**: **γ_IP3R is not an independently measured value**
   in our model — it is the value that *balances the chosen SERCA rate
   constants* at the chosen resting state. If SERCA constants change
-  (see §3.2), γ_IP3R must be re-derived.
-- **Biological plausibility**: 0.35 pS sits within the cellular IP3R
+  (see §3.2), γ_IP3R must be re-derived. Same applies if the buffer
+  load (§1.1, §2.1) is re-tuned.
+- **Biological plausibility**: 0.175 pS sits within the cellular IP3R
   effective Ca²⁺ conductance range reported by Bezprozvanny 1991 and
   Mak & Foskett 1997 (~0.05–0.5 pS under physiological conditions). The
   10 pS bilayer value is not transferable because Zschauer used
   symmetric high Ca²⁺, where K⁺ contributes negligibly to current.
 - **Dissertation framing**: cite as a *calibration anchor*, not a
-  measured parameter. Disclose the SERCA coupling explicitly.
+  measured parameter. Disclose the SERCA + buffer coupling explicitly.
 
-### 3.2 SERCA cycle flux is probably 2–5× too high at rest
+### 3.2 SERCA cycle flux is probably 2–3× too high at rest (post-Phase-2)
 
-- **Current model**: Purvis 2008 / Dode 2002 rate constants give SERCA
-  cycle rate of **4.7 cycles/s per pump at cyt = 100 nM**, or **112 570
-  Ca²⁺ ions/s total** for 11 892 pumps.
+- **Current model (after Phase 2 halving of `k_bind_f`)**: ~2.4 cycles/s
+  per pump at cyt = 100 nM, **~57 k Ca²⁺ ions/s total** for 11 892 pumps.
+  This is closer to biology than the pre-Phase-2 value (~113 k ions/s)
+  but still ~2–3× above the literature SERCA3b prediction.
 - **Literature SERCA3b kinetics**:
   - Vmax ≈ 30–50 cycles/s at saturating Ca²⁺ (Inesi 1985; Nishi 1992)
   - Km(Ca²⁺) ≈ 0.7–1.1 µM (Dode 2002 — SERCA3 is *less* Ca²⁺-sensitive
@@ -142,13 +147,17 @@ family buffers for v0.3+.
   - At cyt = 100 nM with n = 2 Hill: v/Vmax ≈ 2% → ~1 cycle/s per pump
   - Predicted total flux: **~23 800 ions/s**
 - **Inherited from Purvis 2008**: the rate constants we use are Purvis's,
-  who took them from Dode's protein expression studies. But Purvis's
-  k_bind_f = 1 000 µM⁻²·s⁻¹ implies a faster pump than Dode's measured
-  Vmax / Km values predict.
-- **Implication**: if v0.3 re-derives SERCA constants from primary sources,
-  γ_IP3R will drop to ~0.07–0.10 pS (and PMCA / PM-leak balances will
-  shift). The relative dynamics (Phase 3 transients) should be largely
-  preserved because they are dominated by ratio of fluxes, not absolutes.
+  who took them from Dode's protein expression studies. Purvis's
+  original k_bind_f = 1 000 µM⁻²·s⁻¹ implies a faster pump than Dode's
+  measured Vmax / Km values predict. Phase 2 halved this to 500
+  µM⁻²·s⁻¹, partially closing the gap.
+- **Implication**: if v0.3 re-derives SERCA constants from primary sources
+  and drops them further to the ~24 k ions/s literature prediction,
+  γ_IP3R would drop in tandem to ~0.07–0.10 pS, and the cytosolic buffer
+  load (currently calibrated to 200:1, vs Sage & Rink's 50:1) could come
+  down to biological values. The relative dynamics (Phase 3 transients)
+  should be largely preserved because they are dominated by ratio of
+  fluxes, not absolutes.
 - **Dissertation framing**: cite as a known calibration question
   inherited from Purvis 2008, scoped for v0.3+ revision. Phase 3
   validation against Dolan 2014 demonstrates that the *relative* SERCA /
