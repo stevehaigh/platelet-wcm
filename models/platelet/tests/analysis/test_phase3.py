@@ -98,20 +98,19 @@ class TestPhase3DolanFig4(unittest.TestCase):
 	# ── Acceptance-criteria pass/fail count ───────────────────────────────────
 
 	def test_criteria_pass_count(self):
-		"""4 of 5 acceptance criteria pass at the current baseline.
+		"""All 5 Dolan 2014 Fig. 4 acceptance criteria pass.
 
-		The remaining failing criterion — SOCE differential — depends on
-		the resting-state DTS depletion issue tracked in #24. Documented
-		in design doc §6.8 D7 and the 2026-05-06/07 lab books.
-
-		Asserting the count locks the current state. A future fix that
-		recovers the SOCE differential criterion would tick this test up
-		to 5/5.
+		Updated 2026-05-11 (Phase 2.5): adding the P2X1 ATP-gated cation
+		channel closed the previously-missing SOCE differential
+		criterion. The +Ca_ex condition now has a fast P2X1 Ca²⁺ entry
+		that the −Ca_ex condition lacks (P2X1 flux is gated on
+		extracellular Ca²⁺), producing a ~150 nM peak difference between
+		the two conditions — within the Dolan ≥100 nM criterion.
 		"""
 		passed = sum(1 for c in self.summary['criteria'] if c['passed'])
-		self.assertEqual(passed, 4,
-			f'Expected 4/5 Phase 3 criteria; got {passed}. If a fix landed, '
-			f'update this assertion and the lab book entry.')
+		self.assertEqual(passed, 5,
+			f'Expected 5/5 Phase 3 criteria; got {passed}. If something '
+			f'regressed, update this assertion and the lab book entry.')
 
 
 if __name__ == '__main__':

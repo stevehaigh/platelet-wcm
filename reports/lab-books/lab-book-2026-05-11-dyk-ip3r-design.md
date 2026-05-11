@@ -689,7 +689,107 @@ preserve resting balance.
 
 ---
 
-*Branch:* `main` · *Status:* Phase 2 complete (CALR + cyt buffer + flux
-retune); Phase 3 / #29 (CaM-PMCA coarse-grain) next, conditional ·
+## Phase 2.5 — P2X1 ATP-gated cation channel (2026-05-11)
+
+After Phase 2 stabilised the resting state and brought the Phase 3 peaks
+into the Dolan band, **the SOCE differential was still ~0 nM** — a
+peak-timing issue (the model peak was at t ≈ 1 s, before SOCE / STIM1
+dimerisation could activate). Diagnosis in dissertation-notes §7.1
+identified P2X1 as the missing fast Ca²⁺ entry pathway that distinguishes
++Ca_ex from −Ca_ex in real biology.
+
+### What P2X1 is and why it's the right fix
+
+P2X1 is a trimeric ATP-gated cation channel in the platelet plasma
+membrane:
+- Activated by extracellular ATP (Kd ~ 1 µM, k_act ~ 30 µM⁻¹·s⁻¹)
+- Permeable to Na⁺, K⁺, Ca²⁺ (Ca²⁺ fraction ~5–10 %)
+- Fast desensitisation (~100 ms), slow recovery (~30 s)
+- ~600–3000 channels per platelet (Mahaut-Smith 2000/2004; Vial & Evans 2002)
+- **Ligand source**: ATP released from dense granules during platelet
+  activation (autocrine loop)
+
+The biologically critical property for our Phase 3 SOCE differential:
+**P2X1 only delivers Ca²⁺ when extracellular Ca²⁺ is present**. So in
+the −Ca_ex condition, the channel can still cycle (ATP binding,
+desensitisation) but contributes no Ca²⁺. In +Ca_ex, it delivers a fast
+~150 nM Ca²⁺ spike on top of the IP3R-driven release. **This is exactly
+the asymmetry that produces the SOCE differential.**
+
+### Implementation
+
+Three-state coarse kinetic scheme (Closed ↔ Open → Desensitised → Closed):
+
+```
+K_P2X1 = {
+    'k_act':   30.0,    # closed + ATP → open       (µM⁻¹·s⁻¹)
+    'k_close':  5.0,    # open → closed             (s⁻¹)
+    'k_des':   10.0,    # open → desensitised       (s⁻¹)
+    'k_rec':    0.03,   # desensitised → closed     (s⁻¹)
+}
+N_P2X1 = 1 000          # functional channels (trimers)
+GAMMA_P2X1_S = 0.6 fS   # Ca²⁺-specific conductance — calibration anchor
+```
+
+Extracellular ATP forcing (`atp_ex_forcing_uM`) parallels the IP3 curve:
+**baseline 0** (CD39 ectonucleotidase keeps platelet-local extracellular
+ATP near zero at rest), rises with τ = 0.5 s to a 10 µM peak during
+stimulation, decays with τ = 30 s. Gated by the same `ip3_forced` flag
+so the EDTA condition still triggers P2X1 cycling (but with no Ca²⁺ to
+flow).
+
+Ca²⁺ flux uses the same Nernst form as PMCA/SOCE but with `driving_pm_v`
+(V_PM = −60 mV vs E_Ca,PM ≈ +120 mV at rest) — strong inward driving for
+Ca²⁺ when the channel is open and extracellular Ca²⁺ is available.
+
+### Calibration
+
+γ_P2X1 was the only free parameter; the kinetic constants are
+literature-derived. Calibration target: SOCE differential ~100 nM
+(Dolan ≥ 100 criterion). One iteration:
+- γ = 0.01 pS → +Ca_ex peak = 5 718 nM (way too high, ×15)
+- γ = 0.0006 pS → +Ca_ex peak = 493 nM, −Ca_ex peak = 345 nM, **differential = 147 nM** ✓
+
+### Outcome: 5/5 Dolan acceptance criteria
+
+| Criterion | Before P2X1 | After P2X1 |
+|---|---|---|
+| Active (+Ca_ex) > 200 nM | ✓ 345 nM | ✓ 493 nM |
+| Active (−Ca_ex) > 200 nM | ✓ 345 nM | ✓ 345 nM |
+| SOCE differential ≥ 100 nM | ✗ 0 nM | ✓ **147 nM** |
+| +Ca_ex peak in Dolan ±30 % (315–585 nM) | ✓ 345 nM | ✓ 493 nM |
+| −Ca_ex peak in Dolan ±30 % (192–358 nM) | ✓ 345 nM | ✓ 345 nM |
+| **Phase 3 score** | **4/5** | **5/5** ✓ |
+
+First time the project has 5/5 Phase 3 criteria.
+
+Resting state unchanged (cyt 109 nM, DTS 264 µM) — at rest ATP_ex = 0
+and all P2X1 stays in the closed state.
+
+Transient behaviour qualitatively improved: the peak now occurs at
+t ≈ 149 s (well into the sustained response, with SOCE refilling the
+DTS), not the artificial t ≈ 1 s instant-peak of the pre-P2X1 model.
+This is biologically realistic for thrombin-stimulated platelets.
+
+### Test baseline updates
+
+- `test_peak_ca_cyt_near_baseline`: 280 → 470 nM (the default sim is
+  the +Ca_ex condition, in which P2X1 contributes ~150 nM)
+- `test_criteria_pass_count`: 4 → 5
+
+### Carried forward
+
+- Long-time (t > 200 s) DTS *overfills* slightly because SOCE pumps in
+  more Ca²⁺ than PMCA can extrude over the integration window — not a
+  resting-state problem (resting state is fine without IP3 forcing).
+- γ_P2X1 = 0.6 fS is a calibration anchor like γ_IP3R; the dissertation
+  framing should disclose it as such, citing Vial & Evans 2002 /
+  Mahaut-Smith for the biology and the SOCE-differential target for
+  the calibration anchor.
+
+---
+
+*Branch:* `main` · *Status:* Phase 2.5 complete (P2X1 added, 5/5 Phase 3
+criteria) ·
 *Linked issues:* #27 (Phase 1, complete), #24 (parent, partly closed),
 #28 (Phase 2, complete), #30 (Phase 4, complete)

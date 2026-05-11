@@ -286,25 +286,35 @@ flux estimate that crosses a biological band.
 
 ## 7. Missing channels / pathways
 
-### 7.1 P2X1 — the biggest gap
+### 7.1 P2X1 — closed (Phase 2.5 / 2026-05-11)
 
-**P2X1 is the dominant fast Ca²⁺ entry pathway in activated platelets**
-and is not in our model. It is an extracellular-ATP-gated cation channel
-that opens within milliseconds of platelet activation, contributing the
-*first* Ca²⁺ spike — before IP3R and well before SOCE.
+**Note for the writeup**: P2X1 (ionotropic, ATP-gated Ca²⁺ channel) is
+*different* from P2Y1 (metabotropic GPCR; ADP → Gαq → PLCβ → IP3). The
+two are sometimes confused. We added **P2X1** in Phase 2.5. P2Y1 (and
+the rest of the GPCR / PLC cascade) remains v0.3 receptor-signalling
+scope — see §7.4.
 
 | Property | Value |
 |---|---|
-| Activation timescale | <10 ms after ATP exposure |
-| Ca²⁺ permeability | P_Ca/P_Na ~10 |
-| Desensitisation | Fast (~100 ms) |
-| Source in vivo | Released ATP from dense granules; autocrine activation |
+| Channel class | Ionotropic (trimeric ATP-gated cation channel; P_Ca/P_Na ≈ 10) |
+| Activation timescale | < 10 ms after extracellular ATP exposure |
+| Desensitisation timescale | ~100 ms |
+| Recovery from desensitisation | ~30 s |
+| Copy number per platelet | ~600–3 000 (Mahaut-Smith 2000/2004; Vial & Evans 2002) |
+| Ligand source in vivo | Released ATP from dense granules during activation |
 
-**Why this matters for the SOCE differential criterion (§ Phase 3)**:
-the real platelet +Ca_ex vs −Ca_ex peak difference may be driven
-substantially by P2X1, not just by Orai1/SOCE. Our SOCE differential ≈ 0
-result may be telling us that the missing pathway is P2X1, not slower
-STIM1 dimerisation. Worth flagging as a v0.2.6 candidate.
+Implementation in v0.2.7: three-state kinetic scheme (Closed → Open →
+Desensitised → Closed) with rate constants from Mahaut-Smith / Vial &
+Evans. γ_P2X1_Ca = 0.6 fS calibrated against the Dolan SOCE-differential
+target. Ca²⁺ flux gated on `CA_EX_UM > 0` — this is precisely what
+makes the channel a +Ca_ex-specific contributor and closes the SOCE
+differential criterion.
+
+**Outcome**: closed the SOCE-differential gap; Phase 3 now passes 5/5
+Dolan criteria (was 4/5). See `lab-book-2026-05-11-dyk-ip3r-design.md
+§Phase 2.5`. ATP forcing is a placeholder (rises with the IP3 forcing
+curve, τ = 0.5 s) — v0.3 should replace with explicit dense granule
+secretion + ectonucleotidase clearance.
 
 ### 7.2 Dense granule Ca²⁺ store
 

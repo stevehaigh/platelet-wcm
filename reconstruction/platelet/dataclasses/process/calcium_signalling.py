@@ -91,6 +91,10 @@ MOLECULE_NAMES = (
 	# CALR high-affinity P-domain (1 site per CALR; slow release).
 	'CALR_P_free[dts]',
 	'CALR_P_Ca[dts]',
+	# P2X1 ATP-gated cation channel (Phase 2.5; see K_P2X1 block).
+	'P2X1[pl]',     # closed (resting)
+	'P2X1_O[pl]',   # open (conducting)
+	'P2X1_D[pl]',   # desensitised
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -335,6 +339,86 @@ K_CAM_PMCA = {
 }
 
 
+# ── P2X1 ATP-gated cation channel (Phase 2.5, 2026-05-11) ────────────────
+# P2X1 is the dominant *fast* Ca²⁺ entry pathway in activated platelets.
+# It's a trimeric ATP-gated cation channel in the plasma membrane that
+# opens within ms of extracellular-ATP exposure (released from dense
+# granules during activation), conducts a mixed Na⁺/K⁺/Ca²⁺ current with
+# ~5–10 % Ca²⁺ fraction, then desensitises within ~100 ms. Recovery
+# from desensitisation is slow (~30 s).
+#
+# Source-info: Mahaut-Smith et al. 2000 / 2004 (platelet P2X1
+# electrophysiology), Vial & Evans 2002 (P2X1 in platelets), Hechler
+# et al. 2003 (P2X1 in thrombosis), Burnstock 2007 (P2X family review).
+# Copy number: ~600–3000 channels per platelet (Mahaut-Smith); we use
+# N_P2X1 = 1 000 as a mid-range estimate.
+#
+# Three-state coarse kinetic scheme:
+#
+#   Closed  --(k_act × [ATP_ex])-->  Open  --(k_des)-->  Desensitised
+#     ^                               |                        |
+#     |                            k_close                  k_rec
+#     +-----(k_close)-----------------+   +--(k_rec)----------+
+#
+# Ca²⁺ flux through Open state: Nernst form, but with V_PM driving
+# force (E_Ca,PM, not E_Ca,IM). Gated on CA_EX_UM > 0 — when
+# extracellular Ca²⁺ is removed (EDTA condition), P2X1 contributes no
+# Ca²⁺ even though the channel may still cycle.
+#
+# This is exactly what should close the SOCE-differential gap in
+# Phase 3: the +Ca_ex peak now has a fast P2X1 contribution that −Ca_ex
+# lacks (real biology: ~100 nM differential at peak).
+K_P2X1 = {
+	'k_act':    30.0,    # closed + ATP → open       (µM⁻¹·s⁻¹) — fast ATP binding
+	'k_close':   5.0,    # open → closed             (s⁻¹)       — ATP unbinds
+	'k_des':    10.0,    # open → desensitised       (s⁻¹)       — τ_des ≈ 100 ms
+	'k_rec':     0.03,   # desensitised → closed     (s⁻¹)       — τ_rec ≈ 30 s
+}
+
+# Total P2X1 functional channels (trimers; mass per trimer = 3 × 45 kDa).
+N_P2X1 = 1_000
+
+# P2X1 Ca²⁺-specific effective conductance.
+# Single-channel current ~0.5–1 pA at -60 mV, Ca²⁺ fraction ~5–10 %,
+# so effective Ca²⁺-specific γ ≈ 10–50 fS per channel. Starting from
+# 0.01 pS — calibration anchor for Phase 3 SOCE-differential target
+# (Dolan ~100 nM). See lab book.
+GAMMA_P2X1_S = 0.0006e-12   # 0.6 fS Ca²⁺-specific conductance, A/V — calibrated
+
+
+# ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
+# Parallels the IP3 forcing curve (Dolan Fig. S2). Real biology: ATP is
+# released from dense granules during platelet activation, reaching
+# 1–10 µM in the extracellular space near a forming thrombus, then
+# cleared by ectonucleotidases (CD39) over tens of seconds.
+#
+# Same ip3_delay / ip3_forced gating as IP3 — when stimulus is off,
+# ATP_ex stays at its near-zero resting level.
+ATP_EX_REST_UM = 0.0          # exactly zero — CD39 ectonucleotidase keeps
+                              # local extracellular ATP near zero at rest
+                              # (any small baseline leaks P2X1 over hundreds
+                              # of seconds, overfilling the DTS).
+ATP_EX_PEAK_UM = 10.0         # 10 µM peak during activation
+ATP_EX_TAU_RISE = 0.5         # s — fast rise (dense granule secretion)
+ATP_EX_T_PEAK = 1.0           # s — peak time
+ATP_EX_TAU_DECAY = 30.0       # s — ectonucleotidase clearance
+
+
+def atp_ex_forcing_uM(t, delay=0.0):
+	"""Plateau-decay approximation for extracellular ATP during activation.
+
+	Rises fast (τ = 0.5 s) from ~1 nM baseline to 10 µM peak, then
+	decays with τ = 30 s. `delay` shifts the stimulus onset so the
+	curve is flat at baseline for t < delay.
+	"""
+	t_eff = t - delay
+	if t_eff < 0:
+		return ATP_EX_REST_UM
+	rise = 1.0 - np.exp(-t_eff / ATP_EX_TAU_RISE)
+	decay = np.exp(-max(0.0, t_eff - ATP_EX_T_PEAK) / ATP_EX_TAU_DECAY)
+	return ATP_EX_REST_UM + (ATP_EX_PEAK_UM - ATP_EX_REST_UM) * rise * decay
+
+
 # ── SOCE: Dolan 2014 MWC + STIM1 dimerisation (Hoover & Lewis 2011 frame) ─
 # STIM1 cycle (mass-action) — keeps the dimer pool size as a state variable.
 # `STIM1_dim` is counted in DIMER PARTICLES (matches Dolan Table S1
@@ -557,6 +641,10 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	calr_p_free = max(y[_IDX['CALR_P_free[dts]']], 0.0)
 	calr_p_ca   = max(y[_IDX['CALR_P_Ca[dts]']],   0.0)
 
+	p2x1_c = max(y[_IDX['P2X1[pl]']],   0.0)
+	p2x1_o = max(y[_IDX['P2X1_O[pl]']], 0.0)
+	p2x1_d = max(y[_IDX['P2X1_D[pl]']], 0.0)
+
 	st_free = max(y[_IDX['STIM1_free[dts]']], 0.0)
 	st_ca   = max(y[_IDX['STIM1_Ca[dts]']],   0.0)
 	st_dim  = max(y[_IDX['STIM1_dim[dts]']],  0.0)
@@ -744,7 +832,35 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 		# Basal plasma-membrane Ca²⁺ leak — compensates PMCA outflow at rest
 		# so the resting cyt steady state sits at ~100 nM (lab-book 2026-05-05).
 		dy[_IDX['CA2_CYT[c]']] += J_PM_LEAK_IONS_S
+
+		# P2X1 Ca²⁺ entry — fast ionotropic channel gated on extracellular
+		# ATP (forced curve), distinct from SOCE which is store-operated.
+		# P2X1 is the +Ca_ex–specific entry pathway that distinguishes the
+		# two Phase 3 conditions in real biology (Dolan ~100 nM SOCE
+		# differential). See K_P2X1 / atp_ex_forcing_uM block.
+		flux_p2x1_ions_s = (
+			-GAMMA_P2X1_S * p2x1_o * driving_pm_v * NA_OVER_zF
+		)
+		dy[_IDX['CA2_CYT[c]']] += flux_p2x1_ions_s
 	# The extracellular reservoir is treated as infinite (no debit).
+
+	# ── P2X1 state transitions (always run, even when CA_EX = 0) ────
+	# When CA_EX = 0 the channel can still cycle through C → O → D in
+	# response to extracellular ATP — it just doesn't deliver any
+	# Ca²⁺ (the flux block above is skipped). This matches the
+	# Vial & Evans 2002 observation that P2X1 desensitises whether
+	# Ca²⁺ is present or not.
+	if ip3_forced:
+		atp_ex_um = atp_ex_forcing_uM(t_sim_start + t, delay=ip3_delay)
+	else:
+		atp_ex_um = ATP_EX_REST_UM
+	v_p2x1_act   = K_P2X1['k_act']   * p2x1_c * atp_ex_um
+	v_p2x1_close = K_P2X1['k_close'] * p2x1_o
+	v_p2x1_des   = K_P2X1['k_des']   * p2x1_o
+	v_p2x1_rec   = K_P2X1['k_rec']   * p2x1_d
+	dy[_IDX['P2X1[pl]']]   += -v_p2x1_act + v_p2x1_close + v_p2x1_rec
+	dy[_IDX['P2X1_O[pl]']] += +v_p2x1_act - v_p2x1_close - v_p2x1_des
+	dy[_IDX['P2X1_D[pl]']] +=                              +v_p2x1_des - v_p2x1_rec
 
 	# IP3 is forced when `ip3_forced` is True; otherwise it free-floats
 	# (decay/regeneration handled by upstream processes in v0.3+).

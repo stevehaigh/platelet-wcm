@@ -135,6 +135,13 @@ _MOLECULES = [
 	('STIM1_dim[dts]',    2.570e-4,    11,            'protein'),     # 11 STIM1 dimer particles (Dolan Table S1)
 	# ── Orai1 (CRAC channel pore-forming subunit) ──
 	('ORAI1[pl]',         5.108e-5,    1_447,         'protein'),     # 30,768 Da; tetramerises to form ~360 channels
+	# ── P2X1 ATP-gated cation channel (Phase 2.5; see K_P2X1 block in
+	# calcium_signalling.py for biology). 1 000 functional channels;
+	# trimeric, mass per channel = 3 × 45 kDa = 2.241e-4 fg.
+	# All channels start closed at rest (no extracellular ATP).
+	('P2X1[pl]',          2.241e-4,    1_000,         'protein'),     # closed (resting)
+	('P2X1_O[pl]',        2.241e-4,        0,         'protein'),     # open
+	('P2X1_D[pl]',        2.241e-4,        0,         'protein'),     # desensitised
 ]
 
 # Submass column index for each class (mirrors SimulationDataPlatelet).

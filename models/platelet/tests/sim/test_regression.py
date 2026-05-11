@@ -92,11 +92,17 @@ class TestPlateletGoldenRun(unittest.TestCase):
 			f'Peak Ca²⁺ {peak:.1f} nM above physiological range (200–800 nM)')
 
 	def test_peak_ca_cyt_near_baseline(self):
-		"""Peak cytosolic Ca²⁺ should be within 30% of the 280 nM baseline."""
+		"""Peak cytosolic Ca²⁺ should be within 30% of the 470 nM baseline.
+
+		Baseline updated 2026-05-11 (Phase 2.5 P2X1 added) — the default
+		runscript sim is the +Ca_ex condition, in which P2X1 now
+		contributes ~150 nM to the peak (closing the SOCE differential).
+		Previous baseline 280 nM was pre-P2X1.
+		"""
 		peak = self.ca_cyt_nM.max()
-		self.assertGreater(peak, 196.0,   # 280 * 0.70
+		self.assertGreater(peak, 329.0,   # 470 * 0.70
 			f'Peak Ca²⁺ {peak:.1f} nM regressed below baseline −30%')
-		self.assertLess(peak, 364.0,      # 280 * 1.30
+		self.assertLess(peak, 611.0,      # 470 * 1.30
 			f'Peak Ca²⁺ {peak:.1f} nM regressed above baseline +30%')
 
 	# ── Flux sanity checks ─────────────────────────────────────────────────────
