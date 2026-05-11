@@ -40,53 +40,70 @@ historical entries — the dissertation needs a stable list of cited points.
   in a fully-buffered cytosol** — typically by 2–10× depending on the
   buffer's koff. Transient kinetics are also affected (lower koff = slower
   fall after peak).
-- **Mitigation in this work (2026-05-11)**: added a coarse-grained
-  "gelsolin proxy" species (`GSN_free[c]`, `GSN_Ca[c]`) with 1:1 binding
-  kinetics — but only as a **scaffold at N_GSN = 5 000** (50× below
-  biological). Full-biology N_GSN = 250 000 was *tested* and found to
-  crash Phase 3 peak heights from ~390 nM to ~130 nM, because the
-  existing IP3R / SERCA fluxes are themselves calibrated against the
-  Dolan 2014 under-buffered model. Closing the gap therefore requires
-  a coupled re-tune (IP3 forcing magnitude or γ_IP3R) and is left for
-  v0.3+. See `lab-book-2026-05-11-dyk-ip3r-design.md §Cytosolic
-  buffering pass` for the full analysis.
+- **Action taken (2026-05-11, Phase 2 retune)**: added the coarse-grained
+  gelsolin proxy at N_GSN = 800 000 sites (~160 000 gelsolin × 5 effective
+  Ca²⁺-binding sites; within Burkhart 2012 / Yin & Stossel 1979 range),
+  Kd = 1 µM, k_off = 100 s⁻¹. **Coupled with CALR addition and a 2× IP3R /
+  SERCA flux reduction** to keep Phase 3 peaks in the Dolan band — see
+  `lab-book-2026-05-11-dyk-ip3r-design.md §Phase 2`.
+- **Resulting buffering ratio is ~200:1 at rest** — *higher* than the
+  Sage & Rink ~50:1 literature value. This is the calibration penalty
+  for retaining the Dolan-inherited IP3R flux levels. A v0.3+ retune of
+  the IP3R rate constants (separate from the SERCA-rate question in
+  §3.2) would let N_GSN drop closer to ~200 000–300 000 with κ ≈ 50.
 - **What v0.3 should do**:
-  1. Scale `N_GSN` up to ~250 000 with multi-site binding (or split
-     into explicit gelsolin / annexin / Ca-ATP species).
-  2. Re-tune IP3 forcing amplitude and/or γ_IP3R to restore the
-     Dolan Fig. 4 measured peak heights with the new (correct)
-     buffer load.
-  3. Benchmark resting buffer ratio against Sage & Rink 1985.
+  1. Split the coarse-grained buffer into explicit gelsolin (1–2 high-
+     affinity EF-hand-like sites), annexins, and Ca-ATP equilibrium.
+  2. Re-derive IP3R rate constants from primary sources (not Dolan's
+     fitted values) and rebalance γ_IP3R + N_GSN to match the
+     ~50:1 resting buffering ratio measured by Sage & Rink.
+  3. Validate against post-peak Ca²⁺ decay kinetics (sensitive to
+     buffer k_off in a way the peak isn't).
 
 ---
 
 ## 2. Ca²⁺ buffering — dense tubular system (DTS)
 
-### 2.1 DTS luminal buffering is severely underpowered until Phase 2
+### 2.1 DTS luminal buffering — closed (Phase 2 / #28)
 
-- **State (2026-05-11)**: only the STIM1 EF-hand modelled (3 805 STIM1·Ca
-  out of 4 265 STIM1 at rest). DTS buffering ratio: **9% bound, ratio
-  bound:free ≈ 0.1**.
-- **Literature**: ER / SR luminal stores are **95–99% buffered**, primarily
-  by calreticulin (CALR), calsequestrin (in muscle), HSP90B1 (GRP94),
-  CALU, and other CREC-family proteins. Free luminal Ca²⁺ ≈ 100–500 µM
-  with total luminal Ca²⁺ ≈ 5–25 mM.
-- **Consequence**: the long-time resting state in our ODE drifts (cyt rises
-  to 200+ nM, DTS overfills to >1 mM in a 6 000 s run) because SERCA
-  pumps Ca²⁺ into a DTS with effectively no luminal buffer to absorb it.
-  The DTS only stops rising once it reaches the SERCA thermodynamic
-  reversal point. **The initial conditions (t = 0) and the short Phase 3
-  transients (200 s) are the only physically meaningful states in the
-  current model.**
-- **Dissertation framing**: must explicitly state that the v0.2.5 freeze
-  is a "transient-validated" model — Phase 3 stimulus / response dynamics
-  are biologically calibrated, but the model does not have a stable
-  biological resting fixed point.
-- **Resolution**: Phase 2 (issue #28) adds CALR (508 100 Ca²⁺-binding
-  sites at Kd ≈ 1 mM) and is the dominant fix. v0.3+ should add HSP90B1,
-  CALU per #25.
-- **Reference**: `lab-book-2026-05-11-dyk-ip3r-design.md`, this document
-  §3.1 (γ_IP3R / SERCA coupling).
+- **State (after 2026-05-11 Phase 2)**: calreticulin (CALR) added with two
+  binding modes:
+  - **C-domain** (low affinity, high capacity): 508 100 sites at Kd = 1 mM,
+    k_off = 1 000 s⁻¹ (fast equilibrium). ~102 k Ca²⁺ bound at rest.
+  - **P-domain** (high affinity, slow release): 20 324 sites at Kd = 1 µM,
+    k_off = 1 s⁻¹. ~20 k Ca²⁺ bound at rest (~99 % saturated).
+- **DTS buffering ratio**: from ~9 % bound → **~73 % bound** at rest.
+  Long-time resting state now stable at cyt = 109 nM, DTS = 264 µM
+  (vs the previous runaway to cyt = 200 nM, DTS > 1 mM).
+- **Open**: the DTS still drops to ~0 µM during the IP3 transient because
+  IP3R peak flux (~6.5 M ions/s after the Phase 2 retune) drains the
+  buffered DTS in ~20 ms. Real biology likely retains 50–100 µM free
+  DTS during stimulation. Closing this gap requires either further IP3R
+  rate-constant work (§3.2) or additional DTS buffers (HSP90B1, CALU
+  per #25; CaM is *not* a DTS buffer — see §2.2).
+- **Reference**: `lab-book-2026-05-11-dyk-ip3r-design.md §Phase 2`.
+
+### 2.2 Calmodulin is cytosolic — the DTS uses a distinct buffer system
+
+A point of confusion worth pre-empting in the write-up: CaM is *only*
+cytosolic / membrane-associated. It is synthesised on free ribosomes and
+has no ER/SR targeting or retention signal (no signal peptide, no KDEL).
+Literature: Cyert 2001, Berridge et al. 2003 *Nat Rev Mol Cell Biol*,
+Chin & Means 2000 *Trends Cell Biol*.
+
+The DTS lumen uses an entirely distinct set of Ca²⁺-binding proteins:
+
+| Protein | Function | In our model? |
+|---|---|---|
+| **CALR** (calreticulin) | Dominant ER/SR luminal Ca²⁺ buffer; high-capacity C-domain + high-affinity P-domain | ✓ (Phase 2) |
+| HSP90B1 (GRP94) | Chaperone with ~20 Ca²⁺ sites/molecule, mM affinity | ✗ (v0.3+, #25) |
+| CALU (calumenin) | CREC-family small acidic Ca²⁺ binder | ✗ (v0.3+, #25) |
+| RCN1, RCN2 (reticulocalbins) | CREC-family, multi-EF-hand | ✗ (v0.3+, #25) |
+| ERp44 | Small acidic, Ca²⁺ binding, redox-regulated | ✗ |
+| Calsequestrin (CASQ) | Dominant SR buffer in *muscle* — platelets don't express it | N/A |
+
+Our model includes the dominant CALR component, leaving the smaller CREC-
+family buffers for v0.3+.
 
 ---
 
@@ -205,13 +222,148 @@ historical entries — the dissertation needs a stable list of cited points.
 
 ---
 
-## 6. Open questions for the writeup
+## 6. Morphology and spatial assumptions
 
-- How to present the v0.2.5 resting-state runaway honestly without
-  undermining the Phase 3 validation result. Suggested framing:
-  *"transient-validated; long-time stability awaits the DTS buffer."*
+### 6.1 Compartments treated as well-mixed
+
+- **Our assumption**: cyt and DTS are each a single well-mixed volume
+  with uniform [Ca²⁺]. ODE-only, no diffusion.
+- **Reality**: Ca²⁺ microdomains exist around IP3R clusters (puff sites)
+  and at PM-DTS junctions where STIM1-Orai1 couple. Local [Ca²⁺] near
+  open IP3R clusters can be 10–100× the bulk cytosolic concentration
+  before equilibration.
+- **Mitigation**: in a 6 fL volume with free Ca²⁺ diffusion D ≈ 200 µm²/s,
+  the mixing timescale is sub-ms (L²/D ≈ 0.02 ms for a 2 µm cell). So
+  the well-mixed approximation is probably fine for *bulk* dynamics.
+  Microdomain effects matter for fast Ca²⁺-activated processes
+  (e.g. PMCA's CaM activation rate may be under-estimated because the
+  *real* local Ca²⁺ near membrane-localised CaM is higher than bulk).
+
+### 6.2 Surface-Connected Canalicular System (SCS) is not modelled separately
+
+- **The SCS** is a platelet-specific invaginated PM network that
+  penetrates deep into the cell, continuous with the extracellular
+  space. It effectively **doubles to triples the PM surface area**
+  for ion entry / extrusion vs the naive sphere-surface estimate.
+- **Effect on our model**: all PM-localised fluxes (PMCA, Orai1 / SOCE,
+  PM_LEAK) are calibrated *as effective bulk rates* against Dolan's
+  data, so the SCS is implicitly absorbed into the rate constants. But
+  it makes our γ_SOC, J_PM_LEAK, k_PMCA values cell-level rates, not
+  per-µm² fluxes — anyone trying to compare to PM patch-clamp data
+  needs to scale accordingly.
+
+### 6.3 IP3R clustering and "puff" dynamics
+
+- IP3Rs cluster in real cells (~10–100 channels per cluster). Each
+  cluster fires stochastically (Ca²⁺ puffs).
+- Our well-mixed continuous model treats all 1 328 IP3R as independent
+  with identical Po — effectively assumes population-averaged behaviour.
+- Probably fine for the *macroscopic* peak heights we validate against,
+  but the early transient kinetics may be off (real puff onset is
+  faster locally; our population-averaged onset is smoother).
+
+### 6.4 Volume parameters
+
+| Parameter | Our value | Reality |
+|---|---|---|
+| Cytoplasm volume | 6 fL | 4–7 fL (MPV-dependent; high inter-individual variation) |
+| DTS volume fraction | 4.3 % of cell | 4–13 % (Dolan low end; some EM gives higher) |
+| Total platelet volume | implicit | 6–10 fL |
+
+All concentrations scale with these volumes; sensitivity-check any
+flux estimate that crosses a biological band.
+
+---
+
+## 7. Missing channels / pathways
+
+### 7.1 P2X1 — the biggest gap
+
+**P2X1 is the dominant fast Ca²⁺ entry pathway in activated platelets**
+and is not in our model. It is an extracellular-ATP-gated cation channel
+that opens within milliseconds of platelet activation, contributing the
+*first* Ca²⁺ spike — before IP3R and well before SOCE.
+
+| Property | Value |
+|---|---|
+| Activation timescale | <10 ms after ATP exposure |
+| Ca²⁺ permeability | P_Ca/P_Na ~10 |
+| Desensitisation | Fast (~100 ms) |
+| Source in vivo | Released ATP from dense granules; autocrine activation |
+
+**Why this matters for the SOCE differential criterion (§ Phase 3)**:
+the real platelet +Ca_ex vs −Ca_ex peak difference may be driven
+substantially by P2X1, not just by Orai1/SOCE. Our SOCE differential ≈ 0
+result may be telling us that the missing pathway is P2X1, not slower
+STIM1 dimerisation. Worth flagging as a v0.2.6 candidate.
+
+### 7.2 Dense granule Ca²⁺ store
+
+Platelet dense granules store Ca²⁺ at very high concentrations (total
+[Ca²⁺] in the 50–100 mM range, mostly complexed with pyrophosphate and
+polyphosphate). NAADP / two-pore-channel (TPC) signalling releases this
+during activation. Our model has dense granules as a mass species
+(`CA2_DG[dg]` would be the natural species; not currently present in
+`internal_state.py`) but no flux pathway. Add as a third Ca²⁺
+compartment for v0.3.
+
+### 7.3 Other DTS / PM channels not in model
+
+| Channel | Why not in model | Priority |
+|---|---|---|
+| **RyR2** | Existence in platelets is contested; Dolan ignores it; some Lopez et al. evidence | v0.3+ |
+| **TRPC1/4/6** | Tethering and store-operated entry; partially covered by lumped SOCE | v0.3+ |
+| **SPCA1** (ATP2C1) | Pumps Ca²⁺ into Golgi/secretory granules; ER ≠ Golgi but secretory pathway is biologically active | v0.3+ |
+| **MCU** (mitochondrial uniporter) | Already issue #22 | v0.3+ |
+| **NCX** (Na⁺/Ca²⁺ exchanger) | Some evidence in platelets, contested | v0.3+ |
+
+### 7.4 Receptor-PLC-IP3 upstream of IP3R
+
+We force IP3 directly using the Dolan Fig S2 fit. Real upstream:
+
+GPCR (thrombin / collagen / ADP receptors)
+  → Gαq
+  → PLCβ
+  → cleaves PIP2 → IP3 + DAG
+
+The PIP2 pool is finite, PLC has its own kinetics, and IP3 is degraded
+by IP3-3-kinase and IP3-5-phosphatase. Forcing IP3 directly:
+- Misses the kinetic shape of the rise (we have τ_rise = 3 s; real may
+  be slower or have a shoulder)
+- Misses the finite-pool / desensitisation effects
+- Decouples Ca²⁺ release from upstream receptor signalling
+
+v0.3 receptor-signalling work (#9, #10) would close this.
+
+### 7.5 Cytoskeletal coupling (gelsolin's dual role)
+
+Our "GSN" species treats gelsolin as a passive Ca²⁺ buffer. Real
+gelsolin is **dual-purpose**: it's a Ca²⁺-activated actin-severing
+protein, and its Ca²⁺-binding state drives major cytoskeletal
+rearrangement during platelet activation. The same Ca²⁺ that we count
+as "GSN-bound" in the buffer accounting is mechanistically what
+*activates* gelsolin to sever actin filaments — a major activation
+endpoint. For a Ca²⁺-only model, the buffer aspect is correct; for any
+cytoskeletal-output model, the GSN species would need a state-machine
+representation.
+
+---
+
+## 8. Open questions for the writeup
+
+- How to present the post-Phase-2 model honestly: it has biologically
+  realistic resting state and Phase-3 peak heights, but the SOCE
+  differential is missing and the DTS empties more during transient
+  than real biology. Two possible framings:
+  - *"v0.2.6 captures the dominant calcium pathway with biology-grade
+    buffering; SOCE differential limitation traces to missing fast
+    Ca²⁺ entry (P2X1, §7.1)."*
+  - *"transient-validated for peak heights and resting state; full
+    transient shape calibration awaits v0.3."*
 - Whether to present the SERCA flux question (§3.2) as a known
   limitation or to attempt a v0.3-style re-derivation before the
   freeze.
 - How much detail on γ_IP3R derivation belongs in the main text
   versus the appendix.
+- Whether to add P2X1 to v0.2.7 (small commit, big biological
+  improvement) or defer to v0.3 receptor-signalling work.

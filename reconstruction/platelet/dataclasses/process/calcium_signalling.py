@@ -85,6 +85,12 @@ MOLECULE_NAMES = (
 	# see K_GSN block below for the biology / scope disclosure).
 	'GSN_free[c]',
 	'GSN_Ca[c]',
+	# Calreticulin DTS Ca²⁺-binding sites (Phase 2 / #28; see K_CALR block).
+	'CALR_free[dts]',
+	'CALR_Ca[dts]',
+	# CALR high-affinity P-domain (1 site per CALR; slow release).
+	'CALR_P_free[dts]',
+	'CALR_P_Ca[dts]',
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -176,7 +182,7 @@ N_IP3R = 1328
 # pS sits within that range. The historical 10 pS (Zschauer 1988, via
 # Purvis 2008) was a bilayer measurement under symmetric high Ca²⁺
 # where K⁺ contributes negligibly to current and is not transferable.
-GAMMA_IP3R_S = 0.35e-12          # 0.35 pS = calibrated Ca²⁺ conductance, A/V
+GAMMA_IP3R_S = 0.175e-12         # 0.175 pS = calibrated Ca²⁺ conductance, A/V
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
@@ -197,7 +203,7 @@ GAMMA_IP3R_S = 0.35e-12          # 0.35 pS = calibrated Ca²⁺ conductance, A/V
 K_SERCA = {
 	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
 	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	'k_bind_f':    1000.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
+	'k_bind_f':     500.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
 	'k_bind_r':      10.0,    # reverse                        (s⁻¹)
 	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
 	'k_phos_r':       5.0,
@@ -229,37 +235,83 @@ K_CAM = {
 }
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────────
-# ⚠ SCAFFOLD ONLY — not biological calibration.
 # Real platelet cytosolic Ca²⁺ buffering ratio is ~50:1 (bound:free; Sage
-# & Rink 1985), dominated by gelsolin (~250 000 copies × multi-site binding;
-# Burkhart 2012), with smaller contributions from annexins, Ca·ATP, and
-# Ca²⁺-binding kinases. Our model currently includes only calmodulin
-# (ratio ~3.5:1). Adding gelsolin at full biological copy number
-# (~250 000) crashes Phase 3 transient peaks from ~390 nM to ~130 nM
-# because the existing IP3R / SERCA fluxes are calibrated to the
-# Dolan 2014 under-buffered model — closing the buffering gap requires a
-# coupled re-tune of IP3 forcing and γ_IP3R that is out of scope for
-# v0.2.5.
+# & Rink 1985), dominated by gelsolin (~50 000–280 000 copies × multi-site
+# Ca²⁺ binding; Burkhart 2012; Yin & Stossel 1979), with smaller
+# contributions from annexins, Ca·ATP, and Ca²⁺-binding kinases. Our
+# model represents this as a single coarse-grained 1:1 buffer:
 #
-# This block adds the *structural* machinery (species, ODE term, initial
-# conditions) at 5 000 copies — 50× below biological — so that v0.3+ can
-# scale N_GSN up and retune the source fluxes in a single coordinated
-# commit. The κ contribution at rest is small (~0.13 on top of CaM's 3.5),
-# so Phase 3 is not perturbed.
+#   GSN_free + Ca²⁺  ⇌  GSN_Ca       (k_on, k_off; Kd = 1 µM)
 #
-# Single-site, fast-equilibrium 1:1 binding:
-#   GSN_free + Ca²⁺  ⇌  GSN_Ca       (k_on, k_off; Kd = k_off/k_on = 1 µM)
+# `N_GSN` counts effective Ca²⁺-binding sites, not gelsolin molecules.
+# Calibrated jointly with CALR (Phase 2 / #28): with the DTS buffered,
+# IP3R transients deliver substantially more Ca²⁺ to the cytosol, and
+# the cytosolic buffer is needed to keep peaks in the Dolan Fig 4 band.
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
-# v0.3 plan.
+# v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
 K_GSN = {
-	'k_on':  100.0,    # GSN + Ca²⁺ → GSN·Ca  (µM⁻¹·s⁻¹) — fast EF-hand binding
-	'k_off': 100.0,    # reverse              (s⁻¹)       — Kd = 1.0 µM
+	'k_on':  100.0,    # GSN_site + Ca²⁺ → GSN_site·Ca  (µM⁻¹·s⁻¹) — fast EF-hand binding
+	'k_off': 100.0,    # reverse                        (s⁻¹)       — Kd = 1.0 µM
 }
 
-# Total gelsolin (scaffold size, not biological): 5 000 (placeholder).
-# Biological copy number (Burkhart 2012; Yin & Stossel 1979): ~250 000.
-N_GSN = 5_000
+# Effective Ca²⁺-binding sites (Phase 2 cyt+DTS-coupled calibration).
+# Biological gelsolin: ~100 000 copies × ~5 sites = 500 000 sites (Burkhart
+# 2012; Yin & Stossel 1979). N_GSN below is calibrated against Phase 3
+# peak heights with CALR active — see lab book for the iteration log.
+N_GSN = 800_000
+
+
+# ── Calreticulin (CALR) DTS Ca²⁺ buffer — Phase 2 / issue #28 ────────────
+# Calreticulin is the dominant luminal Ca²⁺-binding protein in the ER/SR
+# (and the DTS, which is the platelet equivalent). It has three domains:
+#   N (lectin)
+#   P (proline-rich): 1 high-affinity Ca²⁺ site, Kd ~ 1 µM (always saturated
+#     at physiological DTS [Ca²⁺] — folded into the existing CA2_DTS pool)
+#   C (acidic):      ~25 low-affinity Ca²⁺ sites, Kd ~ 1 mM — this is the
+#     dominant *dynamic* DTS Ca²⁺ buffer and what this block models.
+#
+# Platelet copy number: 20 324 CALR molecules (Burkhart 2012; Dolan 2014
+# Table S1). With 25 low-affinity sites per molecule the total binding
+# capacity is N_CALR = 508 100 sites. At [Ca²⁺]_DTS = 250 µM (Dolan
+# resting): fractional occupancy = 250/(250+1000) = 0.20 →
+#   CALR_Ca   = 101 620 sites occupied
+#   CALR_free = 406 480 sites empty
+#
+# Effect: real biology has 95–99 % of DTS Ca²⁺ buffered; previously the
+# model had ~9 % (STIM1 EF-hand only) and the resting DTS overfilled to
+# > 1 mM in 6 000-s integrations because SERCA pumped into a near-
+# unbuffered lumen. With CALR the buffering ratio rises to ~72 % at rest
+# and the DTS gains a large "spring" that absorbs SERCA excess and
+# releases during IP3R drainage.
+#
+# Each binding site is treated as an independent 1:1 Ca²⁺ binder. This is
+# the standard coarse-graining for calreticulin and matches the Sneyd
+# 2014 / Hofer 1998 buffer formulation. v0.3+ may refine to include the
+# high-affinity P-domain site or extend to HSP90B1 / CALU (issue #25).
+#
+# See `reports/dissertation-notes.md §2.1` for the full biological context.
+K_CALR = {
+	'k_on':    1.0,    # CALR_site + Ca²⁺ → CALR_site·Ca  (µM⁻¹·s⁻¹) — fast equilibrium
+	'k_off': 1000.0,   # reverse                          (s⁻¹)       — Kd = 1.0 mM
+}
+
+# Total CALR Ca²⁺-binding sites: 20 324 CALR × 25 C-domain sites.
+N_CALR = 508_100
+
+# CALR high-affinity P-domain: 1 site per CALR molecule, Kd ~ 1 µM, slow
+# release kinetics (k_off ~ 1 s⁻¹). Source: Baksh & Michalak 1991,
+# Vassilakos 1998. At resting DTS [Ca²⁺] = 250 µM this site is always
+# saturated (occupancy > 99.6 %), so it doesn't matter much at rest — but
+# during IP3R-driven DTS depletion, the slow release rate means these
+# 20 324 Ca²⁺ ions take ~1 s to liberate after free [Ca²⁺]_DTS drops
+# below the Kd. This adds a small "delayed reservoir" that smooths DTS
+# recovery without preventing the transient depletion. See lab book.
+K_CALR_P = {
+	'k_on':    1.0,    # CALR_P + Ca²⁺ → CALR_P·Ca   (µM⁻¹·s⁻¹)
+	'k_off':   1.0,    # reverse                     (s⁻¹)       — Kd = 1.0 µM
+}
+N_CALR_P = 20_324
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
@@ -500,6 +552,11 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	gsn_free = max(y[_IDX['GSN_free[c]']], 0.0)
 	gsn_ca   = max(y[_IDX['GSN_Ca[c]']],   0.0)
 
+	calr_free = max(y[_IDX['CALR_free[dts]']], 0.0)
+	calr_ca   = max(y[_IDX['CALR_Ca[dts]']],   0.0)
+	calr_p_free = max(y[_IDX['CALR_P_free[dts]']], 0.0)
+	calr_p_ca   = max(y[_IDX['CALR_P_Ca[dts]']],   0.0)
+
 	st_free = max(y[_IDX['STIM1_free[dts]']], 0.0)
 	st_ca   = max(y[_IDX['STIM1_Ca[dts]']],   0.0)
 	st_dim  = max(y[_IDX['STIM1_dim[dts]']],  0.0)
@@ -573,6 +630,19 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['GSN_free[c]']] += -v_gsn
 	dy[_IDX['GSN_Ca[c]']]   += +v_gsn
 	dy[_IDX['CA2_CYT[c]']]  += -v_gsn
+
+	# ── Calreticulin DTS Ca²⁺ buffer (Phase 2 / #28) ─────────────────
+	# Two sites per CALR molecule: 25 low-affinity C-domain (fast) +
+	# 1 high-affinity P-domain (slow). See K_CALR / K_CALR_P blocks.
+	v_calr = K_CALR['k_on'] * calr_free * ca_dts - K_CALR['k_off'] * calr_ca
+	dy[_IDX['CALR_free[dts]']] += -v_calr
+	dy[_IDX['CALR_Ca[dts]']]   += +v_calr
+	dy[_IDX['CA2_DTS[dts]']]   += -v_calr
+
+	v_calr_p = K_CALR_P['k_on'] * calr_p_free * ca_dts - K_CALR_P['k_off'] * calr_p_ca
+	dy[_IDX['CALR_P_free[dts]']] += -v_calr_p
+	dy[_IDX['CALR_P_Ca[dts]']]   += +v_calr_p
+	dy[_IDX['CA2_DTS[dts]']]     += -v_calr_p
 
 	# ── PMCA basal path (Caride 2007 steps 4–5) ──────────────────────
 	v_pmca_bind = K_PMCA['k_on'] * pmca * ca_cyt - K_PMCA['k_off'] * pmcaca

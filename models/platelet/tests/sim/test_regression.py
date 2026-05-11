@@ -116,9 +116,17 @@ class TestPlateletGoldenRun(unittest.TestCase):
 			f'Dry mass reached zero or below (min={self.dry_mass.min():.6f})')
 
 	def test_dry_mass_near_baseline(self):
-		"""Initial dry mass should be within 1% of the 196.17 fg baseline."""
+		"""Initial dry mass should be within 1% of the 220.05 fg baseline.
+
+		Baseline updated 2026-05-11 (Phase 2 buffer biology):
+		- CALR low-affinity C-domain (#28): +1.55 fg
+		- CALR high-affinity P-domain (#28; slow release site): +0.06 fg
+		- Coarse-grained gelsolin cyt buffer (calibrated): +22.3 fg net
+		Total: +24 fg over the pre-buffer baseline of ~196 fg. All three
+		represent Ca²⁺-binding proteins previously omitted from the model.
+		"""
 		initial = self.dry_mass[0]
-		self.assertGreater(initial, 194.2,   # 196.17 * 0.99
+		self.assertGreater(initial, 217.8,   # 220.05 * 0.99
 			f'Initial dry mass {initial:.3f} below baseline −1%')
-		self.assertLess(initial, 198.1,      # 196.17 * 1.01
+		self.assertLess(initial, 222.3,      # 220.05 * 1.01
 			f'Initial dry mass {initial:.3f} above baseline +1%')

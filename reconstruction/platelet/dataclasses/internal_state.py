@@ -62,17 +62,15 @@ _MOLECULES = [
 	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
 	# Initialised at the full 6-state cycle steady state at cyt = 100 nM,
 	# DTS = 250 µM (solved analytically; see lab-book-2026-05-11-dyk-ip3r-
-	# design.md §"Phase 4"). The previous 2-state pre-equilibration
-	# (E1Ca/E1 = k_bind_f·cyt²/k_bind_r = 1.0 → E1Ca = 2 963) ignored
-	# the fast phosphorylation drain (k_phos_f = 700 s⁻¹ >> k_bind_r = 10
-	# s⁻¹), over-estimating E1Ca by 36×. The correct full-cycle ratio is
-	# E1Ca/E1 = k_bind_f·cyt²/(k_bind_r + k_phos_f) = 10/710 = 0.0141.
-	('SERCA_E1[dts]',     1.814e-4,    5_710,         'protein'),     # E1 (cytosol-facing, empty)
-	('SERCA_E2[dts]',     1.814e-4,    5_803,         'protein'),     # E2 (DTS-facing, empty)
-	('SERCA_E1Ca[dts]',   1.814e-4,      81,          'protein'),     # E1·2Ca²⁺
-	('SERCA_E1PCa[dts]',  1.814e-4,     101,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
-	('SERCA_E2PCa[dts]',  1.814e-4,      84,          'protein'),     # E2P·2Ca²⁺
-	('SERCA_E2P[dts]',    1.814e-4,     113,          'protein'),     # E2P (Ca²⁺ released to DTS)
+	# design.md). Recomputed 2026-05-11 (Phase 2 IP3R/SERCA retune) after
+	# `k_bind_f` was halved (1000 → 500 µM⁻²·s⁻¹) — see K_SERCA block in
+	# `calcium_signalling.py`.
+	('SERCA_E1[dts]',     1.814e-4,    5_825,         'protein'),     # E1 (cytosol-facing, empty)
+	('SERCA_E2[dts]',     1.814e-4,    5_873,         'protein'),     # E2 (DTS-facing, empty)
+	('SERCA_E1Ca[dts]',   1.814e-4,      41,          'protein'),     # E1·2Ca²⁺
+	('SERCA_E1PCa[dts]',  1.814e-4,      51,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
+	('SERCA_E2PCa[dts]',  1.814e-4,      43,          'protein'),     # E2P·2Ca²⁺
+	('SERCA_E2P[dts]',    1.814e-4,      57,          'protein'),     # E2P (Ca²⁺ released to DTS)
 	# ── PMCA4b sub-states (Caride 2007 Table 3 5-state CaM-coupled scheme) ──
 	# Basal path (steps 4–5): PMCA ⇌ PMCA·Ca → Ca²⁺_ex
 	# CaM-activated path (steps 8–11): PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
@@ -94,14 +92,43 @@ _MOLECULES = [
 	('CaM_free[c]',       2.775e-5,    20_062,  'protein'),  # free CaM (equilibrated)
 	('Ca2_CaM[c]',        2.775e-5,    200,     'protein'),  # Ca₂·CaM (N-lobe loaded; ~0.010 × free)
 	('Ca4_CaM[c]',        2.775e-5,    219,     'protein'),  # Ca₄·CaM (fully loaded; ~1.10 × Ca₂·CaM)
-	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy; scaffold) ──
-	# SCAFFOLD ONLY: N_GSN = 5 000 (50× below the ~250 000 biological value;
-	# Burkhart 2012). Mass per molecule = gelsolin monomer (84 kDa).
+	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ──
+	# N_GSN = 800 000 effective Ca²⁺-binding sites (calibrated against
+	# Phase 3 with CALR + P-domain active; see lab book). Mass per site =
+	# gelsolin monomer mass / 5 sites = 1.395e-4 fg / 5 = 2.79e-5 fg, so
+	# total GSN protein mass ≈ 800 000 × 2.79e-5 = 22.3 fg (consistent
+	# with ~160 000 gelsolin molecules at 5 sites each — within the
+	# Burkhart 2012 / Yin & Stossel 1979 platelet abundance range of
+	# ~50 000–280 000).
 	# Pre-equilibrated at cyt = 100 nM, Kd = 1 µM: GSN_Ca/GSN_free = 0.1.
-	# Total = 5 000 → GSN_free = 4 545, GSN_Ca = 455. See K_GSN block in
-	# calcium_signalling.py for the biology / scope disclosure.
-	('GSN_free[c]',       1.395e-4,    4_545,   'protein'),  # gelsolin (free, ~250 k in real biology)
-	('GSN_Ca[c]',         1.395e-4,    455,     'protein'),  # gelsolin·Ca²⁺
+	# Total = 800 000 → GSN_free = 727 273, GSN_Ca = 72 727.
+	('GSN_free[c]',       2.79e-5,    727_273, 'protein'),
+	('GSN_Ca[c]',         2.79e-5,     72_727, 'protein'),
+	# ── Calreticulin DTS Ca²⁺ buffer (Phase 2 / #28) ──
+	# 20 324 CALR molecules × 25 low-affinity Ca²⁺-binding sites = 508 100
+	# sites total. Mass per "site" = CALR monomer (46 kDa) / 25 sites:
+	#   46 000 Da × 1.661e-9 fg/Da / 25 = 3.056e-6 fg per site.
+	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 1 mM:
+	#   occupancy = 250 / (250 + 1000) = 0.20
+	#   CALR_Ca   = 508 100 × 0.20 = 101 620 (occupied sites)
+	#   CALR_free = 508 100 × 0.80 = 406 480 (empty sites)
+	# Adds ~101 620 bound Ca²⁺ ions to the DTS — represents real biological
+	# luminal Ca²⁺ that was previously omitted from the model (NOT a
+	# redistribution of the existing 38 842 free CA2_DTS pool).
+	# See K_CALR block in calcium_signalling.py for the biology disclosure.
+	('CALR_free[dts]',    3.056e-6,    406_480, 'protein'),  # empty Ca²⁺-binding sites
+	('CALR_Ca[dts]',      3.056e-6,    101_620, 'protein'),  # occupied sites
+	# CALR high-affinity P-domain (1 site per CALR; slow release kinetics).
+	# Kd ~ 1 µM; at DTS [Ca²⁺] = 250 µM, occupancy = 250/251 = 0.996.
+	# CALR_P_Ca = 20 324 × 0.996 = 20 243 (saturated at rest)
+	# CALR_P_free = 81 (mostly empty pool). Mass per site = mass of one
+	# CALR P-domain site = total CALR mass / 26 sites = 7.641e-5 / 26 =
+	# 2.939e-6 fg, but we model it sharing total mass with C-domain by
+	# using mass-per-site weighted: at 1:25 ratio of P:C, give P the
+	# correct fraction of total CALR mass. Simplest: 7.641e-5 / 26 =
+	# 2.939e-6 (close to C-domain value 3.056e-6 already in use).
+	('CALR_P_free[dts]',  2.939e-6,         81, 'protein'),
+	('CALR_P_Ca[dts]',    2.939e-6,    20_243, 'protein'),
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)

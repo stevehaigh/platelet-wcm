@@ -590,7 +590,106 @@ The biology disclosure is in the `K_GSN` block in
 
 ---
 
-*Branch:* `main` · *Status:* Phase 4 complete (γ + SERCA ICs); biology
-review + cytosolic buffer pass next ·
-*Linked issues:* #27 (Phase 1, complete), #24 (parent), #28 (Phase 2,
-CALR buffer; next), #30 (Phase 4, complete)
+## Phase 2 — buffer biology (2026-05-11, issue #28)
+
+Added the dominant DTS luminal buffer (CALR) plus a calibrated cytosolic
+buffer scale-up, with a coupled IP3R / SERCA flux retune.
+
+### Components added
+
+**Calreticulin C-domain** (low-affinity, high-capacity):
+- 20 324 CALR molecules × 25 sites = 508 100 sites
+- Kd = 1 mM, k_off = 1 000 s⁻¹ (fast equilibrium)
+- Source: Burkhart 2012; Vassilakos 1998; Baksh & Michalak 1991
+- At resting DTS [Ca²⁺] = 250 µM: 101 620 bound (20% occupancy)
+
+**Calreticulin P-domain** (high-affinity, slow release):
+- 1 site per CALR molecule × 20 324 molecules = 20 324 sites
+- Kd = 1 µM, k_off = 1 s⁻¹ (~1 s residence time)
+- Always saturated at resting DTS [Ca²⁺] (occupancy > 99.6 %)
+- Releases its ~20 k Ca²⁺ over ~1 s when DTS [Ca²⁺] drops below Kd
+
+**Coarse-grained cytosolic buffer (gelsolin proxy)**:
+- Scaled from 5 000 scaffold sites → 800 000 (~160 000 gelsolin × 5 sites)
+- Kd = 1 µM, k_off = 100 s⁻¹ (fast)
+- Source: Burkhart 2012 / Yin & Stossel 1979 (range 50 000–280 000 GSN)
+
+**IP3R / SERCA flux retune** (coupled with buffer addition):
+- γ_IP3R: 0.35 pS → **0.175 pS** (halved)
+- SERCA k_bind_f: 1 000 → **500 µM⁻²·s⁻¹** (halved to maintain resting balance)
+- SERCA initial conditions re-derived from 6-state cycle steady state at
+  the new k_bind_f: E1 = 5 825, E2 = 5 873, E1Ca = 41, E1PCa = 51,
+  E2PCa = 43, E2P = 57 (cycle flux = 57 426 ions/s ≈ new resting IP3R
+  flux of 57 500 ions/s).
+
+### Why the retune was necessary
+
+Adding CALR alone made the resting DTS biologically correct (cyt = 116 nM,
+DTS = 257 µM stable) but exploded the cyt peak to **~5 000 nM** during
+the Dolan IP3 transient. Diagnostic:
+
+> At the cyt peak (cyt = 360 nM, ip3 = 0.25 µM), IP3R Po = m∞⁴ × h ≈
+> 0.062 — gives peak flux ~13 M ions/s. The total DTS Ca²⁺ (free 38 k +
+> CALR-bound 102 k + STIM-bound 4 k = 144 k ions) drains in ~11 ms.
+> CALR's C-domain (fast k_off) cannot retain Ca²⁺ at this drain rate;
+> it simply gives up its buffer load to the free pool, which then flows
+> through IP3R. The peak height is set by the buffer-vs-IP3R-flux
+> integral over the transient.
+
+To bring the cyt peak back into the Dolan ±30 % band required either
+(a) much more cyt buffering or (b) lower IP3R flux. Both were needed: GSN
+at biological copy number (~160 000 molecules) for buffering, and γ_IP3R
+halved to lower the transient flux. SERCA k_bind_f halved alongside to
+preserve resting balance.
+
+### Outcome
+
+| Metric | Before Phase 2 | After Phase 2 |
+|---|---|---|
+| Resting cyt (steady state) | 116 nM | **109 nM** |
+| Resting DTS (steady state) | 257 µM | **264 µM** |
+| Resting IP3R flux | 115 k ions/s | 57.5 k ions/s |
+| Resting SERCA flux | 113 k ions/s | 57.4 k ions/s |
+| Peak IP3R flux | ~13 M ions/s | ~6.5 M ions/s |
+| Peak cyt (+Ca_ex) | 393 nM | **345 nM** ✓ (in 315–585) |
+| Peak cyt (−Ca_ex) | 325 nM | **345 nM** ✓ (in 192–358) |
+| Phase 3 score | 4/5 | 4/5 |
+| Cyt buffering ratio (rest) | 3.5:1 | ~200:1 |
+| DTS buffering ratio (rest) | 9% bound | ~73% bound |
+| Dry mass | 196.8 fg | 220.0 fg (+ ~24 fg buffer proteins) |
+| 21 tests | 21 pass | 21 pass |
+
+### Known limitations from this commit
+
+1. **DTS still empties fully (≈ 0 µM) during the transient.** The C-domain
+   releases at fast equilibrium and the P-domain's slow release isn't
+   enough to retain free [Ca²⁺]_DTS above zero. Real biology likely
+   retains ~50–100 µM free DTS during stimulation. Closing this gap
+   requires either further IP3R rate-constant work, additional DTS
+   buffers (HSP90B1, CALU — #25), or P2X1 / faster SOCE.
+
+2. **The SOCE differential is still ~0 nM** (Dolan reports ~100 nM).
+   This is a peak-timing issue: the cyt peak occurs at t ≈ 1 s after
+   IP3 onset, before SOCE / STIM1 dimerization has activated. Possible
+   fixes:
+   - Slower IP3 forcing rise (peak occurs later, SOCE catches up)
+   - Faster STIM1 dimer / Orai1 coupling
+   - P2X1 contribution to +Ca_ex condition specifically
+   See `reports/dissertation-notes.md §4` for a full discussion.
+
+3. **Cyt buffering ratio of ~200:1 is higher than Sage & Rink 1985's
+   ~50:1**. This is the calibration penalty for keeping the
+   Dolan-inherited IP3R flux levels high. A v0.3+ rederivation of the
+   IP3R rate constants (separate from the SERCA-rate question already
+   in `dissertation-notes §3.2`) would let GSN drop closer to 50:1.
+
+4. **Same SERCA-rate over-estimate as documented in dissertation notes
+   §3.2** — halving k_bind_f mitigates but doesn't address the
+   underlying calibration question.
+
+---
+
+*Branch:* `main` · *Status:* Phase 2 complete (CALR + cyt buffer + flux
+retune); Phase 3 / #29 (CaM-PMCA coarse-grain) next, conditional ·
+*Linked issues:* #27 (Phase 1, complete), #24 (parent, partly closed),
+#28 (Phase 2, complete), #30 (Phase 4, complete)
