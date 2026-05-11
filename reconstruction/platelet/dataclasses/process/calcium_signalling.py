@@ -4,11 +4,14 @@ Calcium signalling dataclass for the platelet whole-cell model.
 Holds species ordering, rate constants, compartment volumes, and the
 ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
 
-  * IP3R 6-state Markov model with the full Sneyd & Dufour (2002) type-2
-    φ-function rate laws as published in Purvis 2008 Table 1.
+  * IP3R deYoung-Keizer 1992 model (Li-Rinzel 1994 simplification): one
+    slow inactivation ODE for h (fraction of non-inhibited channels) plus
+    quasi-steady activation m∞(IP3, Ca). Replaces the Sneyd-Dufour 2002
+    6-state Markov model, which was correctly implemented but calibrated
+    at IP3 = 10 µM and extrapolated poorly to resting IP3 = 50 nM.
   * IP3R Ca²⁺ flux via the Nernst form (Purvis 2008 eq. 13 / Dolan 2014
     eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 10 pS,
-    Po = (0.9·a/total + 0.1·o/total)⁴.
+    Po = m∞(IP3, Ca)⁴ × h.
   * SERCA E1/E2 cycle (Purvis 2008 Table 1, Dode 2002 kinetics) with the
     primary-source rate constants — including k_bind_f = 1×10¹⁵ M⁻²s⁻¹.
   * PMCA 5-state CaM-coupled scheme (Caride 2007 Table 3): basal path
@@ -56,12 +59,7 @@ MOLECULE_NAMES = (
 	'CA2_CYT[c]',
 	'CA2_DTS[dts]',
 	'IP3[c]',
-	'IP3R_n[dts]',
-	'IP3R_o[dts]',
-	'IP3R_a[dts]',
-	'IP3R_i1[dts]',
-	'IP3R_i2[dts]',
-	'IP3R_s[dts]',
+	'IP3R_h[dts]',
 	'SERCA_E1[dts]',
 	'SERCA_E2[dts]',
 	'SERCA_E1Ca[dts]',
@@ -118,34 +116,32 @@ V_IM_V = -0.060          # DTS-membrane potential (V)
 V_PM_V = -0.060          # plasma-membrane potential (V)
 
 
-# ── IP3R rate constants and conductance ───────────────────────────────────
-# Sneyd & Dufour 2002 type-2 kinetics, parameterised in Purvis 2008 Table 1
-# (verified PDF, 2026-04-23 provenance pass). The rate laws are *not* simple
-# mass-action — see `_phi_*` helpers in `_ode_rhs` for the full φ-function
-# form that satisfies detailed balance.
-K_IP3R = {
-	'k1':    0.64,    # n+Ca↔i1 / a+Ca↔i2 forward  (µM⁻¹·s⁻¹)
-	'k_m1':  0.04,    #                  reverse    (s⁻¹)
-	'k2':   37.4,     # n+IP3 ↔ o forward           (µM⁻¹·s⁻¹)
-	'k_m2':  1.4,     #              reverse        (s⁻¹)
-	# k3 was 11.0 in Purvis 2008 Table 1; the Sneyd-Dufour 2002 primary
-	# source (Fig 4 caption + body text confirming "φ₃ ≈ 0.1 s⁻¹" at
-	# resting [Ca²⁺]) has 0.11 s⁻¹. Purvis appears to have transcribed
-	# 100× too large; Sneyd-Dufour 2002 audit 2026-05-08 corrected.
-	'k3':    0.11,    # o ↔ s   forward             (s⁻¹)
-	'k_m3': 29.8,     #          reverse            (s⁻¹)
-	'k4':    4.0,     # o+Ca ↔ a forward            (µM⁻¹·s⁻¹)
-	'k_m4':  0.54,    #            reverse          (s⁻¹)  — Sneyd-Dufour Fig 4
-	'l2':    1.7,     # appears inside the n→i1 / a→i2 φ-function (s⁻¹)
-	'l_m2':  0.8,     # appears in the reverse  (s⁻¹)
-	'l4':    1.7,     # n→o φ-function           (µM⁻¹·s⁻¹)
-	'l_m4':  2.5,     # o→n reverse              (µM⁻¹·s⁻¹)
-	'l6': 4707.0,     # o→a φ-function           (s⁻¹)
-	'l_m6': 11.4,     # a→o reverse              (s⁻¹)
-	'L1':   0.12,     # equilibrium constants (µM)
-	'L3':   0.025,
-	'L5':  54.7,
+# ── IP3R: deYoung-Keizer 1992 / Li-Rinzel 1994 ───────────────────────────
+# Replaces the Sneyd-Dufour 2002 6-state Markov model (see
+# lab-book-2026-05-08-sneyd-dufour-audit.md for the audit confirming the
+# prior implementation was correct but poorly conditioned at resting IP3).
+#
+# Li & Rinzel 1994 reduce the 8-state deYoung-Keizer model to one slow ODE:
+#
+#   m∞(IP3, Ca) = [IP3 / (IP3 + d₁)] × [Ca_cyt / (Ca_cyt + d₅)]
+#   dh/dt       = a₂ × [d₂ − (Ca_cyt + d₂) × h]
+#   Po          = m∞⁴ × h
+#
+# h → h∞ = d₂/(Ca_cyt + d₂) in quasi-steady state; τ_h = 1/(a₂(Ca_cyt+d₂)).
+# The ⁴ exponent encodes tetrameric cooperativity (all four subunits must be
+# non-inhibited and in the m∞ activation state).
+#
+# Parameters from deYoung & Keizer 1992 PNAS 89:9895-9899 Table 1, via the
+# derived dissociation constants in Li & Rinzel 1994 J Theor Biol 166:461-473.
+K_DYK = {
+	'd1':  0.13,     # IP3 activation half-saturation   (µM)      b₁/a₁ = 52/400
+	'd2':  1.049,    # Ca²⁺ inhibition half-saturation  (µM)      b₄/a₄
+	'd5':  0.08234,  # Ca²⁺ activation half-saturation  (µM)      b₅/a₅
+	'a2':  0.2,      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets τ_h
 }
+
+# Total IP3R channels: Burkhart 2012 ITPR2 count, Dolan 2014 Table S1.
+N_IP3R = 1328
 
 # IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
 #   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
@@ -317,70 +313,6 @@ def ip3_forcing_uM(t, delay=0.0):
 	return IP3_REST_UM * (1.0 + (IP3_FOLD - 1.0) * rise * decay)
 
 
-# ── IP3R Sneyd & Dufour rate-law helpers ──────────────────────────────────
-# All φ-functions take [Ca²⁺]_cyt in µM and return a per-state rate constant
-# (s⁻¹). Multiply by the *count* of the source state to get a flux (count/s).
-# Forms verified against Purvis 2008 Table 1 (PDF, 2026-04-23 provenance).
-def _phi_n_i1_fwd(ca):
-	# n + Ca²⁺ → i1
-	K = K_IP3R
-	return ((K['k1'] * K['L1'] + K['l2']) * ca
-			/ (K['L1'] + ca * (1.0 + K['L1'] / K['L3'])))
-
-
-def _phi_n_i1_rev():
-	K = K_IP3R
-	return K['k_m1'] + K['l_m2']
-
-
-def _phi_n_o_fwd(ip3, ca):
-	# n + IP3 → o
-	K = K_IP3R
-	return (ip3 * (K['k2'] * K['L3'] + K['l4'] * ca)
-			/ (K['L3'] + ca * (1.0 + K['L3'] / K['L1'])))
-
-
-def _phi_n_o_rev(ca):
-	K = K_IP3R
-	return (K['k_m2'] + K['l_m4'] * ca) / (1.0 + ca / K['L5'])
-
-
-def _phi_o_a_fwd(ca):
-	# o + Ca²⁺ → a
-	K = K_IP3R
-	return (K['k4'] * K['L5'] + K['l6']) * ca / (K['L5'] + ca)
-
-
-def _phi_o_a_rev(ca):
-	# Reverse rate: dimensionally (L1·k_m4·µM⁻¹·s⁻¹·µM + s⁻¹·µM)/(µM + µM) = s⁻¹.
-	# We follow the form L1·(k_m4 + l_m6) / (L1 + Ca) as written in Purvis Table 1.
-	# At [Ca]→0 this gives L1·(k_m4 + l_m6)/L1 = k_m4 + l_m6 (dim mismatch on
-	# k_m4 — we treat k_m4 as the dimensionless equilibrium-rate coefficient
-	# implied by the formula; this matches Sneyd & Dufour's intent).
-	K = K_IP3R
-	return K['L1'] * (K['k_m4'] + K['l_m6']) / (K['L1'] + ca)
-
-
-def _phi_a_i2_fwd(ca):
-	# a + Ca²⁺ → i2 (similar to n+Ca→i1 but simpler denominator)
-	K = K_IP3R
-	return (K['k1'] * K['L1'] + K['l2']) * ca / (K['L1'] + ca)
-
-
-def _phi_a_i2_rev():
-	K = K_IP3R
-	return K['k_m1'] + K['l_m2']
-
-
-def _phi_o_s_fwd(ca):
-	# o ↔ s (closing). Saturates as L5/(L5 + Ca).
-	K = K_IP3R
-	return K['k3'] * K['L5'] / (K['L5'] + ca)
-
-
-def _phi_o_s_rev():
-	return K_IP3R['k_m3']
-
 
 # ── MWC SOCE solver (Hoover & Lewis 2011 / Dolan 2014 eq. 3) ──────────────
 # Statistical occupation factors for 4 binding sites and binomial coefficients
@@ -470,13 +402,8 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	else:
 		ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
 
-	# IP3R subunit-state counts.
-	n  = max(y[_IDX['IP3R_n[dts]']],  0.0)
-	o  = max(y[_IDX['IP3R_o[dts]']],  0.0)
-	a  = max(y[_IDX['IP3R_a[dts]']],  0.0)
-	i1 = max(y[_IDX['IP3R_i1[dts]']], 0.0)
-	i2 = max(y[_IDX['IP3R_i2[dts]']], 0.0)
-	s  = max(y[_IDX['IP3R_s[dts]']],  0.0)
+	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
+	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
 
 	se1   = max(y[_IDX['SERCA_E1[dts]']],    0.0)
 	se2   = max(y[_IDX['SERCA_E2[dts]']],    0.0)
@@ -501,60 +428,30 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 
 	orai_total = max(y[_IDX['ORAI1[pl]']], 0.0)
 
-	# ── IP3R 6-state Sneyd & Dufour kinetics (Purvis Table 1 φ-functions) ─
-	v_n_i1 = n * _phi_n_i1_fwd(ca_cyt) - i1 * _phi_n_i1_rev()
-	v_n_o  = n * _phi_n_o_fwd(ip3, ca_cyt) - o * _phi_n_o_rev(ca_cyt)
-	v_o_a  = o * _phi_o_a_fwd(ca_cyt) - a * _phi_o_a_rev(ca_cyt)
-	v_a_i2 = a * _phi_a_i2_fwd(ca_cyt) - i2 * _phi_a_i2_rev()
-	v_o_s  = o * _phi_o_s_fwd(ca_cyt) - s * _phi_o_s_rev()
+	# ── IP3R deYoung-Keizer 1992 / Li-Rinzel 1994 ─────────────────────────
+	h = ip3r_h_count / N_IP3R
 
-	dy[_IDX['IP3R_n[dts]']]  += -v_n_i1 - v_n_o
-	dy[_IDX['IP3R_o[dts]']]  += +v_n_o - v_o_a - v_o_s
-	dy[_IDX['IP3R_a[dts]']]  += +v_o_a - v_a_i2
-	dy[_IDX['IP3R_i1[dts]']] += +v_n_i1
-	dy[_IDX['IP3R_i2[dts]']] += +v_a_i2
-	dy[_IDX['IP3R_s[dts]']]  += +v_o_s
+	# Quasi-steady activation and slow inactivation ODE.
+	m_inf = (ip3 / (ip3 + K_DYK['d1'])) * (ca_cyt / (ca_cyt + K_DYK['d5']))
+	po_channel = (m_inf ** 4) * h
 
-	# Channel open probability (Purvis Table 1 / Dolan eq. 4):
-	#   Po = (0.9·a/total + 0.1·o/total)⁴
-	# encodes that all four IP3R subunits must be in conducting (active or
-	# open) conformations for the channel to pass current.
-	ip3r_total = n + o + a + i1 + i2 + s
-	if ip3r_total > 0.0:
-		po_subunit = 0.9 * (a / ip3r_total) + 0.1 * (o / ip3r_total)
-		po_channel = po_subunit ** 4
-	else:
-		po_channel = 0.0
+	dh_dt = K_DYK['a2'] * (K_DYK['d2'] - (ca_cyt + K_DYK['d2']) * h)
+	dy[_IDX['IP3R_h[dts]']] += dh_dt * N_IP3R
 
-	# IP3R Ca²⁺ flux via the Nernst form (Dolan 2014 Table 1 / Purvis eq. 13).
-	# I = γ_IP3R · N · Po⁴ · (ψ_IM − E_Ca,IM); we want ions/s into the
-	# cytosol (positive when ψ_IM is more inside-negative than E_Ca).
-	#
-	# N follows Dolan's convention: the listed `IP3R total` (Burkhart 2012
-	# ITPR2 protein count, ~1 328) is used directly, with Po⁴ encoding the
-	# tetrameric cooperative-gating constraint. Each sub-state count is
-	# treated as a "channel-level state via one representative subunit",
-	# rather than as raw subunit population (= 4 × N_channels). This is a
-	# convention choice rather than a strict reading of Sneyd-Dufour 2002,
-	# but it matches Dolan 2014 Table 1 and our flux calibration is
-	# anchored against her numbers.
-	# A 2026-05-07 attempt to use N_channels = ip3r_total / 4 was reverted;
-	# see lab-book-2026-05-07-dts-drain-investigation.md for the audit.
-	n_ip3r_channels = ip3r_total
-	# IP3R Ca²⁺ flux via the Nernst form. When DTS is empty there is no Ca²⁺
-	# to release; setting flux=0 prevents a phantom influx that arises when
-	# e_ca_im defaults to 0 (giving a -60 mV driving force from an empty store).
+	# Ca²⁺ flux via the Nernst form (Dolan 2014 eq. 4 / Purvis eq. 13).
+	# N_IP3R = 1 328 channels (Burkhart 2012 / Dolan Table S1 convention).
+	# Flux is zero when either compartment is empty to avoid phantom currents
+	# from a degenerate Nernst potential.
 	if ca_cyt > 0.0 and ca_dts > 0.0:
-		e_ca_im_v = RT_OVER_zF_V * math.log(ca_dts / ca_cyt)   # V
+		e_ca_im_v = RT_OVER_zF_V * math.log(ca_dts / ca_cyt)
 		driving_v = V_IM_V - e_ca_im_v
 		flux_ip3r_ions_s = (
-			-GAMMA_IP3R_S * n_ip3r_channels * po_channel * driving_v * NA_OVER_zF
+			-GAMMA_IP3R_S * N_IP3R * po_channel * driving_v * NA_OVER_zF
 		)
 	else:
 		flux_ip3r_ions_s = 0.0
-	# Sign convention: positive `flux_ip3r_ions_s` = into cytosol (because
-	# the driving force ψ_IM − E_Ca is negative when Ca²⁺ flows DTS→cyt; the
-	# leading minus restores "into cyt = positive").
+	# Positive = into cytosol (DTS→cyt direction gives negative driving_v,
+	# leading minus flips sign to positive).
 	dy[_IDX['CA2_CYT[c]']]   += +flux_ip3r_ions_s
 	dy[_IDX['CA2_DTS[dts]']] += -flux_ip3r_ions_s
 

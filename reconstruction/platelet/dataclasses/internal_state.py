@@ -52,13 +52,13 @@ _MOLECULES = [
 	('ACTB[c]',           6.933e-5,    2_000_000,     'protein'),     # β-actin
 	('FGA[ag]',           5.647e-4,    30_000,        'protein'),     # fibrinogen hexamer; alpha granule
 	('SELP[ag]',          1.493e-4,    30_000,        'protein'),     # P-selectin; alpha granule
-	# ── IP3R sub-states (type 2; mass = ITPR2 monomer × Burkhart total/Dolan total) ──
-	('IP3R_n[dts]',       5.110e-4,    809,           'protein'),     # neutral
-	('IP3R_o[dts]',       5.110e-4,    261,           'protein'),     # open
-	('IP3R_a[dts]',       5.110e-4,    65,            'protein'),     # active (Ca²⁺-bound, conducting)
-	('IP3R_i1[dts]',      5.110e-4,    167,           'protein'),     # inhibited-1 (Ca²⁺ at inhibitory site)
-	('IP3R_i2[dts]',      5.110e-4,    25,            'protein'),     # inhibited-2
-	('IP3R_s[dts]',       5.110e-4,    1,             'protein'),     # shut
+	# ── IP3R inactivation state: deYoung-Keizer 1992 / Li-Rinzel 1994 ──────
+	# h = fraction of channels not Ca²⁺-inhibited at site 3.
+	# Stored as count (0–N_IP3R = 1 328); h = count / N_IP3R in the ODE.
+	# Initial value pre-equilibrated: h∞ = d₂/(Ca_cyt+d₂) = 1.049/1.149 = 0.913
+	# → count = round(0.913 × 1 328) = 1 212.
+	# Mass per unit = ITPR2 monomer fg / 1 (same as Sneyd-Dufour sub-states).
+	('IP3R_h[dts]',       5.110e-4,    1_212,         'protein'),
 	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
 	# E1 ↔ E1·Ca pre-equilibrated at cyt=100 nM (lab-book 2026-05-05 fix iii):
 	# E1·Ca / E1 = k_bind_f · cyt² / k_bind_r = 1000 · 0.01 / 10 = 1.0
