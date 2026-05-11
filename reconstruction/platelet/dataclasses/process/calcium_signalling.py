@@ -81,6 +81,10 @@ MOLECULE_NAMES = (
 	'Ca4_CaM_PMCA[pl]',
 	'Ca4_CaM_PMCA_Ca[pl]',
 	'PMCA_CaM[pl]',
+	# Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy; scaffold-only,
+	# see K_GSN block below for the biology / scope disclosure).
+	'GSN_free[c]',
+	'GSN_Ca[c]',
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -147,22 +151,31 @@ N_IP3R = 1328
 # IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
 #   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
 #
-# Purvis 2008 (citing Zschauer 1988) used γ = 10 pS, measured in artificial
-# lipid bilayers with symmetrical high Ca²⁺ on both sides — a value that
-# over-estimates the effective Ca²⁺-specific conductance under the
-# physiological low-cyt / high-DTS gradient.  With the deYoung-Keizer model
-# (Po ≈ 4.9×10⁻⁴ at rest), 10 pS gives ~3.35 M ions/s resting leak, far
-# above SERCA capacity (~60 k ions/s; see lab-book-2026-05-11-dyk-ip3r-
-# design.md §"Implementation results").
+# ⚠ CALIBRATION-COUPLED PARAMETER — read before changing.
+# γ_IP3R is *not* an independently measured single-channel conductance.
+# It is the value that balances `K_SERCA` (above) at the Dolan 2014
+# platelet resting state (cyt = 100 nM, DTS = 250 µM). If you change
+# any of `k_bind_f`, `k_phos_f`, `k_conf_f`, `k_release_f` or the SERCA
+# total copy number, you MUST re-derive γ_IP3R from the new SERCA
+# cycle flux. See `reports/dissertation-notes.md §3.1` for the
+# coupling diagram and §3.2 for the open question of whether the
+# Purvis 2008 SERCA rate constants themselves over-estimate the
+# SERCA3b pump rate at low cyt Ca²⁺.
 #
-# Calibrated to the Dolan 2014 platelet resting state (cyt = 100 nM,
-# DTS = 250 µM): γ = 0.35 pS gives IP3R resting flux ≈ 115 k ions/s,
-# matching the SERCA cycle steady-state flux at cyt = 100 nM (≈ 113 k
-# ions/s, solved analytically from the 6-state linear system).
-# Biological basis: Ca²⁺ carries a small fraction of IP3R current under
-# physiological ionic conditions; P_Ca/P_K ≈ 6–8 but K⁺ dominates by
-# numbers, and the Zschauer bilayer value is not transferable to intact-cell
-# conditions.  This value is a calibration anchor (Phase 4, issue #30).
+# Derivation: SERCA 6-state cycle steady-state flux at cyt = 100 nM,
+# DTS = 250 µM, solved analytically as a linear system, gives J =
+# 112 570 Ca²⁺ ions/s (56 285 cycles/s × 2 Ca²⁺/cycle). Setting IP3R
+# resting flux equal to this and inverting the Nernst flux formula:
+#   γ_required = J / (N · Po · |driving| · NA/zF)
+#              = 112 570 / (1 328 · 4.91×10⁻⁴ · 0.1605 · 3.122×10¹⁸)
+#              = 0.344 pS → rounded to 0.35 pS.
+#
+# Biological plausibility: Bezprozvanny 1991 and Mak & Foskett 1997
+# measured effective IP3R Ca²⁺ conductance in cellular conditions at
+# ~0.05–0.5 pS, with K⁺ carrying most of the unitary current. Our 0.35
+# pS sits within that range. The historical 10 pS (Zschauer 1988, via
+# Purvis 2008) was a bilayer measurement under symmetric high Ca²⁺
+# where K⁺ contributes negligibly to current and is not transferable.
 GAMMA_IP3R_S = 0.35e-12          # 0.35 pS = calibrated Ca²⁺ conductance, A/V
 
 
@@ -170,6 +183,17 @@ GAMMA_IP3R_S = 0.35e-12          # 0.35 pS = calibrated Ca²⁺ conductance, A/V
 # Primary-source values restored. Earlier calibration reduced k_bind_f by
 # ~470× to compensate for IP3R Po and flux bugs; with Po⁴ + Nernst the
 # Purvis Vmax balances the corrected IP3R leak (~1.18×10⁵ ions/s) at rest.
+#
+# ⚠ CALIBRATION-COUPLED — any change to these rate constants requires
+# re-deriving GAMMA_IP3R_S (above) to restore the resting-state flux
+# balance. See `reports/dissertation-notes.md §3.1`.
+# ⚠ OPEN BIOLOGY QUESTION — these constants imply ~4.7 cycles/s per
+# pump at cyt = 100 nM, which is ~2–5× higher than the SERCA3b Vmax /
+# Km literature (Inesi 1985; Nishi 1992; Dode 2002 itself: Vmax ~30–50
+# cycles/s saturating, Km ~0.7–1.1 µM, so v/Vmax at 100 nM ≈ 2%). The
+# Purvis 2008 rate constants appear to over-estimate the platelet SERCA
+# pump rate at resting Ca²⁺. v0.3+ should re-derive from primary
+# sources. See `reports/dissertation-notes.md §3.2`.
 K_SERCA = {
 	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
 	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
@@ -203,6 +227,40 @@ K_CAM = {
 	'k7':  170.4,     # Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM (µM⁻²·s⁻¹) step 7 fwd
 	'k7r':   1.551,   # reverse                  (s⁻¹)        step 7 rev
 }
+
+# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────────
+# ⚠ SCAFFOLD ONLY — not biological calibration.
+# Real platelet cytosolic Ca²⁺ buffering ratio is ~50:1 (bound:free; Sage
+# & Rink 1985), dominated by gelsolin (~250 000 copies × multi-site binding;
+# Burkhart 2012), with smaller contributions from annexins, Ca·ATP, and
+# Ca²⁺-binding kinases. Our model currently includes only calmodulin
+# (ratio ~3.5:1). Adding gelsolin at full biological copy number
+# (~250 000) crashes Phase 3 transient peaks from ~390 nM to ~130 nM
+# because the existing IP3R / SERCA fluxes are calibrated to the
+# Dolan 2014 under-buffered model — closing the buffering gap requires a
+# coupled re-tune of IP3 forcing and γ_IP3R that is out of scope for
+# v0.2.5.
+#
+# This block adds the *structural* machinery (species, ODE term, initial
+# conditions) at 5 000 copies — 50× below biological — so that v0.3+ can
+# scale N_GSN up and retune the source fluxes in a single coordinated
+# commit. The κ contribution at rest is small (~0.13 on top of CaM's 3.5),
+# so Phase 3 is not perturbed.
+#
+# Single-site, fast-equilibrium 1:1 binding:
+#   GSN_free + Ca²⁺  ⇌  GSN_Ca       (k_on, k_off; Kd = k_off/k_on = 1 µM)
+#
+# See `reports/dissertation-notes.md §1.1` for the literature gap and
+# v0.3 plan.
+K_GSN = {
+	'k_on':  100.0,    # GSN + Ca²⁺ → GSN·Ca  (µM⁻¹·s⁻¹) — fast EF-hand binding
+	'k_off': 100.0,    # reverse              (s⁻¹)       — Kd = 1.0 µM
+}
+
+# Total gelsolin (scaffold size, not biological): 5 000 (placeholder).
+# Biological copy number (Burkhart 2012; Yin & Stossel 1979): ~250 000.
+N_GSN = 5_000
+
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
 # Ca₄·CaM binds free PMCA (step 8), the complex binds and pumps Ca²⁺ with
@@ -439,6 +497,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	ca4_cam_pmca_ca  = max(y[_IDX['Ca4_CaM_PMCA_Ca[pl]']],0.0)
 	pmca_cam         = max(y[_IDX['PMCA_CaM[pl]']],       0.0)
 
+	gsn_free = max(y[_IDX['GSN_free[c]']], 0.0)
+	gsn_ca   = max(y[_IDX['GSN_Ca[c]']],   0.0)
+
 	st_free = max(y[_IDX['STIM1_free[dts]']], 0.0)
 	st_ca   = max(y[_IDX['STIM1_Ca[dts]']],   0.0)
 	st_dim  = max(y[_IDX['STIM1_dim[dts]']],  0.0)
@@ -504,6 +565,14 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['Ca4_CaM[c]']]  += +v_cam_bind2
 	# CaM-bound Ca²⁺ is removed from the free cytosolic pool (buffering effect).
 	dy[_IDX['CA2_CYT[c]']]  += -2.0 * v_cam_bind1 - 2.0 * v_cam_bind2
+
+	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────
+	# Scaffold-only (N_GSN = 5 000); see K_GSN comment block for the
+	# biology / scope disclosure.
+	v_gsn = K_GSN['k_on'] * gsn_free * ca_cyt - K_GSN['k_off'] * gsn_ca
+	dy[_IDX['GSN_free[c]']] += -v_gsn
+	dy[_IDX['GSN_Ca[c]']]   += +v_gsn
+	dy[_IDX['CA2_CYT[c]']]  += -v_gsn
 
 	# ── PMCA basal path (Caride 2007 steps 4–5) ──────────────────────
 	v_pmca_bind = K_PMCA['k_on'] * pmca * ca_cyt - K_PMCA['k_off'] * pmcaca

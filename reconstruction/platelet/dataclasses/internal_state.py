@@ -94,6 +94,14 @@ _MOLECULES = [
 	('CaM_free[c]',       2.775e-5,    20_062,  'protein'),  # free CaM (equilibrated)
 	('Ca2_CaM[c]',        2.775e-5,    200,     'protein'),  # Ca₂·CaM (N-lobe loaded; ~0.010 × free)
 	('Ca4_CaM[c]',        2.775e-5,    219,     'protein'),  # Ca₄·CaM (fully loaded; ~1.10 × Ca₂·CaM)
+	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy; scaffold) ──
+	# SCAFFOLD ONLY: N_GSN = 5 000 (50× below the ~250 000 biological value;
+	# Burkhart 2012). Mass per molecule = gelsolin monomer (84 kDa).
+	# Pre-equilibrated at cyt = 100 nM, Kd = 1 µM: GSN_Ca/GSN_free = 0.1.
+	# Total = 5 000 → GSN_free = 4 545, GSN_Ca = 455. See K_GSN block in
+	# calcium_signalling.py for the biology / scope disclosure.
+	('GSN_free[c]',       1.395e-4,    4_545,   'protein'),  # gelsolin (free, ~250 k in real biology)
+	('GSN_Ca[c]',         1.395e-4,    455,     'protein'),  # gelsolin·Ca²⁺
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)

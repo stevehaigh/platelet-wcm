@@ -488,6 +488,109 @@ may need minor re-tuning in the full DTS-buffered context.
 
 ---
 
-*Branch:* `main` · *Status:* Phase 4 complete (γ + SERCA ICs); Phase 2 next ·
+## Biology limitations and assumptions (added 2026-05-11)
+
+A review of today's work against the literature flagged several known
+gaps and inherited assumptions. The canonical list lives in
+`reports/dissertation-notes.md`; this section is the in-context summary
+for the lab book record.
+
+### Ca²⁺ buffering — cytosol
+Only calmodulin modelled; resting buffering ratio 3.5:1 (bound:free),
+versus the 50:1–100:1 typical of non-muscle cells. Major non-CaM cyt
+Ca²⁺ binders we omit: **gelsolin** (~250 000 copies, multi-site EF-hand-
+like binding, Kd ~0.1–1 µM), annexins, Ca·ATP. Today's pass adds a
+coarse-grained gelsolin-like buffer to close part of the gap — see
+§"Cytosolic buffering pass" below.
+
+### Ca²⁺ buffering — DTS
+Only the STIM1 EF-hand modelled; resting DTS buffering ~9% bound.
+Real ER/SR is 95–99% buffered (CALR, HSP90B1, CALU, etc.). This is the
+direct cause of the long-time DTS runaway in the 6 000 s convergence
+run. Phase 2 (#28) is the dominant fix.
+
+### Flux-rate calibration
+- **γ_IP3R = 0.35 pS is coupled to SERCA constants** — it is the value
+  that balances our SERCA flux at the Dolan resting state, not an
+  independent measurement. If SERCA constants change in v0.3, γ must
+  be re-derived.
+- **SERCA flux at 100 nM (112 570 ions/s) is probably 2–5× too high.**
+  Literature SERCA3b Vmax (30–50 cycles/s at saturation) with Km =
+  0.7–1.1 µM predicts ~24 000 ions/s. The Purvis 2008 / Dode 2002 rate
+  constants we use appear to over-estimate the SERCA3b pump rate at
+  resting Ca²⁺. v0.3+ should re-derive from primary sources.
+- **PM leak = 75 ions/s** is roughly 2× the upper Sage & Rink 1985
+  estimate (~10–40 ions/s).
+
+### Methodological choices
+- **Po = m∞⁴ × h**, not m∞³ × h (Li-Rinzel original): chosen for
+  consistency with Dolan's tetrameric Po⁴ convention. Sensitivity:
+  switching to m∞³ × h raises Po 6× → γ_IP3R would drop to ~0.06 pS.
+
+### Inherited / fixed
+- **Cytoplasm volume = 6 fL** (Burkhart / Dolan convention; real
+  platelets vary 4–7 fL).
+- **Single SERCA isoform (SERCA3b)** — real platelets express both
+  SERCA2b and SERCA3.
+- **Single IP3R isoform (ITPR2)** — real platelets express all three.
+
+Each of these is logged in `reports/dissertation-notes.md` with the
+"why it matters" framing for the write-up.
+
+---
+
+## Cytosolic buffering pass (added 2026-05-11)
+
+### Why "scaffold-only"
+
+The cytosolic buffering ratio in real platelets is ~50:1 (bound:free;
+Sage & Rink 1985), dominated by gelsolin (~250 000 copies, multi-site
+EF-hand-like Ca²⁺ binding) plus annexins, Ca·ATP, and others. Our model
+includes only calmodulin, giving a ratio of ~3.5:1.
+
+Adding gelsolin at full biological copy number was tested analytically:
+with N_GSN = 250 000 and Kd = 1 µM, the buffering ratio jumps to ~60:1.
+For a fast-equilibrium 1:1 buffer:
+
+    Δca_free  =  Δca_total / (1 + κ_total)
+
+so peak Ca²⁺ during the IP3 transient drops from ~390 nM to ~130 nM,
+which falsifies Phase 3 (lower bound 266 nM for +Ca_ex, 228 nM for
+−Ca_ex). The existing IP3R / SERCA fluxes are calibrated against the
+Dolan 2014 under-buffered model and cannot supply enough Ca²⁺ to a
+fully-buffered cytosol to reach Dolan's measured peak heights.
+
+Closing the cytosolic-buffer gap therefore requires a *coupled*
+re-calibration of IP3 forcing strength and/or γ_IP3R. That is genuine
+v0.3+ work, not a Phase 4.5 sub-task.
+
+### What was implemented
+
+Structural scaffold only: gelsolin species, ODE term, and initial
+conditions, at N_GSN = 5 000 (50× below biological). This:
+
+1. Establishes the data flow and species naming for v0.3 to scale up
+2. Adds a small but real buffer contribution (κ rises from 3.5 to ~5)
+3. Does not perturb Phase 3 (peaks shift by < 5%)
+4. Documents the biology gap in code and lab book for the dissertation
+
+| Parameter | Scaffold (now) | Biological (v0.3+) |
+|-----------|---------------|--------------------|
+| `N_GSN` | 5 000 | ~250 000 (Burkhart 2012) |
+| `K_GSN['k_on']` | 100 µM⁻¹·s⁻¹ | 100 µM⁻¹·s⁻¹ (unchanged) |
+| `K_GSN['k_off']` | 100 s⁻¹ → Kd = 1 µM | Kd = 0.1–1 µM range |
+| Bound at rest | 455 ions | ~22 700 ions |
+| κ contribution | ~0.13 | ~57 |
+| Resting cyt ratio | 4.7:1 | ~60:1 |
+
+Files: `calcium_signalling.py` (MOLECULE_NAMES, K_GSN, _ode_rhs),
+`internal_state.py` (initial conditions). All 21 tests still pass.
+The biology disclosure is in the `K_GSN` block in
+`calcium_signalling.py` and in `reports/dissertation-notes.md §1.1`.
+
+---
+
+*Branch:* `main` · *Status:* Phase 4 complete (γ + SERCA ICs); biology
+review + cytosolic buffer pass next ·
 *Linked issues:* #27 (Phase 1, complete), #24 (parent), #28 (Phase 2,
 CALR buffer; next), #30 (Phase 4, complete)
