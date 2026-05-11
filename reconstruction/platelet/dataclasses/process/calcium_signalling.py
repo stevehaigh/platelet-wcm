@@ -10,7 +10,8 @@ ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
     6-state Markov model, which was correctly implemented but calibrated
     at IP3 = 10 µM and extrapolated poorly to resting IP3 = 50 nM.
   * IP3R Ca²⁺ flux via the Nernst form (Purvis 2008 eq. 13 / Dolan 2014
-    eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 10 pS,
+    eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 0.35 pS
+    (calibrated to Dolan 2014 platelet resting state; Phase 4 #30),
     Po = m∞(IP3, Ca)⁴ × h.
   * SERCA E1/E2 cycle (Purvis 2008 Table 1, Dode 2002 kinetics) with the
     primary-source rate constants — including k_bind_f = 1×10¹⁵ M⁻²s⁻¹.
@@ -145,8 +146,24 @@ N_IP3R = 1328
 
 # IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
 #   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
-# γ_IP3R taken from Zschauer 1988 (Purvis Table 1 row "Ca²⁺ release from DTS").
-GAMMA_IP3R_S = 10.0e-12          # 10 pS = single-channel conductance, A/V
+#
+# Purvis 2008 (citing Zschauer 1988) used γ = 10 pS, measured in artificial
+# lipid bilayers with symmetrical high Ca²⁺ on both sides — a value that
+# over-estimates the effective Ca²⁺-specific conductance under the
+# physiological low-cyt / high-DTS gradient.  With the deYoung-Keizer model
+# (Po ≈ 4.9×10⁻⁴ at rest), 10 pS gives ~3.35 M ions/s resting leak, far
+# above SERCA capacity (~60 k ions/s; see lab-book-2026-05-11-dyk-ip3r-
+# design.md §"Implementation results").
+#
+# Calibrated to the Dolan 2014 platelet resting state (cyt = 100 nM,
+# DTS = 250 µM): γ = 0.35 pS gives IP3R resting flux ≈ 115 k ions/s,
+# matching the SERCA cycle steady-state flux at cyt = 100 nM (≈ 113 k
+# ions/s, solved analytically from the 6-state linear system).
+# Biological basis: Ca²⁺ carries a small fraction of IP3R current under
+# physiological ionic conditions; P_Ca/P_K ≈ 6–8 but K⁺ dominates by
+# numbers, and the Zschauer bilayer value is not transferable to intact-cell
+# conditions.  This value is a calibration anchor (Phase 4, issue #30).
+GAMMA_IP3R_S = 0.35e-12          # 0.35 pS = calibrated Ca²⁺ conductance, A/V
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────

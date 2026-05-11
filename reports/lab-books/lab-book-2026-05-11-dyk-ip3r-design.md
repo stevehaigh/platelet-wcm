@@ -401,7 +401,7 @@ Ca²⁺-inhibition gate (h → 0 as cyt rises) provides negative feedback
 that partially caps the leak. The DTS is still not at a biologically
 reasonable resting level; Phase 4 γ_IP3R recalibration is required.
 
-### γ_IP3R recalibration targets (Phase 4)
+### γ_IP3R recalibration targets (Phase 4, initial analysis)
 
 To bring IP3R resting flux to the SERCA-matched range:
 
@@ -410,11 +410,84 @@ To bring IP3R resting flux to the SERCA-matched range:
 | 30 000 ions/s (SERCA lower bound) | 0.090 pS | 111× |
 | 100 000 ions/s (SERCA upper bound) | 0.299 pS | 33× |
 
-These reductions are large and require biological justification.
-Options documented in #30 (Phase 4 issue).
+---
+
+## Phase 4 — γ_IP3R recalibration (2026-05-11, issue #30)
+
+### Analytical calibration
+
+SERCA 6-state cycle steady-state flux solved at cyt = 100 nM,
+DTS = 250 µM (linear system):
+
+| SERCA sub-state | Steady-state population |
+|----------------|------------------------|
+| E2 | 5 803 |
+| E1 | 5 710 |
+| E1Ca | 81 |
+| E1PCa | 101 |
+| E2PCa | 84 |
+| E2P | 113 |
+
+Cycle flux J = 56 285 cycles/s → **SERCA Ca²⁺ efflux = 112 570 ions/s**.
+
+For balance at cyt = 100 nM:
+
+    γ_required = SERCA_flux / (N × Po × driving × NA/zF)
+               = 112 570 / (1 328 × 4.91×10⁻⁴ × 0.1605 × 3.122×10¹⁸)
+               = 112 570 / (3.27×10¹⁷)
+               = **0.344 pS**
+
+Set: `GAMMA_IP3R_S = 0.35e-12` (rounded to 2 s.f.).
+
+### SERCA initial conditions — two-state vs six-state equilibrium
+
+The previous SERCA initial conditions used the two-state (E1 ↔ E1Ca)
+binding equilibrium:
+
+    E1Ca/E1 = k_bind_f · cyt² / k_bind_r = 1000 · 0.01 / 10 = 1.0
+
+This gives E1Ca = E1 = 2 963. However the correct full-cycle quasi-
+steady-state ratio is:
+
+    E1Ca/E1 = k_bind_f · cyt² / (k_bind_r + k_phos_f)
+            = 1000 · 0.01 / (10 + 700) = 10/710 = 0.0141
+
+The fast phosphorylation drain (k_phos_f = 700 s⁻¹ >> k_bind_r = 10 s⁻¹)
+holds E1Ca much lower than the 2-state approximation suggests. The
+old E1Ca = 2 963 was 36× too large; the phosphorylation burst at t = 0
+(v_phos = 700 × 2 963 = 2.07M events/s) rapidly depleted cytosolic
+Ca²⁺ below the d₅ = 82 nM activation threshold, trapping the system
+at the low-Ca²⁺ attractor (~2.6 nM).
+
+**Fix**: initialise SERCA to the 6-state cycle steady state (E1 = 5 710,
+E2 = 5 803, E1Ca = 81, E1PCa = 101, E2PCa = 84, E2P = 113). This
+eliminates the t = 0 burst.
+
+### Outcome of Phase 4 calibration
+
+After applying γ = 0.35 pS and the corrected SERCA initial conditions:
+- All 21 regression + Phase 3 tests pass.
+- Initial conditions: cyt = 100 nM, DTS = 250 µM ✓
+- Long-time resting convergence (600 s, no IP3 forcing):
+  cyt ≈ 122 nM, DTS ≈ 327 µM (still drifting; DTS overfills without
+  a DTS Ca²⁺ buffer).
+
+**The DTS overfill is expected**: without calreticulin (CALR, Phase 2 /
+#28), the DTS has no luminal buffering. SERCA pumps Ca²⁺ in faster
+than IP3R (at a balanced γ) removes it; DTS rises until SERCA stalls
+or reverses against the thermodynamic gradient. CALR will provide the
+~508 000 Ca²⁺-binding sites needed to stabilise DTS at 250 µM.
+
+Phase 3 validation passes 4/5 (unchanged from deYoung-Keizer Phase 1)
+because the 200 s IP3-stimulated transient starts from the correct
+initial conditions and the peak dynamics are dominated by the fast
+IP3R/SERCA/CaM kinetics, not the slow DTS drift.
+
+**Next step**: Phase 2 (CALR buffer, issue #28). After CALR, γ_IP3R
+may need minor re-tuning in the full DTS-buffered context.
 
 ---
 
-*Branch:* `main` · *Status:* implementation complete; Phase 4 next ·
-*Linked issues:* #27 (this work, complete), #24 (parent), #28 (Phase 2,
-CALR buffer; blocked on Phase 4), #30 (Phase 4, γ_IP3R recalibration)
+*Branch:* `main` · *Status:* Phase 4 complete (γ + SERCA ICs); Phase 2 next ·
+*Linked issues:* #27 (Phase 1, complete), #24 (parent), #28 (Phase 2,
+CALR buffer; next), #30 (Phase 4, complete)

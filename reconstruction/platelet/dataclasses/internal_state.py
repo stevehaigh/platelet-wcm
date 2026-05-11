@@ -60,17 +60,19 @@ _MOLECULES = [
 	# Mass per unit = ITPR2 monomer fg / 1 (same as Sneyd-Dufour sub-states).
 	('IP3R_h[dts]',       5.110e-4,    1_212,         'protein'),
 	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
-	# E1 ↔ E1·Ca pre-equilibrated at cyt=100 nM (lab-book 2026-05-05 fix iii):
-	# E1·Ca / E1 = k_bind_f · cyt² / k_bind_r = 1000 · 0.01 / 10 = 1.0
-	# so the (E1 + E1·Ca = 5926) Dolan total splits ~2963 each. The Dolan
-	# Table S1 values (5920, 6) are not at binding equilibrium for our ODE
-	# and produced a spurious 118 k ions/s cyt → E1·Ca pulse on t=0.
-	('SERCA_E1[dts]',     1.814e-4,    2_963,         'protein'),     # E1 (cytosol-facing, empty)
-	('SERCA_E2[dts]',     1.814e-4,    5_927,         'protein'),     # E2 (DTS-facing, empty)
-	('SERCA_E1Ca[dts]',   1.814e-4,    2_963,         'protein'),     # E1·2Ca²⁺
-	('SERCA_E1PCa[dts]',  1.814e-4,    7,             'protein'),     # E1P·2Ca²⁺ (phosphorylated)
-	('SERCA_E2PCa[dts]',  1.814e-4,    4,             'protein'),     # E2P·2Ca²⁺
-	('SERCA_E2P[dts]',    1.814e-4,    28,            'protein'),     # E2P (Ca²⁺ released to DTS)
+	# Initialised at the full 6-state cycle steady state at cyt = 100 nM,
+	# DTS = 250 µM (solved analytically; see lab-book-2026-05-11-dyk-ip3r-
+	# design.md §"Phase 4"). The previous 2-state pre-equilibration
+	# (E1Ca/E1 = k_bind_f·cyt²/k_bind_r = 1.0 → E1Ca = 2 963) ignored
+	# the fast phosphorylation drain (k_phos_f = 700 s⁻¹ >> k_bind_r = 10
+	# s⁻¹), over-estimating E1Ca by 36×. The correct full-cycle ratio is
+	# E1Ca/E1 = k_bind_f·cyt²/(k_bind_r + k_phos_f) = 10/710 = 0.0141.
+	('SERCA_E1[dts]',     1.814e-4,    5_710,         'protein'),     # E1 (cytosol-facing, empty)
+	('SERCA_E2[dts]',     1.814e-4,    5_803,         'protein'),     # E2 (DTS-facing, empty)
+	('SERCA_E1Ca[dts]',   1.814e-4,      81,          'protein'),     # E1·2Ca²⁺
+	('SERCA_E1PCa[dts]',  1.814e-4,     101,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
+	('SERCA_E2PCa[dts]',  1.814e-4,      84,          'protein'),     # E2P·2Ca²⁺
+	('SERCA_E2P[dts]',    1.814e-4,     113,          'protein'),     # E2P (Ca²⁺ released to DTS)
 	# ── PMCA4b sub-states (Caride 2007 Table 3 5-state CaM-coupled scheme) ──
 	# Basal path (steps 4–5): PMCA ⇌ PMCA·Ca → Ca²⁺_ex
 	# CaM-activated path (steps 8–11): PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
