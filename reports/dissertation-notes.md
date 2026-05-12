@@ -444,6 +444,46 @@ chapter. Useful in dialogue with mathematical-biology readers who
 will (rightly) ask about the interface between continuous ODE
 dynamics and the discrete-count state of a whole-cell model.
 
+### 9.0 Model prediction: MCU buffering does *not* accelerate DTS recovery
+
+(Note: this is a §9 entry because it's a *model-level* prediction, not
+a biology assumption. It belongs alongside the other numerical /
+methodological items.)
+
+In v0.3.3 (commit pending, 2026-05-12) we added the mitochondrial
+Ca²⁺ uniporter (MCU) + NCLX efflux (issue #22) on the hypothesis
+that mito Ca²⁺ buffering would help close the DTS-overshoot tail
+after a transient.
+
+**The hypothesis was falsified.** With MCU active:
+- Cyt peak attenuated (479 → 434 nM) ✓
+- Mito Ca²⁺ rises 153× during transient and slowly releases ✓
+- BUT the DTS overshoot at t = 3000 s went from 758 µM → 1062 µM
+  (got *worse*)
+
+**Why**: MCU doesn't extrude Ca²⁺ from the cell — it just
+redistributes within the cell. During peak, MCU absorbs cyt Ca²⁺ →
+PMCA extrudes *less* (PMCA rate scales with cyt Ca²⁺). Post-stim,
+mito slowly releases its load → SERCA pumps that into DTS → DTS
+overshoot grows. PMCA at low cyt is still the actual bottleneck.
+
+**Testable prediction**: the model predicts that *MCU-targeted
+interventions alone* (e.g. pharmacological MCU activation) would
+not accelerate DTS recovery in platelets — and could *prolong* it.
+The Ghatge / Ajanel papers measure MCU's effect on cyt Ca²⁺ but
+not directly on DTS recovery rate.
+
+**What would actually fix the slow DTS recovery**:
+- A second extrusion pathway (NCX / Na⁺/Ca²⁺ exchanger), or
+- Faster PMCA cycling (higher pump count / different isoform), or
+- Reduced SOCE flux during stimulation.
+
+These are v0.4+ candidates. The interesting take-home is that the
+naive intuition (more buffer = faster recovery) is wrong when the
+buffer doesn't have its own extrusion pathway.
+
+Reference: `lab-book-2026-05-12-mcu-design.md`.
+
 ### 9.1 ODE → integer-state commit: fractional residual carry-over
 
 - **The problem**: the engine stores `BulkMolecules` as 64-bit

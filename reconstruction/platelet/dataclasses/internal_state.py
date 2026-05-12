@@ -180,6 +180,12 @@ _MOLECULES = [
 	#   With total 1 000: plcb_a = 143, plcb_i = 857
 	('PLCb_inactive[c]',  2.29e-4,       857,         'protein'),
 	('PLCb_active[c]',    2.29e-4,       143,         'protein'),
+	# Mitochondrial Ca²⁺ (issue #22) — pre-equilibrated at cyt = 100 nM,
+	# Hill n=4. At rest MCU uptake = 50000 × 0.0001/1.0001 = 5 ions/s.
+	# NCLX balances at: 5 / 0.005 = 1 000 ions = ~330 nM in matrix.
+	# Mito starts essentially empty; loads during transient via MCU,
+	# releases slowly via NCLX. Mass treated as Ca²⁺ metabolite.
+	('CA2_MITO[m]',       6.660e-8,    1_000,         'metabolite'),
 ]
 
 # Submass column index for each class (mirrors SimulationDataPlatelet).

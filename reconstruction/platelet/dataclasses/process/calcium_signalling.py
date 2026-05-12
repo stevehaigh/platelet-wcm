@@ -110,6 +110,10 @@ MOLECULE_NAMES = (
 	'DAG[c]',            # diacylglycerol — PLCβ co-product (PKC substrate)
 	'PLCb_inactive[c]',  # PLCβ inactive pool
 	'PLCb_active[c]',    # PLCβ active (Gq-bound); catalyses PIP2 hydrolysis
+	# Mitochondrial Ca²⁺ (issue #22, 2026-05-12) — provides fast
+	# Ca²⁺ uptake during transients (via MCU) and slow release (via
+	# NCLX), bypassing the PMCA-rate-limited extrusion bottleneck.
+	'CA2_MITO[m]',       # free mito matrix Ca²⁺ count
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -479,7 +483,7 @@ N_P2X1 = 1_000
 # so effective Ca²⁺-specific γ ≈ 10–50 fS per channel. Starting from
 # 0.01 pS — calibration anchor for Phase 3 SOCE-differential target
 # (Dolan ~100 nM). See lab book.
-GAMMA_P2X1_S = 0.0010e-12   # 1.0 fS Ca²⁺-specific conductance, A/V — calibrated
+GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calibrated
 
 
 # ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
@@ -687,6 +691,35 @@ def gq_signal_uM(t, delay=0.0):
 	return GQ_REST_UM + (GQ_PEAK_UM - GQ_REST_UM) * rise * decay
 
 
+# ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
+# Real platelets have 2–5 mitochondria per cell. The mitochondrial Ca²⁺
+# uniporter (MCU, inner-membrane channel) and the Na⁺/Ca²⁺ exchanger
+# NCLX (efflux) together act as a fast cyt Ca²⁺ buffer during transients:
+# mito takes up Ca²⁺ rapidly (Hill cooperativity) and releases it
+# slowly (linear in [Ca²⁺]_mito over a ~minutes timescale).
+#
+# Sources (all in `source-info/calcium-papers/`):
+#   - Ghatge et al. 2026 — MCU-/- platelets show elevated cyt Ca²⁺
+#   - Ajanel et al. 2025 — MCU regulates ITAM-dependent activation
+#   - Shehwar et al. 2025 — review of platelet mito-Ca²⁺ biology
+#
+# This bypasses the slow PMCA extrusion: Ca²⁺ goes cyt → mito (fast,
+# during peak) → cyt (slow, over minutes) → DTS via SERCA → PMCA out
+# (gradually). Without MCU, all the SOCE-imported Ca²⁺ must exit via
+# the PMCA bottleneck.
+K_MITO = {
+	# MCU uptake — cooperative Hill kinetics. n=4 gives a sharp switch
+	# at K_MCU = 1 µM; at resting cyt (100 nM) MCU is effectively off
+	# (only ~5 ions/s), preserving the cyt peak signal. During the
+	# transient (cyt > 1 µM) MCU activates strongly.
+	'V_max_MCU':  50_000.0,   # ions/s — total over all mitochondria; calibrated
+	'K_MCU':      1.0,        # Hill half-saturation (µM); literature 0.5–10
+	'n_MCU':      4,          # Hill cooperativity; literature 2–4 (we use upper end for switch-like)
+	# NCLX efflux — linear in [Ca²⁺]_mito; slow release.
+	'k_NCLX':     0.005,      # s⁻¹  (τ = 200 s ~ 3 min slow release)
+}
+
+
 
 # ── MWC SOCE solver (Hoover & Lewis 2011 / Dolan 2014 eq. 3) ──────────────
 # Statistical occupation factors for 4 binding sites and binomial coefficients
@@ -781,6 +814,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dag_count  = max(y[_IDX['DAG[c]']],  0.0)
 	plcb_i     = max(y[_IDX['PLCb_inactive[c]']], 0.0)
 	plcb_a     = max(y[_IDX['PLCb_active[c]']],   0.0)
+
+	# Mitochondrial Ca²⁺ state read
+	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -1094,6 +1130,16 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['PIP2[c]']]          += -v_plcb_cat + v_pip2_resynth
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
+
+	# ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────
+	# MCU uptake: cooperative Hill kinetics on cyt Ca²⁺.
+	# NCLX efflux: linear in mito Ca²⁺ (slow release).
+	cyt_n = ca_cyt ** K_MITO['n_MCU']
+	km_n  = K_MITO['K_MCU'] ** K_MITO['n_MCU']
+	v_mcu  = K_MITO['V_max_MCU'] * cyt_n / (km_n + cyt_n)
+	v_nclx = K_MITO['k_NCLX'] * ca_mito_count
+	dy[_IDX['CA2_CYT[c]']]  += -v_mcu + v_nclx
+	dy[_IDX['CA2_MITO[m]']] += +v_mcu - v_nclx
 
 	return dy
 
