@@ -362,7 +362,7 @@ compartment for v0.3.
 | **TRPC1/4/6** | Tethering and store-operated entry; partially covered by lumped SOCE | v0.3+ |
 | **SPCA1** (ATP2C1) | Pumps Ca²⁺ into Golgi/secretory granules; ER ≠ Golgi but secretory pathway is biologically active | v0.3+ |
 | **MCU** (mitochondrial uniporter) | Already issue #22 | v0.3+ |
-| **NCX** (Na⁺/Ca²⁺ exchanger) | Some evidence in platelets, contested | v0.3+ |
+| ~~NCX~~ | **Closed v0.3.4 (2026-05-12)**: modelled with Hill kinetics + allosteric Ca²⁺-activation gate; V_max = 5 000 ions/s. Reduces DTS overshoot ~25 % vs MCU-only. NCX in platelets is *contested* (Burkhart 2012 proteome detects NCX1/NCX3 but Sage & Rink 1985 reports limited functional activity); modelled here at a moderate level. See `lab-book-2026-05-12-ncx-design.md`. | Closed |
 
 ### 7.4 PI cycle — closed (Phase 4 / #31, 2026-05-12)
 

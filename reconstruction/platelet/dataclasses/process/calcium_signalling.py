@@ -598,6 +598,33 @@ GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
 # term the model had no PM-side cyt source large enough to balance PMCA.
 J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
 
+
+# ── NCX (Na⁺/Ca²⁺ exchanger) — v0.3.4 / second extrusion pathway ─────────
+# Forward-mode Ca²⁺ extrusion: 3 Na⁺ in : 1 Ca²⁺ out, driven by the Na⁺
+# gradient (no ATP). Provides a second Ca²⁺ extrusion pathway alongside
+# PMCA, which is rate-limited at low cyt Ca²⁺. NCX has higher Vmax per
+# transporter and a lower-affinity (higher K_m) substrate site, so it
+# dominates at high cyt Ca²⁺ where PMCA saturates.
+#
+# Platelet NCX presence: NCX1 (SLC8A1) and NCX3 (SLC8A3) detected in
+# Burkhart 2012 proteome. Functional contribution is contested
+# (Sage & Rink 1985 reported limited activity; later work argues NCX
+# contributes 10–30 % of platelet Ca²⁺ extrusion at peak). Modelled
+# here as a plausible secondary extruder — see
+# `dissertation-notes.md §7.3` for the uncertainty disclosure.
+#
+# Kinetic scheme: substrate Hill term × allosteric Ca²⁺-activation gate.
+# The allosteric gate keeps NCX silent at rest (cyt = 100 nM) regardless
+# of substrate kinetics — captures the regulatory Ca²⁺-binding site of
+# real NCX. Only forward mode modelled (reverse mode requires cyt Na⁺
+# state + membrane potential, both out of scope for v0.3).
+K_NCX = {
+	'V_max':  5_000.0,   # ions/s — total per platelet; calibration anchor
+	'K_m':    5.0,       # substrate Hill half-saturation (µM)
+	'K_a':    0.2,       # allosteric activation half-point (µM) — slightly lower for more recovery-phase contribution
+	'h':      4,         # allosteric Hill cooperativity (switch-like)
+}
+
 # Number of monomers per Orai1 tetramer (CRAC channel pore-forming subunit).
 ORAI_SUBUNITS_PER_CHANNEL = 4
 
@@ -1082,6 +1109,14 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 			-GAMMA_P2X1_S * p2x1_o * driving_pm_v * NA_OVER_zF
 		)
 		dy[_IDX['CA2_CYT[c]']] += flux_p2x1_ions_s
+
+		# NCX (Na⁺/Ca²⁺ exchanger) — Ca²⁺ extrusion gated on extracellular
+		# Ca²⁺ availability (needs Na⁺ gradient + somewhere for Ca²⁺ to go).
+		# See K_NCX block above for biology and the Hill formulation.
+		g_act = (ca_cyt / K_NCX['K_a']) ** K_NCX['h']
+		g_act /= (1.0 + g_act)
+		v_ncx = K_NCX['V_max'] * g_act * ca_cyt / (K_NCX['K_m'] + ca_cyt)
+		dy[_IDX['CA2_CYT[c]']] -= v_ncx
 	# The extracellular reservoir is treated as infinite (no debit).
 
 	# ── P2X1 state transitions (always run, even when CA_EX = 0) ────
