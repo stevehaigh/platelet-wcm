@@ -1113,6 +1113,17 @@ class CalciumSignalling:
 	def __init__(self, sim_data):
 		self.molecule_names = np.array(MOLECULE_NAMES, dtype='U30')
 		self.n_species = N_SPECIES
+		# Per-species fractional-delta residual carried over between
+		# timesteps. Without it, any species whose |dy/dt| < 0.5 ions/s
+		# is frozen at its current integer count (rounding artifact):
+		# the ODE evolves with float precision but the commit to bulk
+		# molecules rounds to int per-step. For slow approach to
+		# equilibrium (e.g. IP3 near rest, PIP2 refill), this stranded
+		# the model at a non-equilibrium fixed point. Tracking the
+		# unused fractional part and adding it to the next step's delta
+		# preserves the ODE dynamics on average. Diagnosed in
+		# lab-book-2026-05-12-pi-cycle-design.md §"IP3 stuck-at-205".
+		self._residual = np.zeros(N_SPECIES)
 
 	def molecules_to_next_time_step(self, counts, dt, t_sim, ip3_forced=False,
 			ip3_delay=0.0):
@@ -1141,7 +1152,14 @@ class CalciumSignalling:
 				f'CalciumSignalling ODE failed at t_sim={t_sim}: {sol.message}')
 
 		y_final = np.maximum(sol.y[:, -1], 0.0)
-		delta = np.round(y_final - y0).astype(np.int64)
+		# Carry over fractional residuals across timesteps so that
+		# sub-1-ion-per-second fluxes still integrate correctly over
+		# many steps. The exact float delta is integer-rounded for
+		# the commit, and the unused fraction is added to the next
+		# step's accumulator. See `__init__` for the diagnosis.
+		fractional_delta = y_final - y0 + self._residual
+		delta = np.round(fractional_delta).astype(np.int64)
+		self._residual = fractional_delta - delta
 
 		# ATP cost: SERCA delivers 2 Ca²⁺ per ATP, PMCA delivers 1 per ATP.
 		# Estimated from Ca²⁺ flux integrated over the step. Net Ca²⁺_cyt
