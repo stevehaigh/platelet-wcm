@@ -305,40 +305,84 @@ contribute to the early cyt peak, which is what P2X1 covers.
 
 ## BioRender assembly guide
 
-These diagrams are good for the design/code documentation. For
+The Mermaid diagrams above are the canonical code/design version. For
 **dissertation / publication figures**, BioRender is the standard.
-Suggested asset/template search terms (icon name, where it would
-slot into the diagrams above):
+This section catalogues templates and icons searched 2026-05-12 — what
+is available, what needs substitution, and a suggested workflow.
 
-### Top-level pathway (diagram 1)
-- "platelet" — template / cell outline
-- "endoplasmic reticulum" / "DTS tubule" — for the DTS compartment (DTS is the platelet equivalent of the smooth ER; can use ER imagery)
-- "plasma membrane" — bilayer
-- "IP3 receptor" / "IP3R" — for the DTS membrane channel
-- "SERCA" / "Ca²⁺ ATPase" — for the SERCA pump
-- "PMCA" — plasma membrane Ca²⁺ ATPase
-- "Orai1" / "CRAC channel" — for the SOCE channel
-- "STIM1" / "stromal interaction molecule" — DTS Ca²⁺ sensor
-- "P2X receptor" — ATP-gated cation channel
-- "calmodulin" — CaM (often shown as dumbbell shape with two Ca²⁺-binding lobes)
-- "gelsolin" — Ca²⁺-regulated actin-severing protein
-- "calreticulin" — ER luminal buffer
-- "calcium ion" / "Ca²⁺" — Ca²⁺ symbol
+### Starting templates (click to preview / customise in BioRender)
 
-### PI cycle (diagram 2)
-- "PLC beta" / "phospholipase C" — PLCβ
-- "PIP2" / "phosphatidylinositol 4,5-bisphosphate" — substrate
-- "IP3" / "inositol trisphosphate" — second messenger
-- "DAG" / "diacylglycerol" — co-product
-- "G alpha q" / "Gαq" — receptor-activated G-protein
+Most directly relevant, ranked by usefulness for our pathway:
 
-### Suggested layout
-1. Draw the platelet outline; place SCS (surface-connected canalicular system, distinct from DTS — visible as PM invaginations) and DTS as separate internal structures.
-2. PM populated with: P2X1, Orai1, PMCA, and (implicit) the basal leak. Show the SCS as PM extensions.
-3. DTS membrane: IP3R, SERCA, STIM1.
-4. DTS lumen: free Ca²⁺ + buffer proteins (CALR with C/P domains, HSP90B1, BiP, CREC).
-5. Cytosol: free Ca²⁺ + CaM (3 states) + gelsolin + PI cycle (PIP2 → PLCβ → IP3 + DAG).
-6. Arrows in Ca²⁺-flux convention: brown/orange for Ca²⁺ ions; dashed for regulatory.
+- **[Platelet Activation](https://app.biorender.com/biorender-templates/details/t-60915ce250813300a30d914d?source=mcp)** — direct platelet template; use as base for the cell outline.
+- **[Calcium-Induced Calcium Release (CICR) in Cardiomyocytes](https://app.biorender.com/biorender-templates/details/t-667f162395dc4e48416c6a08?source=mcp)** — has IP3R / SERCA / Ca²⁺-store dynamics laid out cleanly. Cardiomyocyte rather than platelet, but the DTS structural concepts (luminal Ca²⁺ store with IP3R / SERCA on the membrane) transfer directly. Best single template for the *Ca²⁺ machinery* layout.
+- **[Activation of Protein Kinase C (PKC)](https://app.biorender.com/biorender-templates/details/t-5fac3e4834fa7b00a383dcd7?source=mcp)** — has PLCβ → IP₃ + DAG → IP3R pathway. Good reference for the PI cycle (diagram 2) part.
+- **[GPCR Effector Pathways](https://app.biorender.com/biorender-templates/details/t-60ba47ddf7aa2e00a8b76ba1?source=mcp)** — Gq / Gi cascades with PLC. Useful when v0.4 receptor work lands and `gq_signal_uM` is replaced by explicit receptor cascades.
+- **[Wnt Calcium Signaling Pathway](https://app.biorender.com/biorender-templates/details/t-5eceb4038b256400b5916cd8?source=mcp)** — generic Ca²⁺-signaling reference; less directly relevant but useful for arrow / convention conventions.
+- **[NFAT Signaling Pathway](https://app.biorender.com/biorender-templates/details/t-5f5b7db4721e9700b07cba32?source=mcp)** — Ca²⁺-dependent downstream signalling; relevant if/when calcineurin / NFAT work is added.
 
-The BioRender search tools (see code-overview for accessing the
-Anthropic MCP integration) can help find these assets.
+### Icons — what's directly available
+
+Search these terms in BioRender's icon library:
+
+- **Platelet** (resting + active forms) — directly available.
+- **SERCA pump (with ATP, Calcium)** — the "placeable" cartoon version is current; the legacy versions are also there but flagged as older format.
+- **GPIb-IX-V complex** — useful if showing GPVI / GPIb receptor surfaces.
+- **Phospholipid membrane (3D, medium, with cytoplasm)** — for plasma membrane and DTS membrane.
+- **Troponin complex (contracted muscle, with calcium)** — can stand in for **CaM with Ca²⁺** (similar two-lobe geometry; the troponin C / N-lobe analogy holds visually).
+- **Na/Ca exchanger** — has the right transmembrane silhouette; can be relabelled as PMCA or NCX as needed.
+- **GPCR (ligand-bound, with stimulatory α-subunit)** — generic GPCR with G-protein; relabel for P2Y1 / PAR / GPVI as needed.
+- **P2X7 receptor (top view, cartoon)** — **same trimeric topology as P2X1**; use as P2X1 stand-in with relabelling.
+
+### Icons — patchy or missing; use generic substitutes
+
+The BioRender library searches for these returned no direct matches
+(searches returned unrelated results — e.g. "STIM1" returns
+transcranial-stimulation devices, "Orai1" returns olfactory neurons).
+Use generic representations:
+
+| Protein | Substitute |
+|---|---|
+| **STIM1** | Generic single-pass transmembrane protein with a luminal Ca²⁺-binding domain (EF-hand symbol); label "STIM1". |
+| **Orai1** | Generic tetrameric ion channel (top view or side view); label "Orai1 (CRAC channel)". |
+| **PMCA** | Generic plasma-membrane P-type ATPase (similar shape to SERCA but in PM); BioRender's "SERCA pump (with ATP, Calcium)" icon can be reused and re-labelled. |
+| **Calreticulin / CALR** | Generic ER luminal Ca²⁺-binding protein; could use a coloured blob labelled "CALR (C+P)" with the C-domain (high capacity) and P-domain (high affinity) noted. |
+| **HSP90B1 / GRP94** | Generic chaperone icon. |
+| **BiP / HSPA5** | Generic chaperone icon. |
+| **CREC family (CALU, RCN1, RCN2)** | Generic luminal Ca²⁺-binding proteins; could lump into a single "other CREC buffers" label. |
+| **Gelsolin** | No direct match. Options: omit from the diagram (gelsolin is shown only as a Ca²⁺ buffer in our model), or use a generic actin-binding protein and label. |
+
+### Suggested layout for the dissertation figure
+
+1. Start from the **Platelet Activation** template as the cell outline. Crop the inside.
+2. Add the **SCS** (Surface-Connected Canalicular System — invaginations of the PM that penetrate the cell; distinct from the DTS) as PM extensions. This is platelet-specific morphology worth showing.
+3. Draw the **DTS** as a tubular network in the cytosol (use ER-style imagery — the DTS is the platelet smooth-ER equivalent). The **Calcium-Induced Calcium Release** template gives a good model for the DTS layout.
+4. **PM channels and pumps** (left-to-right top of the diagram):
+   - P2X1 (P2X7 icon, relabelled) — show ATP binding from extracellular
+   - Orai1 (generic tetrameric channel) — show Ca²⁺ flowing in
+   - PMCA (SERCA-like icon, repurposed) — show Ca²⁺ flowing out, ATP hydrolysed
+   - Basal PM leak (small open arrow)
+5. **DTS membrane**:
+   - IP3R (channel symbol with IP₃ binding)
+   - SERCA pump (BioRender direct icon)
+   - STIM1 sensor (single-pass TM protein)
+6. **DTS lumen**: free Ca²⁺ (orange dots) + CALR (with C+P labels) + HSP90B1, BiP, CREC pool clustered as luminal buffers.
+7. **Cytosol**:
+   - Free Ca²⁺ (orange dots, less dense than DTS)
+   - CaM (troponin icon, three states: free / Ca₂·CaM / Ca₄·CaM)
+   - Gelsolin / GSN pool (generic protein)
+   - PI cycle (PIP₂ → PLCβ → IP₃ + DAG); the Mazet 2020 paper Fig. 2A is a good reference for the PI cycle layout conventions.
+8. **External signal**: arrow into PLCβ from a "Gq signal" placeholder (in v0.4 this becomes the explicit GPCR cascade).
+
+### Arrow conventions to use
+
+Match the Mermaid diagrams in this document for consistency:
+- **Solid orange arrows** — Ca²⁺ ion flux (the headline biology).
+- **Dashed double-headed arrows** — reversible buffer binding (CaM, GSN, CALR, etc.).
+- **Dotted arrows** — regulatory / activation signals (not Ca²⁺ flow); e.g. IP₃ activating IP3R, Ca₄·CaM activating PMCA.
+- **Solid black arrows** — biochemical reactions (PIP₂ → IP₃ + DAG).
+
+The BioRender search tools (the Anthropic MCP integration) can be
+used to find additional icons — search terms and template URLs were
+all captured 2026-05-12 with the search session ID
+`platelet-wcm-2026-05-12`.
