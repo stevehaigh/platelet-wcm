@@ -105,6 +105,11 @@ MOLECULE_NAMES = (
 	'P2X1[pl]',     # closed (resting)
 	'P2X1_O[pl]',   # open (conducting)
 	'P2X1_D[pl]',   # desensitised
+	# PI cycle — replaces forced-IP3 (Phase 4 / #31; Mazet 2020 framework).
+	'PIP2[c]',           # PI(4,5)P2 — PLCβ substrate
+	'DAG[c]',            # diacylglycerol — PLCβ co-product (PKC substrate)
+	'PLCb_inactive[c]',  # PLCβ inactive pool
+	'PLCb_active[c]',    # PLCβ active (Gq-bound); catalyses PIP2 hydrolysis
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -592,11 +597,12 @@ STIM_MONOMERS_PER_DIMER = 2
 def ip3_forcing_uM(t, delay=0.0):
 	"""Dolan 2014 Fig. S2 IP3 time curve, returning concentration in µM.
 
-	Plateau-decay approximation: rises ~5.5× over 3 s, decays with τ=60 s.
-	`delay` shifts the stimulus onset: the curve is flat at the resting
-	baseline for t < delay and begins rising at t = delay.
-	At t_eff <= 0 returns the resting baseline so the curve is well-defined
-	for any sub-step the BDF solver evaluates.
+	v0.2.x legacy: this was the *forced* IP3 timecourse driving the
+	model. v0.3 (#31) replaces this with the PI cycle: IP3 becomes a
+	model output, produced from PIP2 hydrolysis by Gq-activated PLCβ.
+	The function is retained as a *calibration reference* — the PI
+	cycle parameters are tuned so that the model-produced IP3
+	timecourse approximates this curve under standard Gq forcing.
 	"""
 	t_eff = t - delay
 	if t_eff <= 0:
@@ -604,6 +610,72 @@ def ip3_forcing_uM(t, delay=0.0):
 	rise = 1.0 - np.exp(-t_eff / IP3_TAU_RISE)
 	decay = np.exp(-max(0.0, t_eff - IP3_T_PEAK) / IP3_TAU_DECAY)
 	return IP3_REST_UM * (1.0 + (IP3_FOLD - 1.0) * rise * decay)
+
+
+# ── PI cycle / PLCβ — Phase 4 / issue #31 ────────────────────────────────
+# Replaces the forced IP3 curve. IP3 is now produced from PIP2 hydrolysis
+# by Gq-activated PLCβ, following the framework of Mazet, Tindall,
+# Gibbins & Fry 2020 *Sci. Rep.* 10:13889.
+#
+# Coarse-grained scheme (v0.3 scope; full PI/PI4P/PI45P2 chain is v0.4):
+#
+#   PLCb_i + Gq  ──(k_act)──►  PLCb_a                  (PLCβ activation)
+#   PLCb_a      ──(k_inact)──►  PLCb_i                  (RGS / GTPase)
+#   PLCb_a + PIP2  ──(k_cat)──►  PLCb_a + IP3 + DAG    (PIP2 hydrolysis)
+#   PI pool     ──(k_resynth)──►  PIP2                  (lumped resynthesis)
+#   IP3          ──(k_ip3_deg)──►  IP2/IP4 (out)        (3-kinase + 5-phosphatase)
+#   DAG          ──(k_dag_deg)──►  PA      (out)        (DAG kinase)
+#
+# Mazet 2020 has 35 rate constants in the full PI cycle; here we use a
+# reduced 5-rate-constant model with the rates *calibrated* to reproduce
+# the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
+# transfer of Mazet's constants would require their full PI/PI4P chain,
+# which is out of scope for v0.3.
+K_PLCB = {
+	'k_act':    0.5,      # PLCb_i + Gq → PLCb_a    (µM⁻¹·s⁻¹) — calibrated
+	'k_inact':  0.3,      # PLCb_a    → PLCb_i      (s⁻¹)       — τ ~ 3 s
+	'k_cat':    2.26e-7,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
+}                         # — calibrated against resting + peak IP3 targets
+
+K_PI_CYCLE = {
+	# PIP2 resynthesis — lumped PI → PI4P → PIP2 chain. Set equal to
+	# basal hydrolysis rate so PIP2 sits at its resting value.
+	'k_resynth':   3.62,   # PIP2 / s — calibrated to basal balance
+	# IP3 degradation (5-phosphatase to IP2 + 3-kinase to IP4, lumped)
+	# τ ~ 50 s matches Dolan Fig. S2 decay tail.
+	'k_ip3_deg':   0.02,   # IP3 → IP2/IP4   (s⁻¹)
+	# DAG kinase (DAG → PA)
+	'k_dag_deg':   0.05,   # DAG → PA       (s⁻¹) — τ ~ 20 s
+}
+
+
+# ── Gq activity forcing — replaces ip3_forcing_uM ────────────────────────
+# In v0.3 the stimulation is delivered as a Gαq activity signal that
+# drives PLCβ activation (replacing the v0.2.x forced IP3 curve). When
+# v0.4 receptor signalling lands (#9), this forcing is replaced by an
+# explicit GPCR → Gαq cascade with receptor / agonist-specific dynamics.
+GQ_REST_UM   = 0.1         # tonic basal activity — maintains resting IP3 ~ 50 nM
+GQ_PEAK_UM   = 2.0         # peak Gq concentration during activation (~20× rest)
+GQ_TAU_RISE  = 0.5         # s — fast onset (GPCR → Gαq exchange)
+GQ_T_PEAK    = 1.0         # s
+GQ_TAU_DECAY = 30.0        # s — RGS-mediated GTPase inactivation
+
+
+def gq_signal_uM(t, delay=0.0):
+	"""Coarse-grained Gαq active concentration; drives PLCβ activation.
+
+	Replaces v0.2.x `ip3_forcing_uM` as the model's primary stimulation
+	input. v0.4 (#9) will replace this with explicit receptor cascades.
+
+	Returns `GQ_REST_UM` for `t_eff <= 0` (tonic basal activity that
+	maintains the resting IP3 baseline at ~50 nM).
+	"""
+	t_eff = t - delay
+	if t_eff <= 0:
+		return GQ_REST_UM
+	rise = 1.0 - np.exp(-t_eff / GQ_TAU_RISE)
+	decay = np.exp(-max(0.0, t_eff - GQ_T_PEAK) / GQ_TAU_DECAY)
+	return GQ_REST_UM + (GQ_PEAK_UM - GQ_REST_UM) * rise * decay
 
 
 
@@ -690,10 +762,16 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	# Concentrations (µM) for Ca²⁺ and IP3.
 	ca_cyt = max(y[_IDX['CA2_CYT[c]']], 0.0) * _UM_PER_COUNT_CYT
 	ca_dts = max(y[_IDX['CA2_DTS[dts]']], 0.0) * _UM_PER_COUNT_DTS
-	if ip3_forced:
-		ip3 = ip3_forcing_uM(t_sim_start + t, delay=ip3_delay)
-	else:
-		ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
+	# IP3 is produced by the PI cycle (PLCβ-driven; Phase 4 / #31). No
+	# longer forced — the `ip3_forced` flag now controls Gq forcing, not
+	# direct IP3 substitution.
+	ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
+
+	# PI cycle state reads
+	pip2_count = max(y[_IDX['PIP2[c]']], 0.0)
+	dag_count  = max(y[_IDX['DAG[c]']],  0.0)
+	plcb_i     = max(y[_IDX['PLCb_inactive[c]']], 0.0)
+	plcb_a     = max(y[_IDX['PLCb_active[c]']],   0.0)
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -979,12 +1057,34 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['P2X1_O[pl]']] += +v_p2x1_act - v_p2x1_close - v_p2x1_des
 	dy[_IDX['P2X1_D[pl]']] +=                              +v_p2x1_des - v_p2x1_rec
 
-	# IP3 is forced when `ip3_forced` is True; otherwise it free-floats
-	# (decay/regeneration handled by upstream processes in v0.3+).
+	# ── PI cycle: PLCβ-driven IP3 production from PIP2 — Phase 4 / #31 ──
+	# Replaces the v0.2.x forced IP3 curve. `ip3_forced` now means "Gq
+	# stimulus on" (the upstream signal that activates PLCβ).
 	if ip3_forced:
-		# Drive IP3 count toward the curve without integrating the ODE on it.
-		target_count = ip3_forcing_uM(t_sim_start + t, delay=ip3_delay) / _UM_PER_COUNT_CYT
-		dy[_IDX['IP3[c]']] = (target_count - y[_IDX['IP3[c]']]) / 0.1
+		gq_um = gq_signal_uM(t_sim_start + t, delay=ip3_delay)
+	else:
+		gq_um = GQ_REST_UM
+
+	# PLCβ activation cycle.
+	v_plcb_act   = K_PLCB['k_act']   * plcb_i * gq_um
+	v_plcb_inact = K_PLCB['k_inact'] * plcb_a
+
+	# PLCβ-catalysed PIP2 hydrolysis → IP3 + DAG (in count/s).
+	v_plcb_cat = K_PLCB['k_cat'] * plcb_a * pip2_count
+
+	# PIP2 resynthesis from the PI/PI4P chain (lumped order-zero rate).
+	v_pip2_resynth = K_PI_CYCLE['k_resynth']
+
+	# IP3 degradation (5-phosphatase + 3-kinase, lumped).
+	v_ip3_deg = K_PI_CYCLE['k_ip3_deg'] * y[_IDX['IP3[c]']]
+	# DAG kinase (DAG → PA).
+	v_dag_deg = K_PI_CYCLE['k_dag_deg'] * dag_count
+
+	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact
+	dy[_IDX['PLCb_active[c]']]   += +v_plcb_act - v_plcb_inact
+	dy[_IDX['PIP2[c]']]          += -v_plcb_cat + v_pip2_resynth
+	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
+	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
 
 	return dy
 

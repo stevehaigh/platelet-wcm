@@ -1,6 +1,6 @@
-# Platelet WCM — biology overview (v0.2.8)
+# Platelet WCM — biology overview (v0.3.0)
 
-> *Last updated: 2026-05-12 (Phase 3 — multi-buffer DTS, 5/5 Phase 3 criteria maintained)*
+> *Last updated: 2026-05-12 (Phase 4 — PI cycle replaces forced IP3; first-principles model)*
 
 A single-cell, deterministic model of intracellular Ca²⁺ dynamics in a
 resting / activating human platelet. Reproduces the IP3-mediated
@@ -62,7 +62,7 @@ both ATPase pumps (SERCA, PMCA). P2X1 is gated by extracellular ATP
 | **STIM1 sensor cycle** | DTS-bound (Ca-loaded, inactive) ⇌ free monomer ⇌ dimer (active sensor); detailed-balance rate constants | Dolan 2014 + Hoover & Lewis 2011 |
 | **Orai1 / SOCE** | Monod–Wyman–Changeux allosteric model: STIM1 dimers translocate into puncta (Hill function on cytosolic Ca²⁺), bind Orai1 tetramers cooperatively; channel opening as fraction of bound STIM1 | Hoover & Lewis 2011, Dolan 2014 eq. 2 + eq. 4 |
 | **P2X1 ATP-gated channel** | 3-state coarse kinetics (Closed → Open → Desensitised → Closed); ionotropic trimeric channel; Ca²⁺ flux gated on extracellular Ca²⁺ availability and extracellular ATP forcing. 1 000 channels; γ_Ca = 0.6 fS (calibrated). Distinct from P2Y1 GPCR — see dissertation-notes §7.1 | Mahaut-Smith 2000/2004; Vial & Evans 2002; Hechler 2003 |
-| **IP3 production** | v0.2 placeholder: pre-programmed time curve fitted to Dolan Fig. S2 (5.5× rise, τ_rise = 3 s, τ_decay = 60 s). v0.3 will replace with explicit GPCR → Gαq → PLCβ → PIP2 cleavage (Mazet, Tindall, Gibbins & Fry 2020 is the canonical reference). | Dolan 2014 Fig. S2; Mazet et al. 2020 (v0.3 target) |
+| **PI cycle / IP3 production** | **v0.3.0: model now produces IP3 from PI cycle dynamics**, replacing the v0.2.x forced curve. Coarse-grained scheme: Gq activity signal → PLCβ activation → PIP2 hydrolysis → IP3 + DAG. PIP2 resynthesis lumped; IP3 degradation lumped (3-kinase + 5-phosphatase). 5 new species (PIP2, DAG, PLCb_i, PLCb_a) + IP3 retained. Replaces `ip3_forcing_uM` with `gq_signal_uM` (the v0.4 receptor work will replace this with explicit GPCR cascades). | Mazet, Tindall, Gibbins & Fry 2020 *Sci. Rep.* 10:13889 |
 | **Resting protein decay** | Exponential decay of all non-calcium-pathway proteins, t½ = 7 days. Operates on platelet-lifespan timescales — *inert on the 200 s transient horizon* — retained for v0.5+ multi-day-scope work | Burkhart et al. 2012 |
 
 ## Compartments and copy numbers

@@ -340,33 +340,42 @@ compartment for v0.3.
 | **MCU** (mitochondrial uniporter) | Already issue #22 | v0.3+ |
 | **NCX** (Na⁺/Ca²⁺ exchanger) | Some evidence in platelets, contested | v0.3+ |
 
-### 7.4 Receptor-PLC-IP3 upstream of IP3R
+### 7.4 PI cycle — closed (Phase 4 / #31, 2026-05-12)
 
-We force IP3 directly using the Dolan Fig S2 fit. Real upstream:
+**Closed in v0.3.0.** Forced IP3 curve replaced by the **Mazet,
+Tindall, Gibbins & Fry 2020** *Sci. Rep.* 10:13889 platelet PI cycle
+framework. IP3 is now a model output, produced by PLCβ-driven
+hydrolysis of PIP2:
 
-GPCR (thrombin / collagen / ADP receptors)
-  → Gαq
-  → PLCβ
-  → cleaves PIP2 → IP3 + DAG
+```
+[Gq activity signal — gq_signal_uM forcing function]
+  → PLCβ activation (k_act × Gq)
+  → PIP2 hydrolysis (k_cat × plcb_a × PIP2)
+  → IP3 + DAG  →  IP3R  →  Ca²⁺ release
+```
 
-The PIP2 pool is finite, PLC has its own kinetics, and IP3 is degraded
-by IP3-3-kinase and IP3-5-phosphatase. Forcing IP3 directly:
-- Misses the kinetic shape of the rise (we have τ_rise = 3 s; real may
-  be slower or have a shoulder)
-- Misses the finite-pool / desensitisation effects
-- Decouples Ca²⁺ release from upstream receptor signalling
+New species: PIP2, DAG, PLCb_inactive, PLCb_active. New rate dicts:
+`K_PLCB` (activation/deactivation/catalysis), `K_PI_CYCLE` (PIP2
+resynthesis, IP3 degradation, DAG kinase).
 
-**Canonical reference for closing this gap**: Mazet, Tindall, Gibbins
-& Fry 2020 *Sci. Rep.* 10:13889 — a platelet-specific ODE model of
-the full PI cycle informed by single-cell-type data. The paper
-explicitly warns against using "mosaic" rate constants from unrelated
-cell types (a methodology critique highly relevant to our broader
-calibration questions, e.g. SERCA constants in §3.2). The Mazet et al.
-rate constants are the natural source for v0.3 PLCβ / PIP2 dynamics
-when we replace the forced-IP3 Dolan curve with an explicit upstream
-pathway. PDF in `source-info/calcium-papers/`.
+**Calibration**: rates calibrated against (a) resting IP3 = 50 nM
+balance, and (b) Dolan Fig. S2 peak shape. Phase 3 remains 5/5 with
+the new dynamics.
 
-v0.3 receptor-signalling work (#9, #10) would close this.
+**What's still simplified**: the full Mazet model has 35 parameters
+covering PI ↔ PI4P ↔ PIP2 phosphorylation, IP3 → IP4 / IP2 splits,
+and several lipid-binding proteins. Our reduced model uses 5 effective
+rates and lumps the PI/PI4P chain into a single resynthesis term.
+v0.4 work (#9, receptor signalling) will replace `gq_signal_uM` with
+explicit GPCR cascades (P2Y1 / PAR1/4 / GPVI) — and at that point the
+PI cycle parameters may be re-derived from Mazet's supplementary
+tables more directly.
+
+The largest methodological upgrade in the project to date: IP3 has
+gone from a hand-fitted input to a model output.
+
+See `lab-book-2026-05-12-pi-cycle-design.md` for the full design,
+calibration log, and results.
 
 ### 7.5 Cytoskeletal coupling (gelsolin's dual role)
 

@@ -74,22 +74,28 @@ class TestPhase3DolanFig4(unittest.TestCase):
 	# ── Headline metrics ──────────────────────────────────────────────────────
 
 	def test_with_ca_peak_in_range(self):
-		"""+Ca_ex peak Ca²⁺ in the active band (≥ 200 nM) and within 30% of baseline."""
+		"""+Ca_ex peak Ca²⁺ within 30% of 530 nM (v0.3 PI-cycle baseline).
+
+		Baseline raised 2026-05-12 (Phase 4 / #31) after the forced IP3
+		curve was replaced by the Mazet 2020 PI cycle. The +Ca_ex peak
+		now includes both IP3R-driven release (from PI cycle IP3) and
+		P2X1 entry, sustained by the PLCβ-mediated IP3 timecourse.
+		"""
 		peak = self.summary['with_extracellular_ca']['peak_cyt_nM']
 		self.assertGreater(peak, 200.0,
 			f'+Ca_ex peak {peak:.1f} nM below the active threshold')
-		# ±30% of the 380 nM post-k12 baseline
-		self.assertGreater(peak, 266.0,
+		# ±30% of the 530 nM PI-cycle baseline
+		self.assertGreater(peak, 371.0,
 			f'+Ca_ex peak {peak:.1f} regressed below baseline −30%')
-		self.assertLess(peak, 494.0,
+		self.assertLess(peak, 689.0,
 			f'+Ca_ex peak {peak:.1f} regressed above baseline +30%')
 
 	def test_no_ca_peak_in_range(self):
-		"""−Ca_ex peak Ca²⁺ in the active band and within 30% of baseline."""
+		"""−Ca_ex peak Ca²⁺ within 30% of 325 nM baseline (IP3R-only response)."""
 		peak = self.summary['without_extracellular_ca']['peak_cyt_nM']
 		self.assertGreater(peak, 200.0,
 			f'−Ca_ex peak {peak:.1f} nM below the active threshold')
-		# ±30% of the 325 nM post-k12 baseline
+		# ±30% of the 325 nM post-k12 baseline (unchanged since v0.2.5)
 		self.assertGreater(peak, 228.0,
 			f'−Ca_ex peak {peak:.1f} regressed below baseline −30%')
 		self.assertLess(peak, 423.0,

@@ -174,13 +174,33 @@ def main():
 	ax3.legend(loc='upper right', fontsize=9)
 	ax3.grid(alpha=0.3)
 
-	# Panel 4 — IP3 (drive)
-	ax4.plot(t, ip3_nM, color='tab:purple', linewidth=2, label='IP$_3$')
+	# Panel 4 — PI cycle: model IP3 vs Dolan reference curve
+	pip2 = get('PIP2[c]')
+	# Build Dolan reference IP3 curve (forced curve from v0.2.x)
+	def dolan_ip3(t_sec, delay):
+		t_eff = t_sec - delay
+		mask = t_eff > 0
+		out = np.full_like(t_sec, 50.0)
+		rise = 1.0 - np.exp(-t_eff[mask] / 3.0)
+		decay = np.exp(-np.maximum(0.0, t_eff[mask] - 1.0) / 60.0)
+		out[mask] = 50.0 * (1.0 + (5.5 - 1.0) * rise * decay)
+		return out
+	ip3_dolan_nM = dolan_ip3(t, args.ip3_stim_onset)
+	ax4.plot(t, ip3_dolan_nM, color='gray', linewidth=1.2, linestyle='--',
+		label='Dolan 2014 Fig. S2 reference')
+	ax4.plot(t, ip3_nM, color='tab:purple', linewidth=2, label='Model IP$_3$ (PI cycle output)')
+	# PIP2 on second axis
+	ax4b = ax4.twinx()
+	ax4b.plot(t, pip2 / 1000.0, color='tab:cyan', linewidth=1.5, label='PIP$_2$ (×1 000 count)')
+	ax4b.set_ylabel('PIP$_2$ count (×10³)', color='tab:cyan')
+	ax4b.tick_params(axis='y', labelcolor='tab:cyan')
 	ax4.axvline(args.ip3_stim_onset, **stim_kwargs)
 	ax4.set_xlabel('time (s)')
 	ax4.set_ylabel('[IP$_3$] (nM)')
-	ax4.set_title('IP$_3$ forcing curve (Dolan 2014 Fig. S2 fit, delayed)')
-	ax4.legend(loc='upper right', fontsize=9)
+	ax4.set_title('PI cycle (Mazet 2020 framework): PIP$_2$ → IP$_3$ + DAG via PLCβ')
+	lines1, labels1 = ax4.get_legend_handles_labels()
+	lines2, labels2 = ax4b.get_legend_handles_labels()
+	ax4.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=8)
 	ax4.grid(alpha=0.3)
 
 	os.makedirs(os.path.dirname(args.out), exist_ok=True)
