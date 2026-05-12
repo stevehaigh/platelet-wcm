@@ -109,9 +109,11 @@ def main():
 	# Panel 5: PMCA state distribution
 	axes[4].stackplot(t,
 		pmca_free, pmca_ca, cam_pmca, cam_pmca_ca, pmca_cam,
-		labels=['PMCA free', 'PMCA·Ca²⁺ (basal active)',
-				'Ca₄·CaM·PMCA', 'Ca₄·CaM·PMCA·Ca²⁺ (pumping)',
-				'PMCA·CaM (trap)'],
+		labels=['PMCA free',
+				r'PMCA$\cdot$Ca$^{2+}$ (basal active)',
+				r'Ca$_4\cdot$CaM$\cdot$PMCA',
+				r'Ca$_4\cdot$CaM$\cdot$PMCA$\cdot$Ca$^{2+}$ (pumping)',
+				r'PMCA$\cdot$CaM (trap)'],
 		colors=['tab:green', 'tab:olive', 'tab:cyan', 'tab:orange', 'tab:red'],
 		alpha=0.8)
 	axes[4].axvline(args.stim_onset, **stim_kwargs)
