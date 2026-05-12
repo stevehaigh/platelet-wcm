@@ -118,9 +118,12 @@ def main():
 	crec_uM         = crec_ca    * UM_PER_COUNT_DTS
 	additional_dts_uM = hsp90_m_uM + hsp90_l_uM + bip_uM + crec_uM
 
-	# ── Plot — 4 panels: cyt-free, cyt-bound, DTS, IP3 ─────────────────
-	fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 13), sharex=True)
-	fig.subplots_adjust(hspace=0.32)
+	# Mitochondrial Ca²⁺
+	ca_mito_count = get('CA2_MITO[m]')
+
+	# ── Plot — 5 panels: cyt-free, cyt-bound, DTS, mito, IP3 ───────────
+	fig, (ax1, ax2, ax3, ax_mito, ax4) = plt.subplots(5, 1, figsize=(10, 15), sharex=True)
+	fig.subplots_adjust(hspace=0.34)
 
 	stim_kwargs = dict(color='red', linestyle='--', alpha=0.6)
 	stim_label = f'IP3 onset (t = {args.ip3_stim_onset:.0f} s)'
@@ -174,7 +177,15 @@ def main():
 	ax3.legend(loc='upper right', fontsize=9)
 	ax3.grid(alpha=0.3)
 
-	# Panel 4 — PI cycle: model IP3 vs Dolan reference curve
+	# Panel 4 (mito) — mitochondrial Ca²⁺
+	ax_mito.plot(t, ca_mito_count, color='tab:brown', linewidth=2, label='Mito Ca$^{2+}$ count')
+	ax_mito.axvline(args.ip3_stim_onset, **stim_kwargs)
+	ax_mito.set_ylabel('Mito Ca$^{2+}$ (ions)')
+	ax_mito.set_yscale('symlog', linthresh=1000)
+	ax_mito.set_title('Mitochondrial Ca$^{2+}$ — MCU uptake during peak, slow NCLX release (τ ~ 200 s)')
+	ax_mito.legend(loc='upper right', fontsize=9); ax_mito.grid(alpha=0.3)
+
+	# Panel 5 — PI cycle: model IP3 vs Dolan reference curve
 	pip2 = get('PIP2[c]')
 	# Build Dolan reference IP3 curve (forced curve from v0.2.x)
 	def dolan_ip3(t_sec, delay):

@@ -51,9 +51,10 @@ def main():
 	cam_pmca = get('Ca4_CaM_PMCA[pl]')
 	cam_pmca_ca = get('Ca4_CaM_PMCA_Ca[pl]')
 	pmca_cam = get('PMCA_CaM[pl]')
+	ca_mito = get('CA2_MITO[m]')
 
-	fig, axes = plt.subplots(5, 1, figsize=(11, 14), sharex=True)
-	fig.subplots_adjust(hspace=0.30)
+	fig, axes = plt.subplots(6, 1, figsize=(11, 17), sharex=True)
+	fig.subplots_adjust(hspace=0.32)
 
 	stim_kwargs = dict(color='red', linestyle='--', alpha=0.5)
 
@@ -109,10 +110,18 @@ def main():
 		colors=['tab:green', 'tab:olive', 'tab:cyan', 'tab:orange', 'tab:red'],
 		alpha=0.8)
 	axes[4].axvline(args.stim_onset, **stim_kwargs)
-	axes[4].set_xlabel('time (s)')
 	axes[4].set_ylabel('PMCA molecules (of 769 total)')
-	axes[4].set_title('PMCA state distribution — is recovery rate-limited by the CaM trap?')
+	axes[4].set_title('PMCA state distribution')
 	axes[4].legend(loc='upper right', fontsize=8); axes[4].grid(alpha=0.3)
+
+	# Panel 6: Mitochondrial Ca²⁺
+	axes[5].plot(t, ca_mito, color='tab:brown', linewidth=2)
+	axes[5].set_yscale('symlog', linthresh=100)
+	axes[5].axvline(args.stim_onset, **stim_kwargs)
+	axes[5].set_xlabel('time (s)')
+	axes[5].set_ylabel('Mito Ca²⁺ (ions, symlog)')
+	axes[5].set_title('Mitochondrial Ca²⁺ — MCU uptake during peak, slow NCLX release')
+	axes[5].grid(alpha=0.3)
 
 	os.makedirs(os.path.dirname(args.out), exist_ok=True)
 	fig.savefig(args.out, dpi=140, bbox_inches='tight')
