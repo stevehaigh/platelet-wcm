@@ -52,9 +52,14 @@ def main():
 	cam_pmca_ca = get('Ca4_CaM_PMCA_Ca[pl]')
 	pmca_cam = get('PMCA_CaM[pl]')
 	ca_mito = get('CA2_MITO[m]')
+	# v0.4 GPCR cascade
+	par1_a = get('PAR1_active[pl]')
+	par4_a = get('PAR4_active[pl]')
+	p2y1_a = get('P2Y1_active[pl]')
+	gq_a   = get('Gq_active[c]')
 
-	fig, axes = plt.subplots(6, 1, figsize=(11, 17), sharex=True)
-	fig.subplots_adjust(hspace=0.32)
+	fig, axes = plt.subplots(7, 1, figsize=(11, 20), sharex=True)
+	fig.subplots_adjust(hspace=0.34)
 
 	stim_kwargs = dict(color='red', linestyle='--', alpha=0.5)
 
@@ -118,10 +123,27 @@ def main():
 	axes[5].plot(t, ca_mito, color='tab:brown', linewidth=2)
 	axes[5].set_yscale('symlog', linthresh=100)
 	axes[5].axvline(args.stim_onset, **stim_kwargs)
-	axes[5].set_xlabel('time (s)')
 	axes[5].set_ylabel('Mito Ca²⁺ (ions, symlog)')
 	axes[5].set_title('Mitochondrial Ca²⁺ — MCU uptake during peak, slow NCLX release')
 	axes[5].grid(alpha=0.3)
+
+	# Panel 7: GPCR cascade (v0.4) — receptors + Gq
+	axes[6].plot(t, par1_a, label='PAR1 active', color='tab:red', linewidth=2)
+	axes[6].plot(t, par4_a, label='PAR4 active', color='tab:orange', linewidth=2)
+	axes[6].plot(t, p2y1_a, label='P2Y1 active', color='tab:green', linewidth=2)
+	axes[6].axvline(args.stim_onset, **stim_kwargs)
+	axes[6].set_ylabel('Receptor count')
+	ax6b = axes[6].twinx()
+	ax6b.plot(t, gq_a, color='tab:purple', linewidth=1.5, label='Gαq active')
+	ax6b.axhline(100, color='tab:purple', linewidth=0.6, linestyle=':', alpha=0.5)
+	ax6b.set_ylabel('Gαq active count', color='tab:purple')
+	ax6b.tick_params(axis='y', labelcolor='tab:purple')
+	axes[6].set_xlabel('time (s)')
+	axes[6].set_title('GPCR cascade — receptor activation under 1 nM thrombin + 10 µM ADP')
+	lines1, l1 = axes[6].get_legend_handles_labels()
+	lines2, l2 = ax6b.get_legend_handles_labels()
+	axes[6].legend(lines1 + lines2, l1 + l2, loc='upper right', fontsize=8)
+	axes[6].grid(alpha=0.3)
 
 	os.makedirs(os.path.dirname(args.out), exist_ok=True)
 	fig.savefig(args.out, dpi=140, bbox_inches='tight')

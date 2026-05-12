@@ -121,9 +121,16 @@ def main():
 	# Mitochondrial Ca²⁺
 	ca_mito_count = get('CA2_MITO[m]')
 
-	# ── Plot — 5 panels: cyt-free, cyt-bound, DTS, mito, IP3 ───────────
-	fig, (ax1, ax2, ax3, ax_mito, ax4) = plt.subplots(5, 1, figsize=(10, 15), sharex=True)
-	fig.subplots_adjust(hspace=0.34)
+	# GPCR cascade (v0.4)
+	p2y1_a = get('P2Y1_active[pl]')
+	par1_a = get('PAR1_active[pl]')
+	par4_a = get('PAR4_active[pl]')
+	gq_active = get('Gq_active[c]')
+
+	# ── Plot — 6 panels: cyt-free, cyt-bound, DTS, mito, GPCR, IP3 ─────
+	fig, axes = plt.subplots(6, 1, figsize=(10, 18), sharex=True)
+	ax1, ax2, ax3, ax_mito, ax_gpcr, ax4 = axes
+	fig.subplots_adjust(hspace=0.36)
 
 	stim_kwargs = dict(color='red', linestyle='--', alpha=0.6)
 	stim_label = f'IP3 onset (t = {args.ip3_stim_onset:.0f} s)'
@@ -185,7 +192,24 @@ def main():
 	ax_mito.set_title('Mitochondrial Ca$^{2+}$ — MCU uptake during peak, slow NCLX release (τ ~ 200 s)')
 	ax_mito.legend(loc='upper right', fontsize=9); ax_mito.grid(alpha=0.3)
 
-	# Panel 5 — PI cycle: model IP3 vs Dolan reference curve
+	# Panel 5 — GPCR cascade (v0.4): receptor activation + Gq
+	ax_gpcr.plot(t, par1_a, label='PAR1 active (cleaved)', color='tab:red', linewidth=2)
+	ax_gpcr.plot(t, par4_a, label='PAR4 active', color='tab:orange', linewidth=2)
+	ax_gpcr.plot(t, p2y1_a, label='P2Y1 active (ADP-bound)', color='tab:green', linewidth=2)
+	ax_gpcr.axvline(args.ip3_stim_onset, **stim_kwargs)
+	ax_gpcr.set_ylabel('Receptor count (active)')
+	ax_gpcr_b = ax_gpcr.twinx()
+	ax_gpcr_b.plot(t, gq_active, color='tab:purple', linewidth=1.5, label='Gq active')
+	ax_gpcr_b.axhline(100, color='tab:purple', linewidth=0.6, linestyle=':', alpha=0.5)
+	ax_gpcr_b.set_ylabel('Gαq active count', color='tab:purple')
+	ax_gpcr_b.tick_params(axis='y', labelcolor='tab:purple')
+	ax_gpcr.set_title('GPCR cascade (v0.4): receptors + Gαq driven by thrombin + ADP')
+	lines1, l1 = ax_gpcr.get_legend_handles_labels()
+	lines2, l2 = ax_gpcr_b.get_legend_handles_labels()
+	ax_gpcr.legend(lines1 + lines2, l1 + l2, loc='upper right', fontsize=8)
+	ax_gpcr.grid(alpha=0.3)
+
+	# Panel 6 — PI cycle: model IP3 vs Dolan reference curve
 	pip2 = get('PIP2[c]')
 	# Build Dolan reference IP3 curve (forced curve from v0.2.x)
 	def dolan_ip3(t_sec, delay):
