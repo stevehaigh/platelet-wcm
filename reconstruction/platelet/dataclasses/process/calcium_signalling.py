@@ -120,8 +120,10 @@ MOLECULE_NAMES = (
 	'P2Y1_active[pl]',   # P2Y1 active (ADP-bound)
 	'PAR1_inactive[pl]', # PAR1 thrombin receptor (high-affinity), inactive
 	'PAR1_active[pl]',   # PAR1 cleaved/active (proteolytic, ~irreversible)
+	'PAR1_internalized[pl]', # v0.4.1: one-way sink (was 2-state recycling)
 	'PAR4_inactive[pl]', # PAR4 thrombin receptor (low-affinity)
 	'PAR4_active[pl]',
+	'PAR4_internalized[pl]', # v0.4.1: one-way sink
 	'Gq_active[c]',      # Gαq-GTP (active); inactive Gq implicit (total - active)
 )
 # Index lookups for readability inside the rate function.
@@ -1291,17 +1293,26 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['P2Y1_inactive[pl]']] += -v_p2y1_on + v_p2y1_off
 	dy[_IDX['P2Y1_active[pl]']]   += +v_p2y1_on - v_p2y1_off
 
-	# PAR1: thrombin cleavage (essentially irreversible) + slow recycling
+	# PAR1: thrombin cleavage (essentially irreversible) + one-way
+	# internalization (v0.4.1 fix). Previously internalization went back
+	# to the inactive surface pool, allowing slow thrombin tails to
+	# re-cleave the same receptors indefinitely; PAR1_active stayed
+	# elevated for ~2000s after thrombin clears. Real biology has
+	# internalized PAR1 either degraded or recycled on hours timescale
+	# (out of our sim window). Modelled as a one-way sink.
 	v_par1_cleave = K_PAR1['k_cleave'] * par1_i * thr_nm_now
 	v_par1_int    = K_PAR1['k_internalize'] * par1_a
-	dy[_IDX['PAR1_inactive[pl]']] += -v_par1_cleave + v_par1_int
-	dy[_IDX['PAR1_active[pl]']]   += +v_par1_cleave - v_par1_int
+	dy[_IDX['PAR1_inactive[pl]']]     += -v_par1_cleave
+	dy[_IDX['PAR1_active[pl]']]       += +v_par1_cleave - v_par1_int
+	dy[_IDX['PAR1_internalized[pl]']] += +v_par1_int
 
-	# PAR4: low-affinity thrombin receptor, sustained response
+	# PAR4: low-affinity thrombin receptor, sustained response.
+	# Same one-way internalization as PAR1 (v0.4.1 fix).
 	v_par4_cleave = K_PAR4['k_cleave'] * par4_i * thr_nm_now
 	v_par4_int    = K_PAR4['k_internalize'] * par4_a
-	dy[_IDX['PAR4_inactive[pl]']] += -v_par4_cleave + v_par4_int
-	dy[_IDX['PAR4_active[pl]']]   += +v_par4_cleave - v_par4_int
+	dy[_IDX['PAR4_inactive[pl]']]     += -v_par4_cleave
+	dy[_IDX['PAR4_active[pl]']]       += +v_par4_cleave - v_par4_int
+	dy[_IDX['PAR4_internalized[pl]']] += +v_par4_int
 
 	# Gαq cycle: all active receptors share the same Gq pool.
 	# Inactive Gq is implicit (total - active).

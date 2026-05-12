@@ -194,8 +194,11 @@ _MOLECULES = [
 	('P2Y1_active[pl]',   8.30e-5,           0, 'protein'),
 	('PAR1_inactive[pl]', 8.30e-5,       2_500, 'protein'),  # thrombin (high-aff)
 	('PAR1_active[pl]',   8.30e-5,           0, 'protein'),
+	# v0.4.1: one-way internalized sink (no recycling on sim timescale)
+	('PAR1_internalized[pl]', 8.30e-5,       0, 'protein'),
 	('PAR4_inactive[pl]', 8.30e-5,         500, 'protein'),  # thrombin (low-aff)
 	('PAR4_active[pl]',   8.30e-5,           0, 'protein'),
+	('PAR4_internalized[pl]', 8.30e-5,       0, 'protein'),
 	# Gαq pool: 5 000 total (Mazet 2020). Pre-equilibrated at resting
 	# state — with k_basal = 6.7e-4 s⁻¹ and k_rgs = 0.033 s⁻¹, the
 	# equilibrium fraction is k_basal/(k_basal+k_rgs) = 0.02, so
