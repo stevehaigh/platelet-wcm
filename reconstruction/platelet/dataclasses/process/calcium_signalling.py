@@ -114,6 +114,15 @@ MOLECULE_NAMES = (
 	# Ca²⁺ uptake during transients (via MCU) and slow release (via
 	# NCLX), bypassing the PMCA-rate-limited extrusion bottleneck.
 	'CA2_MITO[m]',       # free mito matrix Ca²⁺ count
+	# v0.4 GPCR receptor cascade (issue #9) — replaces gq_signal_uM
+	# forcing with explicit P2Y1 + PAR1 + PAR4 → Gαq cascade.
+	'P2Y1_inactive[pl]', # P2Y1 ADP receptor (Gq-coupled), inactive
+	'P2Y1_active[pl]',   # P2Y1 active (ADP-bound)
+	'PAR1_inactive[pl]', # PAR1 thrombin receptor (high-affinity), inactive
+	'PAR1_active[pl]',   # PAR1 cleaved/active (proteolytic, ~irreversible)
+	'PAR4_inactive[pl]', # PAR4 thrombin receptor (low-affinity)
+	'PAR4_active[pl]',
+	'Gq_active[c]',      # Gαq-GTP (active); inactive Gq implicit (total - active)
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -625,6 +634,96 @@ K_NCX = {
 	'h':      4,         # allosteric Hill cooperativity (switch-like)
 }
 
+
+# ── v0.4 GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ────────────
+# Replaces the v0.3.x gq_signal_uM forcing with an explicit receptor →
+# G-protein cascade. The model now takes physiological agonist
+# concentrations (thrombin in nM, ADP in µM) as input rather than an
+# abstract Gq curve.
+#
+# Three Gq-coupled receptors in scope:
+#   - P2Y1 (ADP, reversible binding; ~150 copies, Coller 1995)
+#   - PAR1 (thrombin, high-affinity, irreversible proteolytic cleavage;
+#     ~2500 copies)
+#   - PAR4 (thrombin, low-affinity; ~500 copies)
+#
+# Total Gαq pool: 5 000 molecules per platelet (Mazet, Tindall, Gibbins
+# & Fry 2020). Inactive Gαq is implicit (total - active).
+#
+# Out of scope: GPVI (collagen, PLCγ2 path — different from Gq cascade);
+# P2Y12 (Gi-coupled, inhibitory — issue #10); receptor desensitisation /
+# internalisation kinetics (lumped into a slow first-order decay).
+
+K_P2Y1 = {
+	'k_on':   1.0,    # P2Y1_i + ADP → P2Y1_a       (µM⁻¹·s⁻¹) — reversible
+	'k_off':  0.5,    # P2Y1_a → P2Y1_i + ADP        (s⁻¹)
+}
+
+K_PAR1 = {
+	'k_cleave':       2.0,    # PAR1_i + thrombin → PAR1_a   (nM⁻¹·s⁻¹) — fast cleavage
+	'k_internalize':  0.02,   # PAR1_a → PAR1_i              (s⁻¹) — τ ~50s (lumped internalisation+recycling)
+}
+
+K_PAR4 = {
+	'k_cleave':       0.2,    # PAR4_i + thrombin → PAR4_a   (nM⁻¹·s⁻¹) — slower than PAR1
+	'k_internalize':  0.005,  # PAR4_a → PAR4_i              (s⁻¹) — τ ~200s (sustained response)
+}
+
+K_GQ = {
+	'k_act_per_R':  0.001,    # active receptor catalyses Gq exchange  (s⁻¹·count⁻¹)
+	'k_rgs':        0.033,    # Gq_active → Gq_inactive (RGS-accelerated GTPase)  (s⁻¹) — τ ~30s
+	# k_basal calibrated so resting Gq_active ≈ 100 → gq_um = 0.1 µM
+	# (matches the v0.3.x GQ_REST_UM that the PLCβ ODE expects).
+	# Steady-state fraction = k_basal / (k_basal + k_rgs); with k_rgs =
+	# 0.033 and target fraction 100/5000 = 0.02, k_basal = 0.033 × 0.02/0.98
+	# = 6.7e-4 s⁻¹.
+	'k_basal':      6.7e-4,
+}
+
+N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
+
+
+# ── Agonist forcing functions — v0.4 stimulation inputs ──────────────────
+# These replace the abstract gq_signal_uM. The model now takes
+# physiological agonist concentrations (thrombin in nM, ADP in µM).
+
+# Thrombin (PAR1/4 agonist).  Standard stimulation = 1 nM peak
+# (matches the Dolan 2014 protocol). Rises within ms (clotting cascade
+# is fast), plateaus, then is cleared.
+THROMBIN_REST_NM     = 0.0      # no thrombin at rest
+THROMBIN_PEAK_NM     = 1.0      # default 1 nM peak
+THROMBIN_TAU_RISE_S  = 0.5      # fast rise
+THROMBIN_T_PEAK_S    = 5.0      # sustained plateau
+THROMBIN_TAU_DECAY_S = 120.0    # slow decay (thrombin lingers)
+
+# ADP (P2Y1 agonist).  Released from dense granules during platelet
+# activation; cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
+ADP_REST_UM     = 0.0           # no ADP at rest
+ADP_PEAK_UM     = 10.0          # default 10 µM peak
+ADP_TAU_RISE_S  = 1.0           # dense granule secretion timescale
+ADP_T_PEAK_S    = 5.0
+ADP_TAU_DECAY_S = 30.0          # ectoNTPDase clearance
+
+
+def thrombin_nM(t, delay=0.0, peak_nM=THROMBIN_PEAK_NM):
+	"""Thrombin concentration timecourse (nM)."""
+	t_eff = t - delay
+	if t_eff <= 0:
+		return THROMBIN_REST_NM
+	rise  = 1.0 - np.exp(-t_eff / THROMBIN_TAU_RISE_S)
+	decay = np.exp(-max(0.0, t_eff - THROMBIN_T_PEAK_S) / THROMBIN_TAU_DECAY_S)
+	return THROMBIN_REST_NM + (peak_nM - THROMBIN_REST_NM) * rise * decay
+
+
+def adp_uM(t, delay=0.0, peak_uM=ADP_PEAK_UM):
+	"""ADP concentration timecourse (µM)."""
+	t_eff = t - delay
+	if t_eff <= 0:
+		return ADP_REST_UM
+	rise  = 1.0 - np.exp(-t_eff / ADP_TAU_RISE_S)
+	decay = np.exp(-max(0.0, t_eff - ADP_T_PEAK_S) / ADP_TAU_DECAY_S)
+	return ADP_REST_UM + (peak_uM - ADP_REST_UM) * rise * decay
+
 # Number of monomers per Orai1 tetramer (CRAC channel pore-forming subunit).
 ORAI_SUBUNITS_PER_CHANNEL = 4
 
@@ -844,6 +943,15 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
+
+	# GPCR cascade state reads
+	p2y1_i = max(y[_IDX['P2Y1_inactive[pl]']], 0.0)
+	p2y1_a = max(y[_IDX['P2Y1_active[pl]']],   0.0)
+	par1_i = max(y[_IDX['PAR1_inactive[pl]']], 0.0)
+	par1_a = max(y[_IDX['PAR1_active[pl]']],   0.0)
+	par4_i = max(y[_IDX['PAR4_inactive[pl]']], 0.0)
+	par4_a = max(y[_IDX['PAR4_active[pl]']],   0.0)
+	gq_a   = max(y[_IDX['Gq_active[c]']],      0.0)
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -1138,12 +1246,12 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['P2X1_D[pl]']] +=                              +v_p2x1_des - v_p2x1_rec
 
 	# ── PI cycle: PLCβ-driven IP3 production from PIP2 — Phase 4 / #31 ──
-	# Replaces the v0.2.x forced IP3 curve. `ip3_forced` now means "Gq
-	# stimulus on" (the upstream signal that activates PLCβ).
-	if ip3_forced:
-		gq_um = gq_signal_uM(t_sim_start + t, delay=ip3_delay)
-	else:
-		gq_um = GQ_REST_UM
+	# v0.4 (#9): Gq concentration now comes from the explicit GPCR cascade
+	# state variable rather than the forced gq_signal_uM curve. The
+	# downstream PI cycle is unchanged; only the input source differs.
+	# Conversion: 1 µM gq_um ≈ 1 000 Gq_active count (calibrated so that
+	# resting Gq_active ~100 maps to gq_um ~0.1 µM, matching GQ_REST_UM).
+	gq_um = (gq_a / N_GQ_TOTAL) * 5.0
 
 	# PLCβ activation cycle.
 	v_plcb_act   = K_PLCB['k_act']   * plcb_i * gq_um
@@ -1165,6 +1273,43 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['PIP2[c]']]          += -v_plcb_cat + v_pip2_resynth
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
+
+	# ── v0.4 GPCR cascade — receptors + Gαq cycle (issue #9) ────────
+	# Replaces the v0.3.x gq_signal_uM forcing. Agonist concentrations
+	# from external forcing → receptor activation → Gαq exchange →
+	# PLCβ activation (already in the PI cycle block above).
+	if ip3_forced:
+		adp_um_now    = adp_uM(t_sim_start + t, delay=ip3_delay)
+		thr_nm_now    = thrombin_nM(t_sim_start + t, delay=ip3_delay)
+	else:
+		adp_um_now    = ADP_REST_UM
+		thr_nm_now    = THROMBIN_REST_NM
+
+	# P2Y1: reversible ADP binding
+	v_p2y1_on  = K_P2Y1['k_on']  * p2y1_i * adp_um_now
+	v_p2y1_off = K_P2Y1['k_off'] * p2y1_a
+	dy[_IDX['P2Y1_inactive[pl]']] += -v_p2y1_on + v_p2y1_off
+	dy[_IDX['P2Y1_active[pl]']]   += +v_p2y1_on - v_p2y1_off
+
+	# PAR1: thrombin cleavage (essentially irreversible) + slow recycling
+	v_par1_cleave = K_PAR1['k_cleave'] * par1_i * thr_nm_now
+	v_par1_int    = K_PAR1['k_internalize'] * par1_a
+	dy[_IDX['PAR1_inactive[pl]']] += -v_par1_cleave + v_par1_int
+	dy[_IDX['PAR1_active[pl]']]   += +v_par1_cleave - v_par1_int
+
+	# PAR4: low-affinity thrombin receptor, sustained response
+	v_par4_cleave = K_PAR4['k_cleave'] * par4_i * thr_nm_now
+	v_par4_int    = K_PAR4['k_internalize'] * par4_a
+	dy[_IDX['PAR4_inactive[pl]']] += -v_par4_cleave + v_par4_int
+	dy[_IDX['PAR4_active[pl]']]   += +v_par4_cleave - v_par4_int
+
+	# Gαq cycle: all active receptors share the same Gq pool.
+	# Inactive Gq is implicit (total - active).
+	gq_i_count = max(N_GQ_TOTAL - gq_a, 0.0)
+	total_active_R = p2y1_a + par1_a + par4_a
+	v_gq_act = (K_GQ['k_act_per_R'] * total_active_R + K_GQ['k_basal']) * gq_i_count
+	v_gq_rgs = K_GQ['k_rgs'] * gq_a
+	dy[_IDX['Gq_active[c]']] += v_gq_act - v_gq_rgs
 
 	# ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────
 	# MCU uptake: cooperative Hill kinetics on cyt Ca²⁺.

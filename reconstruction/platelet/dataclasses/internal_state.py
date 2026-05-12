@@ -186,6 +186,23 @@ _MOLECULES = [
 	# Mito starts essentially empty; loads during transient via MCU,
 	# releases slowly via NCLX. Mass treated as Ca²⁺ metabolite.
 	('CA2_MITO[m]',       6.660e-8,    1_000,         'metabolite'),
+	# ── v0.4 GPCR cascade (issue #9) — P2Y1 + PAR1/4 → Gαq → PLCβ ──
+	# All receptors start inactive at rest (no agonist).
+	# Copy numbers from Coller 1995 (PAR1, PAR4) and Hechler 2002 (P2Y1).
+	# Mass: GPCR average MW ~50 kDa → 8.30e-5 fg/molecule.
+	('P2Y1_inactive[pl]', 8.30e-5,         150, 'protein'),  # ADP receptor (Gq)
+	('P2Y1_active[pl]',   8.30e-5,           0, 'protein'),
+	('PAR1_inactive[pl]', 8.30e-5,       2_500, 'protein'),  # thrombin (high-aff)
+	('PAR1_active[pl]',   8.30e-5,           0, 'protein'),
+	('PAR4_inactive[pl]', 8.30e-5,         500, 'protein'),  # thrombin (low-aff)
+	('PAR4_active[pl]',   8.30e-5,           0, 'protein'),
+	# Gαq pool: 5 000 total (Mazet 2020). Pre-equilibrated at resting
+	# state — with k_basal = 6.7e-4 s⁻¹ and k_rgs = 0.033 s⁻¹, the
+	# equilibrium fraction is k_basal/(k_basal+k_rgs) = 0.02, so
+	# Gq_active = 5 000 × 0.02 = 100 at rest, giving gq_um = 0.1 µM
+	# (matches v0.3 GQ_REST_UM that the downstream PLCβ expects).
+	# Mass per molecule: Gαq ~42 kDa → 6.97e-5 fg.
+	('Gq_active[c]',      6.97e-5,         100, 'protein'),
 ]
 
 # Submass column index for each class (mirrors SimulationDataPlatelet).
