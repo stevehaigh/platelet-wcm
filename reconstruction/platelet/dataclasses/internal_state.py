@@ -65,12 +65,12 @@ _MOLECULES = [
 	# design.md). Recomputed 2026-05-11 (Phase 2 IP3R/SERCA retune) after
 	# `k_bind_f` was halved (1000 → 500 µM⁻²·s⁻¹) — see K_SERCA block in
 	# `calcium_signalling.py`.
-	('SERCA_E1[dts]',     1.814e-4,    5_825,         'protein'),     # E1 (cytosol-facing, empty)
-	('SERCA_E2[dts]',     1.814e-4,    5_873,         'protein'),     # E2 (DTS-facing, empty)
-	('SERCA_E1Ca[dts]',   1.814e-4,      41,          'protein'),     # E1·2Ca²⁺
-	('SERCA_E1PCa[dts]',  1.814e-4,      51,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
-	('SERCA_E2PCa[dts]',  1.814e-4,      43,          'protein'),     # E2P·2Ca²⁺
-	('SERCA_E2P[dts]',    1.814e-4,      57,          'protein'),     # E2P (Ca²⁺ released to DTS)
+	('SERCA_E1[dts]',     1.814e-4,    5_895,         'protein'),     # E1 (cytosol-facing, empty)
+	('SERCA_E2[dts]',     1.814e-4,    5_915,         'protein'),     # E2 (DTS-facing, empty)
+	('SERCA_E1Ca[dts]',   1.814e-4,      18,          'protein'),     # E1·2Ca²⁺
+	('SERCA_E1PCa[dts]',  1.814e-4,      22,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
+	('SERCA_E2PCa[dts]',  1.814e-4,      18,          'protein'),     # E2P·2Ca²⁺
+	('SERCA_E2P[dts]',    1.814e-4,      24,          'protein'),     # E2P (Ca²⁺ released to DTS)
 	# ── PMCA4b sub-states (Caride 2007 Table 3 5-state CaM-coupled scheme) ──
 	# Basal path (steps 4–5): PMCA ⇌ PMCA·Ca → Ca²⁺_ex
 	# CaM-activated path (steps 8–11): PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
@@ -93,17 +93,17 @@ _MOLECULES = [
 	('Ca2_CaM[c]',        2.775e-5,    200,     'protein'),  # Ca₂·CaM (N-lobe loaded; ~0.010 × free)
 	('Ca4_CaM[c]',        2.775e-5,    219,     'protein'),  # Ca₄·CaM (fully loaded; ~1.10 × Ca₂·CaM)
 	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ──
-	# N_GSN = 800 000 effective Ca²⁺-binding sites (calibrated against
-	# Phase 3 with CALR + P-domain active; see lab book). Mass per site =
-	# gelsolin monomer mass / 5 sites = 1.395e-4 fg / 5 = 2.79e-5 fg, so
-	# total GSN protein mass ≈ 800 000 × 2.79e-5 = 22.3 fg (consistent
-	# with ~160 000 gelsolin molecules at 5 sites each — within the
-	# Burkhart 2012 / Yin & Stossel 1979 platelet abundance range of
-	# ~50 000–280 000).
+	# N_GSN = 1 400 000 effective Ca²⁺-binding sites (calibrated against
+	# Phase 3 with multi-buffer DTS — Phase 3 / issue #25 retune). Mass
+	# per site = gelsolin monomer mass / 5 sites = 1.395e-4 fg / 5 =
+	# 2.79e-5 fg, so total GSN protein mass ≈ 1 400 000 × 2.79e-5 = 39.1
+	# fg (consistent with ~280 000 gelsolin molecules at 5 sites each —
+	# at the upper end of the Burkhart 2012 / Yin & Stossel 1979 platelet
+	# abundance range of ~50 000–280 000).
 	# Pre-equilibrated at cyt = 100 nM, Kd = 1 µM: GSN_Ca/GSN_free = 0.1.
-	# Total = 800 000 → GSN_free = 727 273, GSN_Ca = 72 727.
-	('GSN_free[c]',       2.79e-5,    727_273, 'protein'),
-	('GSN_Ca[c]',         2.79e-5,     72_727, 'protein'),
+	# Total = 1 400 000 → GSN_free = 1 272 727, GSN_Ca = 127 273.
+	('GSN_free[c]',       2.79e-5,  1_272_727, 'protein'),
+	('GSN_Ca[c]',         2.79e-5,    127_273, 'protein'),
 	# ── Calreticulin DTS Ca²⁺ buffer (Phase 2 / #28) ──
 	# 20 324 CALR molecules × 25 low-affinity Ca²⁺-binding sites = 508 100
 	# sites total. Mass per "site" = CALR monomer (46 kDa) / 25 sites:
@@ -129,6 +129,30 @@ _MOLECULES = [
 	# 2.939e-6 (close to C-domain value 3.056e-6 already in use).
 	('CALR_P_free[dts]',  2.939e-6,         81, 'protein'),
 	('CALR_P_Ca[dts]',    2.939e-6,    20_243, 'protein'),
+	# ── HSP90B1 / GRP94 — medium- and low-affinity Ca²⁺-binding sites ──
+	# 10 000 HSP90B1 molecules × (4 medium + 11 low) sites.
+	# MW = 92 kDa → 1.528e-4 fg per molecule, /15 sites = 1.019e-5 fg per site.
+	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM:
+	#   Medium (Kd = 2 µM):  occupancy = 250/252 = 0.992 → 39 683 bound / 317 free
+	#   Low    (Kd = 600 µM): occupancy = 250/850 = 0.294 → 32 353 bound / 77 647 free
+	# See K_HSP90B1_M / K_HSP90B1_L blocks in calcium_signalling.py.
+	('HSP90B1_M_free[dts]', 1.019e-5,       317, 'protein'),
+	('HSP90B1_M_Ca[dts]',   1.019e-5,    39_683, 'protein'),
+	('HSP90B1_L_free[dts]', 1.019e-5,    77_647, 'protein'),
+	('HSP90B1_L_Ca[dts]',   1.019e-5,    32_353, 'protein'),
+	# ── BiP / HSPA5 — single low-affinity Ca²⁺ site (Lièvremont 1997) ──
+	# 50 000 BiP molecules × 1 effective site. MW = 78 kDa → 1.296e-4 fg.
+	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 500 µM:
+	#   occupancy = 250/750 = 0.333 → 16 667 bound / 33 333 free.
+	('BiP_free[dts]',       1.296e-4,    33_333, 'protein'),
+	('BiP_Ca[dts]',         1.296e-4,    16_667, 'protein'),
+	# ── CREC pool (CALU + RCN1 + RCN2 aggregated; Honoré & Vorum 2000) ──
+	# 15 000 molecules × 4 effective EF-hand sites = 60 000 sites.
+	# Average MW ≈ 38 kDa → 6.32e-5 fg per molecule, /4 sites = 1.58e-5 fg.
+	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 1 mM:
+	#   occupancy = 250/1250 = 0.20 → 12 000 bound / 48 000 free.
+	('CREC_free[dts]',      1.58e-5,     48_000, 'protein'),
+	('CREC_Ca[dts]',        1.58e-5,     12_000, 'protein'),
 	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
 	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
 	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)

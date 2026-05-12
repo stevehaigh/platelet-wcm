@@ -1,6 +1,6 @@
-# Platelet WCM — biology overview (v0.2.7)
+# Platelet WCM — biology overview (v0.2.8)
 
-> *Last updated: 2026-05-11 (Phase 2.5 — P2X1 added, 5/5 Phase 3 criteria)*
+> *Last updated: 2026-05-12 (Phase 3 — multi-buffer DTS, 5/5 Phase 3 criteria maintained)*
 
 A single-cell, deterministic model of intracellular Ca²⁺ dynamics in a
 resting / activating human platelet. Reproduces the IP3-mediated
@@ -55,6 +55,10 @@ both ATPase pumps (SERCA, PMCA). P2X1 is gated by extracellular ATP
 | **Cytosolic buffer (gelsolin proxy)** | Coarse-grained 1:1 site binding; 800 000 effective Ca²⁺ sites at Kd = 1 µM, k_off = 100 s⁻¹ (fast equilibrium). Represents gelsolin + annexins + Ca·ATP combined | Burkhart 2012 + Yin & Stossel 1979 (copy range); Sage & Rink 1985 (buffer ratio target) |
 | **CALR C-domain** | 508 100 low-affinity Ca²⁺ sites at Kd = 1 mM, k_off = 1 000 s⁻¹ (20 324 CALR × 25 sites). Fast equilibrium. The dominant DTS luminal buffer | Burkhart 2012; Vassilakos 1998; Baksh & Michalak 1991 |
 | **CALR P-domain** | 20 324 high-affinity Ca²⁺ sites at Kd = 1 µM, k_off = 1 s⁻¹ (1 site per CALR). Slow release; provides ~20 k Ca²⁺ reserve during transient DTS depletion | Vassilakos 1998 |
+| **HSP90B1 medium-affinity** | 40 000 sites at Kd = 2 µM, k_off = 1 s⁻¹ (slow). 10 000 HSP90B1 × 4 medium sites. Holds ~40 k Ca²⁺ during the transient (k_off matched to transient timescale). | Argon & Simen 1999; Burkhart 2012 |
+| **HSP90B1 low-affinity** | 110 000 sites at Kd = 600 µM, k_off = 600 s⁻¹ (fast). 10 000 HSP90B1 × 11 low sites. ~32 k bound at rest. | Argon & Simen 1999 |
+| **BiP / HSPA5** | 50 000 sites at Kd = 500 µM, k_off = 1 000 s⁻¹ (fast). 1 effective site per BiP. ~17 k bound at rest; ~25 % of ER Ca²⁺ store. | Lièvremont 1997; Burkhart 2012 |
+| **CREC pool (CALU + RCN1 + RCN2)** | 60 000 aggregated sites at Kd = 1 mM, k_off = 500 s⁻¹ (fast). ~15 000 molecules × 4 sites. ~12 k bound at rest. | Honoré & Vorum 2000; Vorum 1998 |
 | **STIM1 sensor cycle** | DTS-bound (Ca-loaded, inactive) ⇌ free monomer ⇌ dimer (active sensor); detailed-balance rate constants | Dolan 2014 + Hoover & Lewis 2011 |
 | **Orai1 / SOCE** | Monod–Wyman–Changeux allosteric model: STIM1 dimers translocate into puncta (Hill function on cytosolic Ca²⁺), bind Orai1 tetramers cooperatively; channel opening as fraction of bound STIM1 | Hoover & Lewis 2011, Dolan 2014 eq. 2 + eq. 4 |
 | **P2X1 ATP-gated channel** | 3-state coarse kinetics (Closed → Open → Desensitised → Closed); ionotropic trimeric channel; Ca²⁺ flux gated on extracellular Ca²⁺ availability and extracellular ATP forcing. 1 000 channels; γ_Ca = 0.6 fS (calibrated). Distinct from P2Y1 GPCR — see dissertation-notes §7.1 | Mahaut-Smith 2000/2004; Vial & Evans 2002; Hechler 2003 |
@@ -158,7 +162,7 @@ this is the short version, ordered by impact.
 
 | Biology | Status | Tracked as |
 |---|---|---|
-| **Other DTS luminal buffers** — HSP90B1 (GRP94), CALU, RCN1/2 (CREC family) | Not modelled. Would help retain free DTS [Ca²⁺] > 0 during transient (currently drops to ~0 µM at peak). Papers in `source-info/calcium-papers/`. | Issue **#25** |
+| ~~Other DTS luminal buffers~~ | **Closed Phase 3 / #25 (2026-05-12)** — HSP90B1 (M+L), BiP, CREC pool added. DTS bound:free ratio went from 3.2:1 → 5.8:1 (73% → 85% bound). Free DTS still drops to ~0.02 µM at peak (buffer release rate cannot match IP3R drain), but bound pool retention is now visibly biological. | Issue #25 closed |
 | **Mitochondrial Ca²⁺ uniporter (MCU + mNCX)** | Not modelled. Captures Ca²⁺ during the spike, slowly releases over minutes. Three platelet MCU papers in `source-info/calcium-papers/` (Ajanel 2025, Ghatge 2026, Shehwar 2025). | Issue **#22** |
 | **Dense granule Ca²⁺ store** | Not modelled. Platelet-specific high-concentration acidic Ca²⁺ store (50–100 mM total); NAADP/TPC-sensitive release. | dissertation-notes §7.2; v0.3+ |
 | **Surface-Connected Canalicular System (SCS)** | Not modelled as a separate compartment. Doubles–triples the effective PM surface area for SOCE/PMCA. PM rate constants implicitly absorb this. | dissertation-notes §6.2; v0.3+ |

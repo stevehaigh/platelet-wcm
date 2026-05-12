@@ -64,24 +64,28 @@ historical entries — the dissertation needs a stable list of cited points.
 
 ## 2. Ca²⁺ buffering — dense tubular system (DTS)
 
-### 2.1 DTS luminal buffering — closed (Phase 2 / #28)
+### 2.1 DTS luminal buffering — expanded (Phase 3 / #25, 2026-05-12)
 
-- **State (after 2026-05-11 Phase 2)**: calreticulin (CALR) added with two
-  binding modes:
-  - **C-domain** (low affinity, high capacity): 508 100 sites at Kd = 1 mM,
-    k_off = 1 000 s⁻¹ (fast equilibrium). ~102 k Ca²⁺ bound at rest.
-  - **P-domain** (high affinity, slow release): 20 324 sites at Kd = 1 µM,
-    k_off = 1 s⁻¹. ~20 k Ca²⁺ bound at rest (~99 % saturated).
-- **DTS buffering ratio**: from ~9 % bound → **~73 % bound** at rest.
-  Long-time resting state now stable at cyt = 109 nM, DTS = 264 µM
-  (vs the previous runaway to cyt = 200 nM, DTS > 1 mM).
-- **Open**: the DTS still drops to ~0 µM during the IP3 transient because
-  IP3R peak flux (~6.5 M ions/s after the Phase 2 retune) drains the
-  buffered DTS in ~20 ms. Real biology likely retains 50–100 µM free
-  DTS during stimulation. Closing this gap requires either further IP3R
-  rate-constant work (§3.2) or additional DTS buffers (HSP90B1, CALU
-  per #25; CaM is *not* a DTS buffer — see §2.2).
-- **Reference**: `lab-book-2026-05-11-dyk-ip3r-design.md §Phase 2`.
+- **State (after 2026-05-12 Phase 3)**: full multi-buffer DTS:
+  - CALR C-domain (low aff, fast): 508 100 sites, Kd = 1 mM, ~102 k bound
+  - CALR P-domain (high aff, slow): 20 324 sites, Kd = 1 µM, ~20 k bound
+  - **HSP90B1 medium-aff (slow)**: 40 000 sites, Kd = 2 µM, k_off = 1 s⁻¹, ~40 k bound
+  - **HSP90B1 low-aff (fast)**: 110 000 sites, Kd = 600 µM, ~32 k bound
+  - **BiP / HSPA5**: 50 000 sites, Kd = 500 µM, ~17 k bound
+  - **CREC pool** (CALU + RCN1 + RCN2): 60 000 sites, Kd = 1 mM, ~12 k bound
+- **DTS buffering ratio**: ~73 % bound (Phase 2) → **~85 % bound** at rest.
+  Total DTS Ca²⁺ at rest: ~165 k ions (Phase 2) → **~265 k ions** (Phase 3).
+- **Long-time resting state stable**: cyt 110 nM, DTS 252 µM (preserved).
+- **Phase 3 still 5/5**: peaks 488 +Ca_ex / 336 −Ca_ex / SOCE diff 152 nM
+  (after coupled retune γ_IP3R 0.175 → 0.075 pS, SERCA k_bind_f 500 → 210,
+  N_GSN 800 k → 1 400 k, γ_P2X1 0.6 → 1.0 fS).
+- **Open** (partly closed): free DTS [Ca²⁺] at peak still drops to ~0.02
+  µM minimum (target ≥ 1 µM) because buffer release rate cannot match
+  peak IP3R drain rate. **The bound DTS pools are clearly retained** —
+  HSP90B1 medium holds ~75 % of its Ca²⁺ during transient — but the free
+  pool still drains. Genuine free-DTS retention > 1 µM requires IP3R
+  rate refinement (§3.2) or microdomain spatial modelling (§6.3).
+- **Reference**: `lab-book-2026-05-12-dts-multibuffer-design.md`.
 
 ### 2.2 Calmodulin is cytosolic — the DTS uses a distinct buffer system
 

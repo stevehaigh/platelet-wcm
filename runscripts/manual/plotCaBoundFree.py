@@ -101,13 +101,22 @@ def main():
 	stim1_dim = get('STIM1_dim[dts]')   # dimer; Ca-bound form
 	calr_ca = get('CALR_Ca[dts]')       # CALR C-domain low-affinity sites
 	calr_p_ca = get('CALR_P_Ca[dts]')   # CALR P-domain high-affinity slow site
+	hsp90_m_ca = get('HSP90B1_M_Ca[dts]')  # HSP90B1 medium-affinity (slow)
+	hsp90_l_ca = get('HSP90B1_L_Ca[dts]')  # HSP90B1 low-affinity (fast)
+	bip_ca   = get('BiP_Ca[dts]')          # BiP/HSPA5
+	crec_ca  = get('CREC_Ca[dts]')         # CALU+RCN1+RCN2 pool
 
 	# DTS volume = 4.3% × 6 fL = 0.258 fL.  From internal_state.py:
 	#   38842 ions = 250 µM  →  µM per count = 250/38842
 	UM_PER_COUNT_DTS = 250.0 / 38842.0
-	stim_bound_uM = (stim1_ca + 2.0*stim1_dim) * UM_PER_COUNT_DTS
-	calr_bound_uM = calr_ca * UM_PER_COUNT_DTS
+	stim_bound_uM   = (stim1_ca + 2.0*stim1_dim) * UM_PER_COUNT_DTS
+	calr_bound_uM   = calr_ca   * UM_PER_COUNT_DTS
 	calr_p_bound_uM = calr_p_ca * UM_PER_COUNT_DTS
+	hsp90_m_uM      = hsp90_m_ca * UM_PER_COUNT_DTS
+	hsp90_l_uM      = hsp90_l_ca * UM_PER_COUNT_DTS
+	bip_uM          = bip_ca     * UM_PER_COUNT_DTS
+	crec_uM         = crec_ca    * UM_PER_COUNT_DTS
+	additional_dts_uM = hsp90_m_uM + hsp90_l_uM + bip_uM + crec_uM
 
 	# ── Plot — 4 panels: cyt-free, cyt-bound, DTS, IP3 ─────────────────
 	fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 13), sharex=True)
@@ -149,14 +158,19 @@ def main():
 
 	# Panel 3 — DTS (free + bound on one axis; both are µM-scale)
 	ax3.plot(t, ca_dts_uM, label='Free Ca$^{2+}$_DTS', color='tab:blue', linewidth=2)
-	ax3.plot(t, stim_bound_uM, label='STIM1-bound', color='tab:orange', linewidth=2)
 	ax3.plot(t, calr_bound_uM, label='CALR C-domain (fast)', color='tab:red', linewidth=2)
+	ax3.plot(t, hsp90_m_uM, label='HSP90B1 medium (slow)', color='tab:green', linewidth=2)
+	ax3.plot(t, hsp90_l_uM + bip_uM + crec_uM,
+		label='HSP90B1-L + BiP + CREC (fast)', color='tab:olive', linewidth=2)
 	ax3.plot(t, calr_p_bound_uM, label='CALR P-domain (slow)', color='tab:purple', linewidth=2)
-	ax3.plot(t, ca_dts_uM + stim_bound_uM + calr_bound_uM + calr_p_bound_uM,
+	ax3.plot(t, ca_dts_uM, label='Free Ca$^{2+}$_DTS', color='tab:blue', linewidth=2)
+	ax3.plot(t, stim_bound_uM, label='STIM1-bound', color='tab:orange', linewidth=1.5)
+	ax3.plot(t, ca_dts_uM + stim_bound_uM + calr_bound_uM + calr_p_bound_uM
+				+ hsp90_m_uM + hsp90_l_uM + bip_uM + crec_uM,
 		label='Total DTS Ca$^{2+}$', color='black', linewidth=1.2, linestyle=':')
 	ax3.axvline(args.ip3_stim_onset, **stim_kwargs)
 	ax3.set_ylabel('[Ca$^{2+}$]_DTS (µM)')
-	ax3.set_title('DTS Ca$^{2+}$ — free vs bound   |   CALR luminal buffer (C-domain + P-domain)')
+	ax3.set_title('DTS Ca$^{2+}$ — multi-buffer (CALR C+P, HSP90B1 M+L, BiP, CREC)')
 	ax3.legend(loc='upper right', fontsize=9)
 	ax3.grid(alpha=0.3)
 

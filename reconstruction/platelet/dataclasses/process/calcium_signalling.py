@@ -91,6 +91,16 @@ MOLECULE_NAMES = (
 	# CALR high-affinity P-domain (1 site per CALR; slow release).
 	'CALR_P_free[dts]',
 	'CALR_P_Ca[dts]',
+	# Additional DTS luminal buffers (Phase 3 / #25; see K_HSP90B1_*,
+	# K_BIP, K_CREC blocks below for biology / provenance).
+	'HSP90B1_M_free[dts]',  # medium-affinity sites (Kd ~ 2 µM)
+	'HSP90B1_M_Ca[dts]',
+	'HSP90B1_L_free[dts]',  # low-affinity sites (Kd ~ 600 µM)
+	'HSP90B1_L_Ca[dts]',
+	'BiP_free[dts]',        # HSPA5/BiP, low-affinity
+	'BiP_Ca[dts]',
+	'CREC_free[dts]',       # aggregated CALU + RCN1 + RCN2 pool
+	'CREC_Ca[dts]',
 	# P2X1 ATP-gated cation channel (Phase 2.5; see K_P2X1 block).
 	'P2X1[pl]',     # closed (resting)
 	'P2X1_O[pl]',   # open (conducting)
@@ -186,7 +196,7 @@ N_IP3R = 1328
 # pS sits within that range. The historical 10 pS (Zschauer 1988, via
 # Purvis 2008) was a bilayer measurement under symmetric high Ca²⁺
 # where K⁺ contributes negligibly to current and is not transferable.
-GAMMA_IP3R_S = 0.175e-12         # 0.175 pS = calibrated Ca²⁺ conductance, A/V
+GAMMA_IP3R_S = 0.075e-12         # 0.075 pS = calibrated Ca²⁺ conductance, A/V
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
@@ -207,7 +217,7 @@ GAMMA_IP3R_S = 0.175e-12         # 0.175 pS = calibrated Ca²⁺ conductance, A/
 K_SERCA = {
 	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
 	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	'k_bind_f':     500.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
+	'k_bind_f':     210.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
 	'k_bind_r':      10.0,    # reverse                        (s⁻¹)
 	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
 	'k_phos_r':       5.0,
@@ -263,7 +273,7 @@ K_GSN = {
 # Biological gelsolin: ~100 000 copies × ~5 sites = 500 000 sites (Burkhart
 # 2012; Yin & Stossel 1979). N_GSN below is calibrated against Phase 3
 # peak heights with CALR active — see lab book for the iteration log.
-N_GSN = 800_000
+N_GSN = 1_400_000
 
 
 # ── Calreticulin (CALR) DTS Ca²⁺ buffer — Phase 2 / issue #28 ────────────
@@ -316,6 +326,78 @@ K_CALR_P = {
 	'k_off':   1.0,    # reverse                     (s⁻¹)       — Kd = 1.0 µM
 }
 N_CALR_P = 20_324
+
+
+# ── HSP90B1 / GRP94 / endoplasmin — Phase 3 / issue #25 ──────────────────
+# Second-most-abundant ER luminal Ca²⁺-binding chaperone after CALR. Argon
+# & Simen 1999 report 15 Ca²⁺-binding sites per molecule, split into:
+#   - 4 medium-affinity sites at Kd ~ 2 µM (matters during DTS depletion)
+#   - 11 low-affinity sites at Kd ~ 600 µM (matters at resting [Ca²⁺]_DTS)
+#
+# Modelling these separately captures the dynamics: at rest both bind
+# Ca²⁺; during the IP3R-driven transient, the low-affinity sites release
+# fast (the bulk of the deliverable reserve), while the medium-affinity
+# sites hold until free [Ca²⁺]_DTS drops below ~ 2 µM. The medium sites
+# are what should produce a "floor" above zero in free [Ca²⁺]_DTS during
+# peak — the headline biology improvement of this issue.
+#
+# Platelet copy number: ~10 000 (order-of-magnitude estimate; HSP90B1 is
+# the chaperone-of-record alongside CALR and BiP in the ER, Burkhart 2012
+# lists it among the top ER-associated proteins; precise count is in the
+# supplementary table not directly extractable). Flagged in dissertation
+# notes as a v0.3 stretch estimate.
+K_HSP90B1_M = {
+	'k_on':    0.5,    # HSP90B1_M + Ca²⁺ → HSP90B1_M·Ca  (µM⁻¹·s⁻¹) — slow
+	'k_off':   1.0,    # reverse                          (s⁻¹) — Kd = 2 µM
+	                   # τ_release ≈ 1 s — matches transient timescale, so
+	                   # these sites hold their Ca²⁺ during the ~1 s peak
+	                   # and act as a "floor" keeping free DTS [Ca²⁺] > 0.
+}
+K_HSP90B1_L = {
+	'k_on':    1.0,    # HSP90B1_L + Ca²⁺ → HSP90B1_L·Ca  (µM⁻¹·s⁻¹)
+	'k_off': 600.0,    # reverse                          (s⁻¹) — Kd = 600 µM
+}
+N_HSP90B1 = 10_000              # molecules
+N_HSP90B1_M = N_HSP90B1 * 4     # 40 000 medium-affinity sites
+N_HSP90B1_L = N_HSP90B1 * 11    # 110 000 low-affinity sites
+
+
+# ── BiP / HSPA5 / GRP78 — Phase 3 / issue #25 ────────────────────────────
+# Most abundant ER chaperone. Primary role is protein folding, but
+# Lièvremont 1997 demonstrated BiP contributes ~25 % of the ER Ca²⁺
+# store, with a stoichiometry of 1–2 Ca²⁺ per molecule. Modelled as a
+# single low-affinity pool with Kd ~ 500 µM (matches the Lièvremont
+# "mM-range free [Ca²⁺]_ER" they describe).
+#
+# Platelet copy number: ~50 000 (order-of-magnitude estimate; BiP is the
+# canonically most-abundant ER chaperone, more so than CALR or HSP90B1).
+K_BIP = {
+	'k_on':    2.0,    # BiP + Ca²⁺ → BiP·Ca   (µM⁻¹·s⁻¹)
+	'k_off': 1000.0,   # reverse               (s⁻¹) — Kd = 500 µM
+}
+N_BIP = 50_000 * 1                 # 1 effective site per BiP molecule (mid of 1–2 range with the lower count used to stay biologically conservative — total sites 50 000)
+# (For 1.5-site stoichiometry: N_BIP_TOTAL = 50 000 × 1.5 = 75 000; using
+# 50 000 as the conservative estimate. Resulting bound at rest = 16 700
+# instead of 25 000 — closer to the lower bound of Lièvremont's 25 % of
+# store. Capacity can be scaled up in v0.4 with explicit two-site model.)
+
+
+# ── CREC family pool — CALU + RCN1 + RCN2 lumped — Phase 3 / issue #25 ──
+# The CREC family proteins are smaller multi-EF-hand low-affinity
+# Ca²⁺ binders localised to the ER lumen and secretory pathway. Honoré
+# & Vorum 2000 review: 6–7 EF-hands per molecule with Kd "up to mM",
+# i.e. very low affinity. Vorum 1998 cloned and characterised calumenin.
+# Aggregated here as one coarse-grained pool (split into individual
+# proteins in v0.4 if granule secretion work requires CALU specifically).
+#
+# Combined platelet copy number estimate: ~15 000 (CALU ~5 k + RCN1 ~5 k
+# + RCN2 ~5 k). Effective Ca²⁺-binding sites per molecule ~4 (most
+# EF-hands have functional Ca²⁺ binding; some are structural).
+K_CREC = {
+	'k_on':    0.5,    # CREC + Ca²⁺ → CREC·Ca  (µM⁻¹·s⁻¹)
+	'k_off': 500.0,    # reverse                (s⁻¹) — Kd = 1 mM
+}
+N_CREC = 15_000 * 4                # 60 000 sites
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
@@ -383,7 +465,7 @@ N_P2X1 = 1_000
 # so effective Ca²⁺-specific γ ≈ 10–50 fS per channel. Starting from
 # 0.01 pS — calibration anchor for Phase 3 SOCE-differential target
 # (Dolan ~100 nM). See lab book.
-GAMMA_P2X1_S = 0.0006e-12   # 0.6 fS Ca²⁺-specific conductance, A/V — calibrated
+GAMMA_P2X1_S = 0.0010e-12   # 1.0 fS Ca²⁺-specific conductance, A/V — calibrated
 
 
 # ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
@@ -641,6 +723,15 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	calr_p_free = max(y[_IDX['CALR_P_free[dts]']], 0.0)
 	calr_p_ca   = max(y[_IDX['CALR_P_Ca[dts]']],   0.0)
 
+	hsp90_m_free = max(y[_IDX['HSP90B1_M_free[dts]']], 0.0)
+	hsp90_m_ca   = max(y[_IDX['HSP90B1_M_Ca[dts]']],   0.0)
+	hsp90_l_free = max(y[_IDX['HSP90B1_L_free[dts]']], 0.0)
+	hsp90_l_ca   = max(y[_IDX['HSP90B1_L_Ca[dts]']],   0.0)
+	bip_free     = max(y[_IDX['BiP_free[dts]']],       0.0)
+	bip_ca       = max(y[_IDX['BiP_Ca[dts]']],         0.0)
+	crec_free    = max(y[_IDX['CREC_free[dts]']],      0.0)
+	crec_ca      = max(y[_IDX['CREC_Ca[dts]']],        0.0)
+
 	p2x1_c = max(y[_IDX['P2X1[pl]']],   0.0)
 	p2x1_o = max(y[_IDX['P2X1_O[pl]']], 0.0)
 	p2x1_d = max(y[_IDX['P2X1_D[pl]']], 0.0)
@@ -731,6 +822,32 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['CALR_P_free[dts]']] += -v_calr_p
 	dy[_IDX['CALR_P_Ca[dts]']]   += +v_calr_p
 	dy[_IDX['CA2_DTS[dts]']]     += -v_calr_p
+
+	# ── HSP90B1 — medium-affinity sites (Kd = 2 µM; slow-release floor) ──
+	v_hsp90_m = K_HSP90B1_M['k_on'] * hsp90_m_free * ca_dts \
+				- K_HSP90B1_M['k_off'] * hsp90_m_ca
+	dy[_IDX['HSP90B1_M_free[dts]']] += -v_hsp90_m
+	dy[_IDX['HSP90B1_M_Ca[dts]']]   += +v_hsp90_m
+	dy[_IDX['CA2_DTS[dts]']]        += -v_hsp90_m
+
+	# ── HSP90B1 — low-affinity sites (Kd = 600 µM; fast equilibrium) ─────
+	v_hsp90_l = K_HSP90B1_L['k_on'] * hsp90_l_free * ca_dts \
+				- K_HSP90B1_L['k_off'] * hsp90_l_ca
+	dy[_IDX['HSP90B1_L_free[dts]']] += -v_hsp90_l
+	dy[_IDX['HSP90B1_L_Ca[dts]']]   += +v_hsp90_l
+	dy[_IDX['CA2_DTS[dts]']]        += -v_hsp90_l
+
+	# ── BiP / HSPA5 — single low-affinity site (Kd = 500 µM) ─────────────
+	v_bip = K_BIP['k_on'] * bip_free * ca_dts - K_BIP['k_off'] * bip_ca
+	dy[_IDX['BiP_free[dts]']] += -v_bip
+	dy[_IDX['BiP_Ca[dts]']]   += +v_bip
+	dy[_IDX['CA2_DTS[dts]']]  += -v_bip
+
+	# ── CREC pool (CALU + RCN1 + RCN2 lumped; Kd = 1 mM) ─────────────────
+	v_crec = K_CREC['k_on'] * crec_free * ca_dts - K_CREC['k_off'] * crec_ca
+	dy[_IDX['CREC_free[dts]']] += -v_crec
+	dy[_IDX['CREC_Ca[dts]']]   += +v_crec
+	dy[_IDX['CA2_DTS[dts]']]   += -v_crec
 
 	# ── PMCA basal path (Caride 2007 steps 4–5) ──────────────────────
 	v_pmca_bind = K_PMCA['k_on'] * pmca * ca_cyt - K_PMCA['k_off'] * pmcaca

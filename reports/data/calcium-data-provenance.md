@@ -95,6 +95,10 @@ that extracellular Ca²⁺ can restock the DTS.
 | Kleppe 2018 | Kleppe et al., J. Theor. Biol. 444:1-11 | **ODE model of inhibitory NO/cGMP/cAMP pathway**; includes PKA/PKG effects on IP3R |
 | Dunster 2015 | Dunster et al., PLoS Comput. Biol. 11:e1004118 | **ODE model of GPVI → Syk → PLCγ2 pathway**; rate constants for upstream signalling |
 | Mazet 2020 | Mazet, Tindall, Gibbins & Fry. *Sci. Rep.* 10:13889 | **Platelet-specific ODE model of the full PI cycle**; canonical reference for v0.3+ receptor-PLC-IP3 work (replacing our current forced-IP3 Dolan Fig S2 approximation). Cautions against using "mosaic" rate constants from unrelated cell types. |
+| Argon & Simen 1999 | Argon & Simen. *Sem. Cell Dev. Biol.* 10:495 | **HSP90B1 / GRP94 Ca²⁺-binding stoichiometry**: 15 sites per molecule (4 medium-affinity, Kd ~ 2 µM + 11 low-affinity, Kd ~ 600 µM). Phase 3 / #25 source. |
+| Lièvremont 1997 | Lièvremont, Rizzuto, Hendershot & Meldolesi. *J. Biol. Chem.* 272:30873 | **BiP / HSPA5 Ca²⁺ buffering**: 1–2 sites per molecule; BiP contributes ~25 % of ER Ca²⁺ store under resting conditions. Phase 3 / #25 source. |
+| Honoré & Vorum 2000 | Honoré & Vorum. *FEBS Letters* 466:11 | **CREC family review** (CALU, RCN1, RCN2): multi-EF-hand low-affinity Ca²⁺-binding proteins, Kd up to mM range, localised to ER/secretory pathway. Phase 3 / #25 source. |
+| Vorum 1998 | Vorum, Hager, Pedersen, Nielsen & Honoré. *Exp. Cell Res.* 244:191 | **Calumenin (CALU) characterisation**; cloned and Ca²⁺-binding properties measured. Phase 3 / #25 source. |
 
 
 ---
