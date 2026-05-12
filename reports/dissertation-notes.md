@@ -190,6 +190,30 @@ family buffers for v0.3+.
   - Po is 6× higher under m∞³ × h. γ_IP3R calibration would scale
     inversely (~0.06 pS instead of 0.35 pS).
 
+### 4.3 PMCA CaM-dissociation rate: in-vitro vs in-vivo (v0.3.1)
+
+- **Caride 2007 in-vitro value**: k12 = 0.033 s⁻¹ (τ = 30 s) for CaM
+  dissociation from purified PMCA in proteoliposomes.
+- **Our value (v0.3.1)**: k12 = **1.0 s⁻¹** (30× faster, τ = 1 s).
+- **Biological justification**: in vivo, PMCA's C-terminal CaM-binding
+  domain is competitively occupied by PIP₂ (Penniston & Enyedi 1998
+  *J. Membr. Biol.* 165:101), dramatically accelerating CaM
+  dissociation. The Caride value is an in-vitro artifact of the
+  purified preparation lacking PIP₂.
+- **Why this matters**: with the in-vitro value, 87 % of PMCA molecules
+  end up trapped in the PMCA·CaM state during a sustained Ca²⁺
+  transient (one cycle, then 30 s stuck before another cycle can
+  start). Effective PMCA Vmax falls to ~26 ions/s instead of the
+  structural Vmax of ~23 k ions/s.
+- **Consequence of fix**: DTS overshoot during recovery reduced from
+  >1 mM (still rising at t = 1 200 s) to ~660 µM peak then declining.
+  cyt recovery toward 100 nM resumed (was locked at 213 nM).
+- **The Mazet-Tindall-Gibbins-Fry 2020 critique applies here**: this
+  is exactly the kind of mosaic / in-vitro-vs-in-vivo parameter that
+  needs context-aware adjustment for whole-cell modelling.
+- **Reference**: `lab-book-2026-05-12-pi-cycle-design.md §v0.3.1
+  follow-up`.
+
 ### 4.2 SERCA initial conditions: 6-state cycle vs 2-state binding equilibrium
 
 - **Pre-2026-05-11**: SERCA initial conditions used the partial 2-state

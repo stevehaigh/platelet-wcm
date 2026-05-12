@@ -422,7 +422,16 @@ K_CAM_PMCA = {
 	'k10': 30.0,       # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹) step 10
 	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt (s⁻¹) step 11 fwd
 	'k11r':  7.332e-4, # reverse (µM⁻⁴·s⁻¹)                          step 11 rev
-	'k12':  0.033,     # PMCA·CaM → PMCA + CaM_free (s⁻¹) step 12 (slow); no rev
+	# k12 = CaM dissociation from PMCA. Caride 2007 measured 0.033 s⁻¹
+	# (τ = 30 s) in purified in vitro preparation. In vivo, PIP2 binding
+	# to the PMCA C-terminus competitively displaces CaM on a much faster
+	# timescale (Penniston & Enyedi 1998 review; Mandal 2024). The in
+	# vitro value traps PMCA in PMCA·CaM during sustained Ca²⁺ elevation
+	# and prevents recovery; using an effective in vivo rate of 1 s⁻¹
+	# (τ = 1 s, 30× faster) restores physiological PMCA Vmax during
+	# transient recovery. v0.3.1 fix — see lab book 2026-05-12 (DTS
+	# overshoot diagnosis).
+	'k12':    1.0,     # PMCA·CaM → PMCA + CaM_free (s⁻¹) — in-vivo rate
 }
 
 

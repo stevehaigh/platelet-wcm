@@ -401,8 +401,120 @@ time in a whole-cell context."*
 
 ---
 
-*Branch:* `main` · *Status:* Phase 4 complete (#31 closed) ·
-*Linked issues:* #31 (this work, complete), #9 (v0.4 receptor signalling —
+---
+
+## v0.3.1 follow-up — DTS overshoot diagnosis & PMCA-CaM trap fix (2026-05-12)
+
+### Observation
+
+After Phase 4 landed (PI cycle), inspection of the 60s-baseline + 240s
+transient run revealed that DTS [Ca²⁺]_free overshoots to ~850 µM by
+t = 300 s (vs resting 250 µM) — a 3.4× overshoot. Extending to 1 200 s
+showed DTS continuing to rise toward 1.1 mM with cyt locked at 213 nM
+(2× resting). The system had found a non-physiological steady state.
+
+### Diagnosis
+
+Traced fluxes during recovery (t = 200–300 s) by reading
+BulkMolecules counts and reconstructing per-step rates:
+
+| Quantity at t ≈ 200–300 s | Value |
+|---|---|
+| SERCA flux into DTS | ~221 k ions/s |
+| PMCA flux out of cyt | **~40 ions/s** |
+| **Ratio** | **5 679×** imbalance |
+
+PMCA is 5 000× weaker than SERCA during recovery. **Why?** Inspecting
+PMCA sub-state populations at the cyt peak (t = 150 s):
+
+| PMCA state | Count (of 769 total) |
+|---|---|
+| PMCA (free, ready to bind Ca²⁺) | 23 |
+| PMCA·Ca²⁺ (basal active) | 2 |
+| Ca₄·CaM·PMCA (CaM-bound, ready to bind Ca²⁺) | 2 |
+| Ca₄·CaM·PMCA·Ca²⁺ (CaM-activated, ready to pump) | **1** |
+| **PMCA·CaM (deactivating; CaM-trapped)** | **672 (87 %)** |
+
+87 % of all PMCA molecules are stuck in the CaM-trapped deactivating
+state during the transient. The rate-limiting step is **k12 = 0.033 s⁻¹
+(τ = 30 s)** — the CaM dissociation rate from PMCA — which Caride 2007
+measured in purified PMCA in vitro.
+
+Effective PMCA Vmax = 769 / 30 s = ~26 ions/s (vs the structural
+Vmax of N × k_cat = 769 × 30 = 23 k ions/s if k12 were instantaneous).
+
+### Biological basis for the fix
+
+Caride's 0.033 s⁻¹ is an in-vitro measurement using purified PMCA
+proteoliposomes. **In vivo, PMCA's C-terminal CaM-binding domain is
+competitively occupied by PIP₂** (Penniston & Enyedi 1998 *J. Membr.
+Biol.* 165:101), which dramatically accelerates CaM dissociation. The
+in-vivo effective rate is ~1 s⁻¹ (τ ≈ 1 s) — 30× faster than the
+purified in-vitro value.
+
+### Fix
+
+`K_CAM_PMCA['k12']` increased from 0.033 s⁻¹ → **1.0 s⁻¹** (in-vivo
+effective rate accounting for PIP₂-mediated CaM displacement). Code
+comment cites Penniston & Enyedi 1998 and the diagnosis in this lab
+book entry.
+
+### Verification
+
+Resting state preserved:
+
+| Quantity | Pre-fix (k12=0.033) | Post-fix (k12=1.0) |
+|---|---|---|
+| cyt at 600 s | 109 nM | 108 nM |
+| DTS at 600 s | 253 µM | 234 µM |
+| IP3 at 600 s | 50.0 nM | 50.0 nM |
+| Max \|dy/dt\| at 600 s | 9.9 count/s | **1.0 count/s** |
+
+The resting state is actually more stable post-fix (10× lower drift)
+because PMCA's recovery is no longer rate-limiting.
+
+PMCA state distribution at peak (t = 150 s) after fix:
+
+| State | Pre-fix | Post-fix |
+|---|---|---|
+| PMCA free | 23 | **337** |
+| Ca₄·CaM·PMCA·Ca²⁺ (pumping) | 1 | **18** |
+| PMCA·CaM (trapped) | 672 (87%) | 302 (39%) |
+
+PMCA flux during recovery (t = 200–300 s) rose from ~40 to ~700 ions/s
+(17×). Still below SERCA but no longer catastrophically so.
+
+Phase 3 still passes 5/5 (peaks 478 +Ca_ex, 319 −Ca_ex, SOCE diff 159 nM).
+
+DTS overshoot recovery (run extended to 1 200 s):
+
+| Time | Pre-fix DTS | Post-fix DTS |
+|---|---|---|
+| t = 200 | 130 µM | 60 µM |
+| t = 500 | (still rising) | 661 µM (peak) |
+| t = 800 | (still rising, 1 057 µM) | **616 µM, declining** |
+| t = 1 200 | 1 115 µM | **504 µM, declining** |
+
+The overshoot is now bounded and recovering, where previously it
+ran away to >1 mM. cyt also slowly recovering (213 → 199 nM by
+t = 1 200) where previously it was locked at the elevated value.
+
+### Carried forward to dissertation-notes
+
+This deviation from Caride 2007 (in-vitro k12 → in-vivo effective k12)
+is the kind of in-vitro / in-vivo discrepancy the Mazet, Tindall,
+Gibbins & Fry 2020 paper warns about in their "mosaic data" critique.
+Document explicitly as a calibration choice with biological grounding
+in Penniston & Enyedi 1998.
+
+Full recovery to resting cyt = 100 nM is still slow (~minutes,
+extrapolated from current decline rate). Real platelets show similar
+slow Ca²⁺ tails. The model is now in the right qualitative regime.
+
+---
+
+*Branch:* `main` · *Status:* v0.3.1 follow-up complete ·
+*Linked issues:* #31 (PI cycle, complete), #9 (v0.4 receptor signalling —
 picks up where this leaves off, replacing `gq_signal_uM` with explicit
 receptor cascades), #28 (Phase 2 CALR; closed), #25 (Phase 3 multi-buffer;
 closed)

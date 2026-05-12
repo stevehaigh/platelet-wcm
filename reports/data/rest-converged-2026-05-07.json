@@ -1,108 +1,108 @@
 {
   "integration_length_s": 600.0,
-  "max_drift_count_per_s": 9.91165865957737,
+  "max_drift_count_per_s": 1.007017657160759,
   "converged_concentrations": {
-    "ca_cyt_nM": 109.36183800190372,
-    "ca_dts_uM": 253.2057202850204,
-    "ip3_nM": 50.03971679172832
+    "ca_cyt_nM": 107.53014732049036,
+    "ca_dts_uM": 234.35025502506218,
+    "ip3_nM": 50.0397167918849
   },
   "totals": {
-    "IP3R": 1202.6339225133024,
-    "SERCA": 11892.000000000011,
-    "PMCA": 768.9999995307314,
-    "CaM": 20480.999999989523,
-    "STIM1": 4264.999999999997
+    "IP3R": 1204.5260644504328,
+    "SERCA": 11891.999999999998,
+    "PMCA": 768.9999999961245,
+    "CaM": 20481.000000005093,
+    "STIM1": 4265.000000000002
   },
   "species": [
     {
       "species": "CA2_CYT[c]",
       "initial_count": 361,
-      "converged_count": 395,
-      "d_count_per_s_at_converged": 0.009210299460107763
+      "converged_count": 389,
+      "d_count_per_s_at_converged": -0.0008969145703332515
     },
     {
       "species": "CA2_DTS[dts]",
       "initial_count": 38842,
-      "converged_count": 39340,
-      "d_count_per_s_at_converged": 4.759958095170703
+      "converged_count": 36410,
+      "d_count_per_s_at_converged": -0.4691645476646613
     },
     {
       "species": "IP3[c]",
       "initial_count": 181,
       "converged_count": 181,
-      "d_count_per_s_at_converged": 6.318607023381162e-06
+      "d_count_per_s_at_converged": 6.318595700882668e-06
     },
     {
       "species": "IP3R_h[dts]",
       "initial_count": 1212,
-      "converged_count": 1203,
-      "d_count_per_s_at_converged": -0.0026481851896377863
+      "converged_count": 1205,
+      "d_count_per_s_at_converged": 0.0002586459541184638
     },
     {
       "species": "SERCA_E1[dts]",
       "initial_count": 5895,
-      "converged_count": 5877,
-      "d_count_per_s_at_converged": -0.004182645823675557
+      "converged_count": 5880,
+      "d_count_per_s_at_converged": 0.00038914777178433724
     },
     {
       "species": "SERCA_E2[dts]",
       "initial_count": 5915,
-      "converged_count": 5901,
-      "d_count_per_s_at_converged": -0.0030691000174556393
+      "converged_count": 5903,
+      "d_count_per_s_at_converged": 0.00028239618040970527
     },
     {
       "species": "SERCA_E1Ca[dts]",
       "initial_count": 18,
-      "converged_count": 21,
-      "d_count_per_s_at_converged": 0.000964529906923417
+      "converged_count": 20,
+      "d_count_per_s_at_converged": -9.245352885045577e-05
     },
     {
       "species": "SERCA_E1PCa[dts]",
       "initial_count": 22,
-      "converged_count": 26,
-      "d_count_per_s_at_converged": 0.0014092221445025643
+      "converged_count": 25,
+      "d_count_per_s_at_converged": -0.00013327500528248493
     },
     {
       "species": "SERCA_E2PCa[dts]",
       "initial_count": 18,
-      "converged_count": 25,
-      "d_count_per_s_at_converged": 0.003547925172824762
+      "converged_count": 23,
+      "d_count_per_s_at_converged": -0.0003182779000781011
     },
     {
       "species": "SERCA_E2P[dts]",
       "initial_count": 24,
-      "converged_count": 41,
-      "d_count_per_s_at_converged": 0.0013300686168804532
+      "converged_count": 40,
+      "d_count_per_s_at_converged": -0.00012753751798300073
     },
     {
       "species": "PMCA[pl]",
       "initial_count": 765,
-      "converged_count": 505,
-      "d_count_per_s_at_converged": -0.015350680947010531
+      "converged_count": 742,
+      "d_count_per_s_at_converged": 0.00014284174096168556
     },
     {
       "species": "PMCA_Ca[pl]",
       "initial_count": 4,
-      "converged_count": 10,
-      "d_count_per_s_at_converged": -7.027060479458669e-05
+      "converged_count": 14,
+      "d_count_per_s_at_converged": -3.041401107850561e-05
     },
     {
       "species": "STIM1_free[dts]",
       "initial_count": 438,
-      "converged_count": 433,
-      "d_count_per_s_at_converged": -0.04659278430070657
+      "converged_count": 464,
+      "d_count_per_s_at_converged": 0.00526131303712063
     },
     {
       "species": "STIM1_Ca[dts]",
       "initial_count": 3805,
-      "converged_count": 3810,
-      "d_count_per_s_at_converged": 0.051219210681040295
+      "converged_count": 3777,
+      "d_count_per_s_at_converged": -0.005820571723631929
     },
     {
       "species": "STIM1_dim[dts]",
       "initial_count": 11,
-      "converged_count": 11,
-      "d_count_per_s_at_converged": -0.002313213190166863
+      "converged_count": 12,
+      "d_count_per_s_at_converged": 0.0002796293432556496
     },
     {
       "species": "ORAI1[pl]",
@@ -113,122 +113,122 @@
     {
       "species": "CaM_free[c]",
       "initial_count": 20062,
-      "converged_count": 19698,
-      "d_count_per_s_at_converged": -0.05267713820761344
+      "converged_count": 19964,
+      "d_count_per_s_at_converged": 0.0035990070475975244
     },
     {
       "species": "Ca2_CaM[c]",
       "initial_count": 200,
-      "converged_count": 231,
-      "d_count_per_s_at_converged": 0.01011657367200769
+      "converged_count": 225,
+      "d_count_per_s_at_converged": -0.0009818023419825295
     },
     {
       "species": "Ca4_CaM[c]",
       "initial_count": 219,
-      "converged_count": 299,
-      "d_count_per_s_at_converged": 0.02713961298380063
+      "converged_count": 279,
+      "d_count_per_s_at_converged": -0.002504776975731815
     },
     {
       "species": "Ca4_CaM_PMCA[pl]",
       "initial_count": 0,
       "converged_count": 1,
-      "d_count_per_s_at_converged": 5.056324295615866e-05
+      "d_count_per_s_at_converged": -1.0064446108515313e-05
     },
     {
       "species": "Ca4_CaM_PMCA_Ca[pl]",
       "initial_count": 0,
       "converged_count": 0,
-      "d_count_per_s_at_converged": 9.574081689667224e-06
+      "d_count_per_s_at_converged": -1.7082772876264585e-06
     },
     {
       "species": "PMCA_CaM[pl]",
       "initial_count": 0,
-      "converged_count": 253,
-      "d_count_per_s_at_converged": 0.015360814227159736
+      "converged_count": 11,
+      "d_count_per_s_at_converged": -0.00010065500648792636
     },
     {
       "species": "GSN_free[c]",
       "initial_count": 1272727,
-      "converged_count": 1261987,
-      "d_count_per_s_at_converged": -2.9004537854343653
+      "converged_count": 1264074,
+      "d_count_per_s_at_converged": 0.2833206206560135
     },
     {
       "species": "GSN_Ca[c]",
       "initial_count": 127273,
-      "converged_count": 138013,
-      "d_count_per_s_at_converged": 2.9004537854343653
+      "converged_count": 135926,
+      "d_count_per_s_at_converged": -0.2833206206560135
     },
     {
       "species": "CALR_free[dts]",
       "initial_count": 406480,
-      "converged_count": 405440,
-      "d_count_per_s_at_converged": -9.91165865957737
+      "converged_count": 411634,
+      "d_count_per_s_at_converged": 1.007017657160759
     },
     {
       "species": "CALR_Ca[dts]",
       "initial_count": 101620,
-      "converged_count": 102660,
-      "d_count_per_s_at_converged": 9.91165865957737
+      "converged_count": 96466,
+      "d_count_per_s_at_converged": -1.007017657160759
     },
     {
       "species": "CALR_P_free[dts]",
       "initial_count": 81,
-      "converged_count": 80,
-      "d_count_per_s_at_converged": -0.009635659520426998
+      "converged_count": 86,
+      "d_count_per_s_at_converged": 0.0011080123331339564
     },
     {
       "species": "CALR_P_Ca[dts]",
       "initial_count": 20243,
-      "converged_count": 20244,
-      "d_count_per_s_at_converged": 0.009635659520426998
+      "converged_count": 20238,
+      "d_count_per_s_at_converged": -0.0011080123331339564
     },
     {
       "species": "HSP90B1_M_free[dts]",
       "initial_count": 317,
-      "converged_count": 313,
-      "d_count_per_s_at_converged": -0.03763157827779651
+      "converged_count": 338,
+      "d_count_per_s_at_converged": 0.004324567831645254
     },
     {
       "species": "HSP90B1_M_Ca[dts]",
       "initial_count": 39683,
-      "converged_count": 39687,
-      "d_count_per_s_at_converged": 0.03763157827779651
+      "converged_count": 39662,
+      "d_count_per_s_at_converged": -0.004324567831645254
     },
     {
       "species": "HSP90B1_L_free[dts]",
       "initial_count": 77647,
-      "converged_count": 77355,
-      "d_count_per_s_at_converged": -2.7776551321148872
+      "converged_count": 79103,
+      "d_count_per_s_at_converged": 0.28629374876618385
     },
     {
       "species": "HSP90B1_L_Ca[dts]",
       "initial_count": 32353,
-      "converged_count": 32645,
-      "d_count_per_s_at_converged": 2.7776551321148872
+      "converged_count": 30897,
+      "d_count_per_s_at_converged": -0.28629374876618385
     },
     {
       "species": "BiP_free[dts]",
       "initial_count": 33333,
-      "converged_count": 33191,
-      "d_count_per_s_at_converged": -1.3500644862651825
+      "converged_count": 34044,
+      "d_count_per_s_at_converged": 0.13999038934707642
     },
     {
       "species": "BiP_Ca[dts]",
       "initial_count": 16667,
-      "converged_count": 16809,
-      "d_count_per_s_at_converged": 1.3500644862651825
+      "converged_count": 15956,
+      "d_count_per_s_at_converged": -0.13999038934707642
     },
     {
       "species": "CREC_free[dts]",
       "initial_count": 48000,
-      "converged_count": 47877,
-      "d_count_per_s_at_converged": -1.17043820861727
+      "converged_count": 48609,
+      "d_count_per_s_at_converged": 0.11891569662839174
     },
     {
       "species": "CREC_Ca[dts]",
       "initial_count": 12000,
-      "converged_count": 12123,
-      "d_count_per_s_at_converged": 1.17043820861727
+      "converged_count": 11391,
+      "d_count_per_s_at_converged": -0.11891569662839174
     },
     {
       "species": "P2X1[pl]",
@@ -252,25 +252,25 @@
       "species": "PIP2[c]",
       "initial_count": 112000,
       "converged_count": 112002,
-      "d_count_per_s_at_converged": 0.003923587155521435
+      "d_count_per_s_at_converged": 0.003923587155528541
     },
     {
       "species": "DAG[c]",
       "initial_count": 56,
       "converged_count": 72,
-      "d_count_per_s_at_converged": 2.5351533228246126e-06
+      "d_count_per_s_at_converged": 2.5351533263773263e-06
     },
     {
       "species": "PLCb_inactive[c]",
       "initial_count": 857,
       "converged_count": 857,
-      "d_count_per_s_at_converged": 7.105427357601002e-15
+      "d_count_per_s_at_converged": 0.0
     },
     {
       "species": "PLCb_active[c]",
       "initial_count": 143,
       "converged_count": 143,
-      "d_count_per_s_at_converged": -7.105427357601002e-15
+      "d_count_per_s_at_converged": 0.0
     }
   ]
 }
