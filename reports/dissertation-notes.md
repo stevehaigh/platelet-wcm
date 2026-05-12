@@ -1,7 +1,7 @@
 ---
 title: "Important notes for the dissertation write-up"
 status: living document
-last-updated: 2026-05-11
+last-updated: 2026-05-12
 ---
 
 # Important notes for the dissertation write-up
@@ -433,3 +433,76 @@ representation.
   versus the appendix.
 - Whether to add P2X1 to v0.2.7 (small commit, big biological
   improvement) or defer to v0.3 receptor-signalling work.
+
+---
+
+## 9. Numerical methods and implementation notes
+
+This section captures *computational* methodology choices that are
+not biological assumptions but still need disclosure in the methods
+chapter. Useful in dialogue with mathematical-biology readers who
+will (rightly) ask about the interface between continuous ODE
+dynamics and the discrete-count state of a whole-cell model.
+
+### 9.1 ODE → integer-state commit: fractional residual carry-over
+
+- **The problem**: the engine stores `BulkMolecules` as 64-bit
+  integer counts. The `CalciumSignalling` solver evolves with float
+  precision over each 1 s timestep using SciPy's BDF integrator,
+  then commits the integer delta back to the counts at the end of
+  the step (`reconstruction/platelet/dataclasses/process/calcium_signalling.py`
+  in `molecules_to_next_time_step`).
+- **Pre-fix behaviour** (commit history before `4b34e60d`,
+  2026-05-12):
+
+      delta = np.round(y_final - y0).astype(np.int64)
+
+  Any species whose ODE-derived rate of change satisfies
+  |dy/dt| < 0.5 ions/s gets rounded to 0 each step → the count is
+  *frozen* at its current integer. The exact frozen point depends
+  on where in the rounding band the count happens to land.
+- **Symptom we encountered**: IP3 stranded at 205 counts (57 nM)
+  instead of the true ODE equilibrium of 181 counts (50 nM),
+  because dIP3/dt = production − degradation = 3.62 − 4.10 = −0.48
+  ions/s → rounds to 0 each step. PIP2 was similarly stranded
+  (|dPIP2/dt| = 0.003 ions/s — deeply inside the rounding band).
+  PLCβ active stranded at 144 (rest is 143). Together these
+  produced a *false steady state* with elevated cyt (185 nM) and
+  the wrong IP3 baseline.
+- **The fix** (commit `4b34e60d`): keep a per-species fractional
+  residual `self._residual` that persists across timesteps. Each
+  step:
+
+      fractional_delta = y_final - y0 + self._residual
+      delta = np.round(fractional_delta).astype(np.int64)
+      self._residual = fractional_delta - delta
+
+  For a species drifting at −0.48 ions/s, the residual reaches
+  −0.96 by step 2 → rounds to −1 → the species correctly loses 1
+  ion every ~2 seconds.
+- **Why this is dissertation-worthy**: whole-cell modelling sits
+  at the interface between continuous biochemistry and discrete
+  molecular counts. The naive "evolve as floats, commit as
+  integers" recipe is the obvious approach but silently breaks
+  for slowly-equilibrating species. Worth pairing in the methods
+  chapter with the **Mazet, Tindall, Gibbins & Fry 2020**
+  in-vitro-vs-in-vivo critique: *model parameters need context,
+  and model state representation needs care.*
+- **Audit**: scanned the whole repo (2026-05-12) for the same
+  pattern. Only three call sites of `np.round(...).astype(int)`
+  or `int(np.round(...))` exist:
+  1. `calcium_signalling.py:1161` — fixed.
+  2. `wholecell/states/bulk_molecules.py:312` — uses
+     **stochastic rounding** via `np.random.choice` weighted by
+     remainder fractions; correct by design.
+  3. `wholecell/states/bulk_molecules.py:318` — int cast of
+     allocations *after* the stochastic distribution; correct.
+- **Future considerations**: any new ODE-based process (v0.4
+  receptor signalling, granule release kinetics, etc.) will need
+  the same residual-carry-over treatment. The residual array is
+  *not* persisted across simulation restarts — fine for our
+  short single-run dissertation simulations, but a checkpointed
+  multi-day simulation would need to save and restore it.
+- **Reference**: diagnosis in
+  `lab-book-2026-05-12-pi-cycle-design.md §v0.3.2 follow-up`;
+  audit + Mazet-Fry framing in this section.
