@@ -280,5 +280,13 @@ Instances at `platelet-wcm.uksouth.azurecontainer.io`.
 - `reports/design/` — design docs (calcium pathway, runtime scaffold, reconstruction)
 - `reports/lab-books/` — dated session notes (most recent is current state of the work)
 - `reports/data/`, `reports/figures/` — calibration data and rendered figures
-- `make pdfs` builds PDFs of any `reports/*.md` into `reports/pdf/`
+- `make pdfs` builds PDFs of any `reports/*.md` into `reports/pdf/` (pandoc + xelatex)
+- `make quarto-pdfs` builds PDFs of any `reports/*.qmd` into `reports/pdf-quarto/` (Quarto + xelatex)
 - `docs/style-guide.md` — full style guide
+
+**.md vs .qmd — which to use:**
+
+- **`.md` (pandoc)** — default for prose-only design docs and lab books. No new tool dependencies; build pipeline is the established `make pdfs` target.
+- **`.qmd` (Quarto)** — use for **diagram-heavy** docs and anything that benefits from `quarto preview` live-reload during editing. Native mermaid → PDF rendering (no `mmdc` step). Same xelatex pipeline under the hood, same fonts and margins as the pandoc rule, so existing reports/design/ visual style is preserved.
+- Quarto frontmatter for this repo: see `reports/design/model-status-2026-05-13.qmd` for the canonical block (format → pdf with `include-in-header: ../pandoc-header.tex` to inherit the project's LaTeX header).
+- During iteration: `quarto preview reports/design/<doc>.qmd` watches the file and reloads HTML on save. For PDF iteration, `quarto render <doc>.qmd --to pdf` is faster than going through make.

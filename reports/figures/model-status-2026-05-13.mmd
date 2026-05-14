@@ -1,0 +1,115 @@
+---
+config:
+  flowchart:
+    rankSpacing: 60
+    nodeSpacing: 40
+    curve: basis
+---
+flowchart TB
+    %% Platelet WCM v0.4.1 — Ca²⁺ pathway overview, portrait orientation.
+    %% Designed as a starting point for a hand-drawn BioRender figure.
+    %%
+    %% Layout strategy: flat vertical pipeline (no subgraphs). Each
+    %% "rank" is one node. Compartments (cytosol / DTS / mito / PM)
+    %% are *not* drawn as boxes — leave that to the BioRender redraw.
+    %% Side branches handle feedback and buffering.
+    %%
+    %% Render: npx -y -p @mermaid-js/mermaid-cli mmdc \
+    %%           -i model-status-2026-05-13.mmd \
+    %%           -o model-status-2026-05-13.png \
+    %%           -b white -w 1100 -H 1900
+
+    %% ───── Top of cascade ─────
+    STIM(["AGONIST INPUT<br/>Thrombin 1 nM · ADP 10 µM"]):::stim
+
+    REC["Gq-coupled GPCRs (plasma membrane)<br/>P2Y1 · 150 (ADP)<br/>PAR1 · 2 500 (thrombin, hi-aff)<br/>PAR4 · 500 (thrombin, lo-aff)"]:::receptor
+
+    GQ["Gαq cycle<br/>~100 active of 5 000 total<br/>(basal exchange + RGS-accelerated GTPase)"]:::enzyme
+
+    PLCB["PLCβ<br/>active / inactive · 857 total<br/>Mazet/Tindall/Gibbins/Fry 2020"]:::enzyme
+
+    PIC["PI cycle<br/>PIP₂ (112 000) → IP₃ + DAG"]:::substrate
+
+    IP3["IP₃ messenger<br/>50 nM at rest · model output, not forcing"]:::messenger
+
+    IP3R["IP3R · DTS membrane<br/>1 328 channels · deYoung-Keizer + Nernst flux<br/>γ = 0.075 pS (calibration-coupled)"]:::channel
+
+    %% ───── Central cytosolic Ca²⁺ hub ─────
+    CACYT(["Ca²⁺_cyt<br/>~100 nM free · ~85 % buffered<br/>cytosol 6 fL"]):::ionhub
+
+    %% Side branches off CACYT (left / right)
+    CYTBUF["Cytosolic buffers<br/>CaM ladder · 20 k free (free → Ca₂·CaM → Ca₄·CaM)<br/>Gelsolin proxy · 1.4 M sites"]:::buffer
+
+    MITO["Mitochondrial shuttle<br/>MCU uptake (Hill, K = 1 µM) ↔ Ca²⁺_mito ↔ NCLX release<br/>off at rest, switches on during peak"]:::pump
+
+    %% ───── DTS side (Ca²⁺ store) ─────
+    SERCA["SERCA · DTS membrane<br/>6-state E1/E2 cycle (Purvis 2008 / Dode 2002)"]:::pump
+
+    CADTS(["Ca²⁺_DTS<br/>~250 µM free · ~95 % buffered<br/>DTS lumen 0.26 fL"]):::ionhub
+
+    DTSBUF["DTS buffers<br/>CALR · 528 k sites (C + P domains)<br/>HSP90B1 · 150 k (M + L) · BiP · 50 k · CREC · 60 k"]:::buffer
+
+    STIM1["STIM1 sensor · DTS membrane<br/>438 free · senses store depletion → dimerises"]:::sensor
+
+    %% ───── PM Ca²⁺ entry / extrusion ─────
+    ORAI1["Orai1 · plasma membrane<br/>SOCE / CRAC · 1 447 · MWC open-prob"]:::channel
+    P2X1["P2X1 · plasma membrane<br/>ATP-gated · 1 000 · fast early entry"]:::channel
+    PMCA["PMCA · plasma membrane<br/>basal + CaM-activated · 1 400<br/>Ca₄·CaM gives 5× faster turnover"]:::pump
+    NCX["NCX · plasma membrane<br/>Na⁺/Ca²⁺ exchanger · dominates at high cyt"]:::pump
+
+    %% ───── Bottom: extracellular pool ─────
+    CAEX(["Ca²⁺_ex<br/>1.2 mM · extracellular"]):::ion
+    ATPEX["ATP_ex<br/>dense-granule release"]:::ion
+
+    %% ───── Main signalling cascade (vertical spine) ─────
+    STIM -.->|"binds"| REC
+    REC -.->|"GDP→GTP"| GQ
+    GQ -.->|"activates"| PLCB
+    PLCB -.->|"hydrolyses"| PIC
+    PIC -->|"→"| IP3
+    IP3 -.->|"activates"| IP3R
+    IP3R -->|"Ca²⁺ release"| CACYT
+
+    %% ───── Cytosolic buffering (side branch) ─────
+    CACYT <-.->|"buffer"| CYTBUF
+
+    %% ───── Mito shuttle (side branch) ─────
+    CACYT <-->|"MCU / NCLX"| MITO
+
+    %% ───── SERCA / DTS / buffering ─────
+    CACYT -->|"SERCA pumps"| SERCA
+    SERCA --> CADTS
+    CADTS <-.->|"buffer"| DTSBUF
+
+    %% ───── SOCE refill ─────
+    CADTS -.->|"senses depletion"| STIM1
+    STIM1 -.->|"gates"| ORAI1
+
+    %% ───── PM extrusion (vertical) ─────
+    CACYT -->|"extrude"| PMCA
+    CACYT -->|"extrude"| NCX
+    CYTBUF -.->|"Ca₄·CaM activates"| PMCA
+
+    %% ───── PM channels feed back to CACYT ─────
+    ORAI1 -->|"SOCE refill"| CACYT
+    P2X1 -->|"fast entry"| CACYT
+    ATPEX -.->|"gates"| P2X1
+
+    %% ───── Pool exchanges with extracellular ─────
+    PMCA --> CAEX
+    NCX --> CAEX
+    CAEX --> ORAI1
+    CAEX --> P2X1
+
+    %% ───── Styling ─────
+    classDef ion fill:#fce4a6,stroke:#c8881e,stroke-width:2px,color:#000
+    classDef ionhub fill:#ffd56b,stroke:#b35900,stroke-width:3px,color:#000,font-weight:bold
+    classDef channel fill:#a6d8fc,stroke:#1e6ac8,stroke-width:2px,color:#000
+    classDef pump fill:#d4a6fc,stroke:#7e1ec8,stroke-width:2px,color:#000
+    classDef buffer fill:#a6fcc4,stroke:#1ec851,stroke-width:2px,color:#000
+    classDef sensor fill:#fca6a6,stroke:#c81e1e,stroke-width:2px,color:#000
+    classDef enzyme fill:#fcd4a6,stroke:#c87a1e,stroke-width:2px,color:#000
+    classDef receptor fill:#fcb6e0,stroke:#a8136e,stroke-width:2px,color:#000
+    classDef substrate fill:#e6e6e6,stroke:#666,stroke-width:1px,color:#000
+    classDef messenger fill:#fff8a6,stroke:#c8b21e,stroke-width:2px,color:#000
+    classDef stim fill:#ffffff,stroke:#000,stroke-width:2px,stroke-dasharray:4 2,color:#000

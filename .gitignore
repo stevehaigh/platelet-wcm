@@ -175,4 +175,8 @@ webapp_jobs.db
 
 # Generated Markdown → PDF output (reports/)
 /reports/pdf/
+/reports/pdf-quarto/
 node_modules
+
+/.quarto/
+**/*.quarto_ipynb

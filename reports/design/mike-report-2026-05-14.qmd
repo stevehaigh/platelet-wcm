@@ -1,0 +1,331 @@
+---
+title: "Feasibility of building a whole-cell mechanistic model of human platelet"
+shorttitle: "Platelet whole-cell model"
+author:
+  - name: Steve Haigh
+    affiliations:
+      - University of Reading
+    corresponding: true
+    email: s.haigh@pgr.reading.ac.uk
+runningauthor: "Haigh"
+format:
+  pnas-pdf:
+    keep-tex: false
+    classoption: [twocolumn]
+abstract: |
+  *[Abstract — ~200 words. One paragraph. Cover: the
+  question, the methodology, the headline result, the broader
+  claim.]*
+
+  We present a calibrated whole-cell mechanistic model of human
+  platelet cytosolic calcium signalling, built by adapting the
+  Covert-Lab *wcEcoli* framework [@karr2012wcm; @macklin2020ecoli]
+  to platelet biology. The model integrates twelve coupled
+  mechanisms — three Gq-coupled receptors (P2Y1, PAR1, PAR4),
+  the Gαq / PLCβ / PI-cycle cascade, IP3R-mediated dense-tubular-
+  system (DTS) Ca²⁺ release, SERCA, PMCA, NCX, P2X1, store-
+  operated entry (STIM1 + Orai1), mitochondrial MCU / NCLX
+  shuttling, and cytosolic and luminal Ca²⁺ buffering — driven
+  end-to-end by physiological agonist concentrations
+  (1 nM thrombin, 10 µM ADP). *[State validation result:
+  Dolan & Diamond 2014 Fig. 4 reproduction, 5/5 acceptance
+  criteria, resting cyt 104 nM, resting DTS 235 µM.]*
+  *[State the broader claim: first calibrated mass-balanced
+  mechanistic platelet WCM; serves as substrate for downstream
+  processes; in principle extensible to cross-disciplinary
+  applications.]*
+significance: |
+  *[~120 words, PNAS-style. Aimed at non-specialists. Why does
+  this matter? What new capability does this open up? Avoid
+  jargon.]*
+
+  *[Suggested arc: (1) platelet activation is a Ca²⁺ event,
+  central to haemostasis and disease; (2) existing models
+  treat individual pathways in isolation; (3) we built the
+  first mass-balanced multi-process model with every protein
+  counted and every reaction calibrated; (4) the model is now
+  a substrate for asking mechanistic questions that cannot be
+  addressed by isolated-pathway models — e.g. which extrusion
+  pathway rate-limits cytosolic recovery, how mitochondrial
+  buffering interacts with DTS refilling.]*
+bibliography: mike-report-2026-05-14.bib
+---
+
+# Introduction
+
+*[Section ~600 words. Cover: the biological question, the
+modelling-framework choice, the gap this work fills.]*
+
+**The biological question.** Platelet activation is initiated by
+a cytosolic Ca²⁺ transient. *[Two to three sentences on the
+agonist-to-Ca²⁺-peak cascade: agonist binds Gq-coupled receptors,
+Gαq activates PLCβ, PIP₂ → IP₃ + DAG, IP₃ opens IP3R in the DTS
+membrane (the platelet's ER-equivalent), and DTS Ca²⁺ floods
+into the cytosol. Reference Dolan 2014 [@dolan2014model] and the
+Mike group's PI-cycle paper [@mazet2020pi] as appropriate.]*
+
+*[One paragraph on why a whole-cell rather than single-pathway
+model: resting state is a multi-component balance; mechanistic
+predictions require all components present and mass-balanced;
+isolated pathway models cannot answer "what rate-limits
+recovery" or "how does mitochondrial buffering interact with
+DTS refill".]*
+
+**The framework choice.** *[~250 words. Comparison of three
+options, motivating wcEcoli.]*
+
+- **COPASI** [@hoops2006copasi] — ODE/stochastic solver, SBML
+  import, single-pathway focus. *[Note: excellent solver, no
+  native mass-balance across compartments, no copy-number
+  accounting, no listener / analysis pipeline.]*
+- **SBML and BioModels** [@hucka2003sbml] — *[Note: format and
+  catalogue, not engine. Each model in isolation. Re-use
+  limited by integration cost.]*
+- **wcEcoli** [@macklin2020ecoli] — *[Note: the only validated
+  multi-process whole-cell model. Mass-balanced. Every protein
+  counted. Compartmentalised. Listener / analysis framework.
+  But: E. coli-specific biology, ~80 kloc, unmaintained since
+  2022.]*
+
+*[Closing paragraph: our approach was to fork wcEcoli, prune
+all E. coli biology, and rebuild from the platelet literature.
+We kept the simulation engine, state partitioning, and
+analysis framework; replaced reconstruction and processes.
+Cost: ~1 month of pruning; benefit: ~5,000 lines of validated
+infrastructure that we did not need to write.]*
+
+**Gap this work fills.** *[One paragraph. State clearly: no
+prior calibrated multi-process platelet WCM exists. Dolan 2014
+[@dolan2014model] is the closest comparator but treats Ca²⁺
+handling at the FP level, with hand-fitted IP₃ forcing. Mazet
+2020 [@mazet2020pi] covers the upstream PI-cycle but stops at
+IP₃. We connect these with explicit downstream mechanisms and
+validate end-to-end.]*
+
+# Materials and Methods
+
+*[Section ~1200 words. Cover: framework adaptation, biological-
+content-build methodology, calibration discipline, sanity-check
+protocol (including the k₃ story), software and reproducibility.]*
+
+## Framework adaptation
+
+*[~200 words. What was kept, what was removed, what was added.]*
+
+*[Kept: `wholecell/` simulation engine, state classes
+(BulkMolecules, UniqueMolecules, LocalEnvironment), listener /
+analysis architecture, I/O format. Removed: all
+`models/ecoli/`, all `reconstruction/ecoli/`, ParCa (parameter
+calibration) pipeline, Cython performance modules (no longer
+required at platelet timescales). Added: `models/platelet/`,
+`reconstruction/platelet/`, `raw_data/` platelet tables.
+Replaced wcEcoli's heavyweight ParCa step with a directly-
+constructed `SimulationDataPlatelet` object.]*
+
+## Biological content — methodology per mechanism
+
+*[~400 words. Walk through the per-mechanism workflow. The
+reader should leave knowing exactly what was done for each of
+the twelve mechanisms.]*
+
+*[Suggested arc: for each of the 12 mechanisms we followed a
+fixed five-step process.]*
+
+1. **Anchor paper selection.** *[Dolan & Diamond 2014 supplied
+   the validation experiment (Fig. 4: IP₃-stimulated Ca²⁺
+   transients with and without extracellular Ca²⁺) and
+   resting-state targets (100 nM cyt, 250 µM DTS).]*
+2. **Literature review for kinetics.** *[Primary sources for
+   each mechanism — examples: deYoung-Keizer 1992
+   [@dyk1992ip3r] / Li-Rinzel 1994 [@lirinzel1994] for IP3R
+   gating; Purvis 2008 [@purvis2008model] (with corrections,
+   see below) for SERCA; Caride 2007 [@caride2007pmca] for
+   PMCA; Hoover & Lewis 2011 [@hoover2011soce] / Dolan 2014
+   for SOCE. Mazet et al. 2020 [@mazet2020pi] for the PI cycle.]*
+3. **Species enumeration.** *[Every Ca²⁺-binding or -gating
+   protein conformational state becomes a tracked species with
+   a compartment tag (e.g. `PMCA[pl]`, `SERCA_E1Ca[dts]`).
+   Total ~50 species across the calcium pathway.]*
+4. **Copy-number extraction.** *[Burkhart 2012
+   [@burkhart2012proteome] supplied platelet-specific protein
+   copy numbers from quantitative proteomics. Reference
+   [@coller1995] for receptor counts.]*
+5. **Rate-constant extraction.** *[Primary sources, with units
+   normalised, and every value carrying a citation comment in
+   code. Concentration units in µM; time in seconds.]*
+
+*[Closing paragraph: each mechanism then enters the ODE right-
+hand side as a small set of fluxes; the integrator
+(`scipy.integrate.solve_ivp`, BDF method) advances species
+counts on a 1-second outer timestep.]*
+
+## Sanity-check discipline
+
+*[~400 words. This is the methodologically interesting section.
+Cover (a) the validation protocol, (b) the calibration-coupled
+parameters, (c) the k₃ story.]*
+
+**Validation gates.** *[Describe: each increment of the model
+must pass (i) resting-state stability over 200 s, (ii) Dolan
+Fig. 4 IP₃-transient reproduction, (iii) the 21-test unit
+suite. Changes that break a gate are reverted.]*
+
+**Calibration-coupled parameters.** *[Explain that some
+parameters are mutually constrained — e.g. the IP3R single-
+channel conductance γ\textsubscript{IP3R} is back-derived to
+balance SERCA flux at the resting state. If SERCA constants
+change, γ\textsubscript{IP3R} must be re-derived. Document this
+as an explicit constructor-time assertion.]*
+
+**The Purvis k₃ story.** *[~200-word narrative paragraph. This
+is the methodologically interesting finding and should be told
+as a story.]*
+
+*[Suggested arc: (1) After implementing SERCA from Purvis 2008
+Table 1, the resting state failed: cytosolic Ca²⁺ ran away or
+collapsed depending on initial conditions. (2) Back-tracing the
+ODE flux balance pointed at one rate constant, k₃, governing
+the E₁P·Ca → E₂P·Ca phosphoryl-transfer step. (3) Cross-checking
+Purvis 2008 Table 1 against the primary source it cited
+(Dode 2002 [@dode2002serca]) revealed the Purvis value was the
+reciprocal of the Dode value — a transcription error propagated
+unchecked. (4) With the corrected value, the resting state
+held. (5) Three other Purvis values were subsequently spot-
+checked against primaries; one more rounding-induced drift was
+found.]*
+
+*[Closing observation: this episode is what underwrites the
+methodological discipline of "every numerical value carries a
+primary-source citation in the code, and primaries are
+consulted directly when calibration fails". The pattern is
+also a warning about AI-assisted parameter extraction: large
+language models confidently reproduce review-paper values
+without verifying upstream.]*
+
+## Software and reproducibility
+
+*[~150 words. Cover: language (Python 3.11), public repository
+(`stevehaigh/platelet-wcm`), test suite, CI pipeline (GitHub
+Actions), Docker images for runtime and webapp deployment, the
+Dash webapp at `platelet-wcm.uksouth.azurecontainer.io` for
+browsing simulation runs.]*
+
+# Results
+
+*[Section ~1200 words. Cover: model architecture, the validation
+result, two or three specific findings.]*
+
+## Model architecture
+
+*[~250 words paragraph + Figure 1. Walk the reader through the
+diagram top-to-bottom: agonist input, GPCRs in the plasma
+membrane, Gαq cascade in the cytosol, PI cycle, IP3R on the
+DTS membrane, the Ca²⁺-cyt hub, DTS lumen with multi-protein
+buffering, mitochondrial shuttle, plasma membrane extrusion
+(PMCA, NCX) and entry (Orai1, P2X1). Note that no hand-fitted
+forcing remains in the calcium path: the model takes
+physiological agonist concentrations as input and produces all
+downstream behaviour mechanistically.]*
+
+![Architecture of the platelet Ca²⁺ whole-cell model. Agonist
+input drives three Gq-coupled receptors; the Gαq cascade
+activates PLCβ, which hydrolyses PIP₂ to IP₃ and DAG; IP₃ opens
+IP3R channels in the DTS membrane, releasing stored Ca²⁺; SERCA
+returns Ca²⁺ to the DTS; PMCA and NCX extrude to the
+extracellular space; SOCE refills the cytosol through Orai1;
+P2X1 provides ATP-gated fast entry; mitochondria buffer
+transiently via MCU and NCLX. Cytosolic and luminal buffering
+by calmodulin, gelsolin (cyt) and calreticulin, HSP90B1, BiP,
+CREC (DTS) is shown explicitly. Compartment boxes correspond
+to PM, cytosol (with nested DTS and mitochondria), and
+extracellular space. **[Figure to be replaced with hand-drawn
+BioRender version for final manuscript.]**](../figures/model-status-graphviz.png){#fig-architecture width=100%}
+
+## Validation against Dolan & Diamond 2014
+
+*[~400 words + Figure 2. The headline scientific result.]*
+
+*[Suggested structure: (1) Describe the Dolan Fig. 4 experiment:
+paired conditions with and without extracellular Ca²⁺, showing
+IP₃-driven transients shaped by the presence or absence of
+SOCE refill. (2) State the five Phase 3 acceptance criteria
+(resting cyt 100 ± 10 nM, resting DTS within band, transient
+peak height, transient duration, paired-condition difference).
+(3) Report the model achieves 5/5 with resting cyt = 104 nM,
+DTS = 235 µM, IP₃ = 50 nM, Gαq-active = 100. (4) Note this is
+achieved without IP₃ forcing — driven by explicit upstream Gq
+cascade.]*
+
+![Free vs. bound Ca²⁺ during a 240-second IP₃-driven transient.
+Cytosolic free Ca²⁺ rises from ~100 nM to ~500 nM and recovers
+within 60 s; DTS free Ca²⁺ depletes by ~60 % during the peak
+and refills via SOCE. Cytosolic and luminal buffer occupancy
+track the free pools with clear coupling. **[Caption to be
+refined: state which condition (with or without extracellular
+Ca²⁺) is plotted and add panel labels if dual condition.]**](../figures/ca-bound-free-v0.4.0.png){#fig-validation width=100%}
+
+## Mechanistic findings
+
+*[~500 words. Pick two or three specific findings that emerged
+from having all components mechanistically present — the things
+the model lets you say that an isolated pathway model could not.]*
+
+*[Candidate findings to draft:*
+
+1. ***PMCA Vmax rate-limits cytosolic Ca²⁺ recovery at low
+   cytosolic concentrations.** Even with mitochondrial buffering
+   active, the late tail of recovery is set by PMCA turnover.
+   Testable prediction: pharmacological PMCA activation should
+   accelerate recovery; PMCA inhibition should prolong Ca²⁺
+   tails.*
+2. ***MCU buffering alone does not accelerate DTS recovery** —
+   sequestering Ca²⁺ into mitochondria removes it from the
+   cytosol but does not return it to the DTS, so DTS refilling
+   remains limited by SOCE. Testable prediction: mitochondrial-
+   targeted Ca²⁺ uptake activators may actually prolong DTS
+   overshoot rather than accelerate return to resting state.*
+3. ***The DTS overshoots its resting level during recovery from
+   sustained stimulation.** The model predicts a ~1 mM transient
+   in DTS Ca²⁺ during the 1000–3000 s recovery phase, matching
+   the long Ca²⁺ tails reported in real activated platelets.
+   Whether this is biology or model artefact is an open question;
+   it is a hypothesis the model generates that single-pathway
+   models could not.]*
+
+# Discussion
+
+*[Section ~500 words. Cover: what the model lets you do,
+limitations, future directions.]*
+
+*[Suggested paragraphs: (1) The mechanistic-end-to-end property
+— once a calibrated substrate exists, downstream questions
+(granule release, integrin activation, platelet-CTC interactions)
+attach naturally to it. (2) Limitations — coarse-grained
+cytosolic buffering, lumped SOCE machinery, no Ca²⁺
+microdomains. The deYoung-Keizer IP3R has a low-Ca²⁺
+bistability artefact that emerges only at sustained stimulation
+> 2000 s, documented but unresolved. (3) Open biology question
+on Purvis SERCA Vmax — the rate constants imply ~5 cycles/s/pump
+at resting cyt, which is ~2–5× higher than literature suggests
+for SERCA3b at low substrate. Resolution awaits new primary-
+source kinetics. (4) Methodological generalisation — the per-
+mechanism workflow (anchor paper → literature → species →
+counts → rates → cross-check) is portable to other single-cell
+calibration problems.]*
+
+*[Closing paragraph: the model is at v0.4.1, validated against
+Dolan & Diamond 2014. Future work splits into near-term biology
+(granule release, P2Y₁₂ inhibitory arm) and longer-term
+architecture (a kinetics-as-data refactor to enable contributor
+extensibility).]*
+
+# Acknowledgements
+
+*[Brief, ~50 words. Mention Mike Fry for upstream PI-cycle
+framework; Covert Lab for the wcEcoli open-source release; any
+specific advice from collaborators.]*
+
+# References {.unnumbered}
+
+::: {#refs}
+:::

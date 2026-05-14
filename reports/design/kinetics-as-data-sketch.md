@@ -1,0 +1,322 @@
+---
+title: "Kinetics-as-Data — Single-Reaction Sketch"
+author: "Steve Haigh"
+date: "2026-05-13"
+---
+
+# Kinetics-as-Data — Single-Reaction Sketch
+
+**Status:** design sketch, not a build plan. Concrete enough to show a
+collaborator (Mike) what the post-dissertation refactor would look like
+without committing to it.
+
+**Audience:** someone who can read TSV but not necessarily 1400 lines of
+SciPy. The point is to make the *biology* of the model reviewable without
+reading Python.
+
+---
+
+## 1. Why this exists
+
+`reconstruction/platelet/dataclasses/process/calcium_signalling.py` is
+**1416 lines** of mixed concerns:
+
+- a hand-written species tuple (50+ entries),
+- ~20 rate-constant dictionaries (`K_DYK`, `K_SERCA`, `K_PMCA`, …),
+- a monolithic `_ode_rhs(t, y)` that interleaves stoichiometry, rate
+  laws, and the integrator coupling.
+
+The wcEcoli upstream — which this repo was forked from — handles the
+analogous problem (equilibrium binding, metabolism, transcription) by
+splitting the same three concerns across:
+
+1. **Flat TSV tables** under `reconstruction/ecoli/flat/` — the biology
+   as data.
+2. **A reconstruction dataclass** that loads those TSVs and assembles
+   stoichiometry + an ODE RHS at construction time.
+3. **A generic Process subclass** (~50 lines) that reads molecule
+   counts, calls the assembled RHS, applies deltas. Knows nothing about
+   which reactions exist.
+
+`CalciumDynamics` (74 lines) is already correctly that thin shim. The
+1416-line file is what would move into the data + registry split below.
+
+This document sketches how **two** reactions — one simple, one
+calibration-coupled — would look in the proposed structure. It does not
+attempt the full migration.
+
+---
+
+## 2. The three tables
+
+### 2.1 `flat/calcium_species.tsv`
+
+One row per species in the ODE state vector. Replaces the
+`MOLECULE_NAMES` tuple and the initial-counts dispatch in
+`internal_state.py`. Columns shown abbreviated for readability; real
+file would carry citations and a column for compartment volume.
+
+| id           | compartment | initial_count | source                  |
+|--------------|-------------|---------------|-------------------------|
+| CA2_CYT      | c           | 361           | Dolan 2014 (100 nM cyt) |
+| CA2_DTS      | dts         | 38,800        | Dolan 2014 (250 µM DTS) |
+| IP3R_h       | dts         | 0.8           | DYK 1992 h∞ at rest     |
+| PMCA         | pl          | 1,400         | Burkhart 2012 ATP2B4    |
+| PMCA_Ca      | pl          | 0             | derived                 |
+| …            | …           | …             | …                       |
+
+### 2.2 `flat/calcium_reactions.tsv`
+
+One row per reaction. The **rate_law** column is the load-bearing one:
+it names a function in the rate-law registry (§3). Stoichiometry is
+encoded as comma-separated species references.
+
+| id              | reactants     | products       | rate_law            | params_ref          | source           |
+|-----------------|---------------|----------------|---------------------|---------------------|------------------|
+| pmca_bind       | PMCA, CA2_CYT | PMCA_Ca        | mass_action_fwdrev  | pmca_step4          | Caride 2007 §3   |
+| ip3r_flux       | CA2_DTS       | CA2_CYT        | nernst_channel      | ip3r                | Purvis 2008 eq.13 |
+| ip3r_h_kinetics | (state only)  | IP3R_h         | dyk_h_ode           | dyk                 | Li-Rinzel 1994   |
+| …               | …             | …              | …                   | …                   | …                |
+
+Three things to notice:
+
+- **Mass-action reactions are nearly trivial** (one row, one
+  parameter set). The PMCA basal binding step compresses cleanly.
+- **`ip3r_flux` has only one parameter row** even though its rate
+  depends on three species (Ca_cyt, Ca_DTS, IP3 via `ip3r_h_kinetics`'s
+  state and the m∞ function). That coupling lives in the rate-law
+  plugin, not in the table.
+- **`ip3r_h_kinetics` is "state only"** — it advances `IP3R_h` without
+  consuming or producing other species. The TSV grammar has to allow
+  this; wcEcoli's metabolism table handles it the same way.
+
+### 2.3 `flat/calcium_kinetics.tsv`
+
+One row per parameter. Keys (`params_ref` in the reactions table)
+group parameters that belong to one rate law instance.
+
+| params_ref  | name      | value     | units       | source                |
+|-------------|-----------|-----------|-------------|-----------------------|
+| pmca_step4  | k_fwd     | 10.0      | µM⁻¹·s⁻¹    | Caride 2007 Table 3 step 4 |
+| pmca_step4  | k_rev     | 50.0      | s⁻¹         | Caride 2007 Table 3 step 4 |
+| ip3r        | gamma     | 7.5e-14   | A/V         | Phase 4 #30 calibration |
+| ip3r        | n_total   | 1328      | count       | Burkhart 2012 ITPR2   |
+| ip3r        | v_im      | -0.060    | V           | Dolan 2014 Methods    |
+| dyk         | d1        | 0.13      | µM          | DYK 1992 Table 1      |
+| dyk         | d2        | 1.049     | µM          | DYK 1992 Table 1      |
+| dyk         | d5        | 0.08234   | µM          | DYK 1992 Table 1      |
+| dyk         | a2        | 0.2       | µM⁻¹·s⁻¹    | DYK 1992 Table 1      |
+
+This is where parameter sweeps live. Editing a row, re-running the
+simulation, and comparing the Dolan validation panel is a one-line
+change — no Python edit, no PR review of code, just a diff on a TSV.
+
+---
+
+## 3. The rate-law registry
+
+The registry is a small Python module that maps `rate_law` strings to
+callables. Each plugin takes a `Reaction` record, the current state
+vector, and a parameter struct, and returns flux (in counts/second).
+
+```python
+# reconstruction/platelet/kinetics/registry.py
+
+from typing import Callable
+import numpy as np
+
+RateLaw = Callable[["State", "Reaction", "Params"], np.ndarray]
+_REGISTRY: dict[str, RateLaw] = {}
+
+def register(name: str):
+	def deco(fn): _REGISTRY[name] = fn; return fn
+	return deco
+
+def dispatch(name: str) -> RateLaw:
+	return _REGISTRY[name]
+```
+
+### 3.1 Plugin: `mass_action_fwdrev`
+
+Handles bimolecular forward + reverse binding. Covers PMCA step 4,
+CaM steps 6/7, SERCA bind/release, P2X1 transitions, all of CALR / BiP /
+HSP90B1 buffering, and the receptor activation steps in the GPCR
+cascade. Probably ~⅔ of the rows in `calcium_reactions.tsv`.
+
+```python
+@register("mass_action_fwdrev")
+def mass_action_fwdrev(state, rxn, p):
+	# Conversion to µM done once per timestep at the assembly layer.
+	conc = state.concentrations_uM(rxn.reactants)  # shape: (n_reactants,)
+	rate_fwd = p.k_fwd * np.prod(conc)
+	rate_rev = p.k_rev * state.concentrations_uM(rxn.products).prod()
+	return rate_fwd - rate_rev  # in µM/s, converted to counts at apply step
+```
+
+### 3.2 Plugin: `nernst_channel`
+
+The IP3R / SOCE family. Driving force is electrochemical, not
+concentration-product, and the open-probability depends on a separate
+state variable (`IP3R_h`) plus a quasi-steady m∞.
+
+```python
+@register("nernst_channel")
+def nernst_channel(state, rxn, p):
+	ca_lumen = state.uM("CA2_DTS")
+	ca_cyt   = state.uM("CA2_CYT")
+	ip3      = state.uM("IP3")
+	h        = state.value("IP3R_h")
+
+	# m∞ from the deYoung-Keizer parameter group — referenced by name,
+	# not redeclared. Cross-rate-law parameter access is a real cost
+	# of this design; see §6.
+	dyk = state.params("dyk")
+	m_inf = (ip3 / (ip3 + dyk.d1)) * (ca_cyt / (ca_cyt + dyk.d5))
+	po = m_inf**4 * h
+
+	E_ca = RT_OVER_zF_V * np.log(ca_lumen / ca_cyt)  # Nernst potential
+	driving = p.v_im - E_ca
+	current_A = p.gamma * p.n_total * po * driving
+	return current_A * NA_OVER_zF  # ions/s, into cytosol
+```
+
+### 3.3 Plugin: `dyk_h_ode`
+
+The IP3R inactivation gate is a one-line ODE, but it doesn't fit
+mass-action or Nernst. It's its own plugin:
+
+```python
+@register("dyk_h_ode")
+def dyk_h_ode(state, rxn, p):
+	h     = state.value("IP3R_h")
+	ca    = state.uM("CA2_CYT")
+	return p.a2 * (p.d2 - (ca + p.d2) * h)  # dh/dt
+```
+
+---
+
+## 4. Where assembly happens
+
+`CalciumSignalling.__init__(raw_data, sim_data)` becomes the load
+point:
+
+```python
+class CalciumSignalling:
+	def __init__(self, raw_data, sim_data):
+		self.species   = SpeciesIndex(raw_data.calcium_species)
+		self.reactions = [Reaction.from_row(r, raw_data.calcium_kinetics)
+		                  for r in raw_data.calcium_reactions]
+		self._validate_calibration_invariants(sim_data)
+
+	def rhs(self, t, y):
+		dydt = np.zeros_like(y)
+		state = StateView(y, self.species, self.params)
+		for rxn in self.reactions:
+			flux = registry.dispatch(rxn.rate_law)(state, rxn, rxn.params)
+			dydt += rxn.stoichiometry_vector * flux
+		return dydt
+```
+
+The `CalciumDynamics` process (`models/platelet/processes/`) is
+**unchanged**. It already calls
+`self._solver.molecules_to_next_time_step(...)`. The "solver" object
+is just whatever exposes `rhs` — pre- or post-refactor.
+
+---
+
+## 5. The one safety mechanism this design requires
+
+The current model has a load-bearing invariant: at rest (cyt = 100 nM,
+DTS = 250 µM), IP3R flux must balance SERCA flux. `GAMMA_IP3R_S` was
+back-derived from `K_SERCA` to satisfy that. If a future collaborator
+edits a SERCA rate constant in the TSV, the IP3R γ value silently
+becomes wrong.
+
+The mitigation is a constructor-time check:
+
+```python
+def _validate_calibration_invariants(self, sim_data):
+	resting_state = self.compute_resting_steady_state()
+	if abs(resting_state.dCa_cyt_dt) > 1e-3:  # ions/s tolerance
+		raise CalibrationError(
+			"Resting Ca²⁺ does not balance. IP3R or SERCA parameters "
+			"changed without re-deriving γ_IP3R. See "
+			"reports/dissertation-notes.md §3.1.")
+```
+
+This is **not** something to put off — it's the one piece of guard-rail
+the data-driven version needs that the current code gets for free
+(because re-deriving γ is a manual step that lives in a code comment).
+
+---
+
+## 6. What this design *doesn't* solve
+
+Honest costs, in order of severity:
+
+1. **Cross-rate-law parameter access** (§3.2). The IP3R Nernst plugin
+   has to reach into the DYK parameter group to compute m∞. wcEcoli
+   metabolism has the same problem and handles it by passing a global
+   parameter dict into every rate law. It works, but it leaks the
+   "each reaction is independent" abstraction. The TSV cannot fully
+   localise this — m∞ couples three species and a separate parameter
+   set.
+
+2. **Net line count is not lower.** The TSVs are dense, but the rate-law
+   registry needs ~6 plugins to cover the current model (mass action
+   fwd/rev, Nernst channel, DYK h ODE, MWC SOCE, 5-state PMCA-CaM
+   cycle, P2X1 3-state). Each is short, but they're real code. Expect
+   net lines to be **similar**, with the *distribution* changed —
+   biology in TSV, mechanism in registry, glue in the assembler.
+
+3. **MWC SOCE and the 5-state PMCA-CaM scheme are awkward.** Both have
+   internal substates that don't fit cleanly as either "a reaction" or
+   "a parameter group". They are likely to be **one plugin each**,
+   with the substate logic still expressed in Python. The TSV row
+   becomes effectively a pointer to a complex hand-written function.
+   For these, the abstraction is leaky and the win is small.
+
+4. **Unit handling becomes load-time work.** Today, units are encoded
+   in variable names (`*_uM`, `*_per_s`). The TSV has a `units` column,
+   which means the assembler has to validate dimensional consistency —
+   or you accept that mistakes in the TSV become silent numerical
+   bugs. wcEcoli accepts the latter; I would not, for a calibration-
+   sensitive Ca²⁺ model.
+
+5. **Calibration coupling becomes invisible.** §5 mitigates this for
+   the IP3R/SERCA invariant. There may be other less obvious couplings
+   (PMCA Vmax ↔ resting cyt; CALR capacity ↔ DTS overshoot) that
+   currently sit in code comments and would need their own assertions.
+
+---
+
+## 7. Timeline judgement
+
+This refactor is **post-dissertation**. The science doesn't change; the
+audience does. It is the right pitch to a collaborator who wants to
+understand the model without reading Python, or to a future student
+running parameter sweeps.
+
+Doing it **before** the dissertation would be ~2 weeks of plumbing for
+zero validation gain and a non-trivial risk of breaking the calibration
+chain that landed in v0.4.1 last week.
+
+The dissertation talking point is **#4** on the Mike-chat agenda:
+"kinetics-as-data refactor (#32) makes the model collaborator-friendly".
+This document is the concrete artefact behind that talking point.
+
+---
+
+## 8. What to ask Mike
+
+1. Is "biology lives in TSV, mechanism lives in a small Python
+   registry" the right division for someone in his group to contribute
+   to the model? Or would a different representation (a domain-
+   specific language, BNGL-style rules, SBML import) be a better fit
+   for the collaborators he has in mind?
+2. Are there reactions on the v0.5 wishlist that would *not* fit the
+   six existing rate-law plugins — i.e., ones where this design
+   already pays its keep before it's even built?
+3. Is the calibration-invariant guard (§5) sufficient, or would he
+   want a regression-test layer that re-runs Dolan Fig. 4 on every
+   TSV edit?

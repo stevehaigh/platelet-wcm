@@ -1,0 +1,14 @@
+/.quarto/
+**/*.quarto_ipynb
+
+# Quarto format-resources (copies of files in /_extensions/); rebuilt on render
+pnas-new.cls
+pnas-new.bst
+pnasresearcharticle.sty
+pnasbriefreport.sty
+jabbrv.sty
+jabbrv-ltwa-all.ldf
+jabbrv-ltwa-en.ldf
+
+# Rendered PDFs (rebuild via `quarto render` or `make quarto-pdfs`)
+*.pdf

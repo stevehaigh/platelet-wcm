@@ -79,3 +79,24 @@ reports/pdf/%.pdf: reports/%.md reports/pandoc-header.tex
 pdfs-clean:
 	rm -rf reports/pdf
 
+# ── Reports: Quarto (.qmd) → PDF ──────────────────────────────────────────────
+# Quarto handles native mermaid → PDF rendering without the separate mmdc step.
+# Use .qmd for diagram-heavy or interactive-output design docs; plain prose
+# stays as .md and goes through the pandoc rule above.
+#
+# Output goes to reports/pdf-quarto/ so it sits alongside (not on top of) the
+# pandoc-built PDFs in reports/pdf/ — gives you a side-by-side comparison.
+
+REPORTS_QMD     := $(shell find reports -name '*.qmd')
+REPORTS_QMD_PDF := $(patsubst reports/%.qmd,reports/pdf-quarto/%.pdf,$(REPORTS_QMD))
+
+quarto-pdfs: $(REPORTS_QMD_PDF)
+	@echo "Built $(words $(REPORTS_QMD_PDF)) Quarto PDF(s) into reports/pdf-quarto/"
+
+reports/pdf-quarto/%.pdf: reports/%.qmd reports/pandoc-header.tex
+	@mkdir -p $(dir $@)
+	quarto render "$<" --output-dir "$(CURDIR)/$(dir $@)"
+
+quarto-pdfs-clean:
+	rm -rf reports/pdf-quarto
+

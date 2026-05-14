@@ -1,6 +1,8 @@
 % Shared LaTeX header for Markdown → PDF builds (make pdfs)
 % Maps Unicode characters that STIX Two Text lacks to LaTeX equivalents.
 \usepackage{newunicodechar}
+\usepackage[nointegrals]{wasysym}  % \LEFTcircle (◐)
+\usepackage{fontawesome5}           % \faExclamationTriangle (⚠)
 \newunicodechar{→}{\ensuremath{\rightarrow}}
 \newunicodechar{←}{\ensuremath{\leftarrow}}
 \newunicodechar{↑}{\ensuremath{\uparrow}}
@@ -31,3 +33,8 @@
 \newunicodechar{✓}{\ensuremath{\checkmark}}
 \newunicodechar{✗}{\ensuremath{\times}}
 \newunicodechar{★}{\ensuremath{\bigstar}}
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{∞}{\ensuremath{\infty}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{◐}{\LEFTcircle}
+\newunicodechar{⚠}{\faExclamationTriangle}
