@@ -1,0 +1,463 @@
+---
+title: "Different cells, different models: choosing a modelling paradigm by cell biology"
+runningauthor: "Haigh & Fry"
+runninghead: "Modelling paradigms and cell biology"
+template-type: pnasresearcharticle
+classoption:
+  - twocolumn
+by-author:
+  - name:
+      literal: "Steve Haigh"
+    affiliations:
+      - ref: reading
+    attributes:
+      corresponding: true
+    email: "steve.haigh@gmail.com"  # TODO confirm institutional address
+  - name:
+      literal: "Mike Fry"  # TODO confirm authorship + initials
+    affiliations:
+      - ref: reading
+by-affiliation:
+  - id: reading
+    name: "School of Biological Sciences"
+    department: "University of Reading"
+    city: "Reading"
+    country: "United Kingdom"
+keywords:
+  - whole-cell modelling
+  - virtual cell
+  - foundation models
+  - platelet
+  - mechanistic biology
+significance: |
+  The AI virtual-cell programmes that now dominate computational cell
+  biology are built on a single methodological wager: that learned
+  representations of single-cell transcriptomes will generalise to
+  arbitrary cells. That wager pays out well for the cells the field has
+  trained on — proliferating, nucleated, transcriptionally active human
+  cancer lines. It pays out badly for cells whose biology cuts against
+  the dominant validation set: anucleate cells, terminally differentiated
+  cells, cells whose interesting dynamics happen on sub-minute
+  timescales, and cells for which single-cell data are sparse. By
+  foregrounding the cell biology before the modelling technology, we
+  argue that mechanistic and hybrid approaches are not historical
+  predecessors of AI virtual cells but co-equal paradigms whose use
+  should be determined by the cell and the question.
+abstract: |
+  The current discourse on the AI virtual cell, exemplified by the Chan
+  Zuckerberg Initiative's Virtual Cells Platform [@bunne2024build], is
+  dominated by transcriptomics foundation models trained and validated
+  on dividing, nucleated, well-sampled cell lines such as K562, HEPG2,
+  RPE1, and Jurkat. Mechanistic whole-cell modelling [@karr2012; @macklin2020]
+  is frequently positioned as a historical predecessor rather than a
+  complementary paradigm. We argue that the choice of modelling paradigm
+  should be driven by the cell biology and the research question, not
+  by technology momentum. We compare three paradigms — mechanistic
+  whole-cell models, transcriptomics foundation models, and hybrid
+  causal-mechanistic machine learning — on what each does well, what
+  each does poorly, and how validation and computational cost differ.
+  We use the human platelet — anucleate, terminally differentiated,
+  with a circulating lifespan of approximately nine days and signalling
+  events on sub-minute timescales — as a worked example that breaks the
+  transcriptomics-foundation-model orthodoxy and makes the case for
+  mechanistic and hybrid approaches. We close with three pragmatic
+  convergences: machine-learning priors for mechanistic parameters,
+  mechanistic models as training signal for learned representations,
+  and AI surrogates that accelerate mechanistic simulation.
+
+bibliography: references.bib
+format:
+  pnas-pdf:
+    keep-tex: true
+---
+
+# Introduction
+
+The phrase *AI virtual cell* (AIVC) has come, in the space of two years,
+to dominate the public face of computational cell biology
+[@bunne2024build; @cui2025multimodal; @yu2025aivcm]. The Chan Zuckerberg
+Initiative's Virtual Cells Platform, the recent crop of single-cell
+foundation models [@theodoris2023geneformer; @cui2024scgpt;
+@czi2025transcriptformer], and a growing body of position pieces from
+both academia and industry [@valence2025; @szalata2024] frame the
+virtual cell as a learnable object: a representation, trained on
+many millions of single-cell transcriptomes, capable in principle of
+generalising across tissue, perturbation, and species. The framing is
+seductive, and the engineering achievements are real. It is also a
+framing that, almost everywhere it is articulated, assumes a particular
+set of cells. The cells in question divide; they are nucleated; their
+transcriptional state is informative about their functional state on
+the timescale of measurement; and they are abundant enough in public
+single-cell atlases that a foundation model has something to fit. K562,
+HEPG2, RPE1, Jurkat, and the rest of the proliferating-cancer-line
+canon are the implicit referents whenever a virtual-cell paper reports
+a benchmark.
+
+This is unobjectionable so long as those cells exhaust the biology one
+cares about. They do not. A great deal of cell biology is done outside
+the dividing-and-nucleated canon. Terminally differentiated neurons,
+cardiomyocytes, red blood cells, and platelets together account for a
+substantial fraction of the cells in the human body and a similarly
+large fraction of clinically relevant biology, yet none of them fit the
+implicit transcriptomics-first frame: neurons and cardiomyocytes are
+post-mitotic and exhibit functional dynamics — action potentials,
+excitation-contraction coupling — on timescales where transcription is
+silent. Red blood cells have no nucleus. Platelets have no nucleus and
+no organised transcriptional apparatus to speak of, complete their
+biological work over seconds to minutes, and are catastrophically
+under-represented in single-cell atlases relative to their numerical
+abundance in blood. For these cells, the methodology one chooses is
+not a matter of taste; it is forced by the cell.
+
+The argument of this Perspective is that the choice of modelling
+paradigm should follow from the cell biology and the research
+question, not from the prevailing technology. We make that argument by
+contrasting three modelling paradigms now in active use, locating each
+on a small set of axes that capture the practical trade-offs between
+them, and then working through the human platelet as a case in which
+the dominant transcriptomics-foundation-model paradigm breaks down and
+mechanistic and hybrid approaches succeed.
+
+# Three modelling paradigms
+
+## Mechanistic whole-cell models
+
+Mechanistic whole-cell modelling, exemplified by the *Mycoplasma
+genitalium* model of @karr2012 and the *Escherichia coli* WCM of
+@macklin2020, takes the position that a cell is a system of identifiable
+biochemical processes — transcription, translation, replication,
+metabolism, signalling — each with a known mechanism and known rate
+constants, coupled through a shared state of molecular counts and
+concentrations. A typical whole-cell model carries explicit kinetic
+equations for thousands of reactions [TODO confirm gene/reaction counts
+for Karr 2012 (~525 genes / 28 processes) and Macklin 2020 (~4 500 genes
+/ 31 processes)], with simulation proceeding by alternating
+process-resource-request, state-partition, and process-evolve steps
+under a global timestep. The contracts between processes and shared
+state are typed and explicit: any parameter that enters a rate
+expression is traceable to a data source through what the wcEcoli
+literature calls the *sim_data* mapping [@macklin2020]. Validation
+proceeds in two directions, against system-level phenotypes (growth
+rate, doubling time, gene-knockout viability) and against subsystem
+quantitative behaviour (metabolic flux maps, ribosome occupancy).
+
+What a mechanistic whole-cell model does well is that it forces every
+quantity in the model to be either measured, derived, or explicitly
+calibrated, and it makes the reasons for a particular simulated
+behaviour interpretable in the language of the underlying biology.
+What it does badly is scale and data hunger: building a mechanistic
+whole-cell model requires substantial domain expertise per process,
+careful curation of rate constants, and a runtime cost that does not
+trivially shrink with hardware. The result is a small number of
+flagship models, each representing years of work, and an
+order-of-magnitude gap between the mechanistic detail accessible to
+modellers and the catalogue of cells biologists would like to study.
+
+## Single-cell transcriptomics foundation models
+
+The second paradigm replaces mechanism with learned representation. A
+transformer or related deep architecture is trained on tens to hundreds
+of millions of single-cell transcriptomes — Geneformer
+[@theodoris2023geneformer] on approximately 30 million cells [TODO
+confirm], scGPT [@cui2024scgpt] on approximately 33 million [TODO
+confirm], and the most recent CZI TranscriptFormer release on
+approximately 112 million cells across 12 species [TODO confirm exact
+figure] — and acquires a latent space in which cell type, state, and
+perturbation response can be read out by lightweight downstream heads.
+Foundation models excel at three tasks: zero- or few-shot cell-type
+annotation across heterogeneous tissues, in-silico perturbation
+prediction within the regime they have been trained on, and the
+generation of representations that improve the data efficiency of
+downstream tasks such as drug-target identification. The CZI Virtual
+Cells Platform [@bunne2024build] and the recent rBio system
+[@czi2025rbio] formalise these capabilities as the operating
+infrastructure of an emerging virtual-cell programme.
+
+What this paradigm does well is the breadth that mechanism cannot
+afford: a foundation model trained on tens of millions of cells will
+have *seen* far more biological context than any mechanistic model
+will ever encode. What it does poorly is the kind of behaviour that
+is not in the training distribution: cells with limited single-cell
+representation, dynamics that unfold on timescales shorter than the
+transcriptional snapshot, and any setting where the question is
+*why* something happens rather than *what* happens. Validation is
+benchmark-driven and intrinsically retrospective: a foundation model
+that has not been measured against a held-out perturbation cannot be
+trusted on it. The computational footprint is concentrated in
+training rather than inference; inference is cheap, training is at
+the limit of what academic groups can afford.
+
+## Hybrid and causal-mechanistic ML
+
+A third paradigm — hybrid in the strict sense — augments mechanistic
+models with learned components, or constrains learned models with
+mechanistic structure. The Valence Labs position paper [@valence2025]
+frames this as *predict, explain, discover*: prediction from learning,
+explanation from mechanism, discovery from the interaction. Concrete
+instances include physics-informed neural networks for ODE systems,
+neural ODE surrogates that approximate the output of expensive
+mechanistic simulations at a fraction of the runtime cost, and
+mechanism-anchored language models that use a kinetic-model black box
+as either a training signal or a verifier (the rBio approach
+[@czi2025rbio]). The "LLMs Meet Virtual Cell" survey [@llmsmvc2025]
+catalogues a growing list of such hybrids.
+
+What hybrid approaches do well is to address the failures of either
+pure paradigm: AI provides scale and pattern-recognition that
+mechanism cannot match; mechanism provides causal interpretability and
+out-of-distribution validity that pure learning cannot. What they do
+poorly is methodology — the field is young, the engineering norms are
+unsettled, and the validation regimes for hybrids are an open problem.
+Computational footprints span the full range, from neural ODE
+surrogates that are cheaper at inference than the simulation they
+replace, through to physics-informed networks whose training cost
+matches that of the foundation models themselves.
+
+# A taxonomy by cell biology and question
+
+A paradigm choice can be located along three axes that together
+capture the practical trade-off space: *mechanism explicitness*, the
+degree to which the model's behaviour can be traced to identifiable
+biological reactions; *data dependence*, the volume and density of
+empirical observations required to fit the model; and *interpretability
+requirement*, the extent to which the user requires the model's
+predictions to come with a causal account. Figure 1 sketches this space
+and locates each paradigm in it.
+
+These axes are not orthogonal in practice, but they map cleanly onto
+the questions a working biologist actually asks. *What state is this
+cell in?* is a classification question well-served by foundation
+models. *How will this perturbation propagate?* spans both paradigms
+depending on whether the perturbation is in or out of the training
+distribution. *Why does this cell make this decision?* is a causal
+question that only mechanism can answer cleanly, however much
+correlation a learned model uncovers. And — the question we develop in
+the next section — *what does this cell do on a sub-minute timescale
+when its transcriptional state is mute?* is a question for which
+mechanism is not just preferable but necessary.
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.92\linewidth}\centering\vspace{1ex}
+\textbf{Figure 1 sketch.} Paradigm placement along three axes:\\[0.5ex]
+\textit{mechanism explicitness} (low $\rightarrow$ high), \textit{data dependence} (low $\rightarrow$ high), \textit{interpretability requirement} (low $\rightarrow$ high). \\[0.5ex]
+Whole-cell mechanistic models live at the high-mechanism, low-data, high-interpretability corner. \\
+Transcriptomics foundation models live at the low-mechanism, high-data, low-interpretability corner. \\
+Hybrid approaches occupy the interior diagonal.
+\vspace{1ex}
+\end{minipage}}
+\caption{\textbf{Paradigm classification by cell biology and question.}
+The three modelling paradigms are placed in a three-axis space defined
+by mechanism explicitness, data dependence, and interpretability
+requirement. The axes capture the practical trade-offs that drive
+paradigm selection in working cell biology. (Final figure: TikZ /
+mermaid sketch to replace the placeholder box.)}
+\label{fig:taxonomy}
+\end{figure}
+
+# The platelet as a worked example
+
+The human platelet is the cell that breaks the dominant paradigm. It
+is anucleate — derived as a cytoplasmic fragment from a megakaryocyte,
+with no genome of its own and a residual, non-canonical transcriptome
+inherited at the moment of release [TODO confirm best citation for
+platelet transcriptome residuality; candidates include Rowley et al.
+2011, Schubert et al. 2014]. It is terminally differentiated, with a
+circulating half-life of approximately nine days and no division. Its
+defining functional behaviour — adhesion, activation, granule
+secretion, aggregation, and procoagulant transformation — unfolds on
+timescales of seconds to minutes after vascular injury, governed by
+calcium signalling, integrin reorganisation, and granule release rather
+than by changes in mRNA abundance. And it is poorly represented in
+public single-cell transcriptomic atlases relative to its abundance in
+the bloodstream, in part because of methodological difficulties in
+recovering anucleate cells in standard droplet-based workflows.
+
+Each of these properties closes off a different affordance of the
+transcriptomics-foundation-model paradigm. *Anucleate*: there is no
+ongoing transcriptional response to model, only a fixed residual mRNA
+pool that does not change in any informative way on the timescale of
+activation. *Terminally differentiated*: the perturbation-response
+benchmarks that foundation models are validated against, where the
+response is mediated by transcriptional reprogramming, are not the
+biology of interest. *Sub-minute dynamics*: the model time-resolution
+required to capture calcium transients, integrin inside-out
+signalling, and granule release is incompatible with single-cell
+transcriptomic measurement. *Sparse data*: even where one would like
+a learned representation, the volume of single-platelet data required
+to fit a foundation model is not available, and may not be obtainable
+with current technology.
+
+By contrast, mechanistic modelling is well-suited to all four
+properties. The platelet whole-cell model under construction in our
+group [TODO add citation / link to repository / preprint if available]
+extends the wcEcoli engine to a single platelet, with explicit
+processes for calcium dynamics, granule secretion, integrin activation,
+and metabolism, and explicit compartments for the cytosol, the dense
+tubular system (the platelet's calcium store), and the dense and alpha
+granules. Validation targets are biophysical: the cytosolic calcium
+transient measured by @dolan2014platelet under thrombin / SFLLRN
+stimulation; the steady-state ATP turnover measured by @holmsen [TODO
+confirm citation, 1979 or 1981]; the SOCE flux under EDTA / no-Ca²⁺
+conditions; the calcium-pump and IP3-receptor activity reported in the
+detailed kinetic literature [@purvis2008molecular]. None of these
+targets is the sort of data foundation models are built to consume.
+
+A hybrid approach has a role to play in this setting, but only after
+the mechanistic scaffold is in place. Learned components could supply
+priors for poorly-constrained rate constants — and the proteomic
+correlation observed by @balabin2024personalization between SERCA and
+IP3R copy numbers across donors is exactly the kind of empirical
+relationship that a small learned model might encode as a structured
+prior. ML surrogates could accelerate the calcium-signalling ODE for
+ensemble simulation, particularly important once stochastic effects in
+the low-copy receptor cascade are added (a regime in which one wishes
+to simulate hundreds of platelet replicates rather than one). None of
+this displaces the mechanistic core; it amplifies it.
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.92\linewidth}\centering\vspace{1ex}
+\textbf{Figure 3 sketch.} Platelet case study, paradigm fit by question. \\[0.5ex]
+Rows: (i) transcriptomic state, (ii) perturbation response, (iii) Ca\textsuperscript{2+} dynamics, (iv) granule secretion, (v) integrin activation. \\
+Columns: foundation-model fit, hybrid fit, mechanistic fit. \\
+Shading: green = paradigm well-suited; amber = partial; red = paradigm cannot address. \\[0.5ex]
+Expected pattern: rows (iii)--(v) red under foundation model, amber under hybrid, green under mechanistic.
+\vspace{1ex}
+\end{minipage}}
+\caption{\textbf{Platelet case study by paradigm.} Matrix of platelet
+biological questions against modelling paradigm, with paradigm fit
+shaded by suitability. The mechanistic column dominates on the
+biophysical-dynamics rows; the foundation-model column collapses
+because the cell's defining biology is not transcriptional. (Final
+figure: full matrix with literature anchors per cell to be drafted.)}
+\label{fig:platelet}
+\end{figure}
+
+# A software-engineering lens
+
+A complementary view of the same trade-offs comes from software
+engineering rather than biology, and it is a view the AIVC literature
+has under-developed. A mechanistic whole-cell model is, structurally,
+a large, typed, contract-bound piece of software. Every reaction has a
+named rate constant, every rate constant has a source citation, every
+process advertises its molecular requests in a partition contract, and
+every state variable is identifiable in the simulation output by
+compartment-tagged species name. This is the *sim_data* discipline of
+the wcEcoli lineage [@macklin2020], and it imposes a non-trivial cost:
+each new process is a code review, a citation audit, and an
+integration test against the rest of the model. The payoff is that any
+simulated behaviour is interpretable in the language of the underlying
+biology, and any disagreement with experiment is locatable in a
+specific rate constant or process.
+
+A foundation model is structurally different. The model is a set of
+weights; the *sim_data* equivalent is the training corpus; the contract
+is statistical rather than typed. Reproducibility costs lie not in
+code review but in dataset versioning and seed management. Validation
+costs are concentrated in benchmark curation rather than mechanism
+audit. Modularity, where it exists, is the modularity of LoRA
+adapters and downstream heads rather than the modularity of cellular
+processes. None of this is wrong — it is the appropriate engineering
+posture for a model whose value derives from the breadth of training
+data — but it means that the kinds of guarantees one can extract from
+a foundation model are statistically scoped in a way that a
+mechanistic model's guarantees are not.
+
+This distinction matters when the use case is regulatory, clinical, or
+adversarial. A pharmaceutical perturbation prediction that comes with
+an interpretable causal account of *why* the drug affects the cell
+this way is a defensible artefact in a way that a predicted
+transcriptomic shift, however accurate, is not. The Karr 2012 model
+demonstrated this stance with a gene-essentiality screen
+[@karr2012] in which every essentiality call was traceable to a
+specific process — a property no foundation-model benchmark currently
+delivers.
+
+# Convergence: priors, training signal, surrogates
+
+The framing of paradigm choice as a binary is misleading; the
+practically interesting question is how the paradigms compose. Three
+specific convergences are already legible in the recent literature and
+are the natural near-term scope for any platelet-modelling or
+adjacent-cell programme.
+
+First, *AI models as priors for mechanistic parameters*. A
+mechanistic whole-cell model has hundreds to thousands of rate
+constants, many of them constrained only weakly by experiment. A
+learned model trained on proteomic, transcriptomic, and pathway
+databases is in a position to supply structured priors over those rate
+constants — encoding, for instance, the cross-cell-line correlations
+that @balabin2024personalization observe between SERCA and IP3R copy
+numbers, or the broader pump-receptor stoichiometric patterns that
+proteomic atlases now make visible. The mechanistic model remains the
+object of inference; the prior is the contribution.
+
+Second, *mechanistic models as training signal*. The rBio approach
+[@czi2025rbio] uses kinetic models as a verifier for a large language
+model's perturbation-response predictions: predictions that are
+inconsistent with mechanism are penalised. The pattern generalises.
+Any mechanistic model fast enough to evaluate at training time can
+serve as a constraint on a learned model, narrowing the hypothesis
+class to mechanistically defensible regions.
+
+Third, *AI surrogates for accelerated mechanistic simulation*. A
+neural ODE or transformer surrogate trained on the outputs of a
+mechanistic simulation can deliver inference-time speeds two to four
+orders of magnitude faster than the underlying integrator, at the
+cost of out-of-distribution validity. For ensemble simulation —
+indispensable once stochasticity is added to a low-copy signalling
+cascade — this is the difference between a single replicate per
+hour and a thousand. Figure 2 sketches the decision space.
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.92\linewidth}\centering\vspace{1ex}
+\textbf{Figure 2 sketch.} Decision matrix for paradigm selection. \\[0.5ex]
+Rows: (i) cell biology has rich single-cell data; (ii) cell biology has sub-minute dynamics; (iii) question is causal-explanatory; (iv) question is perturbation-prediction within training distribution; (v) regulatory / clinical interpretability required. \\
+Columns: foundation model recommended; hybrid recommended; mechanistic recommended. \\[0.5ex]
+A clinician answering (i) no, (ii) yes, (iii) yes, (iv) no, (v) yes lands squarely in the mechanistic column.
+\vspace{1ex}
+\end{minipage}}
+\caption{\textbf{Decision matrix for paradigm selection.} Cell-biology
+and question-type axes against recommended paradigm. The matrix is
+deliberately coarse: it expresses where each paradigm is well-suited,
+not a quantitative model-selection procedure. (Final figure: full
+matrix with literature exemplars per cell to be drafted.)}
+\label{fig:decision}
+\end{figure}
+
+# Conclusion
+
+The argument of this Perspective is not that the AI virtual cell is a
+mistake, nor that mechanistic whole-cell modelling is a recovered
+orthodoxy. It is that the choice between them — and the choice of any
+hybrid between them — is properly made on the basis of the cell and
+the question, not on the basis of technology momentum. The human
+platelet is one cell among many for which the dominant paradigm's
+assumptions break, and for which a mechanistic and hybrid stance is
+forced by biology. Other cells — post-mitotic neurons,
+cardiomyocytes, erythrocytes, terminal effector lymphocytes — pose
+their own variants of the same problem. Foundation models, mechanistic
+models, and hybrids each have a clear remit; that remit is determined
+by the data, the dynamics, the interpretability requirement, and the
+question, not by which paradigm has the largest current grant
+portfolio. We close, deliberately, with no methodological consensus
+beyond that: fit the paradigm to the cell.
+
+# Acknowledgements
+
+The platelet whole-cell modelling work that informs the worked example
+is conducted by the author at the University of Reading; the wcEcoli
+engine on which it builds is the work of the Covert lab at Stanford
+[@macklin2020] and the Karr group, originally at Mt Sinai
+[@karr2012]. The framing of cell-biology-first paradigm selection has
+benefited from conversations with TODO. Funding TODO.
+
+# Author contributions
+
+S.H. conceived the argument and drafted the manuscript. M.F. TODO.
+
+# Conflict of interest
+
+The authors declare no conflicts of interest.

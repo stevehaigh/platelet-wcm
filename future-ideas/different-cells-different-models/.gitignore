@@ -1,0 +1,43 @@
+## LaTeX build artefacts
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.run.xml
+*.bcf
+
+## Quarto
+/.quarto/
+_freeze/
+.Rproj.user/
+*.html
+
+## OS
+.DS_Store
+
+## Quarto copies these out of _extensions/ at render time into the
+## project root for LaTeX to find them — the canonical copies live
+## in _extensions/christopherkenny/pnas/ so the root-level copies are
+## build artefacts.
+/pnas-new.cls
+/pnas-new.bst
+/pnasresearcharticle.sty
+/pnasbriefreport.sty
+/jabbrv.sty
+/jabbrv-ltwa-all.ldf
+/jabbrv-ltwa-en.ldf
+/paper_files/
+/paper.tex
+
+## Empty figure-source dir placeholder
+!figures/.gitkeep
+
+
+**/*.quarto_ipynb

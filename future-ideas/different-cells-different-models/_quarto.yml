@@ -1,0 +1,11 @@
+project:
+  type: default
+
+format:
+  pnas-pdf:
+    keep-tex: true
+    cite-method: natbib
+    classoption:
+      - twocolumn
+    # PNAS class loads natbib itself; do not pass natbiboptions or they
+    # collide with the class's own \usepackage[...]{natbib} call.
