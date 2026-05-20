@@ -775,8 +775,11 @@ def ip3_forcing_uM(t, delay=0.0):
 K_PLCB = {
 	'k_act':    0.5,      # PLCb_i + Gq → PLCb_a    (µM⁻¹·s⁻¹) — calibrated
 	'k_inact':  0.3,      # PLCb_a    → PLCb_i      (s⁻¹)       — τ ~ 3 s
-	'k_cat':    2.26e-7,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
-}                         # — calibrated against resting + peak IP3 targets
+	'k_cat':    2.26e-8,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
+}                         # — calibrated against resting + peak IP3 targets.
+                          # v0.4 lab-book 2026-05-15: rescaled 1/10 (was 2.26e-7)
+                          # alongside PIP2 1.12e5 → 1.12e6 fix in internal_state.py;
+                          # k_cat × PIP2 product preserved → behaviour-neutral.
 
 K_PI_CYCLE = {
 	# PIP2 resynthesis — lumped PI → PI4P → PIP2 chain. Set equal to

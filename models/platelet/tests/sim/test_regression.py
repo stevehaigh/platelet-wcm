@@ -122,20 +122,15 @@ class TestPlateletGoldenRun(unittest.TestCase):
 			f'Dry mass reached zero or below (min={self.dry_mass.min():.6f})')
 
 	def test_dry_mass_near_baseline(self):
-		"""Initial dry mass should be within 1% of the 245.97 fg baseline.
+		"""Initial dry mass should be within 1% of the 247.72 fg baseline.
 
-		Baseline updated 2026-05-12 (Phase 3 / issue #25 multi-buffer DTS):
-		- CALR C+P domain (#28): +1.61 fg
-		- Gelsolin cyt buffer (Phase 2 + retune): +39.1 fg
-		- HSP90B1 M+L (Argon & Simen 1999; new): +1.53 fg
-		- BiP / HSPA5 (Lièvremont 1997; new): +6.48 fg
-		- CREC pool (Honoré & Vorum 2000; new): +0.95 fg
-		- P2X1 (Phase 2.5): +0.22 fg
-		Total: ~50 fg of Ca²⁺-binding proteins added on top of the
-		pre-buffer-biology baseline of ~196 fg.
+		Baseline updated 2026-05-15 (PIP2 transcription fix, lab-book
+		2026-05-15): PIP2 count 1.12e5 → 1.12e6 adds ~1.75 fg of lipid mass.
+		Previous baseline 245.97 fg (2026-05-12, Phase 3 / issue #25 multi-
+		buffer DTS).
 		"""
 		initial = self.dry_mass[0]
-		self.assertGreater(initial, 243.5,   # 245.97 * 0.99
+		self.assertGreater(initial, 245.2,   # 247.72 * 0.99
 			f'Initial dry mass {initial:.3f} below baseline −1%')
-		self.assertLess(initial, 248.4,      # 245.97 * 1.01
+		self.assertLess(initial, 250.2,      # 247.72 * 1.01
 			f'Initial dry mass {initial:.3f} above baseline +1%')

@@ -167,13 +167,17 @@ _MOLECULES = [
 	('P2X1_O[pl]',        2.241e-4,        0,         'protein'),     # open
 	('P2X1_D[pl]',        2.241e-4,        0,         'protein'),     # desensitised
 	# ── PI cycle — Phase 4 / #31 (Mazet 2020 framework) ──
-	# PIP2 abundance: Mazet 2020 Supplementary Table S6 cited platelet
-	# PIP2 ~ 1.12 × 10⁵ molecules per cell. MW ~ 1 050 Da → 1.74e-6 fg.
+	# PIP2 abundance: Mazet 2020 quote ~ 1.12 × 10⁶ molecules per platelet
+	# (Sci. Rep. 10:13244 main text; also Supp. Table S6). MW ~ 1 050 Da
+	# → 1.74e-6 fg. At 6 fL cytosol this is ≈ 310 µM, consistent with
+	# Sveshnikova 2015 / Lenoci 2011 platelet PIP2 = 200 µM.
+	# v0.4 lab-book 2026-05-15: corrected from 1.12 × 10⁵ (transcription
+	# error). K_PLCB['k_cat'] rescaled 1/10 to preserve IP3 production rate.
 	# DAG: smaller pool at rest (~5 % of PIP2 turnover), MW ~ 600 Da.
 	# PLCβ: ~1 000 molecules per platelet (order-of-magnitude estimate;
 	# Burkhart 2012 lists PLCβ-3 in platelet proteome). MW ~ 138 kDa
 	# → 2.29e-4 fg. All start inactive at rest (Gq tonic but low).
-	('PIP2[c]',           1.74e-6,   112_000,         'metabolite'),  # PIP2 (lipid; treated as metabolite for submass)
+	('PIP2[c]',           1.74e-6,   1_120_000,       'metabolite'),  # PIP2 (lipid; treated as metabolite for submass)
 	('DAG[c]',            9.97e-7,        56,         'metabolite'),  # diacylglycerol (steady-state at rest: 3.62/s prod ÷ 0.05/s deg ÷ 1.3 buffer ratio)
 	# PLCβ pre-equilibrated at GQ_REST = 0.1 µM:
 	#   plcb_a/plcb_i = k_act × Gq / k_inact = 0.5 × 0.1 / 0.3 = 0.167
