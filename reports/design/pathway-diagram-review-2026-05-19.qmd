@@ -1,0 +1,183 @@
+---
+title: "Review — Platelet Ca²⁺ pathway diagram"
+subtitle: "Annotation list for the BioRender figure used on slide 7 of `lab-meeting-2026-05-14.pptx`"
+author: "Steve Haigh"
+date: "2026-05-19"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    toc-depth: 2
+---
+
+# What this is
+
+A review of the BioRender pathway diagram
+(`~/Downloads/Platelet Ca Pathway (1).png`) currently used on slide 7 of
+the 21 May 2026 lab-meeting deck. Items are grouped by category and
+tagged with priority — pick from the top of the **Prioritised fix list**
+at the end if time is short.
+
+The diagram is a *whole-cell* style cartoon (compartments + transporters
++ buffers + scope cuts greyed out), not a pathway cartoon. That framing
+is the right call and should be preserved.
+
+---
+
+# What's working — preserve
+
+- **Two-arm GPCR cascade is clear.** ADP → P2Y₁ and thrombin →
+  PAR1/PAR4 both feed Gα → PLC → IP₃ → IP3R on the DTS. A reader can
+  trace the signal at a glance.
+- **DTS / SOCE machinery present and correctly placed.** STIM1 on the
+  DTS membrane with a dashed link to PM Orai1 captures the puncta
+  translocation idea without over-cluttering.
+- **Ionotropic vs metabotropic Ca²⁺ entry distinguished.** P2X₁ is
+  shown separately with ATP as its ligand (not ADP) — biologically
+  correct and a useful teaching point. Keep.
+- **Mitochondrial Ca²⁺ handling shown.** MCU (uptake) and NCLX
+  (extrusion) both labelled.
+- **Buffer pools called out in both compartments.** DTS lumen (CALR,
+  HSP90B1, BiP, CREC) and cytosol (CaM + others). This is what
+  distinguishes a whole-cell figure from a typical pathway cartoon —
+  keep.
+- **Scope cuts honestly signalled.** P2Y₁₂, TXA₂R, PKC and granules
+  greyed with "not yet in model" — sets audience expectations cleanly.
+- **General layout reads naturally.** DTS centre-left, PM machinery
+  around the rim, mitochondrion upper-right.
+
+---
+
+# Issues — biology and labelling
+
+## must-fix
+
+1. **`Gα` is under-specified → label `Gαq`.**
+   You have two G-protein arms in scope: Gαq (P2Y₁, PAR1/4) and Gαᵢ
+   (P2Y₁₂, greyed). Naming the active arm explicitly makes the
+   Gᵢ / clopidogrel hook on slide 12 land harder, and pre-empts the
+   "which G protein?" question from the audience.
+
+2. **`PLC` → `PLCβ`.**
+   PLCβ is the GPCR-coupled isoform; PLCγ is the RTK-coupled story and
+   isn't what's running here. One letter, more correct.
+
+3. **`BIP` → `BiP`.**
+   Binding immunoglobulin protein; lower-case `i` is the field
+   convention. Small but a knowledgeable reader will notice.
+
+## should-fix
+
+4. **Add PIP₂ as the substrate at the PM.**
+   IP₃ and DAG currently appear without their lipid source. The model
+   includes the PI cycle (`CLAUDE.md`, `K_PI_CYCLE` in
+   `calcium_signalling.py`), so omitting PIP₂ understates what's in the
+   model. A single labelled PIP₂ blob at the PM is sufficient.
+
+5. **Check every transporter arrow direction.**
+   At print resolution it's hard to verify; please confirm:
+
+   | Transporter | Direction       |
+   |-------------|------------------|
+   | SERCA       | cytosol → DTS    |
+   | PMCA        | cytosol → outside |
+   | NCX         | cytosol → outside |
+   | Orai1       | outside → cytosol |
+   | P2X₁        | outside → cytosol |
+   | IP3R        | DTS → cytosol     |
+   | MCU         | cytosol → mito    |
+   | NCLX        | mito → cytosol    |
+
+   A reader unfamiliar with the players will infer the wrong story if
+   any arrow reads backwards.
+
+## nice-to-have
+
+6. **Split PAR1 and PAR4 into adjacent receptor boxes.**
+   They're distinct proteins with different thrombin affinities (PAR1
+   high, PAR4 low — both physiologically active). Splitting them
+   matches the proteomic reality cited from Burkhart 2012. Optional —
+   depends on space.
+
+7. **Draw a faint ADP arrow to greyed P2Y₁₂ as well.**
+   ADP physiologically activates both P2Y₁ and P2Y₁₂; a faint arrow
+   into the greyed receptor makes the "Gᵢ arm not yet in model"
+   self-evident rather than requiring narration.
+
+8. **Confirm NCLX icon sits on the mitochondrial outline.**
+   In the current thumbnail it reads as floating beside it.
+
+---
+
+# Issues — annotations and layout
+
+## should-fix
+
+9. **"PKC not yet in model" label has no connector to DAG.**
+   Either add a thin dashed line, or move the label to touch the DAG
+   glyph so the association is unambiguous.
+
+10. **"Granules not yet in model" floats in cytosol with no granule
+    outline.**
+    Consider drawing two faint dashed circles (dense, α) so the
+    *absence* is visualised — currently the reader has to take the text
+    on trust.
+
+## nice-to-have
+
+11. **Ca²⁺ ion dots are abundant — likely too many.**
+    They obscure some receptor labels in the cytosol. Reducing by ~30 %
+    would improve readability without losing the visual cue.
+
+12. **Add a small legend.**
+    "Grey = not yet in model", "● = Ca²⁺ ion", "→ = directed transport".
+    Lets the figure stand alone on a printed handout.
+
+13. **SCS labelled only on the lower-left invagination.**
+    The whole open canalicular / surface-connected system is a tubular
+    network, not a single bay. Single-bay rendering is fine for a
+    schematic; mention verbally so the audience doesn't underestimate
+    its surface contribution.
+
+---
+
+# Things I'd not change
+
+- The DTS-lumen and cytosolic **binding-protein callouts**. They are
+  what make this a whole-cell rather than a pathway diagram.
+- The **greyed-out "not yet in model"** items. Better than omitting;
+  signals scope honestly.
+- The **general layout**. DTS centre-left, PM machinery around the
+  rim, mitochondrion upper-right reads naturally.
+
+---
+
+# Prioritised fix list
+
+Tackle in this order; first three are one-letter or two-letter edits.
+
+| # | Priority      | Change                                                   |
+|---|---------------|----------------------------------------------------------|
+| 1 | must-fix      | `Gα` → `Gαq`                                             |
+| 2 | must-fix      | `PLC` → `PLCβ`                                           |
+| 3 | must-fix      | `BIP` → `BiP`                                            |
+| 4 | should-fix    | Add PIP₂ glyph at the PM as PLCβ substrate               |
+| 5 | should-fix    | Verify every transporter arrow direction (table above)   |
+| 6 | should-fix    | Connect "PKC not yet in model" label to DAG              |
+| 7 | should-fix    | Draw faint dashed circles for "granules not yet in model"|
+| 8 | nice-to-have  | Split PAR1 / PAR4 into adjacent receptors                |
+| 9 | nice-to-have  | Faint ADP arrow into greyed P2Y₁₂                        |
+| 10| nice-to-have  | Confirm NCLX sits on mitochondrial outline               |
+| 11| nice-to-have  | Reduce Ca²⁺ ion dot density ~30 %                        |
+| 12| nice-to-have  | Add legend (grey = not in model; ● = Ca²⁺; → = transport)|

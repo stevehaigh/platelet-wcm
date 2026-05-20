@@ -1,0 +1,440 @@
+---
+title: "Lab meeting — review, speaker prompts, term cheat-sheet"
+subtitle: "Companion to `lab-meeting-2026-05-14.pptx` (12 slides, v 2026-05-19)"
+author: "Steve Haigh"
+date: "2026-05-21"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    toc-depth: 2
+---
+
+# Top-level review
+
+The deck reads well as a narrative arc — *here's the problem → here's how
+I worked → here's what broke → here's the result*. A handful of things
+I'd consider tightening before you present.
+
+## Issues to fix before the talk
+
+1. **Slide 8 — citation accuracy.** The slide attributes the k₃ typo to
+   "Purvis & Diamond 2008", but the audit lab book
+   (`lab-book-2026-05-08-sneyd-dufour-audit.md`) records the change as
+   `K_IP3R['k3']: 11.0 → 0.11`, an IP3R rate constant, with the audit
+   framed around **Sneyd & Dufour 2002**. The "100× too large" fact is
+   correct (11.0 → 0.11). Verify which paper actually carried the typo
+   before naming it on the slide. Also, the codebase consistently cites
+   "Purvis 2008" or "Purvis et al. 2008"; "Purvis & Diamond" reads as a
+   two-author paper, which it isn't.
+
+2. **Slide 9 — "arbitrary success criteria".** Drop *arbitrary*. The
+   audience will hear it as "I made them up." These are biological-range
+   criteria taken from the Dolan & Diamond 2014 validation experiment —
+   defined *before* the model was tuned. Suggest **pre-specified** or
+   **biological-range** or **Dolan-target**.
+
+3. **Slide 10 — typo.** "Cytoslic" → "Cytosolic".
+
+4. **Slide 1 — title framing.** "The feasibility of a whole-cell
+   model" understates what you've already shown. Twenty-one of twenty-one
+   tests pass, four resting-state targets hit, paired ± Ca²⁺ behaviour
+   reproduced. You've moved past feasibility. Consider "A whole-cell
+   model of the human platelet — methodology and first validation"
+   or similar. Minor; pick whatever lands for the audience.
+
+## Issues worth thinking about
+
+5. **k₃ story positioning.** In an earlier deck this was the
+   methodology punchline (slide 4); here it has been demoted to slide 8
+   "An aside". It's actually one of your strongest pieces of evidence
+   that *the methodology produces real insight*, not just code — keeping
+   it as an "aside" undersells it. Consider re-labelling
+   "Aside — but a load-bearing one" or moving it back adjacent to the
+   methodology slides.
+
+6. **AI framing on slides 4–6.** At a biology lab meeting, "AI did
+   the extraction and the coding" risks the audience hearing "this isn't
+   really yours". Tighten the framing to: *AI handled the rote work —
+   PDF extraction, code scaffolding, cross-paper consistency. I handled
+   the science — validation criteria, biology decisions, accepting or
+   rejecting each rate constant.* The k₃ story (slide 8) supports
+   exactly that division of labour: AI flagged the anomaly, you verified
+   against the primary source.
+
+7. **Order: methodology before model.** Currently the audience has to
+   sit through three methodology slides (3, 4, 5, 6) and one aside
+   (slide 8) before seeing the full pathway diagram (slide 7) and
+   then the results (9–11). Some audiences want *what was built* up
+   front. One alternative ordering: 1, 2, **7** (what), 3 (how — short),
+   8 (when it earned its keep), 9–11 (results), 12 (outlook). Try it
+   on a colleague before committing.
+
+8. **Slide 7 — minor.** "BIP" should be "BiP" (binding immunoglobulin
+   protein — lowercase i is the convention). The "(not yet in model)"
+   parentheticals are helpful; keep them.
+
+9. **Slide 12 — "Long-recovery cytosolic Ca²⁺ collapse — a limitation
+   of modelling perhaps?"** The question mark hedges. You know this is
+   a deYoung-Keizer bistability artefact (per memory and lab-book
+   trail). Owning it — *"a known limitation of the deYoung-Keizer IP3R
+   model under sustained stimulation; fixable in v0.5"* — is stronger
+   than asking the question.
+
+10. **No speaker notes in the deck.** Extracted as empty. The cue
+    cards below are your only safety net during the talk — print or
+    have on a second screen.
+
+---
+
+# Per-slide prompts & cheat sheet
+
+# Slide 1 — Title
+
+## Prompts
+
+- Open with the one-sentence framing: "I built a quantitative platelet
+  calcium model from scratch over ~6 months by repurposing an *E. coli*
+  whole-cell modelling framework — and I want to show you both the
+  methodology and a story about where it earned its keep."
+- Set expectations: *what I built (slide 7)*, *how I built it
+  (slides 3–6)*, *the moment the method paid off (slide 8)*,
+  *validation (9–11)*, *what's next (12)*.
+
+## Cheat sheet
+
+- **Whole-cell model** — a mechanistic model of every known process in a
+  single cell, with mass-balance and copy-number accounting. Distinct
+  from a pathway model.
+- **Dash lab** — host audience; calibrate jargon level to what they
+  routinely see.
+
+---
+
+# Slide 2 — Framework choice
+
+## Prompts
+
+- Be candid about the cost-benefit: you didn't write a simulation engine
+  from scratch; you inherited ~5,000 lines of validated code (state
+  partitioning, listener / analysis framework) by forking wcEcoli.
+- Pruning *E. coli* biology took ~1 month — orders of magnitude less
+  than building an engine.
+- Anticipate: *"Why not SBML?"* → SBML is a file format and BioModels is a
+  catalogue; neither gives compartmentalised mass balance across coupled
+  processes. *"Why not COPASI or V-Cell?"* → great single-pathway ODE
+  tools, no copy-number accounting across compartments.
+- Land the Prof. Covert email — keeps it human.
+
+## Cheat sheet
+
+- **COPASI** — open-source biochemical pathway simulator; great for
+  single-pathway ODE work.
+- **V-Cell** — UConn cell modelling platform; spatial PDE-capable,
+  domain-specific.
+- **SBML** — Systems Biology Markup Language; XML interchange format.
+- **BioModels** — EBI repository of curated SBML models.
+- **wcEcoli** — Covert Lab's whole-cell *E. coli* model (Karr 2012
+  lineage; Macklin / Sun *Science* 2020).
+- **State partitioning** — how a multi-process simulator divides shared
+  molecule pools (e.g. ATP) between competing processes each timestep.
+- **Mass balance** — every atom of every species accounted for, with
+  compartment-aware bookkeeping.
+
+---
+
+# Slide 3 — Methodology
+
+## Prompts
+
+- "I'm a biologist by training. I want to show how a biologist builds a
+  calibrated model — what the loop looks like when you don't have a
+  software engineer's reflexes."
+- Stress that every numerical value carries a primary-source citation
+  comment in the code. This is the discipline that catches transcription
+  errors (segues into slide 8).
+- "Step 5 is the painful one. There are ~85 rate constants in this
+  model; each is a small research project."
+
+## Cheat sheet
+
+- **Calibrated model** — a model whose parameters are constrained by
+  measurements rather than fitted to the validation experiment.
+- **Anchor paper** — the single paper whose experiment you'll validate
+  against; defines targets up front.
+- **IP3R** — inositol-1,4,5-trisphosphate receptor; Ca²⁺ release
+  channel on the DTS.
+- **SERCA** — sarco/endoplasmic-reticulum Ca²⁺ ATPase; pumps Ca²⁺ back
+  into the DTS.
+- **PMCA** — plasma-membrane Ca²⁺ ATPase; pumps Ca²⁺ out of the cell.
+- **SOCE** — store-operated Ca²⁺ entry; STIM1 / Orai1 mechanism that
+  refills depleted stores from extracellular Ca²⁺.
+- **DTS** — dense tubular system; platelet equivalent of ER, the
+  intracellular Ca²⁺ store.
+- **Burkhart 2012** — platelet proteomics dataset; absolute copy
+  numbers for ~3,800 platelet proteins.
+
+---
+
+# Slide 4 — Build code from source data (excerpt)
+
+## Prompts
+
+- This slide is almost entirely visual — point at the source PDF table
+  on screen and say "this is what step 2 of the method looks like in
+  practice."
+- One sentence and move on; the *story* lands on slide 5.
+
+## Cheat sheet
+
+- *(visual slide — terms repeat from slide 3)*
+
+---
+
+# Slide 5 — Ask AI to extract
+
+## Prompts
+
+- "I gave Claude the line: *please read Dolan and Diamond 2014 and tell
+  me what the first 5 lines of Table 1 show.*" Demo the kind of output.
+- Frame the division of labour: AI does the rote PDF extraction; you do
+  the sanity check.
+- Headline claim: 100s of papers a day is reachable; the bottleneck is
+  verification — and verification is also AI-amenable (see slide 8).
+- *Don't overclaim authorship of the model itself.*
+
+## Cheat sheet
+
+- **PDF extraction** — historically painful for tables and footnotes;
+  modern multimodal LLMs are now reliable on well-formatted tables, less
+  so on figures.
+- **Sanity check** — the human step: does the extracted value match the
+  paper's text? Do the units make sense?
+
+---
+
+# Slide 6 — AI to build the code
+
+## Prompts
+
+- Be specific about what "building the code" means: scaffolding new
+  process modules off the wcEcoli template, wiring rate constants into
+  the existing solver, writing unit tests for invariants.
+- Concede the architecture honestly: "works well, not perfect, will
+  need refactoring before v0.5" — pre-empts critique and signals
+  engineering self-awareness.
+- Anticipate: *"Did the AI write code that worked first try?"* → no, the
+  back-and-forth is iterative; the AI is a fast scaffolder and a useful
+  pair-programmer, not an oracle.
+
+## Cheat sheet
+
+- **wcEcoli template** — the reference architecture for processes,
+  states, listeners and analysis plots. Subclassing the framework's
+  abstract base classes is the path of least resistance.
+
+---
+
+# Slide 7 — Pathway diagram (what I built)
+
+## Prompts
+
+- Stand back and trace one signal path through the diagram once:
+  *thrombin → PAR1/PAR4 → Gαq → PLCβ → IP₃ → IP3R → cytosolic Ca²⁺
+  peak*.
+- Point at the boxes labelled "(not yet in model)" — TXA₂R, P2Y₁₂, PKC,
+  MCU — and frame them as known scope cuts, not omissions.
+- Don't enumerate all twelve mechanisms; let the figure carry the rest.
+
+## Cheat sheet
+
+- **Agonist** — a signal molecule that activates a platelet (thrombin,
+  ADP, TXA₂).
+- **GPCR** — G-protein-coupled receptor (PAR1/PAR4 for thrombin; P2Y1
+  and P2Y12 for ADP).
+- **Gαq** — α-subunit of the heterotrimeric G-protein that activates
+  PLCβ. **Gᵢ** (P2Y12) is the inhibitory counterpart.
+- **PLCβ** — phospholipase Cβ; cleaves PIP₂ → IP₃ + DAG.
+- **IP₃** — inositol-1,4,5-trisphosphate; the second messenger that
+  gates IP3R.
+- **NCX / NCLX / MCU** — Na⁺/Ca²⁺ exchanger (PM); Na⁺/Ca²⁺/Li⁺
+  exchanger (mitochondrial); mitochondrial Ca²⁺ uniporter.
+- **CaM** — calmodulin; cytosolic Ca²⁺ sensor / buffer; activates PMCA
+  at high Ca²⁺.
+- **CALR / BiP / HSP90B1 / CREC** — major intra-DTS Ca²⁺-binding
+  buffers.
+- **STIM1 / Orai1** — DTS Ca²⁺ sensor + PM channel; the SOCE
+  machinery.
+- **P2X1** — ATP-gated PM Ca²⁺ channel; ionotropic, not GPCR.
+- **SCS / OCS** — surface-connected (open canalicular) system; the
+  platelet's invaginated extracellular surface.
+- **TXA₂R** — thromboxane A₂ receptor; not yet in model.
+- **PKC** — protein kinase C; not yet in model.
+
+---
+
+# Slide 8 — Spotting errors in the source (k₃)
+
+## Prompts
+
+- This is the storytelling slide. Slow down.
+- "I asked the AI to cross-check the values it had extracted. It
+  flagged one — k₃ on the IP3R — as 100× the value in the primary
+  source. I went back to the primary, confirmed the typo, corrected
+  the value, and the resting state stabilised."
+- Land the moral: **AI flagged the anomaly; the primary-source
+  citation discipline made the verification cheap.** Either alone is
+  weaker.
+- ⚠ **Verify the citation** — the lab-book audit ties this to
+  Sneyd-Dufour 2002, not Purvis 2008. Don't misattribute on a slide.
+
+## Cheat sheet
+
+- **k₃** — third rate constant in the IP3R gating model; controls the
+  rate of an inhibitory binding transition. Wrong value → wrong gating
+  → wrong steady state.
+- **Sneyd-Dufour 2002** — IP3R Markov-state model.
+- **Purvis 2008** — earlier platelet calcium model by Purvis,
+  Chatterjee, Brass and Diamond (*Biophys. J.*).
+- **Resting state** — the steady state the model settles to when left
+  un-stimulated; the load-bearing sanity check.
+
+---
+
+# Slide 9 — Validation
+
+## Prompts
+
+- Frame: "These criteria were defined *before* I ran the validation.
+  Pass/fail, no post-hoc adjustment."
+- Walk the ✓ list — four resting-state targets all hit. Twenty-one of
+  twenty-one unit tests pass. Driven by **physiological agonist
+  concentrations** (1 nM thrombin, 10 µM ADP) — emphasise: no
+  hand-fitted IP₃.
+- Anticipate: *"Why isn't this overfitting?"* → rate constants come from
+  independent primary sources; the only tuned knob is initial copy
+  number, all within Burkhart 2012 ranges.
+- **Drop "arbitrary" from the slide before presenting** — use
+  "pre-specified" or "biological-range".
+
+## Cheat sheet
+
+- **Resting state targets** — cytosolic Ca²⁺ in 90–110 nM; DTS Ca²⁺
+  in literature range (100–400 µM); IP₃ ≈ 50 nM.
+- **IP₃-stimulated transient** — the calcium spike following IP₃
+  release from the GPCR cascade.
+- **Gαq-active** — fraction of Gαq protein in its GTP-bound, active
+  conformation; an upstream proxy for receptor occupancy.
+- **Unit test** — automated invariant check (e.g. mass balance,
+  positivity, sub-state sum).
+
+---
+
+# Slide 10 — Cytosolic Ca²⁺ trace
+
+## Prompts
+
+- Headline number: cytosolic Ca²⁺ rises ~100 nM → 500 nM — a ~5×
+  transient on a sub-micromolar background.
+- Point at the rise time (~15–20 s, matches Dolan timing) and the
+  return-to-baseline.
+- "Driven only by 1 nM thrombin + 10 µM ADP at *t* = 0 — no other
+  inputs."
+- **Fix the typo on the slide: "Cytoslic" → "Cytosolic".**
+
+## Cheat sheet
+
+- **Transient peak height** — maximum cytosolic Ca²⁺ during the spike,
+  one of the validation criteria.
+- **Free Ca²⁺** — the ~1 % of cytosolic Ca²⁺ not bound to a buffer at
+  any given moment; what fluorescent indicators report.
+
+---
+
+# Slide 11 — DTS Ca²⁺ trace
+
+## Prompts
+
+- DTS depletes ~60 % during the transient and refills via SOCE on the
+  back side.
+- "If you remove extracellular Ca²⁺ (EDTA condition), DTS refilling
+  fails — that's the paired ± Ca²⁺ experiment from Dolan Fig. 4, and
+  the model reproduces it."
+- "Most published platelet models report only free cytosolic Ca²⁺.
+  Whole-cell accounting lets me show the store dynamics directly."
+
+## Cheat sheet
+
+- **DTS depletion** — the fraction of the DTS Ca²⁺ pool released into
+  cytosol during the transient.
+- **SOCE refill** — STIM1 detects low DTS Ca²⁺, oligomerises, recruits
+  Orai1 at the PM, and Ca²⁺ flows from extracellular space back into
+  the DTS via cytosol.
+- **EDTA condition** — paired experiment with extracellular Ca²⁺
+  chelated; isolates the SOCE contribution.
+
+---
+
+# Slide 12 — Outlook
+
+## Prompts
+
+- Near-term technical: granule release (v0.5 — lets the peak *do*
+  something); fix the long-recovery cytosolic Ca²⁺ collapse
+  (deYoung-Keizer bistability artefact, known); add P2Y₁₂ and TXA₂R.
+- *Experimental* application: add clopidogrel to the model and predict
+  the platelet response. Strong audience hook.
+- Wider impact: platelet–CTC coupling (relevant to the Dash lab's
+  interests); thrombus formation as a multi-cell extension.
+- Close on methodology generalisation: "The five-step process I showed
+  on slide 3 is the contribution as much as the model itself."
+- **Consider rewriting "Long-recovery cytosolic Ca²⁺ collapse — a
+  limitation of modelling perhaps?"** Own it: "a known artefact of
+  the deYoung-Keizer IP3R model under sustained stimulation;
+  characterised, fixable in v0.5."
+
+## Cheat sheet
+
+- **Granule release / exocytosis** — Ca²⁺-triggered fusion of dense
+  and α-granules with the PM, dumping ADP, serotonin, fibrinogen,
+  P-selectin.
+- **P2Y₁₂** — inhibitory ADP receptor (Gᵢ); molecular target of
+  clopidogrel (Plavix).
+- **TXA₂R** — thromboxane A₂ receptor; the aspirin-pathway target.
+- **Clopidogrel** — antiplatelet drug, P2Y₁₂ antagonist; standard
+  post-stent care.
+- **deYoung-Keizer bistability** — known artefact of the deYoung-Keizer
+  IP3R model under prolonged stimulation; the channel can lock into a
+  low-flux state.
+- **CTC** — circulating tumour cell; metastasis-relevant cell type
+  that interacts with platelets.
+- **Thrombus** — platelet–fibrin aggregate; clot.
+
+---
+
+# Prioritised fix list
+
+1. *(must)* Slide 9 — replace "arbitrary" with "pre-specified" or
+   "biological-range".
+2. *(must)* Slide 10 — fix "Cytoslic" → "Cytosolic".
+3. *(must)* Slide 8 — verify citation (Sneyd-Dufour 2002 vs Purvis
+   2008) before the talk.
+4. *(should)* Slide 1 — strengthen the title beyond "feasibility".
+5. *(should)* Slide 8 — reconsider "An aside" framing; this story is
+   load-bearing.
+6. *(should)* Slide 12 — own the long-recovery collapse rather than
+   posing it as a question.
+7. *(nice-to-have)* Consider reordering: 1, 2, 7 (what), 3 (how),
+   8 (story), 9–11 (results), 12 (outlook).
+8. *(nice-to-have)* Slide 7 — fix "BIP" → "BiP".
