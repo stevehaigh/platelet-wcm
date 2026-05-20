@@ -281,6 +281,9 @@ K_CAM = {
 # Calibrated jointly with CALR (Phase 2 / #28): with the DTS buffered,
 # IP3R transients deliver substantially more Ca²⁺ to the cytosol, and
 # the cytosolic buffer is needed to keep peaks in the Dolan Fig 4 band.
+# The Phase 2 calibration intentionally over-shoots the Sage & Rink
+# ~50:1 ratio (current rest ~200:1) — this single tunable buffer
+# absorbs slack from all other cytosolic buffers not yet broken out.
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
 # v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
@@ -1066,8 +1069,8 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['CA2_CYT[c]']]  += -2.0 * v_cam_bind1 - 2.0 * v_cam_bind2
 
 	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────
-	# Scaffold-only (N_GSN = 5 000); see K_GSN comment block for the
-	# biology / scope disclosure.
+	# See K_GSN comment block above for the biology / scope disclosure
+	# and the Phase 2 calibration rationale.
 	v_gsn = K_GSN['k_on'] * gsn_free * ca_cyt - K_GSN['k_off'] * gsn_ca
 	dy[_IDX['GSN_free[c]']] += -v_gsn
 	dy[_IDX['GSN_Ca[c]']]   += +v_gsn

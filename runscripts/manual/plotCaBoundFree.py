@@ -150,7 +150,7 @@ def main():
 	ax2.plot(t, cam_bound_nM,
 		label=r'CaM-bound (2$\cdot$Ca$_2$CaM + 4$\cdot$Ca$_4$CaM + complexes)',
 		color='tab:orange', linewidth=2)
-	ax2.plot(t, gsn_bound_nM, label='GSN-bound (scaffold; 50× under-sized)',
+	ax2.plot(t, gsn_bound_nM, label='GSN-bound (coarse-grained cytosolic buffer)',
 		color='tab:green', linewidth=2)
 	ax2.plot(t, total_bound, label='Total bound', color='black',
 		linewidth=1.2, linestyle=':')
