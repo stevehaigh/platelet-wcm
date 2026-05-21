@@ -10,6 +10,15 @@ date: "2026-05-21"
 the model to support a 2-D agonist dose sweep cleanly (no global
 mutation, no monkey-patching, no flag double-duty).
 
+**Update 2026-05-22:** the original draft proposed *splitting*
+`ip3_forced` into two flags with a legacy shim. Decision since
+revised: **expunge** the Dolan Fig. S2 IP3-overlay path entirely —
+the v0.4 GPCR cascade produces IP3 endogenously, so the forced
+overlay is redundant. This shrinks the refactor and removes a
+deprecated stimulus channel. Sections 3, 4, 5, 6, 8 rewritten below;
+section 2 framing kept so future readers see why the two channels
+were coupled to begin with.
+
 **Audience:** future-me picking this up next week; the dissertation
 supervisor wanting to know what blocks the feature.
 
@@ -138,33 +147,39 @@ pattern exactly. No new globals introduced.
 a 10 s sim, and asserts the trajectory differs measurably from the
 default-peak run.
 
-### 3.2 Split `ip3_forced` into two flags
+### 3.2 Expunge the Dolan Fig. S2 IP3-overlay path
 
-Introduce two orthogonal booleans:
+The v0.4 GPCR cascade (P2Y1 / PAR1 / PAR4 → Gαq → PLCβ → IP3) is now
+the canonical IP3 source. The forced overlay channel is a v0.3 legacy
+that no current scientific question needs. Remove it outright:
 
-| Flag | Controls |
+- Delete `ip3_forcing_uM(t)` and any helpers it pulls in
+- Delete the IP3-overlay `if ip3_forced: dy[IP3] += ...` block in
+  `_ode_rhs`
+- Rename the remaining gate (which controls ADP / thrombin / ATP\_ex
+  application) from `ip3_forced` → `apply_agonist_protocol` to match
+  what it actually does
+
+The three call sites collapse to one flag:
+
+| Today | After |
 |---|---|
-| `apply_dolan_ip3_curve` | The Fig. S2 IP3 overlay onto `IP3[c]`. Original meaning of `ip3_forced`. |
-| `apply_agonist_protocol` | Whether ADP / thrombin / ATP\_ex are applied at all (otherwise they snap to rest). |
-
-Three call sites in `_ode_rhs` migrate:
-
-| Today | New flag |
-|---|---|
-| IP3 forcing block (Fig. S2 overlay) | `apply_dolan_ip3_curve` |
+| IP3 forcing overlay block | **deleted** |
 | ATP\_ex gate for P2X1 (~line 1238) | `apply_agonist_protocol` |
 | ADP / thrombin gate for GPCRs (~line 1283) | `apply_agonist_protocol` |
 
-Both flags propagate up through:
+Single flag propagates up through:
 
 ```
 CalciumSignalling.molecules_to_next_time_step(
-    counts, dt, t_sim,
-    apply_dolan_ip3_curve, apply_agonist_protocol, ip3_delay,
+    counts, dt, t_sim, apply_agonist_protocol, ip3_delay,
 )
-    └── _ode_rhs(t, y, t_sim_start,
-                 apply_dolan_ip3_curve, apply_agonist_protocol, ip3_delay)
+    └── _ode_rhs(t, y, t_sim_start, apply_agonist_protocol, ip3_delay)
 ```
+
+The dose sweep then runs with `apply_agonist_protocol=True` — the
+GPCR cascade alone is the stimulus, exactly as the biology demands.
+"At rest" sims use `apply_agonist_protocol=False`.
 
 ### 3.3 Thread agonist peaks through the call chain
 
@@ -176,7 +191,6 @@ def run_platelet_sim(
         ca_ex_mM=DEFAULT_CA_EX_MM,
         adp_peak_uM=None,
         thrombin_peak_nM=None,
-        apply_dolan_ip3_curve=True,
         apply_agonist_protocol=True,
         ip3_delay=DEFAULT_IP3_DELAY,
         ):
@@ -185,7 +199,6 @@ def run_platelet_sim(
         cs_mod.ADP_PEAK_UM = float(adp_peak_uM)
     if thrombin_peak_nM is not None:
         cs_mod.THROMBIN_PEAK_NM = float(thrombin_peak_nM)
-    CalciumDynamics._apply_dolan_ip3_curve = apply_dolan_ip3_curve
     CalciumDynamics._apply_agonist_protocol = apply_agonist_protocol
     CalciumDynamics._ip3_delay = float(ip3_delay)
     ...
@@ -198,66 +211,92 @@ run_platelet_sim(
     cell_dir,
     adp_peak_uM=adp,
     thrombin_peak_nM=thr,
-    apply_dolan_ip3_curve=False,
     apply_agonist_protocol=True,
     length_sec=200,
 )
 ```
 
-## 4. Backward compatibility
+## 4. Migration — direct caller updates
 
-Existing callers — `runPlateletSim.py`, `runPhase3.py`, webapp presets
-in `wholecell/webapp/tabs/configure.py:PRESETS` — all use `ip3_forced`
-with both meanings coupled. Preserve their behaviour with a legacy
-shim in `run_platelet_sim`:
+No legacy shim. Existing callers update in place:
 
-```python
-def run_platelet_sim(..., ip3_forced=None, ...):
-    if ip3_forced is not None:
-        # Legacy kwarg — both channels follow the single flag.
-        apply_dolan_ip3_curve = ip3_forced
-        apply_agonist_protocol = ip3_forced
-```
+| Caller | Before | After |
+|---|---|---|
+| `runPlateletSim.py` CLI | `--no-ip3-forcing` | `--at-rest` (renamed; sets `apply_agonist_protocol=False`) |
+| `runPlateletSim.py` defaults | `ip3_forced=True` | `apply_agonist_protocol=True` |
+| `runPhase3.py` | `ip3_forced=True` (Dolan IP3 overlay drives Ca²⁺) | `apply_agonist_protocol=True` with GPCR agonist profile that produces a comparable Ca²⁺ transient (see risk §8.1) |
+| `wholecell/webapp/tabs/configure.py:PRESETS` | `ip3_forced` in three presets | `apply_agonist_protocol`; "IP3 transient" preset renamed to "Agonist stimulation" |
+| `wholecell/webapp/jobs.py` | `ip3_forced` config field | `apply_agonist_protocol` |
+| `CLAUDE.md` run-time conditions table | row for `--no-ip3-forcing` | row for `--at-rest` |
+| Phase 3 acceptance JSON / lab books | `ip3_forced` key | `apply_agonist_protocol` |
 
-So:
-
-- The `--no-ip3-forcing` CLI flag still produces an at-rest sim
-- The Phase 3 driver (Dolan Fig. 4) still runs with both channels on
-- The Resting webapp preset still maps to both channels off
-
-Add a deprecation note in the docstring. The legacy kwarg can be
-removed later — it's a one-line edit when the time comes.
+The metadata schema in `runscripts/manual/runPlateletSim.py:write_metadata`
+also loses the `ip3_forced` field. Old runs on disk keep their metadata
+as-is; the analysis tooling shouldn't care (it reads the trace, not the
+metadata).
 
 ## 5. Files touched
 
+Split across two issues — see §9 below.
+
+### 5a. Prep refactor (issue A)
+
 | File | Change | Est. LoC |
 |---|---|---|
-| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | Live-read peaks (3 fns); split flag in `_ode_rhs` + `molecules_to_next_time_step` | ~30 |
-| `models/platelet/processes/calcium_dynamics.py` | Add `_apply_dolan_ip3_curve` / `_apply_agonist_protocol` class attrs; pass both into solver | ~10 |
-| `runscripts/manual/runPlateletSim.py` | New kwargs + CLI flags + legacy `ip3_forced` shim | ~25 |
-| `runscripts/manual/runPhase3.py` | None (legacy kwarg still works) | 0 |
+| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | Live-read peaks (3 fns); delete `ip3_forcing_uM`; delete IP3-overlay block in `_ode_rhs`; rename flag `ip3_forced` → `apply_agonist_protocol` | ~40 |
+| `models/platelet/processes/calcium_dynamics.py` | Rename `_ip3_forced` → `_apply_agonist_protocol`; pass new name into solver | ~10 |
+| `runscripts/manual/runPlateletSim.py` | New `adp_peak_uM` / `thrombin_peak_nM` kwargs; rename CLI flag; drop `ip3_forced` metadata field | ~25 |
+| `runscripts/manual/runPhase3.py` | Switch from IP3-overlay stimulation to GPCR-driven stimulation; possibly retune acceptance criteria (see §8.1) | ~15 |
+| `wholecell/webapp/tabs/configure.py` | Rename preset field + label; drop "IP3 forcing" checkbox | ~10 |
+| `wholecell/webapp/tabs/runs.py` | Update condition-summary rendering (it currently prints "IP3 ON" / "rest") | ~5 |
+| `wholecell/webapp/jobs.py` | Rename config field | ~3 |
+| `CLAUDE.md` | Update run-time conditions table; remove `--no-ip3-forcing` row | ~15 |
+| `models/platelet/tests/` | Update any tests that pass `ip3_forced`; add coverage that peak constants are live-read | ~30 |
+
+Total: ~150 changed, single PR.
+
+### 5b. Dose sweep (issue B, blocked on A)
+
+| File | Change | Est. LoC |
+|---|---|---|
 | `runscripts/manual/runDoseSweep.py` | **New** — sweep driver, calls `run_platelet_sim` per cell, writes CSV / NPZ / static plots | ~180 |
 | `wholecell/webapp/tabs/dose_response.py` | **New** — Plotly surface + heatmap tab reading `sweep_summary.json` | ~120 |
 | `wholecell/webapp/app.py` | Register new tab | ~5 |
-| `wholecell/webapp/tabs/configure.py` | *Optional* — separate checkbox for the new flag, or keep coupled in presets | ~5 |
-| `models/platelet/tests/` | Cover the four flag combinations × at least one agonist peak | ~30 |
-| `CLAUDE.md` | Update run-time conditions table to describe both flags | ~15 |
+| `models/platelet/tests/` | Smoke test the sweep driver on a tiny grid | ~20 |
 
-Total: ~420 new + ~85 changed, single PR.
+Total: ~325 new, single PR.
 
 ## 6. Order of work
 
+**Prep refactor (issue A) — merge first:**
+
 1. **Live-read peaks** + a 4-line test that `cs_mod.ADP_PEAK_UM = 0.1`
    actually changes the trajectory. Smallest, lowest risk, verifies
-   the mechanism end-to-end before any plumbing.
-2. **Split the flag** in `_ode_rhs` only (no upstream plumbing yet) +
-   a unit test enumerating the four flag combinations.
-3. **Plumb through** `molecules_to_next_time_step` → `CalciumDynamics`
-   → `run_platelet_sim`. Legacy `ip3_forced` shim included. Confirm
-   `runPhase3.py` and existing tests still pass byte-for-byte.
-4. **Write the sweep driver** against the new kwargs. No monkey-patch.
-5. **Webapp tab** + register in `app.py`.
-6. **Docs** — update `CLAUDE.md` run-time conditions table.
+   the mechanism end-to-end before any deletion.
+2. **Delete IP3 overlay path** — `ip3_forcing_uM` and its call in
+   `_ode_rhs`. Run existing tests; they should still pass except for
+   ones that explicitly probe the overlay (those get updated to drive
+   via agonists or get deleted).
+3. **Rename + plumb** the remaining flag through
+   `molecules_to_next_time_step` → `CalciumDynamics` →
+   `run_platelet_sim` → CLI. Update all callers (`runPhase3.py`,
+   webapp presets, jobs config, metadata writers, lab-book notes).
+4. **Re-validate Phase 3** — confirm the SOCE differential and dts-min
+   acceptance criteria still pass under GPCR-driven stimulation. If
+   not, retune the ADP / thrombin profile (not the SOCE biology) so
+   the Ca²⁺ transient shape matches the Dolan target. Capture the
+   choice in `phase3_summary.json`.
+5. **Docs** — `CLAUDE.md` run-time conditions table, this design doc,
+   any lab-book references to `ip3_forced`.
+
+**Dose sweep (issue B) — depends on A landing:**
+
+6. **Write the sweep driver** against the new kwargs. No
+   monkey-patch. CSV + NPZ + static PNGs.
+7. **Webapp tab** + register in `app.py`.
+8. **Smoke test** + a 5×5 200 s reference run; commit the resulting
+   PNGs to `reports/figures/` so the dissertation has the headline
+   figure under version control.
 
 ## 7. What this design explicitly does not do
 
@@ -279,21 +318,41 @@ Total: ~420 new + ~85 changed, single PR.
 
 ## 8. Risks
 
-1. **The `gq_signal_uM` legacy forcing path** (deprecated in v0.4 / #9
-   but possibly still referenced) may also need migrating. Check before
-   step 2.
-2. **Webapp presets** currently express stimulus combinations as a
-   single `ip3_forced` value in `PRESETS`. After the split, the presets
-   should map to explicit `(apply_dolan_ip3_curve,
-   apply_agonist_protocol)` tuples to make the new combinations
-   reachable from the UI. If we don't update them, the new flag is
-   shell-only.
-3. **Existing CLAUDE.md docs and lab books** reference
-   `--no-ip3-forcing` semantics. The legacy shim preserves behaviour
-   so the docs remain accurate, but the new conditions table needs
-   adding so future-me knows both knobs exist.
+1. **Phase 3 validation may need retuning.** Dolan 2014 Fig. 4 was
+   reproduced by *forcing* IP3 directly with the Fig. S2 curve. After
+   the refactor the only IP3 source is the GPCR cascade, so the Ca²⁺
+   transient must come from an ADP / thrombin profile that drives the
+   cascade to produce a comparable IP3 spike. The acceptance criteria
+   (peak ≥ X nM, DTS min ≤ Y µM, SOCE differential ≥ 100 nM) are
+   biology-level and should still hold, but the *measured* peak may
+   shift slightly. Plan: re-run Phase 3 as the last step of issue A;
+   if criteria fail, tune the agonist time-course parameters
+   (`THROMBIN_PEAK_NM`, `ADP_PEAK_UM`, their τ values), **not** the
+   downstream rate constants. Document the chosen profile in
+   `phase3_summary.json` and a lab-book entry.
+2. **Other legacy forcing paths.** `gq_signal_uM` and any other v0.3
+   forcing helpers should be reviewed for the same expunge-or-keep
+   decision. If they're already dead code post-v0.4, delete them in
+   the same PR.
+3. **No legacy shim — old runscripts in branches will break** when
+   they merge. Acceptable cost for a dissertation-stage repo, but
+   worth flagging in the issue so any open work-in-progress branches
+   are rebased rather than merged after issue A lands.
+4. **Webapp jobs DB** persists the `ip3_forced` field across restarts
+   if SQLite. Old job rows will have `ip3_forced` in their config
+   JSON; new code should tolerate that key being absent. One-line
+   `.get('apply_agonist_protocol', cfg.get('ip3_forced', True))` at
+   read time covers it without a migration.
 
-## 9. Pointers
+## 9. Tracking issues
+
+- **#44 — Expunge `ip3_forced` + Dolan Fig. S2 IP3 overlay path.**
+  Prep refactor; must merge before #45. Covers §3 (all three fixes),
+  §4 (caller migration), §5a (files), §6 steps 1–5, §8 (risks).
+- **#45 — 2-D agonist dose sweep.** Blocked on #44. Covers §5b
+  (files), §6 steps 6–8, the user-facing deliverable in §1.
+
+## 10. Pointers
 
 - GH issue #42 — annotation ingestion (referenced PlateletWeb
   discussion; this dose-sweep work is the trigger for "expanding
@@ -302,6 +361,6 @@ Total: ~420 new + ~85 changed, single PR.
   lines ~640–730 (GPCR cascade definitions), ~1238 (P2X1 gate),
   ~1283–1288 (GPCR agonist gate), ~922 (`_ode_rhs` signature)
 - `runscripts/manual/runPhase3.py` — the existing two-condition
-  driver pattern this sweep driver mirrors
+  driver pattern the sweep driver mirrors
 - `wholecell/webapp/tabs/explore.py` — existing tab pattern the new
   Dose Response tab mirrors
