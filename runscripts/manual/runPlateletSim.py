@@ -20,9 +20,11 @@ import wholecell.utils.filepath as fp
 
 
 DEFAULT_OUTDIR = 'platelet_manual'
-DEFAULT_CA_EX_MM = 1.2     # Dolan 2014 nominal extracellular [Ca²⁺]
-DEFAULT_IP3_FORCED = True  # Dolan 2014 Fig. S2 IP3 time curve as the v0.2 stimulus
-DEFAULT_IP3_DELAY = 0.0    # seconds of settling time before IP3 stimulus (0 = immediate)
+DEFAULT_CA_EX_MM = 1.2          # Dolan 2014 nominal extracellular [Ca²⁺]
+DEFAULT_AGONIST_DELAY = 0.0     # seconds of settling time before agonist onset (0 = immediate)
+# Agonist peaks default to None on the CLI/API → cs_mod module constants
+# (THROMBIN_PEAK_NM, ADP_PEAK_UM, ATP_EX_PEAK_UM) are used at call time.
+# Pass --at-rest (or 0 for each) to disable a given receptor's stimulus.
 
 
 def resolve_sim_path(sim_outdir):
@@ -35,7 +37,8 @@ def resolve_sim_path(sim_outdir):
 
 
 def write_metadata(sim_path, description, seed, length_sec, ca_ex_mM,
-		ip3_forced, ip3_delay=0.0):
+		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
+		agonist_delay=0.0):
 	"""Write a small metadata file for a local platelet run."""
 	metadata = {
 		'git_hash': fp.git_hash(),
@@ -46,8 +49,10 @@ def write_metadata(sim_path, description, seed, length_sec, ca_ex_mM,
 		'seed': seed,
 		'length_sec': length_sec,
 		'ca_ex_mM': ca_ex_mM,
-		'ip3_forced': ip3_forced,
-		'ip3_delay': ip3_delay,
+		'thrombin_peak_nM': thrombin_peak_nM,
+		'adp_peak_uM': adp_peak_uM,
+		'atp_ex_peak_uM': atp_ex_peak_uM,
+		'agonist_delay': agonist_delay,
 		'variant': 'platelet_stub',
 		'analysis_type': None,
 		}
@@ -67,8 +72,9 @@ def write_sim_data(sim_path, sim_data):
 
 
 def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
-		ca_ex_mM=DEFAULT_CA_EX_MM, ip3_forced=DEFAULT_IP3_FORCED,
-		ip3_delay=DEFAULT_IP3_DELAY, live=False):
+		ca_ex_mM=DEFAULT_CA_EX_MM,
+		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
+		agonist_delay=DEFAULT_AGONIST_DELAY, live=False):
 	"""Create sim_data, write it to disk, and run a platelet simulation.
 
 	Output is written to the E. coli-compatible nested structure so the
@@ -78,22 +84,27 @@ def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 	Args:
 		ca_ex_mM: extracellular Ca²⁺ concentration (Dolan 2014 default = 1.2 mM).
 			Set to 0 to reproduce the Dolan Fig. 4 EDTA condition.
-		ip3_forced: if True (default), apply the Dolan 2014 Fig. S2 IP3 time
-			curve as a stimulus. Set to False for a true "resting" sim — IP3
-			stays at its baseline 50 nM and no transient is driven.
-		ip3_delay: seconds before the IP3 stimulus begins. The model settles
-			at its natural fixed point during [0, ip3_delay) before the Dolan
-			Fig. S2 curve starts. Default 0 = immediate (legacy behaviour).
+		thrombin_peak_nM / adp_peak_uM / atp_ex_peak_uM: peak agonist
+			concentrations during the activation transient. `None`
+			(default) uses the cs_mod module-level peak constants
+			(THROMBIN_PEAK_NM = 1, ADP_PEAK_UM = 10, ATP_EX_PEAK_UM = 10).
+			Pass `0` to disable a given receptor's stimulus (all three
+			zero = a resting sim with no extracellular stimulus).
+		agonist_delay: seconds before the agonist stimulus begins. The
+			model settles at its fixed point during [0, agonist_delay)
+			before the time courses kick in. Default 0 = immediate.
 	"""
 	# Override the module-level CA_EX_UM (in µM) before constructing the
 	# CalciumSignalling solver. Phase 3 path A: this is how the
 	# Dolan Fig. 4 with-vs-without extracellular Ca²⁺ comparison is run.
 	cs_mod.CA_EX_UM = float(ca_ex_mM) * 1000.0
 
-	# Override the IP3 forcing flag and delay on the process class before
-	# the sim is constructed. Mirrors the cs_mod.CA_EX_UM pattern.
-	CalciumDynamics._ip3_forced = bool(ip3_forced)
-	CalciumDynamics._ip3_delay = float(ip3_delay)
+	# Plumb the agonist peaks and delay onto the process class before the
+	# sim is constructed. Mirrors the cs_mod.CA_EX_UM override pattern.
+	CalciumDynamics._thrombin_peak_nM = thrombin_peak_nM
+	CalciumDynamics._adp_peak_uM = adp_peak_uM
+	CalciumDynamics._atp_ex_peak_uM = atp_ex_peak_uM
+	CalciumDynamics._agonist_delay = float(agonist_delay)
 
 	# Optionally write a live CSV alongside the binary output so a viewer
 	# script can tail it in real time.
@@ -172,20 +183,45 @@ def build_parser():
 			  'Set to 0 for the Dolan Fig. 4 EDTA / no-extracellular-Ca '
 			  'condition.'.format(DEFAULT_CA_EX_MM)))
 	parser.add_argument(
-		'--no-ip3-forcing',
-		dest='ip3_forced',
-		action='store_false',
-		help=('Disable the Dolan 2014 Fig. S2 IP3 time curve so the model '
-			  'runs at rest (no stimulus). Default behaviour applies the '
-			  'IP3 forcing.'))
+		'--at-rest',
+		dest='at_rest',
+		action='store_true',
+		help=('Shorthand: zero all three agonist peaks so the cell sits at '
+			  'its endogenous fixed point with no extracellular stimulus. '
+			  'Equivalent to --thrombin-peak-nM 0 --adp-peak-uM 0 '
+			  '--atp-ex-peak-uM 0.'))
 	parser.add_argument(
-		'--ip3-delay',
-		dest='ip3_delay',
+		'--thrombin-peak-nM',
+		dest='thrombin_peak_nM',
 		type=float,
-		default=DEFAULT_IP3_DELAY,
-		help=('Seconds before the IP3 stimulus begins. The model settles '
-			  'at its natural fixed point during this period. Default = '
-			  '{:.0f} (immediate stimulus).'.format(DEFAULT_IP3_DELAY)))
+		default=None,
+		help=('Peak thrombin (nM) during the activation transient. '
+			  'Default = module-level THROMBIN_PEAK_NM (1.0 nM). '
+			  'Set 0 to disable PAR1/PAR4 stimulation.'))
+	parser.add_argument(
+		'--adp-peak-uM',
+		dest='adp_peak_uM',
+		type=float,
+		default=None,
+		help=('Peak ADP (µM) during the activation transient. '
+			  'Default = module-level ADP_PEAK_UM (10 µM). '
+			  'Set 0 to disable P2Y1 stimulation.'))
+	parser.add_argument(
+		'--atp-ex-peak-uM',
+		dest='atp_ex_peak_uM',
+		type=float,
+		default=None,
+		help=('Peak extracellular ATP (µM) during the activation transient. '
+			  'Default = module-level ATP_EX_PEAK_UM (10 µM). '
+			  'Set 0 to disable P2X1 stimulation.'))
+	parser.add_argument(
+		'--agonist-delay',
+		dest='agonist_delay',
+		type=float,
+		default=DEFAULT_AGONIST_DELAY,
+		help=('Seconds before the agonist stimulus begins. The model '
+			  'settles at its fixed point during this period. Default = '
+			  '{:.0f} (immediate stimulus).'.format(DEFAULT_AGONIST_DELAY)))
 	parser.add_argument(
 		'--live',
 		dest='live',
@@ -193,7 +229,7 @@ def build_parser():
 		help=('Write a live CSV (live.csv) to the sim output directory each '
 			  'timestep so a viewer script can plot the run in real time. '
 			  'Use with runscripts/manual/livePlot.py.'))
-	parser.set_defaults(log_to_shell=True, ip3_forced=DEFAULT_IP3_FORCED)
+	parser.set_defaults(log_to_shell=True, at_rest=False)
 	return parser
 
 
@@ -204,17 +240,37 @@ def main(argv=None):
 	sim_path = resolve_sim_path(sim_outdir)
 	fp.makedirs(sim_path)
 
+	# --at-rest is shorthand for zeroing all three agonist peaks. Explicit
+	# per-receptor overrides still win if combined (e.g. --at-rest
+	# --thrombin-peak-nM 2 for a thrombin-only stimulation).
+	thrombin_peak_nM = args.thrombin_peak_nM
+	adp_peak_uM = args.adp_peak_uM
+	atp_ex_peak_uM = args.atp_ex_peak_uM
+	if args.at_rest:
+		if thrombin_peak_nM is None:
+			thrombin_peak_nM = 0.0
+		if adp_peak_uM is None:
+			adp_peak_uM = 0.0
+		if atp_ex_peak_uM is None:
+			atp_ex_peak_uM = 0.0
+
 	description = os.path.basename(os.path.normpath(sim_path)) or sim_path
 	write_metadata(sim_path, description, args.seed, args.length_sec,
-		args.ca_ex_mM, args.ip3_forced, args.ip3_delay)
+		args.ca_ex_mM,
+		thrombin_peak_nM=thrombin_peak_nM,
+		adp_peak_uM=adp_peak_uM,
+		atp_ex_peak_uM=atp_ex_peak_uM,
+		agonist_delay=args.agonist_delay)
 	paths = run_platelet_sim(
 		sim_path,
 		length_sec=args.length_sec,
 		seed=args.seed,
 		log_to_shell=args.log_to_shell,
 		ca_ex_mM=args.ca_ex_mM,
-		ip3_forced=args.ip3_forced,
-		ip3_delay=args.ip3_delay,
+		thrombin_peak_nM=thrombin_peak_nM,
+		adp_peak_uM=adp_peak_uM,
+		atp_ex_peak_uM=atp_ex_peak_uM,
+		agonist_delay=args.agonist_delay,
 		live=args.live,
 		)
 
@@ -222,10 +278,20 @@ def main(argv=None):
 	print('simOut: {}'.format(paths['sim_out_dir']))
 	if args.ca_ex_mM != DEFAULT_CA_EX_MM:
 		print('Extracellular Ca²⁺ override: {:.2f} mM'.format(args.ca_ex_mM))
-	if not args.ip3_forced:
-		print('IP3 forcing disabled — running at rest (no stimulus)')
-	if args.ip3_delay > 0:
-		print('IP3 stimulus delayed by {:.0f} s'.format(args.ip3_delay))
+	all_zero = (thrombin_peak_nM == 0.0 and adp_peak_uM == 0.0
+		and atp_ex_peak_uM == 0.0)
+	if all_zero:
+		print('All agonist peaks zero — running at rest (no stimulus)')
+	else:
+		for label, val, unit, default_const in (
+				('Thrombin', thrombin_peak_nM, 'nM', cs_mod.THROMBIN_PEAK_NM),
+				('ADP',      adp_peak_uM,      'µM', cs_mod.ADP_PEAK_UM),
+				('ATP_ex',   atp_ex_peak_uM,   'µM', cs_mod.ATP_EX_PEAK_UM)):
+			if val is not None and val != default_const:
+				print(f'{label} peak override: {val:g} {unit} '
+					f'(default {default_const:g} {unit})')
+	if args.agonist_delay > 0:
+		print('Agonist stimulus delayed by {:.0f} s'.format(args.agonist_delay))
 	if args.live and paths['live_path']:
 		print('Live CSV: {}'.format(paths['live_path']))
 		print('Viewer:   PYTHONPATH=$PWD pyenv exec python '

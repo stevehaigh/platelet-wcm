@@ -10,32 +10,33 @@ from dash.dependencies import Input, Output, State
 # Preset simulation configurations.
 # Each preset fills the form below with biologically interesting settings.
 # A preset is genuinely different from another iff at least one of
-# length_sec / ip3_forced / ca_ex_mM differs (mere length doesn't change
-# what the model is doing biologically).
+# ca_ex_mM / at_rest / agonist_delay_s differs (these three set the
+# biology); length_sec just controls how much of the response is
+# observed and is allowed to vary independently.
 PRESETS = [
 	{
 		'id': 'preset-transient',
-		'label': 'IP3 Ca²⁺ transient (200 s, +Ca²⁺)',
+		'label': 'Agonist Ca²⁺ transient (200 s, +Ca²⁺)',
 		'description': (
-			'Phase 1 reproduction: 200 s with IP3 forcing on (Dolan 2014 '
-			'Fig. S2 curve) and 1.2 mM extracellular Ca²⁺. Headline '
+			'Phase 1 reproduction: 200 s with the default thrombin + ADP '
+			'time courses and 1.2 mM extracellular Ca²⁺. Headline '
 			'transient — see the 5-panel calcium_trace plot.'
 		),
 		'config': {
 			'length_sec': 200,
 			'seed': 0,
 			'ca_ex_mM': 1.2,
-			'ip3_forced': True,
-			'ip3_delay_s': 0,
-			'description': 'IP3 transient (+Ca²⁺) — 200 s',
+			'at_rest': False,
+			'agonist_delay_s': 0,
+			'description': 'Agonist transient (+Ca²⁺) — 200 s',
 		},
 	},
 	{
 		'id': 'preset-delayed-transient',
-		'label': 'IP3 transient (60 s settle + 200 s, +Ca²⁺)',
+		'label': 'Agonist transient (60 s settle + 200 s, +Ca²⁺)',
 		'description': (
 			'Model settles at its natural fixed point for 60 s, then the '
-			'Dolan 2014 Fig. S2 IP3 stimulus is applied. Supervisor-suggested '
+			'thrombin / ADP stimulus is applied. Supervisor-suggested '
 			'approach: ignore the start-up transient and read the Ca²⁺ '
 			'response from a settled baseline.'
 		),
@@ -43,42 +44,42 @@ PRESETS = [
 			'length_sec': 260,
 			'seed': 0,
 			'ca_ex_mM': 1.2,
-			'ip3_forced': True,
-			'ip3_delay_s': 60,
-			'description': 'IP3 transient (60 s settle, +Ca²⁺) — 260 s',
+			'at_rest': False,
+			'agonist_delay_s': 60,
+			'description': 'Agonist transient (60 s settle, +Ca²⁺) — 260 s',
 		},
 	},
 	{
 		'id': 'preset-edta',
 		'label': 'EDTA transient (200 s, no Ca²⁺_ex)',
 		'description': (
-			'Phase 3 EDTA condition: 200 s with IP3 forcing on but '
-			'extracellular Ca²⁺ = 0. SOCE is correctly inactive; compare '
+			'Phase 3 EDTA condition: 200 s with default agonist stimulation '
+			'but extracellular Ca²⁺ = 0. SOCE is correctly inactive; compare '
 			'against the +Ca²⁺ transient to see the SOCE-dependent shape.'
 		),
 		'config': {
 			'length_sec': 200,
 			'seed': 0,
 			'ca_ex_mM': 0.0,
-			'ip3_forced': True,
-			'ip3_delay_s': 0,
-			'description': 'IP3 transient (EDTA) — 200 s',
+			'at_rest': False,
+			'agonist_delay_s': 0,
+			'description': 'Agonist transient (EDTA) — 200 s',
 		},
 	},
 	{
 		'id': 'preset-resting',
 		'label': 'Resting (300 s, no stimulus)',
 		'description': (
-			'300 s with IP3 forcing OFF — no stimulus. Useful for '
-			'inspecting the model at rest and verifying the resting '
-			'fixed point of the ODE.'
+			'300 s at rest — all agonist peaks zero, no extracellular '
+			'stimulus. Useful for inspecting the model at rest and '
+			'verifying the resting fixed point of the ODE.'
 		),
 		'config': {
 			'length_sec': 300,
 			'seed': 0,
 			'ca_ex_mM': 1.2,
-			'ip3_forced': False,
-			'ip3_delay_s': 0,
+			'at_rest': True,
+			'agonist_delay_s': 0,
 			'description': 'Resting (no stimulus) — 300 s',
 		},
 	},
@@ -150,11 +151,11 @@ def layout() -> html.Div:
 				),
 			]),
 			html.Div([
-				html.Label('IP3 stimulus delay (seconds)'),
-				dcc.Input(id='config-ip3-delay-s', type='number', value=0, min=0,
+				html.Label('Agonist stimulus delay (seconds)'),
+				dcc.Input(id='config-agonist-delay-s', type='number', value=0, min=0,
 					step=10, style={'width': '100%'}),
 				html.Div(
-					'Settling time before IP3 forcing starts. 0 = immediate (legacy). 60 = supervisor-suggested: let the model reach its natural fixed point first.',
+					'Settling time before the thrombin / ADP / ext-ATP time courses start. 0 = immediate. 60 = let the model reach its natural fixed point first.',
 					style={'color': '#57606a', 'fontSize': '12px', 'marginTop': '4px'},
 				),
 			]),
@@ -162,15 +163,15 @@ def layout() -> html.Div:
 
 		html.Div(className='grid-2', style={'marginBottom': '20px'}, children=[
 			html.Div([
-				html.Label('IP3 forcing'),
+				html.Label('Stimulation'),
 				dcc.Checklist(
-					id='config-ip3-forced',
-					options=[{'label': ' Apply Dolan Fig. S2 IP3 stimulus',
+					id='config-at-rest',
+					options=[{'label': ' Run at rest (zero all agonist peaks)',
 						'value': 'on'}],
-					value=['on'],
+					value=[],
 				),
 				html.Div(
-					'Default ON — drives the Ca²⁺ transient. Turn off for a resting / un-stimulated sim.',
+					'Default OFF — applies the standard thrombin / ADP / ext-ATP time courses via the GPCR cascade. Check for a resting / un-stimulated sim (all agonist peaks set to 0).',
 					style={'color': '#57606a', 'fontSize': '12px', 'marginTop': '4px'},
 				),
 			]),
@@ -210,8 +211,8 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		Output('config-length-sec', 'value'),
 		Output('config-seed', 'value'),
 		Output('config-ca-ex-mM', 'value'),
-		Output('config-ip3-delay-s', 'value'),
-		Output('config-ip3-forced', 'value'),
+		Output('config-agonist-delay-s', 'value'),
+		Output('config-at-rest', 'value'),
 		Output('config-description', 'value'),
 		Output('preset-description', 'children'),
 		[Input(pid, 'n_clicks') for pid in preset_ids],
@@ -224,9 +225,9 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 			raise dash.exceptions.PreventUpdate
 		p = preset_lookup[triggered]['config']
 		desc = preset_lookup[triggered]['description']
-		ip3_value = ['on'] if p['ip3_forced'] else []
+		at_rest_value = ['on'] if p['at_rest'] else []
 		return (p['length_sec'], p['seed'], p['ca_ex_mM'],
-			p.get('ip3_delay_s', 0), ip3_value, p['description'], desc)
+			p.get('agonist_delay_s', 0), at_rest_value, p['description'], desc)
 
 	@app.callback(
 		Output('config-status', 'children'),
@@ -234,13 +235,13 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 		State('config-length-sec', 'value'),
 		State('config-seed', 'value'),
 		State('config-ca-ex-mM', 'value'),
-		State('config-ip3-delay-s', 'value'),
-		State('config-ip3-forced', 'value'),
+		State('config-agonist-delay-s', 'value'),
+		State('config-at-rest', 'value'),
 		State('config-description', 'value'),
 		prevent_initial_call=True,
 	)
-	def submit_run(n_clicks, length_sec, seed, ca_ex_mM, ip3_delay_s,
-			ip3_forced_list, description):
+	def submit_run(n_clicks, length_sec, seed, ca_ex_mM, agonist_delay_s,
+			at_rest_list, description):
 		if not n_clicks:
 			return ''
 
@@ -248,8 +249,8 @@ def register_callbacks(app: dash.Dash, on_submit) -> None:
 			'length_sec': int(length_sec or 60),
 			'seed': int(seed or 0),
 			'ca_ex_mM': float(ca_ex_mM if ca_ex_mM is not None else 1.2),
-			'ip3_delay_s': float(ip3_delay_s if ip3_delay_s is not None else 0),
-			'ip3_forced': 'on' in (ip3_forced_list or []),
+			'agonist_delay_s': float(agonist_delay_s if agonist_delay_s is not None else 0),
+			'at_rest': 'on' in (at_rest_list or []),
 			'description': description or '',
 		}
 

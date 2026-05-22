@@ -1,16 +1,17 @@
 """
-CalciumDynamics process — v0.2 platelet whole-cell model.
+CalciumDynamics process — platelet whole-cell model.
 
-Integrates the IP3-mediated Ca²⁺ ODE system each simulation timestep.
-The ODE covers:
+Integrates the Ca²⁺ ODE system each simulation timestep. The ODE covers:
 
-  * IP3R  — 6-state Markov model (Sneyd & Dufour 2002 type-2 kinetics,
-             Purvis & Bhatt 2008 Table 1 rate constants)
+  * GPCR cascade — P2Y1 (ADP), PAR1/PAR4 (thrombin), P2X1 (ATP-gated);
+                   drives a Gαq exchange/GTPase cycle → PLCβ activation
+  * PI cycle    — PLCβ-catalysed PIP2 → IP3 + DAG, with lumped PIP2
+                   resynthesis and IP3 / DAG degradation
+  * IP3R  — Li-Rinzel 1994 reduction of de Young–Keizer 1992
+             (quasi-steady m∞, one slow ODE for h)
   * SERCA — E1/E2 enzymatic cycle (Purvis 2008 / Dode 2002)
-  * PMCA  — 2-state Michaelis–Menten (Caride 2007, basal kinetics)
+  * PMCA  — 5-state CaM-coupled (Caride 2007)
   * SOCE  — STIM1 dimerisation + Orai1 flux (Dolan & Diamond 2014)
-  * IP3   — forced time curve for v0.2 (Dolan 2014 Fig. S2); becomes a
-             real upstream state variable in v0.3
 
 The numeric ODE solver and rate constants live in:
   reconstruction/platelet/dataclasses/process/calcium_signalling.py
@@ -18,10 +19,11 @@ The numeric ODE solver and rate constants live in:
 This process is a thin wrapper: it feeds the current molecule counts to
 the solver and applies the returned integer count deltas.
 
-IP3 forcing is active by default (ip3_forced=True). This drives the
-characteristic Ca²⁺ transient using the pre-programmed IP3 time curve
-from Dolan 2014 Fig. S2. In v0.3, when a real P2Y1 upstream process
-produces IP3, set ip3_forced=False in the constructor.
+Agonist stimulation is controlled by the three `_*_peak_*` class attrs.
+Each is the peak concentration of an agonist during the activation
+transient; `None` (default) uses the module-level peak constants, and
+`0` yields a resting / un-stimulated sim. Override on the *class* before
+constructing the simulation — mirrors the `cs_mod.CA_EX_UM` pattern.
 """
 
 import numpy as np
@@ -31,14 +33,18 @@ from wholecell.utils import units
 
 
 class CalciumDynamics(process.Process):
-	"""IP3-mediated Ca²⁺ dynamics in the resting and activated platelet."""
+	"""Receptor-driven Ca²⁺ dynamics in the resting and activated platelet."""
 
 	_name = 'CalciumDynamics'
 
-	# Set to False in v0.3 once the P2Y1 upstream process is in place.
-	_ip3_forced = True
-	# Seconds of settling time before the IP3 stimulus begins (default 0 = immediate).
-	_ip3_delay = 0.0
+	# Agonist peak concentrations during the activation transient. `None`
+	# uses the module-level defaults (THROMBIN_PEAK_NM, ADP_PEAK_UM,
+	# ATP_EX_PEAK_UM in calcium_signalling); `0` yields a resting sim.
+	_thrombin_peak_nM: float | None = None
+	_adp_peak_uM:      float | None = None
+	_atp_ex_peak_uM:   float | None = None
+	# Seconds of settling time before the agonist stimulus begins.
+	_agonist_delay = 0.0
 
 	def __init__(self):
 		super(CalciumDynamics, self).__init__()
@@ -60,8 +66,12 @@ class CalciumDynamics(process.Process):
 		t_sim = self.time()
 
 		self._delta, self._atp_cost = self._solver.molecules_to_next_time_step(
-			counts, dt, t_sim, ip3_forced=self._ip3_forced,
-			ip3_delay=self._ip3_delay)
+			counts, dt, t_sim,
+			agonist_delay=self._agonist_delay,
+			thrombin_peak_nM=self._thrombin_peak_nM,
+			adp_peak_uM=self._adp_peak_uM,
+			atp_ex_peak_uM=self._atp_ex_peak_uM,
+		)
 
 		# Request molecules we need to take away (negative deltas).
 		requests = np.maximum(-self._delta, 0)

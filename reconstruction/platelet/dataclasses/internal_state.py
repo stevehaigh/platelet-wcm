@@ -206,8 +206,8 @@ _MOLECULES = [
 	# Gαq pool: 5 000 total (Mazet 2020). Pre-equilibrated at resting
 	# state — with k_basal = 6.7e-4 s⁻¹ and k_rgs = 0.033 s⁻¹, the
 	# equilibrium fraction is k_basal/(k_basal+k_rgs) = 0.02, so
-	# Gq_active = 5 000 × 0.02 = 100 at rest, giving gq_um = 0.1 µM
-	# (matches v0.3 GQ_REST_UM that the downstream PLCβ expects).
+	# Gq_active = 5 000 × 0.02 = 100 at rest, giving gq_um = 0.1 µM —
+	# the tonic Gq floor that holds basal IP3 at the ~50 nM Purvis target.
 	# Mass per molecule: Gαq ~42 kDa → 6.97e-5 fg.
 	('Gq_active[c]',      6.97e-5,         100, 'protein'),
 ]

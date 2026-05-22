@@ -24,7 +24,6 @@ ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
     parameterising channel open probability as a function of STIM2 in the
     Orai puncta. Replaces the prior ad hoc 3-state mass-action model
     (issues #45/#46).
-  * IP3 forcing (Dolan 2014 Fig. S2 shape).
 
 State layout: integer counts per species, indexed by `MOLECULE_NAMES`.
 ODE works in count units; rate laws convert to concentration internally
@@ -114,8 +113,8 @@ MOLECULE_NAMES = (
 	# Ca²⁺ uptake during transients (via MCU) and slow release (via
 	# NCLX), bypassing the PMCA-rate-limited extrusion bottleneck.
 	'CA2_MITO[m]',       # free mito matrix Ca²⁺ count
-	# v0.4 GPCR receptor cascade (issue #9) — replaces gq_signal_uM
-	# forcing with explicit P2Y1 + PAR1 + PAR4 → Gαq cascade.
+	# GPCR receptor cascade (issue #9) — P2Y1 + PAR1 + PAR4 → Gαq drives
+	# PLCβ activation, which produces IP3 endogenously through the PI cycle.
 	'P2Y1_inactive[pl]', # P2Y1 ADP receptor (Gq-coupled), inactive
 	'P2Y1_active[pl]',   # P2Y1 active (ADP-bound)
 	'PAR1_inactive[pl]', # PAR1 thrombin receptor (high-affinity), inactive
@@ -131,17 +130,9 @@ _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
 N_SPECIES = len(MOLECULE_NAMES)
 
 
-# ── Resting concentrations / IP3 forcing ──────────────────────────────────
-# Source: Dolan & Diamond 2014 main-text + Fig. S2 fit.
-CA_EX_UM = 1200.0       # extracellular Ca²⁺, fixed reservoir
-IP3_REST_UM = 0.05      # cytosolic IP3 baseline (50 nM)
-
-# IP3 forcing parameters (Dolan 2014 Fig. S2 shape; v0.3 replaces this with
-# the upstream P2Y1/Gq/PLCβ cascade producing IP3 endogenously).
-IP3_FOLD = 5.5
-IP3_T_PEAK = 3.0
-IP3_TAU_RISE = 3.0
-IP3_TAU_DECAY = 60.0
+# ── Resting concentrations ────────────────────────────────────────────────
+CA_EX_UM = 1200.0       # extracellular Ca²⁺, fixed reservoir (Dolan 2014)
+IP3_REST_UM = 0.05      # cytosolic IP3 baseline (50 nM; Purvis 2008)
 
 
 # ── Physical constants ────────────────────────────────────────────────────
@@ -501,36 +492,32 @@ GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calib
 
 
 # ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
-# Parallels the IP3 forcing curve (Dolan Fig. S2). Real biology: ATP is
-# released from dense granules during platelet activation, reaching
-# 1–10 µM in the extracellular space near a forming thrombus, then
-# cleared by ectonucleotidases (CD39) over tens of seconds.
-#
-# Same ip3_delay / ip3_forced gating as IP3 — when stimulus is off,
-# ATP_ex stays at its near-zero resting level.
-ATP_EX_REST_UM = 0.0          # exactly zero — CD39 ectonucleotidase keeps
-                              # local extracellular ATP near zero at rest
-                              # (any small baseline leaks P2X1 over hundreds
-                              # of seconds, overfilling the DTS).
+# ATP released from dense granules during activation reaches 1–10 µM near a
+# forming thrombus, then is cleared by ectonucleotidases (CD39) over tens of
+# seconds. CD39 keeps resting ATP_ex near zero — any small baseline leaks
+# P2X1 over hundreds of seconds and overfills the DTS.
+ATP_EX_REST_UM = 0.0
 ATP_EX_PEAK_UM = 10.0         # 10 µM peak during activation
 ATP_EX_TAU_RISE = 0.5         # s — fast rise (dense granule secretion)
 ATP_EX_T_PEAK = 1.0           # s — peak time
 ATP_EX_TAU_DECAY = 30.0       # s — ectonucleotidase clearance
 
 
-def atp_ex_forcing_uM(t, delay=0.0):
+def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
 	"""Plateau-decay approximation for extracellular ATP during activation.
 
-	Rises fast (τ = 0.5 s) from ~1 nM baseline to 10 µM peak, then
-	decays with τ = 30 s. `delay` shifts the stimulus onset so the
-	curve is flat at baseline for t < delay.
+	`peak_uM=None` (default) reads `ATP_EX_PEAK_UM` from the module at call
+	time, so reassigning the module constant takes effect immediately.
+	Passing `peak_uM=0` yields a flat resting curve.
 	"""
+	if peak_uM is None:
+		peak_uM = ATP_EX_PEAK_UM
 	t_eff = t - delay
 	if t_eff < 0:
 		return ATP_EX_REST_UM
 	rise = 1.0 - np.exp(-t_eff / ATP_EX_TAU_RISE)
 	decay = np.exp(-max(0.0, t_eff - ATP_EX_T_PEAK) / ATP_EX_TAU_DECAY)
-	return ATP_EX_REST_UM + (ATP_EX_PEAK_UM - ATP_EX_REST_UM) * rise * decay
+	return ATP_EX_REST_UM + (peak_uM - ATP_EX_REST_UM) * rise * decay
 
 
 # ── SOCE: Dolan 2014 MWC + STIM1 dimerisation (Hoover & Lewis 2011 frame) ─
@@ -640,11 +627,9 @@ K_NCX = {
 }
 
 
-# ── v0.4 GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ────────────
-# Replaces the v0.3.x gq_signal_uM forcing with an explicit receptor →
-# G-protein cascade. The model now takes physiological agonist
-# concentrations (thrombin in nM, ADP in µM) as input rather than an
-# abstract Gq curve.
+# ── GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ─────────────────
+# Explicit receptor → G-protein cascade. The model takes physiological
+# agonist concentrations (thrombin in nM, ADP in µM) as input.
 #
 # Three Gq-coupled receptors in scope:
 #   - P2Y1 (ADP, reversible binding; ~150 copies, Coller 1995)
@@ -677,41 +662,45 @@ K_PAR4 = {
 K_GQ = {
 	'k_act_per_R':  0.001,    # active receptor catalyses Gq exchange  (s⁻¹·count⁻¹)
 	'k_rgs':        0.033,    # Gq_active → Gq_inactive (RGS-accelerated GTPase)  (s⁻¹) — τ ~30s
-	# k_basal calibrated so resting Gq_active ≈ 100 → gq_um = 0.1 µM
-	# (matches the v0.3.x GQ_REST_UM that the PLCβ ODE expects).
-	# Steady-state fraction = k_basal / (k_basal + k_rgs); with k_rgs =
-	# 0.033 and target fraction 100/5000 = 0.02, k_basal = 0.033 × 0.02/0.98
-	# = 6.7e-4 s⁻¹.
+	# Tonic Gαq exchange in the absence of agonist. Calibrated to give a
+	# resting Gq_active ≈ 100 → gq_um ≈ 0.1 µM (steady-state fraction
+	# k_basal / (k_basal + k_rgs); target 100/5000 = 0.02 with k_rgs = 0.033
+	# → k_basal = 0.033 × 0.02/0.98 = 6.7e-4 s⁻¹). The 0.1 µM resting Gq
+	# floor is what holds basal IP3 at its ~50 nM Purvis baseline.
 	'k_basal':      6.7e-4,
 }
 
 N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
 
 
-# ── Agonist forcing functions — v0.4 stimulation inputs ──────────────────
-# These replace the abstract gq_signal_uM. The model now takes
-# physiological agonist concentrations (thrombin in nM, ADP in µM).
+# ── Agonist forcing functions — stimulation inputs ───────────────────────
+# Physiological agonist concentrations (thrombin in nM, ADP in µM, ATP_ex
+# in µM). Each forcing function reads its peak from the module at call time
+# (None sentinel pattern) so dose sweeps can reassign the constant or pass
+# `peak_*=X` per call without monkey-patching captured defaults.
 
-# Thrombin (PAR1/4 agonist).  Standard stimulation = 1 nM peak
-# (matches the Dolan 2014 protocol). Rises within ms (clotting cascade
-# is fast), plateaus, then is cleared.
-THROMBIN_REST_NM     = 0.0      # no thrombin at rest
-THROMBIN_PEAK_NM     = 1.0      # default 1 nM peak
-THROMBIN_TAU_RISE_S  = 0.5      # fast rise
-THROMBIN_T_PEAK_S    = 5.0      # sustained plateau
-THROMBIN_TAU_DECAY_S = 120.0    # slow decay (thrombin lingers)
+# Thrombin (PAR1/4 agonist). Standard stimulation = 1 nM peak (Dolan 2014).
+# Clotting cascade gives a fast rise, sustained plateau, slow decay.
+THROMBIN_REST_NM     = 0.0
+THROMBIN_PEAK_NM     = 1.0
+THROMBIN_TAU_RISE_S  = 0.5
+THROMBIN_T_PEAK_S    = 5.0
+THROMBIN_TAU_DECAY_S = 120.0
 
-# ADP (P2Y1 agonist).  Released from dense granules during platelet
-# activation; cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
-ADP_REST_UM     = 0.0           # no ADP at rest
-ADP_PEAK_UM     = 10.0          # default 10 µM peak
-ADP_TAU_RISE_S  = 1.0           # dense granule secretion timescale
+# ADP (P2Y1 agonist). Released from dense granules during activation,
+# cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
+ADP_REST_UM     = 0.0
+ADP_PEAK_UM     = 10.0
+ADP_TAU_RISE_S  = 1.0
 ADP_T_PEAK_S    = 5.0
-ADP_TAU_DECAY_S = 30.0          # ectoNTPDase clearance
+ADP_TAU_DECAY_S = 30.0
 
 
-def thrombin_nM(t, delay=0.0, peak_nM=THROMBIN_PEAK_NM):
-	"""Thrombin concentration timecourse (nM)."""
+def thrombin_nM(t, delay=0.0, peak_nM=None):
+	"""Thrombin concentration timecourse (nM). `peak_nM=None` reads
+	`THROMBIN_PEAK_NM` live from the module; `peak_nM=0` yields rest."""
+	if peak_nM is None:
+		peak_nM = THROMBIN_PEAK_NM
 	t_eff = t - delay
 	if t_eff <= 0:
 		return THROMBIN_REST_NM
@@ -720,8 +709,11 @@ def thrombin_nM(t, delay=0.0, peak_nM=THROMBIN_PEAK_NM):
 	return THROMBIN_REST_NM + (peak_nM - THROMBIN_REST_NM) * rise * decay
 
 
-def adp_uM(t, delay=0.0, peak_uM=ADP_PEAK_UM):
-	"""ADP concentration timecourse (µM)."""
+def adp_uM(t, delay=0.0, peak_uM=None):
+	"""ADP concentration timecourse (µM). `peak_uM=None` reads
+	`ADP_PEAK_UM` live from the module; `peak_uM=0` yields rest."""
+	if peak_uM is None:
+		peak_uM = ADP_PEAK_UM
 	t_eff = t - delay
 	if t_eff <= 0:
 		return ADP_REST_UM
@@ -738,28 +730,9 @@ ORAI_SUBUNITS_PER_CHANNEL = 4
 STIM_MONOMERS_PER_DIMER = 2
 
 
-def ip3_forcing_uM(t, delay=0.0):
-	"""Dolan 2014 Fig. S2 IP3 time curve, returning concentration in µM.
-
-	v0.2.x legacy: this was the *forced* IP3 timecourse driving the
-	model. v0.3 (#31) replaces this with the PI cycle: IP3 becomes a
-	model output, produced from PIP2 hydrolysis by Gq-activated PLCβ.
-	The function is retained as a *calibration reference* — the PI
-	cycle parameters are tuned so that the model-produced IP3
-	timecourse approximates this curve under standard Gq forcing.
-	"""
-	t_eff = t - delay
-	if t_eff <= 0:
-		return IP3_REST_UM
-	rise = 1.0 - np.exp(-t_eff / IP3_TAU_RISE)
-	decay = np.exp(-max(0.0, t_eff - IP3_T_PEAK) / IP3_TAU_DECAY)
-	return IP3_REST_UM * (1.0 + (IP3_FOLD - 1.0) * rise * decay)
-
-
 # ── PI cycle / PLCβ — Phase 4 / issue #31 ────────────────────────────────
-# Replaces the forced IP3 curve. IP3 is now produced from PIP2 hydrolysis
-# by Gq-activated PLCβ, following the framework of Mazet, Tindall,
-# Gibbins & Fry 2020 *Sci. Rep.* 10:13889.
+# IP3 is produced from PIP2 hydrolysis by Gq-activated PLCβ, following the
+# framework of Mazet, Tindall, Gibbins & Fry 2020 *Sci. Rep.* 10:13889.
 #
 # Coarse-grained scheme (v0.3 scope; full PI/PI4P/PI45P2 chain is v0.4):
 #
@@ -778,51 +751,22 @@ def ip3_forcing_uM(t, delay=0.0):
 K_PLCB = {
 	'k_act':    0.5,      # PLCb_i + Gq → PLCb_a    (µM⁻¹·s⁻¹) — calibrated
 	'k_inact':  0.3,      # PLCb_a    → PLCb_i      (s⁻¹)       — τ ~ 3 s
+	# k_cat × PIP2 product preserved when PIP2 count was rescaled
+	# 1.12e5 → 1.12e6 (lab-book 2026-05-15): k_cat 2.26e-7 → 2.26e-8.
 	'k_cat':    2.26e-8,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
-}                         # — calibrated against resting + peak IP3 targets.
-                          # v0.4 lab-book 2026-05-15: rescaled 1/10 (was 2.26e-7)
-                          # alongside PIP2 1.12e5 → 1.12e6 fix in internal_state.py;
-                          # k_cat × PIP2 product preserved → behaviour-neutral.
+}
 
 K_PI_CYCLE = {
 	# PIP2 resynthesis — lumped PI → PI4P → PIP2 chain. Set equal to
 	# basal hydrolysis rate so PIP2 sits at its resting value.
 	'k_resynth':   3.62,   # PIP2 / s — calibrated to basal balance
-	# IP3 degradation (5-phosphatase to IP2 + 3-kinase to IP4, lumped)
-	# τ ~ 50 s matches Dolan Fig. S2 decay tail.
+	# IP3 degradation (5-phosphatase to IP2 + 3-kinase to IP4, lumped).
+	# τ ~ 50 s matches the Dolan Fig. S2 decay tail used as a calibration
+	# reference target for the PI cycle parameters.
 	'k_ip3_deg':   0.02,   # IP3 → IP2/IP4   (s⁻¹)
 	# DAG kinase (DAG → PA)
 	'k_dag_deg':   0.05,   # DAG → PA       (s⁻¹) — τ ~ 20 s
 }
-
-
-# ── Gq activity forcing — replaces ip3_forcing_uM ────────────────────────
-# In v0.3 the stimulation is delivered as a Gαq activity signal that
-# drives PLCβ activation (replacing the v0.2.x forced IP3 curve). When
-# v0.4 receptor signalling lands (#9), this forcing is replaced by an
-# explicit GPCR → Gαq cascade with receptor / agonist-specific dynamics.
-GQ_REST_UM   = 0.1         # tonic basal activity — maintains resting IP3 ~ 50 nM
-GQ_PEAK_UM   = 2.0         # peak Gq concentration during activation (~20× rest)
-GQ_TAU_RISE  = 0.5         # s — fast onset (GPCR → Gαq exchange)
-GQ_T_PEAK    = 1.0         # s
-GQ_TAU_DECAY = 30.0        # s — RGS-mediated GTPase inactivation
-
-
-def gq_signal_uM(t, delay=0.0):
-	"""Coarse-grained Gαq active concentration; drives PLCβ activation.
-
-	Replaces v0.2.x `ip3_forcing_uM` as the model's primary stimulation
-	input. v0.4 (#9) will replace this with explicit receptor cascades.
-
-	Returns `GQ_REST_UM` for `t_eff <= 0` (tonic basal activity that
-	maintains the resting IP3 baseline at ~50 nM).
-	"""
-	t_eff = t - delay
-	if t_eff <= 0:
-		return GQ_REST_UM
-	rise = 1.0 - np.exp(-t_eff / GQ_TAU_RISE)
-	decay = np.exp(-max(0.0, t_eff - GQ_T_PEAK) / GQ_TAU_DECAY)
-	return GQ_REST_UM + (GQ_PEAK_UM - GQ_REST_UM) * rise * decay
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -925,23 +869,29 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 	return po, sf
 
 
-def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
+def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
+		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None):
 	"""Right-hand side of the calcium ODE.
 
 	`y` carries integer-equivalent counts (continuous floats during
-	integration). `t` is the sub-step time *within* this 1-second outer step;
-	`t_sim_start` is the wall-clock time at which the outer step began. IP3
-	forcing is parameterised in absolute simulation time.
+	integration). `t` is the sub-step time *within* this 1-second outer
+	step; `t_sim_start` is the wall-clock time at which the outer step
+	began.
+
+	Agonist forcing is controlled by the three `*_peak_*` kwargs. Each is
+	the peak concentration of its species during the activation transient
+	(thrombin in nM, ADP and ATP_ex in µM). `None` (default) reads the
+	module-level default constant; `0` yields a resting / un-stimulated
+	sim where the receptor sees only its REST level.
 	"""
 	dy = np.zeros(N_SPECIES)
 
-	# Concentrations (µM) for Ca²⁺ and IP3.
+	# Concentrations (µM) for Ca²⁺ and IP3. IP3 is produced endogenously by
+	# the PI cycle (PLCβ-driven; Phase 4 / #31), with the upstream agonist
+	# peak kwargs controlling receptor stimulation that drives Gαq → PLCβ.
 	ca_cyt = max(y[_IDX['CA2_CYT[c]']], 0.0) * _UM_PER_COUNT_CYT
 	ca_dts = max(y[_IDX['CA2_DTS[dts]']], 0.0) * _UM_PER_COUNT_DTS
-	# IP3 is produced by the PI cycle (PLCβ-driven; Phase 4 / #31). No
-	# longer forced — the `ip3_forced` flag now controls Gq forcing, not
-	# direct IP3 substitution.
-	ip3 = max(y[_IDX['IP3[c]']], 0.0) * _UM_PER_COUNT_CYT
+	ip3    = max(y[_IDX['IP3[c]']],     0.0) * _UM_PER_COUNT_CYT
 
 	# PI cycle state reads
 	pip2_count = max(y[_IDX['PIP2[c]']], 0.0)
@@ -1226,6 +1176,10 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 		)
 		dy[_IDX['CA2_CYT[c]']] += flux_p2x1_ions_s
 
+		# NB: P2X1 *state* transitions run unconditionally below, since the
+		# channel can still cycle C → O → D in response to ATP regardless
+		# of whether external Ca²⁺ is available to flow through it.
+
 		# NCX (Na⁺/Ca²⁺ exchanger) — Ca²⁺ extrusion gated on extracellular
 		# Ca²⁺ availability (needs Na⁺ gradient + somewhere for Ca²⁺ to go).
 		# See K_NCX block above for biology and the Hill formulation.
@@ -1236,15 +1190,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	# The extracellular reservoir is treated as infinite (no debit).
 
 	# ── P2X1 state transitions (always run, even when CA_EX = 0) ────
-	# When CA_EX = 0 the channel can still cycle through C → O → D in
-	# response to extracellular ATP — it just doesn't deliver any
-	# Ca²⁺ (the flux block above is skipped). This matches the
-	# Vial & Evans 2002 observation that P2X1 desensitises whether
-	# Ca²⁺ is present or not.
-	if ip3_forced:
-		atp_ex_um = atp_ex_forcing_uM(t_sim_start + t, delay=ip3_delay)
-	else:
-		atp_ex_um = ATP_EX_REST_UM
+	# Vial & Evans 2002: P2X1 desensitises whether Ca²⁺ is present or not.
+	atp_ex_um = atp_ex_forcing_uM(
+		t_sim_start + t, delay=agonist_delay, peak_uM=atp_ex_peak_uM)
 	v_p2x1_act   = K_P2X1['k_act']   * p2x1_c * atp_ex_um
 	v_p2x1_close = K_P2X1['k_close'] * p2x1_o
 	v_p2x1_des   = K_P2X1['k_des']   * p2x1_o
@@ -1254,11 +1202,9 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['P2X1_D[pl]']] +=                              +v_p2x1_des - v_p2x1_rec
 
 	# ── PI cycle: PLCβ-driven IP3 production from PIP2 — Phase 4 / #31 ──
-	# v0.4 (#9): Gq concentration now comes from the explicit GPCR cascade
-	# state variable rather than the forced gq_signal_uM curve. The
-	# downstream PI cycle is unchanged; only the input source differs.
-	# Conversion: 1 µM gq_um ≈ 1 000 Gq_active count (calibrated so that
-	# resting Gq_active ~100 maps to gq_um ~0.1 µM, matching GQ_REST_UM).
+	# Gq concentration comes from the GPCR cascade state variable.
+	# Conversion factor 5 was calibrated so resting Gq_active ≈ 100 maps
+	# to gq_um ≈ 0.1 µM, which holds basal IP3 at its ~50 nM Purvis target.
 	gq_um = (gq_a / N_GQ_TOTAL) * 5.0
 
 	# PLCβ activation cycle.
@@ -1282,16 +1228,13 @@ def _ode_rhs(t, y, t_sim_start, ip3_forced, ip3_delay=0.0):
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
 
-	# ── v0.4 GPCR cascade — receptors + Gαq cycle (issue #9) ────────
-	# Replaces the v0.3.x gq_signal_uM forcing. Agonist concentrations
-	# from external forcing → receptor activation → Gαq exchange →
-	# PLCβ activation (already in the PI cycle block above).
-	if ip3_forced:
-		adp_um_now    = adp_uM(t_sim_start + t, delay=ip3_delay)
-		thr_nm_now    = thrombin_nM(t_sim_start + t, delay=ip3_delay)
-	else:
-		adp_um_now    = ADP_REST_UM
-		thr_nm_now    = THROMBIN_REST_NM
+	# ── GPCR cascade — receptors + Gαq cycle (issue #9) ─────────────
+	# Agonist concentrations → receptor activation → Gαq exchange →
+	# PLCβ activation (in the PI cycle block above).
+	adp_um_now = adp_uM(
+		t_sim_start + t, delay=agonist_delay, peak_uM=adp_peak_uM)
+	thr_nm_now = thrombin_nM(
+		t_sim_start + t, delay=agonist_delay, peak_nM=thrombin_peak_nM)
 
 	# P2Y1: reversible ADP binding
 	v_p2y1_on  = K_P2Y1['k_on']  * p2y1_i * adp_um_now
@@ -1348,9 +1291,10 @@ class CalciumSignalling:
 	dataclasses (see TwoComponentSystem):
 
 	  * `molecule_names` — array of bulk-molecule IDs the process views.
-	  * `molecules_to_next_time_step(counts, dt, t_sim, ip3_forced)` —
-	    integrate the ODE for one outer timestep and return integer count
-	    deltas + estimated ATP cost.
+	  * `molecules_to_next_time_step(counts, dt, t_sim, ...)` — integrate
+	    the ODE for one outer timestep and return integer count deltas +
+	    estimated ATP cost. Agonist forcing is controlled by the three
+	    optional peak concentrations; passing 0 yields a resting sim.
 	"""
 
 	def __init__(self, sim_data):
@@ -1368,9 +1312,14 @@ class CalciumSignalling:
 		# lab-book-2026-05-12-pi-cycle-design.md §"IP3 stuck-at-205".
 		self._residual = np.zeros(N_SPECIES)
 
-	def molecules_to_next_time_step(self, counts, dt, t_sim, ip3_forced=False,
-			ip3_delay=0.0):
+	def molecules_to_next_time_step(self, counts, dt, t_sim,
+			agonist_delay=0.0, thrombin_peak_nM=None,
+			adp_peak_uM=None, atp_ex_peak_uM=None):
 		"""Run one outer timestep of the calcium ODE.
+
+		Agonist forcing is controlled by the three `*_peak_*` kwargs;
+		`None` (default) uses the module-level peak constants, `0` gives
+		a resting / un-stimulated sim. See `_ode_rhs` docstring.
 
 		Returns
 		-------
@@ -1385,7 +1334,8 @@ class CalciumSignalling:
 		sol = solve_ivp(
 			_ode_rhs, (0.0, dt), y0,
 			method='BDF',
-			args=(t_sim, ip3_forced, ip3_delay),
+			args=(t_sim, agonist_delay,
+				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,

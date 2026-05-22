@@ -1,6 +1,6 @@
 """
 Re-derive the resting initial conditions by integrating the calcium ODE
-with no IP3 forcing for 600 s, starting from the current
+at rest (all agonist peaks zero) for 600 s, starting from the current
 ``internal_state.py`` initial counts. The converged state is a true
 fixed point of the model — no more sub-state racing in the first
 timestep, no more startup spike from a non-equilibrium IP3R Markov
@@ -60,13 +60,16 @@ def main(argv=None):
 	sim_data = SimulationDataPlatelet()
 	y0 = initial_counts_vector(sim_data)
 
-	# Integrate the ODE with no IP3 forcing — IP3 stays at its initial value.
-	# t_sim_start is unused when ip3_forced=False.
-	print(f'Integrating calcium ODE for {args.length:.0f} s with no IP3 forcing…')
+	# Integrate the ODE at rest (all three agonist peaks zero → receptors
+	# stay at REST levels for all t).
+	print(f'Integrating calcium ODE for {args.length:.0f} s at rest…')
+	# args = (t_sim_start, agonist_delay,
+	#         thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM)
+	rest_args = (0.0, 0.0, 0.0, 0.0, 0.0)
 	sol = solve_ivp(
 		_ode_rhs, (0.0, args.length), y0,
 		method='BDF',
-		args=(0.0, False, 0.0),     # t_sim_start, ip3_forced, ip3_delay
+		args=rest_args,
 		atol=1e-3, rtol=1e-6,
 		max_step=10.0,
 	)
@@ -76,7 +79,7 @@ def main(argv=None):
 	y_final = np.maximum(sol.y[:, -1], 0.0)
 
 	# Convergence check: dy/dt at the final state should be ~ 0.
-	dy_final = _ode_rhs(args.length, y_final, 0.0, False, 0.0)
+	dy_final = _ode_rhs(args.length, y_final, *rest_args)
 	max_drift = float(np.max(np.abs(dy_final)))
 
 	# Per-species comparison.

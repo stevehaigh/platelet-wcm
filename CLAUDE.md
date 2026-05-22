@@ -43,7 +43,7 @@ All runscripts support `-h` for full options.
 
 ### Run-time conditions
 
-`runPlateletSim.py` exposes three CLI flags that change the biology being
+`runPlateletSim.py` exposes these CLI flags for the biology being
 simulated, beyond simulation length and seed:
 
 | Flag | Default | Effect |
@@ -51,7 +51,11 @@ simulated, beyond simulation length and seed:
 | `--length N` | 60 | Simulation length in seconds |
 | `--seed N` | 0 | RNG seed (currently no stochastic processes use it) |
 | `--ca-ex-mM X` | 1.2 | Extracellular Ca²⁺ in mM. Set `0` for the Dolan Fig. 4 EDTA / no-extracellular-Ca²⁺ condition (SOCE inactive, PM leak inactive). |
-| `--no-ip3-forcing` | (off) | Disable the Dolan Fig. S2 IP3 time curve, so IP3 stays at its 50 nM baseline. Use for an at-rest / un-stimulated sim. |
+| `--at-rest` | (off) | Shorthand for `--thrombin-peak-nM 0 --adp-peak-uM 0 --atp-ex-peak-uM 0`. All agonists stay at REST level → cell sits at its endogenous fixed point. |
+| `--thrombin-peak-nM X` | (module default: 1.0) | Peak thrombin (nM) during the activation transient. Drives PAR1/PAR4. |
+| `--adp-peak-uM X` | (module default: 10.0) | Peak ADP (µM) during the transient. Drives P2Y1. |
+| `--atp-ex-peak-uM X` | (module default: 10.0) | Peak extracellular ATP (µM) during the transient. Drives P2X1. |
+| `--agonist-delay S` | 0.0 | Seconds the model settles at its fixed point before the agonist time courses start. Useful for ignoring the start-up transient. |
 
 Where each behaviour is defined in code:
 
@@ -60,19 +64,25 @@ Where each behaviour is defined in code:
   runscript overrides it via `cs_mod.CA_EX_UM = ca_ex_mM * 1000.0` before
   the sim is constructed; `_ode_rhs` reads it on every ODE step. Both the
   SOCE current and the basal PM Ca²⁺ leak are gated on `CA_EX_UM > 0`.
-- **IP3 forcing** is the class attribute `CalciumDynamics._ip3_forced` in
-  `models/platelet/processes/calcium_dynamics.py`. The runscript overrides
-  it before constructing `PlateletSimulation`. When `True`, the
-  `CalciumDynamics` process passes `ip3_forced=True` into the ODE solver,
-  which applies `ip3_forcing_uM(t)` (the Dolan Fig. S2 fit, also in
-  `calcium_signalling.py`) to the IP3 state variable each step.
+- **Agonist stimulation** is three optional class attributes on
+  `CalciumDynamics` in `models/platelet/processes/calcium_dynamics.py`:
+  `_thrombin_peak_nM`, `_adp_peak_uM`, `_atp_ex_peak_uM`. `None` (default)
+  → the module-level peak constants are read live at call time
+  (`THROMBIN_PEAK_NM`, `ADP_PEAK_UM`, `ATP_EX_PEAK_UM`). `0` → that
+  receptor sees only its REST level (a "resting" sim has all three set to
+  0). The agonist functions (`thrombin_nM`, `adp_uM`, `atp_ex_forcing_uM`)
+  use the `peak_X=None` sentinel pattern so module-constant reassignment
+  takes effect immediately — required for dose-sweep work (issue #45).
 
 The same conditions are exposed on the **webapp** Configure tab as form
-fields (Extracellular Ca²⁺ mM, IP3 forcing checkbox). The three webapp
-presets — IP3 transient (+Ca²⁺), EDTA transient, Resting — are defined
-in `wholecell/webapp/tabs/configure.py:PRESETS` and differ in exactly
-those three knobs (length, `ca_ex_mM`, `ip3_forced`). The Phase 3 driver
-`runPhase3.py` runs the +Ca²⁺ and EDTA conditions back-to-back.
+fields (Extracellular Ca²⁺ mM, "Run at rest" checkbox). The four webapp
+presets — Agonist transient (+Ca²⁺), Agonist transient (60 s settle),
+EDTA transient, Resting — are defined in
+`wholecell/webapp/tabs/configure.py:PRESETS` and differ across four
+biology-affecting knobs: `ca_ex_mM`, `at_rest`, `agonist_delay_s`, and
+`length_sec` (the last sets how much of the response is observed; the
+first three set what biology runs). The Phase 3 driver `runPhase3.py`
+runs the +Ca²⁺ and EDTA conditions back-to-back.
 
 ## Tests & Type Checking
 
@@ -158,13 +168,20 @@ The biologically rich process is `CalciumDynamics`. It is a thin wrapper around 
 ODE solver and rate constants in
 `reconstruction/platelet/dataclasses/process/calcium_signalling.py`, which encodes:
 
-- **IP3R** — 6-state Markov model (Sneyd & Dufour 2002; Purvis & Bhatt 2008 constants)
+- **GPCR cascade** — P2Y1 (ADP, reversible), PAR1 (thrombin, fast irreversible cleavage),
+  PAR4 (thrombin, ~10× slower cleavage), P2X1 (ATP-gated ionotropic). Receptors drive a
+  Gαq exchange/GTPase cycle which activates PLCβ.
+- **PI cycle** — PLCβ-catalysed PIP2 → IP3 + DAG; IP3 5-phosphatase / 3-kinase degradation;
+  PIP2 resynthesis (lumped). IP3 is now an endogenous state variable, not a forced curve.
+- **IP3R** — Li-Rinzel 1994 reduction of de Young–Keizer 1992 (quasi-steady m∞, one slow ODE for h)
 - **SERCA** — E1/E2 enzymatic cycle (Dode 2002)
 - **PMCA** — 5-state CaM-coupled (Caride 2007 Table 3): basal + Ca₄·CaM-activated paths
 - **SOCE** — STIM1 dimerisation + Orai1 MWC flux (Dolan & Diamond 2014; Hoover)
 - **CaM** — three sub-states (free, Ca₂·CaM, Ca₄·CaM) acting as cytosolic Ca²⁺ buffer
-- **IP3** — currently a forced time curve (Dolan 2014 Fig. S2); `_ip3_forced=True`.
-  In v0.3 a P2Y1 upstream process will produce IP3 endogenously.
+- **Stimulus input** — agonist time courses (`thrombin_nM`, `adp_uM`, `atp_ex_forcing_uM`)
+  whose peaks are controlled per-call by the `peak_*` kwargs (with `None` →
+  read the module default constant live). Passing 0 for a given peak gives
+  REST level for that receptor; all three zero is a resting / un-stimulated sim.
 
 `CalciumTrace` listener records 14 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.

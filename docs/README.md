@@ -10,7 +10,7 @@
 ```bash
 # Three biologically-distinct run conditions (use --help for the full flag list):
 
-# 1. IP3 transient with extracellular Ca²⁺ (Phase 1, default)
+# 1. Agonist transient with extracellular Ca²⁺ (Phase 1, default)
 PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPlateletSim.py \
     out/transient --length 200
 
@@ -18,9 +18,9 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPlateletSim
 PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPlateletSim.py \
     out/edta --length 200 --ca-ex-mM 0
 
-# 3. Resting (no IP3 stimulus)
+# 3. Resting (zero all agonist peaks — no extracellular stimulus)
 PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPlateletSim.py \
-    out/resting --length 300 --no-ip3-forcing
+    out/resting --length 300 --at-rest
 
 # Run analysis plots on any output
 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" python runscripts/manual/analysisPlatelet.py out/transient
@@ -30,11 +30,14 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPhase3.py \
     out/phase3 --length 200
 ```
 
-The two condition flags (`--ca-ex-mM`, `--no-ip3-forcing`) override
-`cs_mod.CA_EX_UM` and `CalciumDynamics._ip3_forced` respectively before
-the simulation is constructed; the same conditions are exposed as form
-fields and three presets in the webapp Configure tab. See the top-level
-[README](../README.md) and each script's `--help` for all options.
+The condition flags override module-/class-level state before the
+simulation is constructed: `--ca-ex-mM` overrides `cs_mod.CA_EX_UM`, and
+`--at-rest` (or the per-receptor `--thrombin-peak-nM` / `--adp-peak-uM`
+/ `--atp-ex-peak-uM` flags) overrides `CalciumDynamics._thrombin_peak_nM`,
+`_adp_peak_uM`, and `_atp_ex_peak_uM`. The same knobs are exposed as
+form fields and four presets in the webapp Configure tab. See the
+top-level [README](../README.md) and each script's `--help` for all
+options.
 
 ## development
 

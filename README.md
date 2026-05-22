@@ -31,12 +31,12 @@ PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py out/my_run
 PYTHONPATH=$PWD python -m pytest models/platelet/tests/
 ```
 
-The simulation supports three biologically-distinct conditions, controlled by
-two CLI flags:
+The simulation supports several biologically-distinct conditions, controlled by
+the extracellular Ca²⁺ flag and the per-agonist peak flags:
 
 ```bash
-# Resting / un-stimulated (no IP3 stimulus)
-python runscripts/manual/runPlateletSim.py out/resting --length 300 --no-ip3-forcing
+# Resting / un-stimulated (zero all agonist peaks)
+python runscripts/manual/runPlateletSim.py out/resting --length 300 --at-rest
 
 # Phase 1 transient with extracellular Ca²⁺ (Dolan 2014 nominal — default)
 python runscripts/manual/runPlateletSim.py out/transient --length 200
@@ -44,14 +44,18 @@ python runscripts/manual/runPlateletSim.py out/transient --length 200
 # Phase 3 EDTA condition (no extracellular Ca²⁺ — SOCE inactive)
 python runscripts/manual/runPlateletSim.py out/edta --length 200 --ca-ex-mM 0
 
+# Dose-sweep variant — override per-receptor peak agonist concentrations
+python runscripts/manual/runPlateletSim.py out/sweep --thrombin-peak-nM 3.0 --adp-peak-uM 1.0
+
 # Phase 3 driver: runs both ±extracellular-Ca²⁺ conditions and produces
 # the Dolan 2014 Fig. 4 comparison figure
 python runscripts/manual/runPhase3.py out/phase3 --length 200
 ```
 
 The same conditions are available in the webapp Configure tab as form fields
-(Extracellular Ca²⁺ mM, IP3 forcing checkbox) and as three presets:
-IP3 transient (+Ca²⁺), EDTA transient, Resting.
+(Extracellular Ca²⁺ mM, "Run at rest" checkbox) and as four presets:
+Agonist transient (+Ca²⁺), Agonist transient (60 s settle, +Ca²⁺),
+EDTA transient, Resting.
 
 Set `OPENBLAS_NUM_THREADS=1` in your shell profile for consistent numerical results.
 See [`docs/create-pyenv.md`](docs/create-pyenv.md) for full environment setup.

@@ -158,8 +158,15 @@ class JobManager:
 		length_sec = int(config.get('length_sec', 60))
 		seed = int(config.get('seed', 0))
 		ca_ex_mM = float(config.get('ca_ex_mM', 1.2))
-		ip3_delay_s = float(config.get('ip3_delay_s', 0))
-		ip3_forced = bool(config.get('ip3_forced', True))
+		agonist_delay_s = float(config.get('agonist_delay_s', 0))
+		# Backward-compat: pre-PR queued rows have `agonist_forced` (or
+		# even older `ip3_forced`), never `at_rest`. Map the legacy keys
+		# to the new flag so a queued Resting job from before this PR
+		# still runs at rest after deploy. Display path in runs.py
+		# deliberately omits this fallback per issue #44 review.
+		at_rest = bool(config.get('at_rest',
+			not config.get('agonist_forced',
+				config.get('ip3_forced', True))))
 
 		try:
 			# Phase 1: Simulation
@@ -171,10 +178,10 @@ class JobManager:
 				'--ca-ex-mM', str(ca_ex_mM),
 				'--no-log-to-shell',
 			]
-			if not ip3_forced:
-				sim_args.append('--no-ip3-forcing')
-			if ip3_delay_s > 0:
-				sim_args.extend(['--ip3-delay', str(ip3_delay_s)])
+			if at_rest:
+				sim_args.append('--at-rest')
+			if agonist_delay_s > 0:
+				sim_args.extend(['--agonist-delay', str(agonist_delay_s)])
 			cmd_sim = self._build_cmd(sim_args, in_container, out_root)
 			proc = subprocess.run(cmd_sim, capture_output=True, text=True,
 				cwd=self.repo_root if in_container else None)

@@ -45,13 +45,13 @@ def register_callbacks(app: dash.Dash, job_manager: JobManager) -> None:
 			length_sec = config.get('length_sec', '?')
 			seed = config.get('seed', '?')
 			ca_ex_mM = config.get('ca_ex_mM')
-			ip3_forced = config.get('ip3_forced', True)
+			at_rest = bool(config.get('at_rest', False))
 			# Compact one-cell summary of the biological condition.
 			cond_parts = []
 			if ca_ex_mM is not None:
 				cond_parts.append(
 					f'Ca²⁺_ex={ca_ex_mM} mM' if ca_ex_mM > 0 else 'EDTA')
-			cond_parts.append('IP3 ON' if ip3_forced else 'rest')
+			cond_parts.append('rest' if at_rest else 'agonist ON')
 			condition = ' · '.join(cond_parts)
 
 			rows.append(html.Tr([
