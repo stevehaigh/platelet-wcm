@@ -176,6 +176,9 @@ webapp_jobs.db
 # Generated Markdown → PDF output (reports/)
 /reports/pdf/
 /reports/pdf-quarto/
+# Generated docs HTML site (runscripts/manual/buildDocsSite.py).
+# To publish via GitHub Pages, comment this line out and `git add -f reports/site/`.
+/reports/site/
 node_modules
 
 /.quarto/
