@@ -39,14 +39,17 @@ def create_app(out_path: str = None, repo_root: str = None,
 	)
 
 	# Import tabs
-	from wholecell.webapp.tabs import configure, explore, inspect_data, runs
+	from wholecell.webapp.tabs import (
+		configure, dose_response, explore, inspect_data, runs,
+	)
 
 	# Build all tab layouts upfront so Dash registers every component ID
 	# in the initial layout. Tabs are shown/hidden via CSS display property.
-	tab_ids = ['inspect', 'explore', 'configure', 'runs']
+	tab_ids = ['inspect', 'explore', 'dose', 'configure', 'runs']
 	tab_contents = {
 		'inspect': inspect_data.layout(out_path),
 		'explore': explore.layout(out_path),
+		'dose': dose_response.layout(out_path),
 		'configure': configure.layout(),
 		'runs': runs.layout(),
 	}
@@ -71,6 +74,7 @@ def create_app(out_path: str = None, repo_root: str = None,
 			children=[
 				dcc.Tab(label='Inspect Data', value='inspect', className='tab', selected_className='tab--selected'),
 				dcc.Tab(label='Explore Plots', value='explore', className='tab', selected_className='tab--selected'),
+				dcc.Tab(label='Dose Response', value='dose', className='tab', selected_className='tab--selected'),
 				dcc.Tab(label='Configure', value='configure', className='tab', selected_className='tab--selected'),
 				dcc.Tab(label='Run Status', value='runs', className='tab', selected_className='tab--selected'),
 			],
@@ -115,6 +119,7 @@ def create_app(out_path: str = None, repo_root: str = None,
 	# Register tab callbacks
 	inspect_data.register_callbacks(app, out_path)
 	explore.register_callbacks(app, out_path)
+	dose_response.register_callbacks(app, out_path)
 	configure.register_callbacks(app, on_submit=lambda cfg: _submit_job(job_manager, cfg))
 	runs.register_callbacks(app, job_manager)
 

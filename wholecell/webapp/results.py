@@ -22,6 +22,30 @@ def dir_timestamp(path: str) -> str:
 		return ''
 
 
+def dose_sweep_options(out_path: str) -> List[dict]:
+	"""Build dropdown options for the Dose Response tab.
+
+	Returns one option per directory under `out/` that contains both
+	`sweep_summary.json` and `sweep.npz` (the canonical artefacts written
+	by `runscripts/manual/runDoseSweep.py`). Ordered by mtime, newest first.
+	"""
+	options: list[tuple[float, dict]] = []
+	if not os.path.isdir(out_path):
+		return []
+	for name in os.listdir(out_path):
+		sweep_dir = os.path.join(out_path, name)
+		summary = os.path.join(sweep_dir, 'sweep_summary.json')
+		npz = os.path.join(sweep_dir, 'sweep.npz')
+		if os.path.isfile(summary) and os.path.isfile(npz):
+			try:
+				mtime = os.path.getmtime(sweep_dir)
+			except OSError:
+				mtime = 0.0
+			options.append((mtime, {'label': name, 'value': sweep_dir}))
+	options.sort(reverse=True, key=lambda x: x[0])
+	return [opt for _, opt in options]
+
+
 def explore_run_options(out_path: str) -> List[dict]:
 	"""Build run dropdown options for the Explore tab.
 

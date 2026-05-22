@@ -31,7 +31,7 @@ from runscripts.manual.runPlateletSim import resolve_sim_path
 _SUP_RE = re.compile(r'\$\^\{([^}]+)\}\$')
 
 
-def _mathtext_to_html(s: str) -> str:
+def mathtext_to_html(s: str) -> str:
 	"""Translate the matplotlib mathtext used by runDoseSweep into Plotly-
 	compatible HTML markup. Plotly title/axis labels don't render mathtext
 	(they pass it through verbatim) but they do honour <sup>/<sub> tags.
@@ -48,7 +48,7 @@ def _resolve_sweep_dir(arg: str) -> str:
 	return resolve_sim_path(arg)
 
 
-def _make_surface(adp_grid: np.ndarray, thr_grid: np.ndarray,
+def make_surface(adp_grid: np.ndarray, thr_grid: np.ndarray,
 		matrix: np.ndarray, label: str, unit: str, colorscale: str) -> go.Figure:
 	"""Build a Plotly Surface figure for one observable."""
 	# X = log10(ADP), Y = log10(thrombin). Plotly's 3-D log scale is
@@ -59,8 +59,8 @@ def _make_surface(adp_grid: np.ndarray, thr_grid: np.ndarray,
 
 	# Plotly renders HTML markup (<sup>, <sub>, etc.) in titles and
 	# hovertemplates, but not matplotlib mathtext. Translate before use.
-	label_html = _mathtext_to_html(label)
-	unit_html = _mathtext_to_html(unit)
+	label_html = mathtext_to_html(label)
+	unit_html = mathtext_to_html(unit)
 
 	fig = go.Figure(data=[go.Surface(
 		x=log_adp, y=log_thr, z=matrix,
@@ -143,9 +143,9 @@ def render_html(sweep_dir: str, observable: str = 'peak_ip3_nM',
 	include_plotlyjs: str | bool = 'cdn'  # first plot embeds, rest reuse
 	for key in keys:
 		label, unit, cmap = obs_map[key]
-		label_html = _mathtext_to_html(label)
-		unit_html = _mathtext_to_html(unit)
-		fig = _make_surface(adp_grid, thr_grid, data[key],
+		label_html = mathtext_to_html(label)
+		unit_html = mathtext_to_html(unit)
+		fig = make_surface(adp_grid, thr_grid, data[key],
 			label=label, unit=unit,
 			colorscale=cmap_translate.get(cmap, 'Viridis'))
 		html_parts.append(
