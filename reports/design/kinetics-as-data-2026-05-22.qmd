@@ -1,0 +1,339 @@
+---
+title: "Kinetics-as-data refactor — audit and implementation plan (issue #32)"
+author: "Steve Haigh"
+date: "2026-05-22"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Goal
+
+Move all numerical model data out of Python source and into structured,
+human-reviewable files. Currently `reconstruction/platelet/dataclasses/`
+mixes ~150 numerical constants in with the ODE logic, which makes
+parameter review hard for biologist collaborators and obscures the
+data-vs-algorithm boundary that the rest of the architecture honours.
+
+This is the audit and implementation plan for issue
+[#32](https://github.com/stevehaigh/platelet-wcm/issues/32). It also
+introduces the byte-identical regression test suite (committed in this
+session) that brackets the refactor: any externalisation step that is
+supposed to be behaviour-preserving will be verified bit-for-bit.
+
+# Audit findings
+
+## Numerical constants by file
+
+| File | What | Count |
+|------|------|-------|
+| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | `K_*` rate-constant dicts | 19 |
+| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` | Module-level scalar constants (`CA_EX_UM`, `V_CYT_L`, `N_GSN`, conductances, time constants) | ~30 |
+| `reconstruction/platelet/dataclasses/internal_state.py` | `_MOLECULES` tuple list (id × mass_fg × initial_count × class) | 63 rows |
+| `reconstruction/platelet/dataclasses/process/resting_decay.py` | `_PROTEIN_HALF_LIFE_SEC` | 1 |
+
+Roughly **115 named scalars + 19 dicts + 63-row species table** —
+consistent with the issue's "~150–200" estimate.
+
+## Sub-areas requiring design choices
+
+These are not blockers, but each one bends the simplest "pure data
+file" picture and needs a per-case answer in the schema:
+
+**Computed defaults**
+:   e.g. `_UM_PER_COUNT_CYT = 1.0 / (N_A * V_CYT_L * 1e-6)` is derived
+    from three other constants. Options: pre-compute and bake into the
+    TOML (loses the derivation), or keep a small builder function that
+    fills derived fields at load. Recommended: builder, because the
+    derivation captures provenance that's meaningful for review.
+
+**Cross-referenced counts**
+:   `N_HSP90B1_M = N_HSP90B1 * 4` (sites per molecule). Same fix:
+    TOML carries the inputs (`molecules = 10_000`, `sites_per_molecule_medium = 4`),
+    the loader computes the product.
+
+**Module-mutation overrides**
+:   `cs_mod.CA_EX_UM = X` is the current Phase-3 condition-switch
+    mechanism (set by `run_platelet_sim` before sim construction). After
+    externalisation, the override needs either a config-object pattern
+    (passed through to the solver) or a transition shim that still
+    mutates a module-level attribute the loader reads. Recommended: keep
+    a thin shim during migration, then plumb a `SimulationParams`
+    dataclass through the engine in a separate follow-up.
+
+**Calibration-coupled comments**
+:   ~5 places in `calcium_signalling.py` have multi-paragraph provenance
+    comments adjacent to a single constant (e.g. the `GAMMA_IP3R_S`
+    block walks through the SERCA-balanced derivation). TOML comments
+    can carry one-line provenance but can't host paragraphs. Option:
+    move the prose to `reports/dissertation-notes.md` and reference by
+    section number in a TOML comment; preserve the value + provenance
+    relationship via a deliberate link.
+
+**Process-coupled dicts**
+:   `MOLECULE_NAMES` tuple, `_IDX` dict, and the embedded species
+    ordering in `_ode_rhs` are tightly coupled — the integer indices
+    must match what the listener reads. The refactor needs a shared
+    "species ordering" source-of-truth, not duplicate definitions in
+    the TOML and the Python.
+
+# Target schema
+
+## Kinetic parameters — TOML
+
+Single file `reports/params/calcium-v0.5.toml` (versioned to model
+release). One `[table]` per rate-constant group, with the existing
+dict key names preserved verbatim so the loader-to-engine mapping is
+trivial.
+
+```toml
+[meta]
+version = "v0.5"
+last_updated = "2026-05-22"
+note = "First externalised release; matches calcium_signalling.py @ 9f253e42"
+
+[volumes]
+V_CYT_L = 6.0e-15      # cytosol (Purvis 2008)
+V_DTS_L = 0.258e-15    # 4.3% of cytosol; same source
+
+[physical]
+N_A = 6.022e23
+F_FARADAY = 96485.0
+R_GAS = 8.314
+T_KELVIN = 310.0       # 37°C; Purvis/Dolan
+V_IM_V = -0.060
+V_PM_V = -0.060
+
+[ip3r]
+# deYoung-Keizer 1992 / Li-Rinzel 1994
+d1 = 0.13              # IP3 activation half-saturation (µM)
+d2 = 1.049             # Ca²⁺ inhibition half-saturation (µM)
+d5 = 0.08234           # Ca²⁺ activation half-saturation (µM)
+a2 = 0.2               # Ca²⁺ inhibition on-rate (µM⁻¹·s⁻¹)
+N_channels = 1328      # Burkhart 2012; Dolan Table S1
+gamma_pS = 0.075       # calibrated, see dissertation-notes §3.1
+source = "deYoung & Keizer 1992 PNAS 89:9895; Li & Rinzel 1994 JTB 166:461"
+
+[serca]
+k_shuttle_f = 600.0
+k_shuttle_r = 600.0
+k_bind_f = 210.0
+# ... etc
+
+[par1]
+k_cleave = 2.0
+k_internalize = 0.02
+N_total = 2500
+source = "Coller 1995"
+```
+
+One `[table]` per `K_*` dict; loader's job is to expose them in a way
+that the engine code can consume drop-in (i.e. `K_SERCA['k_bind_f']`
+still works after the refactor — see Loader architecture below).
+
+## Initial conditions — TSV
+
+`reports/params/species-v0.5.tsv`. 63 rows, four canonical columns plus
+optional commentary:
+
+```
+id                    mass_fg     initial_count   class       notes
+CA2_CYT[c]            6.660e-8    361             metabolite  100 nM × 6 fL
+CA2_DTS[dts]          6.660e-8    38842           metabolite  250 µM × 4.3% × 6 fL
+IP3R_h[dts]           5.110e-4    1212            protein     h₀ = 0.913 × N_IP3R
+...
+```
+
+Lives alongside the kinetics TOML so a parameter set is a directory.
+TSV (not CSV) because tabs separate cleanly through molecule IDs
+containing brackets and dots.
+
+# Loader architecture
+
+## Where the loaders live
+
+```
+reconstruction/platelet/dataclasses/
+  ├── process/
+  │   ├── calcium_signalling.py   # consumes loader output; algorithm only
+  │   ├── resting_decay.py        # ditto
+  │   └── _params_loader.py       # NEW — reads TOML, returns dicts
+  └── internal_state.py           # consumes species TSV
+```
+
+## Public API
+
+`_params_loader.py` exposes one function:
+
+```python
+def load_calcium_params(toml_path: str) -> dict[str, Any]:
+    """Read a kinetics TOML, fill derived fields, return a flat dict
+    keyed by the names the engine currently uses (`K_SERCA`, `CA_EX_UM`,
+    `N_HSP90B1_M`, …). Drop-in replacement for the current module-level
+    bindings."""
+```
+
+The engine module then becomes a thin wrapper:
+
+```python
+# calcium_signalling.py top of file:
+_PARAMS_PATH = os.environ.get(
+    'PLATELET_PARAMS', 'reports/params/calcium-v0.5.toml')
+_p = load_calcium_params(_PARAMS_PATH)
+K_SERCA = _p['K_SERCA']
+K_PMCA = _p['K_PMCA']
+CA_EX_UM = _p['CA_EX_UM']
+# ... etc
+```
+
+After the migration the engine module is mostly the ODE itself plus
+algorithm constants (`ORAI_SUBUNITS_PER_CHANNEL = 4` is arguably more
+"definition" than "data" — keep in code? open question).
+
+## Multi-scenario via `--params`
+
+```bash
+python runscripts/manual/runPlateletSim.py out/sweep \
+    --params reports/params/dolan-2014.toml
+```
+
+`runPlateletSim.py` reads `--params` and either passes the path to
+`load_calcium_params` directly, or sets the env var the engine uses.
+Either works; env var is simpler.
+
+# Migration plan
+
+Phased so each step is independently verifiable against the byte-
+identical regression suite (already landed today).
+
+| Phase | Effort | Risk | Reversible |
+|-------|--------|------|-----------|
+| **0**. Byte-identical regression suite ← **done** today | 1 h | none | n/a |
+| **1**. Choose format + design schema (this doc) | done | none | n/a |
+| **2**. Build `_params_loader.py` + write the first TOML | half-day | low | trivial revert |
+| **3**. Refactor `calcium_signalling.py` to consume loader output | half-day | **medium** | trivial revert |
+| **4**. Byte-identical regression test passes against the externalised version | half-day | this is where the actual risk lives | — |
+| **5**. Refactor `internal_state.py` to consume species TSV | 1 h | low | trivial revert |
+| **6**. Add `--params` CLI flag + multi-scenario plumbing | 1 h | low | additive |
+| **7**. Documentation: schema reference + how to add a new parameter | 1 h | low | additive |
+
+Total **~2 days** after the regression suite is in. The regression
+suite is the unblock: without it the medium-risk phase 3 step is
+unverifiable.
+
+## Recommended sequencing
+
+- **Now** (today): phase 0 — byte-identical regression suite. ✓
+- **Now or next session**: phase 1 (this doc). ✓
+- **Defer** (post-dissertation, per the original framing in #32):
+  phases 2–7. Reason: the medium-risk step (phase 3) carries real
+  refactor risk during writing; a 1% drift in resting Ca²⁺ during
+  dissertation finalisation is exactly the kind of obstacle worth
+  avoiding.
+- **Or, if appetite during dev runway** (4–6 weeks before writeup):
+  phases 2–4 on a feature branch, merged only when the byte-identical
+  test is green. Phases 5–7 follow as small independent commits.
+
+# Regression test strategy
+
+## What's already in place (today)
+
+- **Range-based tests** (`models/platelet/tests/sim/test_regression.py`)
+  — assert resting Ca²⁺ ∈ [80, 120] nM, peak ∈ [200, 800] nM, etc. Good
+  guardrails, but pass under FP-order drift.
+- **Phase 3 acceptance criteria** — 5/5 specific biology assertions on
+  peak heights and SOCE differential. Same range-based.
+- **Smoke tests** — dose sweep, calcium signalling kwargs, etc.
+
+These continue to be the right safety net for *biological* drift —
+they tell you when the model has moved off-target.
+
+## What landed today
+
+`models/platelet/tests/sim/test_byte_identical.py` — **bit-for-bit
+regression** on two deterministic scenarios:
+
+1. **`default_activation_30s`** — Phase 3 +Ca²⁺ condition, 30 s,
+   seed 0. Exercises the full GPCR cascade → IP3 → IP3R → DTS-release
+   → SOCE → PMCA pathway.
+2. **`at_rest_30s`** — all three agonist peaks set to 0, 30 s, seed 0.
+   Exercises the resting fixed point.
+
+For each scenario the test reads four CalciumTrace columns
+(`ca_cyt_nM`, `ca_dts_uM`, `ip3_nM`, `soce_flux_nMs`) and compares
+them against a golden NPZ via `np.testing.assert_array_equal`. The
+golden files live under `models/platelet/tests/sim/golden/` and are
+~2 KB each.
+
+If a refactor drifts the output:
+
+```bash
+$ pytest models/platelet/tests/sim/test_byte_identical.py
+…
+AssertionError: Byte-identical regression in scenario 'default_activation_30s',
+column 'ca_cyt_nM'. If this drift is expected (e.g. you intentionally
+changed kinetics), regenerate with REGEN_GOLDEN=1.
+```
+
+The failing run's NPZ can be saved next to the golden and `diff`-ed in
+Python — every sample at every timestep is available.
+
+## Why this is the right tool for #32
+
+The kinetics-as-data refactor is the canonical case of "should be
+behaviour-preserving". Any FP-order shift (e.g. dict iteration order
+changing in a Python upgrade, a TOML float being parsed differently
+from a literal in source) will be caught. The cost of false positives
+is bounded — if a library upgrade legitimately drifts the output, the
+fix is one env-var-prefixed test re-run plus a commit of the new NPZ.
+
+## What it does **not** cover
+
+- **Stochastic processes** — currently none in the model. If
+  `runPlateletSim.py --seed N` becomes meaningful later, the byte-
+  identical scope will need expanding.
+- **Long-horizon drift** — 30 s scenarios catch the spike and the
+  early recovery. If a refactor only affects the slow approach to
+  steady-state at t > 200 s, byte-identical at 30 s won't catch it.
+  Range-based Phase 3 tests at t = 200 s are the safety net there.
+- **Platform sensitivity** — byte-identical is per-platform.
+  Macbook + pyenv 3.11.5 + scipy 1.x is the current baseline; CI
+  failures on different platforms aren't necessarily bugs.
+
+# Open questions
+
+1. **Algorithm constants vs data constants.** Some module-level scalars
+   are arguably algorithm (e.g. `ORAI_SUBUNITS_PER_CHANNEL = 4`,
+   `STIM_MONOMERS_PER_DIMER = 2` — these define stoichiometry, not
+   kinetics). Should they stay in code? Recommendation: yes, with a
+   clear comment block. The TOML is for kinetics and inventory; the
+   code holds the stoichiometric / topological structure.
+
+2. **Computed defaults at load vs. at use.** `_UM_PER_COUNT_CYT` is
+   used inside the ODE on every step. If computed at load time and
+   baked into the engine module's globals, no perf cost. If computed
+   inside the ODE on every call, small perf cost. Recommendation:
+   load-time, matching current behaviour.
+
+3. **Parameter-set provenance.** Each TOML should declare which git
+   SHA of the engine it was tested against, and the loader should
+   warn (not error) if the engine has moved on. Trivial to implement;
+   useful for the multi-scenario use case.
+
+4. **TS/React UI** (the other half of #32) is unaffected by this
+   audit. Once parameters are externalised the UI can consume them
+   directly; the data layer doesn't care which UI is on top of it.
+
+# References
+
+- Issue #32 — kinetics-as-data + parameter-tweak UI (post-dissertation)
+- `reports/dissertation-notes.md §3.1` — `GAMMA_IP3R_S` calibration provenance
+- `reports/lab-books/lab-book-2026-05-22-issue-44-45-dose-sweep.md` — today's session
+- `models/platelet/tests/sim/test_byte_identical.py` — the regression suite
+- Current data lives in:
+  - `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
+  - `reconstruction/platelet/dataclasses/internal_state.py`
+  - `reconstruction/platelet/dataclasses/process/resting_decay.py`
