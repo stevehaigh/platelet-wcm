@@ -36,27 +36,27 @@
 				0
 			]
 		},
-		"tpeak_ca_s": {
-			"min": 1.0,
-			"max": 198.0,
+		"t_to_thresh_ca_s": {
+			"min": 6.0,
+			"max": 200.0,
 			"argmax": [
-				5,
-				6
+				0,
+				0
 			],
 			"argmin": [
-				0,
+				8,
 				0
 			]
 		},
-		"tpeak_ip3_s": {
-			"min": 0.0,
+		"t_to_thresh_ip3_s": {
+			"min": 26.0,
 			"max": 200.0,
 			"argmax": [
-				5,
-				6
+				0,
+				0
 			],
 			"argmin": [
-				0,
+				8,
 				0
 			]
 		},

@@ -8,11 +8,14 @@ supplemental). Semantically maps "lower agonist peak ≡ stronger competitive
 antagonism" — no antagonist species, no Kᵢ values.
 
 Observables harvested per cell:
-    peak_ca_nM     peak cytosolic Ca²⁺ (DTS-reservoir-dominated → ~binary)
-    peak_ip3_nM    peak cytosolic IP3 (upstream cascade → graded)
-    tpeak_ca_s     time to peak Ca²⁺
-    tpeak_ip3_s    time to peak IP3
-    auc_ca_nMs     Ca²⁺ AUC above resting baseline (integrated response)
+    peak_ca_nM         peak cytosolic Ca²⁺ (DTS-reservoir-dominated → ~binary)
+    peak_ip3_nM        peak cytosolic IP3 (upstream cascade → graded)
+    t_to_thresh_ca_s   time to first crossing of 250 nM cyt Ca²⁺ (rise time;
+                       cells that never crossed are right-censored at the
+                       sim length, indicating they did not fire)
+    t_to_thresh_ip3_s  time to first crossing of 150 nM cyt IP3 (cascade
+                       rise time, same censoring convention)
+    auc_ca_nMs         Ca²⁺ AUC above resting baseline (integrated response)
 
 Issue #45. Unblocked by #44 — agonist peaks are now live-readable via per-call
 kwargs.
@@ -72,12 +75,30 @@ DEFAULT_THR_RANGE_NM = (0.01, 1.0)
 # ── Observable registry ───────────────────────────────────────────────────
 # (key, human label, unit, cmap). Order controls panel layout.
 OBSERVABLES: tuple[tuple[str, str, str, str], ...] = (
-	('peak_ca_nM',   r'Peak cytosolic Ca$^{2+}$',   'nM',    'viridis'),
-	('peak_ip3_nM',  r'Peak cytosolic IP3',         'nM',    'plasma'),
-	('tpeak_ca_s',   r'Time to peak Ca$^{2+}$',     's',     'cividis'),
-	('tpeak_ip3_s',  r'Time to peak IP3',           's',     'cividis'),
-	('auc_ca_nMs',   r'Ca$^{2+}$ AUC above rest',   r'nM$\cdot$s',  'magma'),
+	('peak_ca_nM',         r'Peak cytosolic Ca$^{2+}$',         'nM',           'viridis'),
+	('peak_ip3_nM',        r'Peak cytosolic IP3',               'nM',           'plasma'),
+	('t_to_thresh_ca_s',   r'Time to 250 nM cyt Ca$^{2+}$',     's',            'cividis'),
+	('t_to_thresh_ip3_s',  r'Time to 150 nM cyt IP3',           's',            'cividis'),
+	('auc_ca_nMs',         r'Ca$^{2+}$ AUC above rest',         r'nM$\cdot$s',  'magma'),
 )
+
+# Thresholds for the rise-time observables. Chosen to sit cleanly between
+# the resting baseline and the saturated plateau, so the metric is well-
+# defined: cells that fire cross during their rise; cells that don't fire
+# are right-censored at the sim length (i.e. value = sim length means
+# "never crossed", not "crossed at the very end").
+_CA_RISE_THRESH_NM  = 250.0   # rest ~100 nM, saturated ~436 nM
+_IP3_RISE_THRESH_NM = 150.0   # rest ~50 nM, saturated ~300 nM
+
+
+def _first_crossing_s(y: np.ndarray, t: np.ndarray, threshold: float) -> float:
+	"""First time `y` reaches `threshold`. If never, return the last
+	sample time (right-censoring convention — caller is expected to know
+	the sim length and treat boundary values as 'did not cross')."""
+	above = y >= threshold
+	if not above.any():
+		return float(t[-1])
+	return float(t[int(above.argmax())])
 
 
 def harvest_cell(simout_dir: str) -> dict[str, float]:
@@ -88,11 +109,11 @@ def harvest_cell(simout_dir: str) -> dict[str, float]:
 	t = np.arange(len(ca), dtype=float)   # 1-s timesteps
 	ca_rest = float(ca[0])
 	return {
-		'peak_ca_nM':   float(ca.max()),
-		'peak_ip3_nM':  float(ip3.max()),
-		'tpeak_ca_s':   float(t[int(np.argmax(ca))]),
-		'tpeak_ip3_s':  float(t[int(np.argmax(ip3))]),
-		'auc_ca_nMs':   float(np.trapz(np.maximum(ca - ca_rest, 0.0), t)),
+		'peak_ca_nM':         float(ca.max()),
+		'peak_ip3_nM':        float(ip3.max()),
+		't_to_thresh_ca_s':   _first_crossing_s(ca,  t, _CA_RISE_THRESH_NM),
+		't_to_thresh_ip3_s':  _first_crossing_s(ip3, t, _IP3_RISE_THRESH_NM),
+		'auc_ca_nMs':         float(np.trapz(np.maximum(ca - ca_rest, 0.0), t)),
 	}
 
 
@@ -414,6 +435,19 @@ _OBSERVABLE_CAPTIONS: dict[str, str] = {
 		r'height. The cell makes a binary spike decision (see peak '
 		r'Ca$^{2+}$) but the integrated dose is graded with agonist '
 		r'input via spike duration.'
+	),
+	't_to_thresh_ca_s': (
+		r'First time cyt [Ca$^{2+}$] crosses 250 nM (threshold sits '
+		r'between $\sim$100 nM rest and the $\sim$436 nM saturated '
+		r'plateau). Captures rise time without the flat-top artefact of '
+		r'an argmax-based metric. Cells that never fired are right-'
+		r'censored at the 200 s sim length, i.e. a value of 200 means '
+		r'"did not cross", not "crossed at the very end".'
+	),
+	't_to_thresh_ip3_s': (
+		r'First time cyt [IP3] crosses 150 nM (between $\sim$50 nM rest '
+		r'and the $\sim$300 nM saturated plateau). Same censoring '
+		r'convention as the Ca$^{2+}$ rise-time observable above.'
 	),
 }
 
