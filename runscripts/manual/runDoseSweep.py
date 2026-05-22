@@ -373,6 +373,36 @@ def plot_panel(sweep: DoseSweep, png_path: str) -> None:
 	plt.close(fig)
 
 
+def plot_line_along_adp(sweep: DoseSweep, key: str, label: str, unit: str,
+		png_path: str) -> None:
+	"""1-D dose-response: one curve per thrombin level, x = ADP, y = observable.
+
+	Lets a reader read off how the response scales with ADP at fixed
+	thrombin much more easily than from a colour-coded heatmap. The
+	thrombin curves are colour-graded so the legend doubles as the
+	thrombin-axis scale.
+	"""
+	matrix = sweep.matrices[key]
+	cmap = plt.get_cmap('viridis')
+	thr_norm = np.linspace(0, 1, len(sweep.thr_grid))
+
+	fig, ax = plt.subplots(figsize=(8, 5.5))
+	for i, thr in enumerate(sweep.thr_grid):
+		ax.plot(sweep.adp_grid, matrix[i, :],
+			color=cmap(thr_norm[i]), marker='o', markersize=4, linewidth=1.6,
+			label=f'thrombin = {float(thr):.2g} nM')
+	ax.set_xscale('log')
+	ax.set_xlabel('ADP peak (µM) — log axis')
+	ax.set_ylabel(f'{label} ({unit})')
+	ax.set_title(f'{label} vs ADP at fixed thrombin '
+		f'(length {sweep.length_sec} s, seed {sweep.seed})', fontsize=11)
+	ax.legend(fontsize=8, loc='best', framealpha=0.92)
+	ax.grid(alpha=0.3, which='both')
+	fig.tight_layout()
+	fig.savefig(png_path, dpi=140, bbox_inches='tight')
+	plt.close(fig)
+
+
 def plot_surface(sweep: DoseSweep, key: str, label: str, unit: str,
 		png_path: str) -> None:
 	"""3-D surface of one observable. Coords are log10-transformed."""
@@ -410,6 +440,12 @@ def write_all_outputs(sweep: DoseSweep, out_path: str) -> None:
 	# 3-D surface for the canonical Ca²⁺ observable only.
 	plot_surface(sweep, 'peak_ca_nM', r'Peak cytosolic Ca$^{2+}$', 'nM',
 		os.path.join(out_path, 'sweep_surface.png'))
+	# 1-D line plots (curves vs ADP at fixed thrombin) for the most
+	# story-telling observables — same data, easier to read off.
+	for key, label, unit, _ in OBSERVABLES:
+		if key in ('t_to_thresh_ca_s', 't_to_thresh_ip3_s', 'auc_ca_nMs'):
+			plot_line_along_adp(sweep, key, label, unit,
+				os.path.join(out_path, f'sweep_lines_{key}.png'))
 
 
 # Per-observable captions rendered below each standalone heatmap. Keep
