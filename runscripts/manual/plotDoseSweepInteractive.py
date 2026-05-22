@@ -19,12 +19,26 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 
 import numpy as np
 import plotly.graph_objects as go
 
 from runscripts.manual.runDoseSweep import OBSERVABLES
 from runscripts.manual.runPlateletSim import resolve_sim_path
+
+
+_SUP_RE = re.compile(r'\$\^\{([^}]+)\}\$')
+
+
+def _mathtext_to_html(s: str) -> str:
+	"""Translate the matplotlib mathtext used by runDoseSweep into Plotly-
+	compatible HTML markup. Plotly title/axis labels don't render mathtext
+	(they pass it through verbatim) but they do honour <sup>/<sub> tags.
+	"""
+	s = _SUP_RE.sub(r'<sup>\1</sup>', s)
+	s = s.replace(r'$\cdot$', '·')
+	return s
 
 
 def _resolve_sweep_dir(arg: str) -> str:
@@ -43,20 +57,25 @@ def _make_surface(adp_grid: np.ndarray, thr_grid: np.ndarray,
 	log_adp = np.log10(adp_grid)
 	log_thr = np.log10(thr_grid)
 
+	# Plotly renders HTML markup (<sup>, <sub>, etc.) in titles and
+	# hovertemplates, but not matplotlib mathtext. Translate before use.
+	label_html = _mathtext_to_html(label)
+	unit_html = _mathtext_to_html(unit)
+
 	fig = go.Figure(data=[go.Surface(
 		x=log_adp, y=log_thr, z=matrix,
 		colorscale=colorscale,
-		colorbar=dict(title=f'{label}<br>({unit})'),
+		colorbar=dict(title=f'{label_html}<br>({unit_html})'),
 		hovertemplate=(
-			'ADP: 10^%{x:.2f} µM<br>'
-			'Thrombin: 10^%{y:.2f} nM<br>'
-			f'{label}: %{{z:.1f}} {unit}<extra></extra>'
+			'ADP: 10<sup>%{x:.2f}</sup> µM<br>'
+			'Thrombin: 10<sup>%{y:.2f}</sup> nM<br>'
+			f'{label_html}: %{{z:.1f}} {unit_html}<extra></extra>'
 		),
 	)])
 
 	fig.update_layout(
 		title=dict(
-			text=f'{label} — interactive dose-response surface',
+			text=f'{label_html} — interactive dose-response surface',
 			x=0.5, xanchor='center',
 		),
 		scene=dict(
@@ -72,7 +91,7 @@ def _make_surface(adp_grid: np.ndarray, thr_grid: np.ndarray,
 				tickvals=log_thr.tolist(),
 				ticktext=[f'{y:g}' for y in thr_grid],
 			),
-			zaxis=dict(title=f'{label} ({unit})'),
+			zaxis=dict(title=f'{label_html} ({unit_html})'),
 			camera=dict(eye=dict(x=1.8, y=-1.6, z=0.9)),
 		),
 		margin=dict(l=0, r=0, t=60, b=0),
@@ -124,10 +143,13 @@ def render_html(sweep_dir: str, observable: str = 'peak_ip3_nM',
 	include_plotlyjs: str | bool = 'cdn'  # first plot embeds, rest reuse
 	for key in keys:
 		label, unit, cmap = obs_map[key]
+		label_html = _mathtext_to_html(label)
+		unit_html = _mathtext_to_html(unit)
 		fig = _make_surface(adp_grid, thr_grid, data[key],
 			label=label, unit=unit,
 			colorscale=cmap_translate.get(cmap, 'Viridis'))
-		html_parts.append(f'<h2>{label} ({unit}) — key=<code>{key}</code></h2>')
+		html_parts.append(
+			f'<h2>{label_html} ({unit_html}) — key=<code>{key}</code></h2>')
 		html_parts.append(fig.to_html(
 			full_html=False, include_plotlyjs=include_plotlyjs,
 			div_id=f'plot-{key}'))
