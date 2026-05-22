@@ -45,6 +45,7 @@ import argparse
 import json
 import os
 import shutil
+import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -295,15 +296,39 @@ def _draw_heatmap(ax: plt.Axes, sweep: DoseSweep, key: str,
 
 
 def plot_observable_heatmap(sweep: DoseSweep, key: str, label: str,
-		unit: str, cmap: str, png_path: str) -> None:
-	"""Single-observable heatmap PNG."""
-	fig, ax = plt.subplots(figsize=(7.5, 5.5))
+		unit: str, cmap: str, png_path: str,
+		caption: str | None = None) -> None:
+	"""Single-observable heatmap PNG.
+
+	`caption`, if provided, is rendered as a wrapped block below the
+	heatmap — use it to explain what the observable means for readers
+	who open the standalone figure without the surrounding prose.
+	"""
+	if caption:
+		# Pre-wrap the caption so matplotlib doesn't have to guess. Lines
+		# are sized to fit in the 7.5"-wide figure at 8 pt font.
+		caption_wrapped = textwrap.fill(caption, width=100)
+		n_lines = caption_wrapped.count('\n') + 1
+		fig_h = 5.5 + 0.22 * n_lines + 0.3   # axes + caption rows + padding
+		bottom_frac = (0.22 * n_lines + 0.3) / fig_h
+	else:
+		fig_h = 5.5
+		bottom_frac = 0.0
+
+	fig, ax = plt.subplots(figsize=(7.5, fig_h))
 	pcm = _draw_heatmap(ax, sweep, key, label, unit, cmap)
 	fig.colorbar(pcm, ax=ax, label=f'{label} ({unit})')
 	fig.suptitle(
 		f'Dose-response: {label} vs ADP × thrombin '
 		f'(length {sweep.length_sec} s, seed {sweep.seed})', fontsize=11)
-	fig.tight_layout()
+	# Tighten first so the axes sit cleanly, then place the caption in
+	# the reserved bottom band as a separate figure-level text box.
+	fig.tight_layout(rect=(0, bottom_frac, 1, 1))
+	if caption:
+		fig.text(0.5, bottom_frac * 0.55, caption_wrapped,
+			ha='center', va='center', fontsize=8.5, color='#24292f',
+			bbox=dict(boxstyle='round,pad=0.5',
+				facecolor='#f6f8fa', edgecolor='#d0d7de'))
 	fig.savefig(png_path, dpi=140, bbox_inches='tight')
 	plt.close(fig)
 
@@ -358,11 +383,39 @@ def write_all_outputs(sweep: DoseSweep, out_path: str) -> None:
 	sweep.to_summary_json(os.path.join(out_path, 'sweep_summary.json'))
 	for key, label, unit, cmap in OBSERVABLES:
 		plot_observable_heatmap(sweep, key, label, unit, cmap,
-			os.path.join(out_path, f'sweep_{key}.png'))
+			os.path.join(out_path, f'sweep_{key}.png'),
+			caption=_OBSERVABLE_CAPTIONS.get(key))
 	plot_panel(sweep, os.path.join(out_path, 'sweep_panel.png'))
 	# 3-D surface for the canonical Ca²⁺ observable only.
 	plot_surface(sweep, 'peak_ca_nM', r'Peak cytosolic Ca$^{2+}$', 'nM',
 		os.path.join(out_path, 'sweep_surface.png'))
+
+
+# Per-observable captions rendered below each standalone heatmap. Keep
+# concise — they share figure space with the colourbar. The panel figure
+# omits these (axes are already tight) and relies on the prose caption
+# the user provides at the use site.
+_OBSERVABLE_CAPTIONS: dict[str, str] = {
+	'peak_ca_nM': (
+		r'Peak cytosolic [Ca$^{2+}$] over the 200 s window. The '
+		r'DTS-reservoir release through IP3R is essentially '
+		r'all-or-nothing: once the cell crosses threshold, the peak '
+		r'locks at $\sim$436 nM regardless of stimulus strength. '
+		r'Sub-threshold cells (bottom-left) sit near the 100 nM resting '
+		r'baseline.'
+	),
+	'auc_ca_nMs': (
+		r'Time-integrated cytosolic [Ca$^{2+}$] above the resting '
+		r'baseline: $\int \max(\mathrm{Ca}_{cyt}(t) - \mathrm{Ca}_{rest}, 0)\,dt$ '
+		r'over the 200 s window, units nM$\cdot$s. This is the closest '
+		r'single-number proxy for how much downstream Ca$^{2+}$-dependent '
+		r'machinery (PKC, CaM-kinases, granule-fusion machinery) was '
+		r'activated $-$ sustained elevation matters more than peak '
+		r'height. The cell makes a binary spike decision (see peak '
+		r'Ca$^{2+}$) but the integrated dose is graded with agonist '
+		r'input via spike duration.'
+	),
+}
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────
