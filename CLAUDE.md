@@ -34,6 +34,9 @@ PYTHONPATH=$PWD python runscripts/manual/analysisPlatelet.py [sim_outdir] --plot
 # Run the Phase 3 two-condition validation (with vs without extracellular Ca²⁺)
 PYTHONPATH=$PWD python runscripts/manual/runPhase3.py [sim_outdir] --length 200
 
+# 2-D dose-response sweep over ADP × thrombin (one row per cell → heatmaps + 3-D surface)
+PYTHONPATH=$PWD python runscripts/manual/runDoseSweep.py [sim_outdir] --grid 9 --length 200
+
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it
