@@ -10,6 +10,10 @@ format:
     number-sections: true
 ---
 
+*Updated 2026-05-23: added §"Beyond Level 1" — the four-level spectrum
+toward fully data-driven, with a worked `reactions.yaml` sketch for the
+current model and a candid audit of what resists data-fication.*
+
 # Goal
 
 Move all numerical model data out of Python source and into structured,
@@ -327,9 +331,487 @@ fix is one env-var-prefixed test re-run plus a commit of the new NPZ.
    audit. Once parameters are externalised the UI can consume them
    directly; the data layer doesn't care which UI is on top of it.
 
-# References
+# Beyond Level 1 — toward fully data-driven (Levels 2–4)
 
-- Issue #32 — kinetics-as-data + parameter-tweak UI (post-dissertation)
+The migration plan above takes the model to **Level 1**: parameters
+externalised, code still owns the structure of every reaction. That's
+the right first cut. This section asks the harder question — could the
+model be driven *purely* by data, with the Python source containing
+nothing but a rate-law function library and an ODE runner?
+
+The honest answer is "almost, with named exceptions". The platelet
+model uses a small library of rate-law forms across roughly forty
+reactions; that's exactly the shape that data-driven biology
+frameworks are built for. But three or four specific mechanisms
+(IP3R inactivation as a dynamical variable, the MWC fixed-point in
+SOCE, conditional Nernst-flux guards, agonist forcing curves) carry
+just enough algorithmic content that pushing them into pure data
+either forces a vocabulary expansion (SBML rate rules, events) or
+moves complexity from one file to another without a real win. The
+pragmatic target is Level 2 (reactions-as-data, with a registered
+rate-law function library), not Level 3 (full SBML).
+
+## The four-level spectrum
+
+| Level | What moves to data | Code still owns | Effort | Risk |
+|---|---|---|---|---|
+| **1. Numerical params** (this doc, §"Migration plan") | The ~115 scalars + 19 `K_*` dicts + 63-row species table | All reaction connectivity, rate-law forms, ODE wiring | ~2 days | low; byte-identical achievable via the regression suite |
+| **2. Reactions-as-data** | Reaction connectivity + stoichiometry + per-reaction rate-law selection + initial conditions + compartment table + forcing-curve parameters | A library of rate-law *functions* (mass-action, Hill, Nernst-flux, deYoung-Keizer, MWC), the ODE runner, the conditional-flux guards | ~1–2 weeks | medium; partial byte-identical; reaction-by-reaction porting needed |
+| **3. Full SBML / Antimony** | Everything Level 2 covers, plus standard-format compatibility with the broader systems-biology tooling | A thin adapter to libsbml/tellurium, plus any rate laws SBML can't express directly (e.g. MWC iterative solver) | weeks | high; some rate laws don't map cleanly; need explicit "event" or "algebraic constraint" semantics |
+| **4. Rule-based (BioNetGen / Kappa)** | Species become agents with internal state patterns; reactions become rules that match those patterns | The rule engine, the simulator. Most of the platelet code becomes obsolete | months | paradigm shift; over-engineered for ~40 reactions |
+
+Each level is strictly a superset of the one above it in expressive
+power, and strictly a subset in "what the host code knows about". A
+team typically lands on Level 2 because Level 3 forces every rate law
+into the SBML vocabulary, and Level 4 is for combinatorially explosive
+state spaces (TCR signalling, immune receptor assembly) that we don't
+have here.
+
+## Level 2 — what the input data would look like
+
+Six files per parameter set. A directory under `reports/params/`
+becomes one full model specification:
+
+```
+reports/params/v0.5/
+  meta.toml            version, last_updated, engine SHA, notes
+  params.toml          the 115 scalars + 19 K_* groups from Level 1
+  compartments.tsv     id, name, volume, membrane potential (where defined)
+  species.tsv          id, mass_fg, initial_count, class, compartment, notes
+  reactions.yaml       one entry per reaction; selects a rate law by name
+  forcing.yaml         parameterised time-dependent inputs (agonist curves)
+  observables.yaml     which listener columns to record (optional)
+```
+
+### `compartments.tsv`
+
+```
+id   name              volume_L      V_membrane_V   notes
+c    cytosol           6.00e-15      -              Purvis 2008
+dts  dense-tubular     2.58e-16      -0.060         4.3% of cytosol; Dolan 2014
+pl   plasmalemma       -             -0.060         membrane potential only
+m    mitochondrial     0.05e-15      -              issue #22 scope
+e    extracellular     ∞             -              infinite reservoir
+```
+
+### `species.tsv`
+
+(Already partly tabular as `_MOLECULES` in `internal_state.py`. 63 rows;
+truncated example.)
+
+```
+id                  mass_fg     initial_count   class       compartment   notes
+CA2_CYT[c]          6.660e-8    361             ion         c             100 nM × 6 fL
+CA2_DTS[dts]        6.660e-8    38842           ion         dts           250 µM × 4.3% × 6 fL
+IP3R_h[dts]         0.0         1212            dyn_var     dts           h dimensionless, scaled by N_IP3R
+SERCA_E1[dts]       1.10e-4     5946            protein     dts           half of 11892 SERCA at t=0
+PIP2[c]             8.34e-7     1120000         lipid       c             Mazet 2020
+…
+```
+
+Note the new `class` tag — `ion / protein / lipid / dyn_var` so the
+loader can tell e.g. "do not include `IP3R_h` in mass conservation
+checks; it's a dimensionless dynamical state".
+
+### `reactions.yaml` — the new piece
+
+Each reaction names its rate-law form, lists reactants and products
+with stoichiometry, and references parameters by dotted path into
+`params.toml`. Examples covering the variety of rate-law shapes the
+current model actually uses:
+
+```yaml
+# ── Mass-action, reversible ───────────────────────────────────────────
+- id: calr_buffering
+  description: Calreticulin C-domain low-affinity Ca²⁺ buffering (Phase 2)
+  rate_law: mass_action
+  reactants: [{species: CALR_free[dts], n: 1}, {species: CA2_DTS[dts], n: 1}]
+  products:  [{species: CALR_Ca[dts],   n: 1}]
+  reversible: true
+  parameters:
+    k_forward: calr.k_on
+    k_reverse: calr.k_off
+
+# ── Mass-action, irreversible, time-dependent input ──────────────────
+- id: par1_cleavage
+  description: PAR1 proteolytic cleavage by thrombin (fast, irreversible)
+  rate_law: mass_action
+  reactants: [{species: PAR1_inactive[pl], n: 1}]
+  modifiers: [{forcing: thrombin}]            # see forcing.yaml
+  products:  [{species: PAR1_active[pl],   n: 1}]
+  reversible: false
+  parameters:
+    k_forward: par1.k_cleave
+
+# ── Cycle step — multi-Ca²⁺ binding with mass-action n=2 ─────────────
+- id: serca_bind
+  description: E1 + 2 Ca²⁺_cyt ⇌ E1·Ca₂  (Purvis 2008 / Dode 2002)
+  rate_law: mass_action
+  reactants: [{species: SERCA_E1[dts], n: 1},
+              {species: CA2_CYT[c],    n: 2}]
+  products:  [{species: SERCA_E1Ca[dts], n: 1}]
+  reversible: true
+  parameters: {k_forward: serca.k_bind_f, k_reverse: serca.k_bind_r}
+
+# ── Catalytic enzyme step — substrate consumed, enzyme conserved ─────
+- id: plcb_pip2_hydrolysis
+  description: PIP2 → IP3 + DAG catalysed by active PLCβ (Phase 4 / #31)
+  rate_law: catalytic_first_order
+  catalyst:  {species: PLCb_active[c]}
+  reactants: [{species: PIP2[c], n: 1}]
+  products:  [{species: IP3[c], n: 1}, {species: DAG[c], n: 1}]
+  parameters: {k_cat: plcb.k_cat}
+
+# ── Nernst-form Ca²⁺ current, gated by a Po expression ──────────────
+- id: ip3r_flux
+  description: IP3R Ca²⁺ release into cyt (Dolan 2014 eq. 4)
+  rate_law: nernst_current_gated
+  source_pool: {species: CA2_DTS[dts]}
+  sink_pool:   {species: CA2_CYT[c]}
+  membrane_potential: ip3r.V_membrane_V       # = V_IM_V
+  gating:
+    expression: ip3r.de_young_keizer          # named function in code
+    inputs: [IP3[c], CA2_CYT[c], IP3R_h[dts]]
+  parameters:
+    gamma_conductance: ip3r.gamma_pS
+    channel_count: ip3r.N_channels
+  conditional: [CA2_CYT[c] > 0, CA2_DTS[dts] > 0]
+
+# ── Rate-rule (dynamical variable, not a species count) ─────────────
+- id: ip3r_h_dynamics
+  description: deYoung-Keizer slow Ca²⁺ inactivation of IP3R (Li-Rinzel 1994)
+  rate_law: rate_rule                          # dy/dt = expr; not a reaction
+  variable: IP3R_h[dts]
+  expression: ip3r.dh_dt_de_young_keizer       # named function
+  inputs: [CA2_CYT[c], IP3R_h[dts]]
+  parameters: {a2: ip3r.a2, d2: ip3r.d2}
+
+# ── Hill kinetics ───────────────────────────────────────────────────
+- id: mcu_uptake
+  description: MCU mitochondrial Ca²⁺ uniporter (cooperative; issue #22)
+  rate_law: hill
+  source_pool: {species: CA2_CYT[c]}
+  sink_pool:   {species: CA2_MITO[m]}
+  parameters:
+    V_max: mito.V_max_MCU
+    K_half: mito.K_MCU
+    n: mito.n_MCU
+
+# ── MWC fixed-point + Nernst current (SOCE) ─────────────────────────
+- id: soce_flux
+  description: Store-operated Ca²⁺ entry via Orai (Dolan 2014 MWC scheme)
+  rate_law: mwc_soce_current                   # custom; see rate-law library
+  source_pool: extracellular_ca                # CA_EX_UM constant
+  sink_pool:   {species: CA2_CYT[c]}
+  inputs: [STIM1_dim[dts], ORAI1[pl], CA2_CYT[c]]
+  parameters:
+    gamma_conductance: soc.gamma_pS
+    membrane_potential: soc.V_membrane_V
+    mwc: soc.mwc                                # L, Ka, f, a constants block
+    puncta: soc.puncta                          # alpha, KM, n, baseline
+  conditional: [CA_EX_UM > 0]
+```
+
+A complete `reactions.yaml` for the current model has roughly **40
+entries** — three or four per pathway (GPCR cascade, PI cycle, SERCA
+cycle, PMCA basal, PMCA CaM-coupled, CaM Ca²⁺ binding, STIM1, SOCE,
+mitochondria, six DTS buffers, gelsolin proxy, P2X1 cycle, NCX, PM
+leak), each looking like one of the seven shapes above.
+
+### `forcing.yaml`
+
+The plateau-decay shape is shared by all three agonists. Parameterise
+once, reference from the reactions:
+
+```yaml
+- id: thrombin
+  description: Thrombin time course at PAR1/PAR4 (Dolan 2014 protocol)
+  shape: plateau_decay
+  parameters:
+    rest:      0.0          # nM
+    peak:      1.0          # nM
+    tau_rise:  0.5          # s
+    t_peak:    5.0          # s
+    tau_decay: 120.0        # s
+    delay:     0.0          # s
+  unit: nM
+
+- id: adp
+  shape: plateau_decay
+  parameters:
+    rest:      0.0
+    peak:      10.0
+    tau_rise:  1.0
+    t_peak:    5.0
+    tau_decay: 30.0
+    delay:     0.0
+  unit: µM
+
+- id: atp_ex
+  shape: plateau_decay
+  parameters:
+    rest:      0.0
+    peak:      10.0
+    tau_rise:  0.5
+    t_peak:    1.0
+    tau_decay: 30.0
+    delay:     0.0
+  unit: µM
+```
+
+### `observables.yaml`
+
+Listener columns and their source. Mostly direct species reads, but
+also some derived quantities (concentrations from counts, ratios,
+fluxes). Optional — sensible defaults from a "record every species
+count + every reaction flux" fallback.
+
+```yaml
+- id: ca_cyt_nM
+  derived_from: {species: CA2_CYT[c]}
+  transform: count_to_concentration_nM
+  compartment: c
+
+- id: soce_flux_nMs
+  derived_from: {reaction: soce_flux}
+  transform: ions_per_second_to_nM_per_second
+  compartment: c
+```
+
+## The rate-law function library — code, not data
+
+A small Python module holds the actual mathematical forms. Reactions
+in `reactions.yaml` select from this library by name; adding a new
+rate law means writing a new Python function and registering it.
+
+Sketch:
+
+```python
+# reconstruction/platelet/dataclasses/process/rate_laws.py
+
+@register('mass_action')
+def mass_action(reactants, products, k_forward, k_reverse=None, modifiers=None):
+    """Standard reversible mass-action: v = k_f · ∏[reactants]^n_i  − k_r · ∏[products]^n_j"""
+    ...
+
+@register('catalytic_first_order')
+def catalytic_first_order(catalyst, reactants, products, k_cat):
+    """Enzyme conserved: v = k_cat · [E] · [S]"""
+    ...
+
+@register('hill')
+def hill(source_pool, sink_pool, V_max, K_half, n):
+    """Cooperative substrate kinetics: v = V_max · S^n / (K^n + S^n)"""
+    ...
+
+@register('nernst_current_gated')
+def nernst_current_gated(source_pool, sink_pool, membrane_potential,
+        gating, gamma_conductance, channel_count, conditional):
+    """Po-gated Nernst Ca²⁺ current. Returns ions/s into sink_pool,
+    out of source_pool. `gating` is a function of state variables
+    that returns Po ∈ [0, 1]."""
+    ...
+
+@register('rate_rule')
+def rate_rule(variable, expression, inputs, parameters):
+    """A pure dy/dt for a non-species dynamical variable (e.g. IP3R h)."""
+    ...
+
+@register('mwc_soce_current')
+def mwc_soce_current(...):
+    """MWC fixed-point solver + Nernst current. Special-case for SOCE."""
+    ...
+```
+
+The runner walks `reactions.yaml`, looks up the named rate law,
+computes the per-reaction flux from the current state, and assembles
+`dy/dt` for each species by summing fluxes weighted by stoichiometry.
+Conditional guards (the `conditional` list in a reaction) become
+boolean checks on inputs before computing flux.
+
+## What resists data-fication, and why
+
+Four specific mechanisms aren't cleanly expressible as "(reactants,
+products, rate-law-name, parameters)" tuples. They need either
+custom-named rate laws (Level 2) or vocabulary expansion (Level 3).
+
+### IP3R h-variable dynamics
+
+`IP3R_h` isn't a molecular species — it's a *dimensionless dynamical
+state* of the IP3R channel ensemble (h ∈ [0, 1] is the fraction
+non-inhibited; we carry it as a count for engine compatibility).
+Treating it as a species creates conceptual confusion: it has no
+mass, no compartment in any meaningful sense, no conservation law it
+participates in. The cleanest handling is to declare it as a
+`dyn_var` in `species.tsv` (excluded from mass-conservation checks)
+and use a `rate_rule` reaction-shape that says "compute `dh/dt` from
+this named function". SBML calls this an "assignment rule" /
+"rate rule". Level 2 supports it via the dedicated `rate_rule`
+rate-law shape shown above.
+
+### MWC fixed-point in SOCE
+
+`_mwc_open_fraction()` is an iterative Newton-style fixed-point
+solver embedded in the RHS. It returns `Po`, the open-channel
+probability, given STIM2 dimer count and Orai channel count. SBML's
+standard rate-law forms (mass-action, Henri-Michaelis-Menten,
+saturating, etc.) can't express this — you'd need either an
+"algebraic constraint" SBML feature (rarely used, poorly supported)
+or a custom function. Easier path: keep the MWC solver in the Python
+rate-law library, register it as `mwc_soce_current`, and let the
+`reactions.yaml` entry select it by name. The MWC *parameters* (L,
+Ka, f, a, alpha, KM, n) move to `params.toml`; the MWC *algorithm*
+stays in code.
+
+### Conditional Nernst-flux guards
+
+`if ca_cyt > 0 and ca_dts > 0: nernst_flux else: 0`. These guards are
+there because `log(0)` is undefined and the Nernst equation needs both
+concentrations positive. Express in data via a `conditional` list on
+the reaction entry (as shown in the `ip3r_flux` example above), and
+have the rate-law function honour it. SBML's "event" mechanism could
+also encode this but is overkill — a boolean check is plenty.
+
+### Time-dependent forcing functions
+
+Agonist concentrations (thrombin, ADP, ATP_ex) are analytic
+plateau-decay curves, not species. They drive reactions as
+*modifiers*. Two ways to express in data:
+
+1. **Parameterised curves** (shown in `forcing.yaml` above). The
+   shape (`plateau_decay`) is named; the parameters are data. New
+   shapes require a new function in the forcing library.
+2. **Tabulated CSV** for arbitrary measured / imported curves. Slower
+   (linear interpolation in the RHS) but expressively complete. SBML's
+   "interpolation function" feature covers this.
+
+For the dose-sweep work (#45) the parameterised form is exactly right
+— sweeps vary the parameters, not the shape. The tabulated form would
+matter if you ever wanted to drive the model with a real time-course
+trace from an experiment.
+
+### Calibration-coupled derivations
+
+`GAMMA_IP3R_S` is *derived* from SERCA cycle steady-state flux — it's
+not a measured parameter, it's a calibration anchor. Three options:
+
+1. Bake the derived value into `params.toml` and lose the derivation.
+2. Add a `derived_parameters` section to `params.toml` whose values are
+   computed at load time from a small set of expressions.
+3. Keep the derivation as a Python builder function called by the
+   loader.
+
+Option 3 is the safest — derivations are algorithm, not data — and
+matches the discipline of keeping rate-law functions in code.
+Document the derivation in a comment + the params.toml entry's
+`notes` field.
+
+## Level 3 — full SBML / Antimony
+
+For completeness. Adoption would buy you:
+
+- Compatibility with the broader systems-biology toolchain
+  (COPASI, Tellurium, the BioModels database, JWS Online, …).
+- The SBML community's standard rate-law library, which covers
+  ~95% of what we need (mass-action, Hill, Michaelis-Menten,
+  Goldbeter-Koshland, Henri-Michaelis-Menten, …).
+- Free things like model export, parameter-fitting tooling, sensitivity
+  analysis, automated graph layout.
+
+It would cost you:
+
+- Re-expressing the custom rate laws (MWC iterative solver, the IP3R
+  Nernst-Po gated current, the deYoung-Keizer rate rule) either as
+  SBML "events"/"rules" or as custom-function extensions, which
+  loses the cleanliness of the standard form.
+- A heavier runtime dependency (libsbml + libsedml + Tellurium ≈
+  100 MB and a stiff C++ build).
+- More indirection on debugging: the model exists in SBML, the engine
+  is `tellurium.RoadRunner`, the rate laws are SBML expressions —
+  three layers between you and a working numerical answer.
+
+Verdict: Level 3 makes sense if and only if external interoperability
+becomes a real requirement (e.g. publishing the model into BioModels,
+or running it under COPASI for parameter fitting). Until then, Level 2
+gives you the architectural clarity without the dependency cost.
+
+## Level 4 — rule-based (BioNetGen, Kappa)
+
+Briefly, for completeness. Rule-based models become useful when the
+combinatorial state space is too large for explicit species
+enumeration — TCR signalling with N phosphorylation sites needs 2^N
+"species" in a conventional model, which is infeasible above N ≈ 5.
+
+The platelet model doesn't have this problem. PAR1 has three states
+(inactive / active / internalised); the SERCA cycle has six; the
+PMCA cycle has five; CaM has three. The largest single species set
+(the GPCR cascade × Gq pool) is in the hundreds. A rule-based engine
+would add complexity without any combinatorial saving. **Not
+recommended** for this model.
+
+If a future extension brings in receptor multimerisation with many
+sites (e.g. integrin αIIbβ3 cluster states, or platelet contact
+patterns in a multi-cell model), Level 4 becomes the right answer
+for *that part* — and SBML-multi or BNGL exist for exactly that
+hybrid case.
+
+## What changes vs Level 1 in terms of acceptance criteria
+
+Level 1's acceptance is byte-identical Phase 3 output against the
+golden NPZ regression suite landed today. Level 2 cannot promise that
+strictly — the order of reactions added to `dy/dt` depends on the
+order they appear in `reactions.yaml`, and floating-point addition is
+non-associative. Three options:
+
+1. **Relax byte-identical to "within float-error of golden"** — change
+   the golden tests to `np.testing.assert_allclose(rtol=1e-9)` or
+   similar. The Phase 3 acceptance criteria (range-based, ±30 % of
+   Dolan peaks) are unaffected.
+2. **Order the reactions in `reactions.yaml` exactly as they appear in
+   the current `_ode_rhs`** — preserves FP ordering, makes
+   byte-identical possible. Costs YAML ergonomics (the order isn't
+   biologically meaningful) and is fragile under future reordering.
+3. **Sort reactions canonically** at load time (e.g. by id) and
+   regenerate the golden — accept one-time golden refresh as the
+   migration cost.
+
+Recommendation: option 3, with the regression suite's
+`REGEN_GOLDEN=1` mechanism making the refresh a one-line operation.
+
+## Trade-offs summary
+
+| Aspect | Level 1 (planned) | Level 2 (proposed here) | Level 3 (SBML) |
+|---|---|---|---|
+| Engineering effort | ~2 days | ~1–2 weeks | weeks |
+| Byte-identical regression possible | yes | nearly (see above) | no (different solver) |
+| Biologist edits a parameter | ✓ (TOML) | ✓ (TOML) | ✓ (any SBML editor) |
+| Biologist adds a reaction | ✗ (Python) | ✓ (YAML) | ✓ (any SBML editor) |
+| Biologist adds a new rate-law family | ✗ (Python) | ✗ (Python rate-law library) | ✗ (SBML extension, or custom function) |
+| Add/swap parameter scenario | ✓ (`--params X.toml`) | ✓ (directory) | ✓ (load different SBML) |
+| Use external tooling (COPASI, BioModels) | ✗ | ✗ | ✓ |
+| New runtime dependency | none | none (PyYAML + tomllib) | libsbml + libsedml + tellurium |
+| Custom rate laws stay in Python | yes | yes (rate-law library) | partial (SBML events / functions) |
+| Debug surface | Python | Python + YAML | Python + YAML + SBML + RoadRunner |
+
+## Recommendation
+
+**Do Level 1, exactly as specified in §"Migration plan".** Defer Level
+2 until either (a) the model gets a second user, or (b) the
+dissertation lands and the planned parameter-tweak UI starts being
+built (at which point Level 2 is the natural data layer underneath
+it). Defer Level 3 indefinitely unless a specific interoperability
+requirement appears.
+
+The two paragraphs of dissertation-methods text this section
+generates — "the implementation is currently parameter-externalised
+(Level 1); reactions-as-data (Level 2) is designed but unimplemented,
+preserving the option for the planned parameter-tweak UI to drive
+both scenarios and topology from the same data layer" — are
+themselves a contribution worth claiming. Architectural intent
+documented and partially built > full implementation rushed under
+deadline.
+
+# References
 - `reports/dissertation-notes.md §3.1` — `GAMMA_IP3R_S` calibration provenance
 - `reports/lab-books/lab-book-2026-05-22-issue-44-45-dose-sweep.md` — today's session
 - `models/platelet/tests/sim/test_byte_identical.py` — the regression suite
