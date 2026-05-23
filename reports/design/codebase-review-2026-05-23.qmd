@@ -1,0 +1,222 @@
+---
+title: "Codebase review — dev-readiness audit before next big push"
+author: "Steve Haigh + Claude (max-effort review session)"
+date: "2026-05-23"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Context
+
+Saturday-afternoon max-effort review of `main` branch (commit
+`b33d5313`) by Claude, spawning four parallel deep-dive agents
+(architecture, tests, documentation, tech debt) then synthesising.
+Goal: identify what needs cleaning up before the next big push, so
+that work lands on a good base.
+
+The "next big push" is either issue #32 (kinetics-as-data refactor,
+moving ~150 numerical constants into TOML / TSV files) or one of the
+next biology pathways (#10 P2Y12, #33 TP, #34 GPVI). Both would
+benefit from the same pre-work.
+
+This document is the curated output. Reread Monday 2026-05-25 before
+deciding what to do first.
+
+# Verdict
+
+**Good foundation with ~5 focused items to clear before the next big
+push.** Nothing structural is wrong; a small amount of polish makes
+the next month's work significantly safer.
+
+Total clear-the-decks effort: **~1 hour of doc fixes + ~4–6 hours of
+test scaffolding**. Then the path is open for either #32 or a new
+biology pathway.
+
+# What's already strong (don't change)
+
+- **Engine/biology abstraction boundary is clean.** `CalciumDynamics`
+  (process) is an ~80-line thin wrapper around `CalciumSignalling`
+  (rate-law-bearing dataclass). The pure-function interface
+  `molecules_to_next_time_step()` ports trivially to a different
+  engine (Vivarium per issue #50).
+- **Parameter provenance is thorough.** Every rate constant in
+  `calcium_signalling.py` carries source citations (Dolan 2014, Purvis
+  2008, Caride 2007, deYoung-Keizer 1992, …) and calibration-coupling
+  flags inline. Hard to get this right; the project did.
+- **Phase 3 + byte-identical regression infrastructure landed.** The
+  two golden NPZ files in `models/platelet/tests/sim/golden/` are
+  exactly the protection #32 needs. Without these the refactor would
+  be too risky.
+- **Issue triage is current.** Biology/tech labels just applied,
+  28 open issues properly grouped, colleagues-share doc landed.
+- **Mypy clean** on 43 source files; full platelet test suite 37/37
+  green in 22 s.
+
+# Punch list — fix before next big work
+
+## Priority 1 — small fixes that unblock or de-risk everything else (~1 hour total)
+
+| # | Item | Why now | Effort |
+|---|---|---|---|
+| 1 | **README.md Azure URL is stale**: says `wcecoli-webapp.uksouth.azurecontainer.io`; the real deploy is `platelet-wcm.uksouth.azurecontainer.io` (CLAUDE.md is correct). | Anyone reading the README to deploy will hit the wrong endpoint. | 1 min |
+| 2 | **CLAUDE.md doesn't mention the docs site.** `buildDocsSite.py` exists and works; Pages serves the index at `https://stevehaigh.github.io/platelet-wcm/reports/site/`. New readers can't discover this. | Big DX win for the small cost. | 5 min |
+| 3 | **`CALIBRATION-COUPLING.md`** — a one-page matrix listing the documented "if you change X you must re-derive Y" chains (`K_SERCA` → `GAMMA_IP3R_S`; `N_IP3R` → `GAMMA_IP3R_S`; `CA_EX_UM` → SOCE/PM leak; DTS buffers → resting Ca²⁺ band). Currently each is an inline comment in `calcium_signalling.py`; nothing aggregates them. | #32 will move these constants into TOML and you'll want a single place to consult the coupling map during validation. | 15 min |
+| 4 | **Design doc navigator**: 20 docs in `reports/design/` with overlapping titles, no signposting between "current canonical" (`model-status-2026-05-13`, `kinetics-as-data-2026-05-22`) and "v0.2 historical context" (`biology-overview-2026-05-07`, `demo-2026-05-07`, etc.). | Mike or any future collaborator opens that directory and has no idea which to read. | 15 min |
+| 5 | **Lab-book auto-generation note** in CLAUDE.md: one sentence pointing at `runscripts/manual/buildDocsSite.py` so future-self knows the docs site index is auto-generated. | Currently invisible. | 2 min |
+
+## Priority 2 — test scaffolding before #32 (~4–6 hours)
+
+The byte-identical regression suite catches numerical drift, but
+several modules have **zero direct unit tests** and #32 will touch
+every K_* dict in the model.
+
+| Module | LoC | Test density | Risk |
+|---|---|---|---|
+| `models/platelet/processes/resting_decay.py` | 40 | **0 direct tests** | Stochastic binomial decay; trivial to get the probability wrong; current sim-level tests don't catch off-by-ones |
+| `models/platelet/listeners/calcium_trace.py` | 186 | "writes output" only | The SOCE flux + CaM ladder + PMCA sub-state calculations have no unit-level scrutiny |
+| `reconstruction/platelet/dataclasses/process/calcium_signalling.py` ODE RHS | ~600 | Indirect via Phase 3 only | Phase 3 catches gross breakage but not stoichiometry errors in individual reactions |
+
+Recommended additions, ordered by ROI:
+
+1. **RestingDecay unit tests** (~1 h) — 100-replicate ensemble mean against
+   exponential formula; edge cases (`dt=0`, `t_half=∞`, all-counts=0).
+2. **CalciumTrace field calculations** (~2 h) — mock `BulkMolecules`
+   with known counts, assert SOCE flux + CaM ladder counts + units
+   conversion.
+3. **Mark slow tests** (~30 min) — add `@pytest.mark.slow` to
+   `test_phase3.py`, `test_byte_identical.py`, `test_regression.py`;
+   default suite drops to ~3 s for fast local iteration; CI runs full.
+
+## Priority 3 — decisions to make (or defer) (~30 min decision; hours-to-days if executed)
+
+| # | Decision | Recommendation | If yes, when |
+|---|---|---|---|
+| 5 | **Split `calcium_signalling.py`?** 1372 LoC. Natural seams: `calcium_core` (IP3R/SERCA/PMCA/SOCE/buffers ODE), `calcium_inputs` (GPCR + agonist forcing), `calcium_parameters` (all K_* + scalars). | **Defer until #32 forces it.** Once parameters move to TOML the file shrinks dramatically (the K_* dicts are ~400 of those 1372 lines). Splitting twice — once now, once during #32 — is wasted effort. | After #32 Phase 2 |
+| 6 | **Formalise the module-mutation override pattern**? Currently `runPlateletSim.py` does `cs_mod.CA_EX_UM = X` + `CalciumDynamics._*_peak_*` mutations. 9 call sites total, all in runscripts. | A `SimulationConfig` dataclass would be cleaner but the current pattern works and is well-contained. | After #32; goes naturally with the v2 webapp prep (#49). |
+| 7 | **Include `wholecell/tests/` in CI**? 89 tests exist for framework-level utilities (units, struct arrays, filepaths); not run by the platelet CI workflow. | **Yes, low risk.** Adds ~5 s to CI; catches framework-level breakage that platelet tests miss. | Add to `.github/workflows/ci.yml` as a second pytest invocation. |
+| 8 | **PR #48 (TUI Textual rewrite)** — ready to merge after the interactive validation you did. | **Squash-on-merge** to collapse the 15 commits into one logical change. | Whenever — no dependency on the above. |
+
+# Things definitely NOT to do now
+
+- **Don't migrate to Vivarium** (#50). PhD Y1 work; not during
+  dissertation runway.
+- **Don't fix the 47 legacy `wholecell/` TODOs.** They're from the
+  wcEcoli inheritance and mostly about transcription/replication code
+  that platelets don't use. Cost > benefit.
+- **Don't bump mypy strictness.** Webapp legacy errors aren't in the
+  platelet target paths; tightening would surface noise without
+  preventing real bugs.
+- **Don't refactor the legacy E. coli directory patterns in
+  `wholecell/webapp/results.py`** (variant/generation/daughter
+  walking). Cosmetic; not causing problems.
+
+# Recommended order for the next ~2 weeks of dev runway
+
+```
+Day 1 (1-2 h)
+  ├─ Priority-1 doc fixes (README Azure URL, CLAUDE.md docs site
+  │   mention, CALIBRATION-COUPLING.md, design-doc navigator,
+  │   lab-book auto-gen note)
+  └─ commit and push as one "pre-#32 doc cleanup" commit
+
+Day 2 (3-4 h)
+  ├─ RestingDecay unit tests
+  ├─ CalciumTrace field-calc unit tests
+  ├─ @pytest.mark.slow split
+  ├─ wholecell/tests/ added to CI
+  └─ commit and push
+
+Day 3 onwards
+  ├─ Either: start #32 Phase 2 (parameter loader + TOML schema)
+  │   — regression suite + test scaffold catch refactor breakage
+  ├─ Or: pick next biology pathway (P2Y12 #10 or TP #33 — each ~1-2 weeks)
+  └─ Or: PR #48 TUI merge (independent track)
+```
+
+# Cross-cutting observations
+
+## Architecture verdict (Agent A)
+
+**GOOD with one localized concern.** Clean separation of concerns
+(engine vs biology vs orchestration), well-documented parameter
+coupling, clear ODE-based biology abstraction. Main risk is scope-
+limited: the 1372-line `calcium_signalling.py` is comprehensively
+commented but should be split once additional pathways arrive. The
+mutation-override pattern is well-contained and documented.
+
+## Test coverage verdict (Agent B)
+
+**ADEQUATE with critical gaps for upcoming changes.** 21.9 s total
+runtime, all 37 tests passing. Byte-identical and golden-run tests
+catch gross breakage. Unit tests for domain logic (RestingDecay,
+CalciumTrace, ODE rate laws) are missing — risk for #32 refactoring
+and new-receptor additions.
+
+## Documentation verdict (Agent C)
+
+**~92% accurate.** CLAUDE.md and README.md internally consistent and
+faithful to the codebase. Module docstrings align with
+implementations. Primary issues: stale Azure URL in README, docs site
+not documented anywhere, design-doc directory navigation missing.
+
+## Tech-debt verdict (Agent D)
+
+**MEDIUM.** Most debt is localized. Top items: calibration-coupling
+documentation gap, mypy strictness disabled, DPI magic numbers in 12
+runscripts, module-mutation pattern not yet formalised, 47 legacy
+`wholecell/` TODOs (mostly irrelevant).
+
+# Calibration-coupling map (Agent D extract)
+
+```
+K_SERCA (all 10 rate constants)
+  └─→ re-derive GAMMA_IP3R_S
+       └─→ constrains K_IP3R (no direct param, but affects Po equilibrium)
+
+N_IP3R
+  └─→ affects IP3R resting flux
+       └─→ re-derive GAMMA_IP3R_S if N_IP3R changes
+
+CA_EX_UM (module-level, runtime override)
+  └─→ gates SOCE current + PM leak (both zero if CA_EX_UM = 0)
+       └─→ affects PMCA-CaM activation trajectory
+       └─→ affects DTS refill rate (SERCA + SOCE)
+
+K_CALR, K_HSP90B1_*, K_BIP (DTS luminal buffers)
+  └─→ collectively shift the DTS resting Ca²⁺ level
+       └─→ if changed, re-verify resting cyt = [100 nM],
+                                   DTS = [250 µM] match Dolan 2014
+```
+
+This is what `CALIBRATION-COUPLING.md` (Priority 1, item 3) should
+formalise.
+
+# Action when reading this Monday
+
+The doc is a snapshot. By Monday some of it may already be done or
+stale. Quick sanity check:
+
+1. `git log --oneline main -10` — has the doc-cleanup commit landed
+   yet? If yes, skip Priority 1.
+2. `PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 pyenv exec python -m pytest models/platelet/tests/ -q` — still 37 passing?
+3. `gh issue list --state open --label biology --limit 5` — what's the
+   active biology backlog look like?
+
+Then pick Priority 1 + Priority 2 as the first 5-6 hours of work. After
+that the path is clear.
+
+# References
+
+- Issue #32 — kinetics-as-data refactor (the major work this pre-prep
+  is for); design doc `reports/design/kinetics-as-data-2026-05-22.qmd`
+- Issue #49 — webapp v2 (the prep tasks pair with #32)
+- Issue #50 — Vivarium migration (PhD Y1; out of scope for now)
+- PR #48 — TUI Textual rewrite (independent track; ready to merge)
+- `reports/lab-books/lab-book-2026-05-22-issue-44-45-dose-sweep.md`
+  — most recent lab book
+- `models/platelet/tests/sim/test_byte_identical.py` — the regression
+  suite that makes #32 safe
