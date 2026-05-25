@@ -1,0 +1,58 @@
+---
+title: "Platelet WCM — calibration-coupling map"
+author: "Steve Haigh"
+date: "2026-05-25"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    include-in-header: ../pandoc-header.tex
+---
+
+# Purpose
+
+Several parameters in `reconstruction/platelet/dataclasses/process/calcium_signalling.py` are **not** independently measured — they were chosen to balance other parameters at the Dolan & Diamond 2014 resting state (cyt = 100 nM, DTS = 250 µM). Changing one half of a coupled pair without re-deriving the other will silently break the resting balance and corrupt every downstream Phase 3 figure.
+
+The coupling is currently documented inline in `calcium_signalling.py` as `⚠ CALIBRATION-COUPLED` comments. This page aggregates those chains so they survive the issue #32 kinetics-as-data move (when constants migrate into TOML and the inline comments lose their anchor).
+
+The source-of-truth comments live in `calcium_signalling.py` at the cited line numbers — this page should stay thin (one printed sheet) and is intended for skimming before any rate-constant change.
+
+# Coupling chains
+
+| # | Trigger (if you change…) | Must re-derive | Source-of-truth | Why |
+|---|---|---|---|---|
+| 1 | Any `K_SERCA` rate (`k_bind_f`, `k_phos_f`, `k_conf_f`, `k_release_f`, …) or SERCA total copy number | `GAMMA_IP3R_S` | `calcium_signalling.py:185–227` | γ_IP3R was solved analytically to set IP3R resting flux equal to the SERCA cycle steady-state flux (≈ 112 570 ions/s) at cyt = 100 nM, DTS = 250 µM. Any change to the SERCA flux invalidates γ_IP3R. |
+| 2 | `N_IP3R` (channel count) | `GAMMA_IP3R_S` | `calcium_signalling.py:180, 196–201` | γ_IP3R is computed from `J / (N · Po · |driving| · NA/zF)`. N_IP3R = 1328 today; any change rescales γ inversely. |
+| 3 | `CA_EX_UM` (module-level constant; runtime override via `cs_mod.CA_EX_UM = X`) | SOCE current, PM Ca²⁺ leak, P2X1 Ca²⁺ contribution, PMCA-CaM activation trajectory | `calcium_signalling.py:469–471, 588–600` | Both SOCE and the PM leak are gated on `CA_EX_UM > 0` (set to 0 in the EDTA / Dolan Fig. 4 condition). The PM leak (`J_PM_LEAK_IONS_S = 75`) was calibrated against the steady-state PM balance `J_SOCE + J_leak ≈ J_PMCA` at rest. Changing `CA_EX_UM` rescales the Nernst driving force and shifts that balance. |
+| 4 | DTS luminal buffers: `K_CALR{k_on,k_off}`, `N_CALR`, `K_CALR_P`, `N_CALR_P`, `K_HSP90B1_{M,L}`, `N_HSP90B1`, `K_BIP`, `N_BIP` | Resting DTS Ca²⁺ level (target: 250 µM); resting cyt Ca²⁺ (target: 100 nM) | `calcium_signalling.py:293–396` | CALR C-domain dominates *dynamic* DTS buffering (~72 % of DTS Ca²⁺ at rest). HSP90B1 medium-affinity sites set the depletion-phase floor. Any change here shifts the resting DTS level and must be re-verified against Dolan 2014 Fig. 3 + the Phase 3 +Ca²⁺ / −Ca²⁺ traces. |
+
+# Watch list — known calibration debt
+
+Items currently flagged in the source as "works at v0.4.1 but should be revisited":
+
+| Item | Location | Note |
+|---|---|---|
+| SERCA Vmax may over-estimate platelet SERCA3b pump rate at resting Ca²⁺ (~2–5× Inesi/Dode literature) | `calcium_signalling.py:221–227` | v0.3+ plan: re-derive `K_SERCA` from primary sources; would force a re-derivation of chain 1. |
+| `K_GSN` cytosolic buffer is intentionally over-tuned (~200:1 binding ratio vs Sage & Rink ~50:1) — absorbs slack from all un-broken-out cytosolic buffers | `calcium_signalling.py:269–284` | v0.3+ plan: split into explicit gelsolin / annexin / Ca-ATP pools. |
+| PMCA·CaM `k_12` uses in-vivo rate (1 s⁻¹) rather than in-vitro (0.033 s⁻¹) so that PMCA Vmax recovers on transient timescales | `calcium_signalling.py:435–443` | Documented v0.3.1 fix; flagged here in case a future paper provides a direct in-vivo measurement. |
+
+# How to use this page
+
+1. **Before changing any constant in `calcium_signalling.py`**: search this table for the symbol. If it appears in column 1 or column 2 of any chain, the matched chain dictates what else must be re-derived.
+2. **Before approving a PR that touches a rate constant**: confirm the regression suite (`models/platelet/tests/sim/test_byte_identical.py`, `test_phase3.py`, `test_regression.py`) is being updated alongside, and that the resting state at `cyt = 100 nM` / `DTS = 250 µM` is still hit.
+3. **After issue #32 lands** (parameters move to TOML): keep this page; replace the line-number citations with TOML-key references. The chains themselves are biology, not implementation, and won't go away.
+
+# References
+
+- `calcium_signalling.py` — primary source for all four chains; the `⚠ CALIBRATION-COUPLED` comments are the authoritative description.
+- `reports/dissertation-notes.md §3.1` — coupling diagram (cited from `calcium_signalling.py:191, 220`).
+- `reports/design/codebase-review-2026-05-23.qmd` — Priority-1 item that motivated aggregating these chains.
+- `reports/design/kinetics-as-data-2026-05-22.qmd` — issue #32 refactor that will move these constants to TOML.
+- Dolan & Diamond 2014 — validation target (resting cyt 100 nM, DTS 250 µM; Fig. 3 resting trace, Fig. 4 ± extracellular Ca²⁺ transients).

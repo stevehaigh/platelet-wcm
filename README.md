@@ -108,7 +108,7 @@ Deployed to Azure Container Instances on push to the `webapp` branch.
 | Concern | Tool |
 |---------|------|
 | CI | GitHub Actions — pytest + mypy on every push |
-| Staging deploy | GitHub Actions → Azure Container Instances (`wcecoli-webapp.uksouth.azurecontainer.io`) |
+| Staging deploy | GitHub Actions → Azure Container Instances (`platelet-wcm.uksouth.azurecontainer.io`) |
 | Python env | pyenv 3.11.5 + virtualenv |
 | Output format | Custom binary columnar format (TableWriter/TableReader, zlib-compressed) |
 

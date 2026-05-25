@@ -302,6 +302,9 @@ Instances at `platelet-wcm.uksouth.azurecontainer.io`.
 - `reports/data/`, `reports/figures/` — calibration data and rendered figures
 - `make pdfs` builds PDFs of any `reports/*.md` into `reports/pdf/` (pandoc + xelatex)
 - `make quarto-pdfs` builds PDFs of any `reports/*.qmd` into `reports/pdf-quarto/` (Quarto + xelatex)
+- `runscripts/manual/buildDocsSite.py` renders every `.md` / `.qmd` under `reports/{design,lab-books,data,decks,external}` to HTML and writes an auto-generated index at `reports/site/index.html` (lab-book and design-doc listings are produced automatically from the file headers)
+- Published site: `https://stevehaigh.github.io/platelet-wcm/reports/site/` — manual publish for now; no GitHub Actions workflow drives it yet
+- `reports/design/README.md` — navigator for the design-doc directory (what's current canonical vs historical)
 - `docs/style-guide.md` — full style guide
 
 **.md vs .qmd — which to use:**
