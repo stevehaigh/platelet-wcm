@@ -268,27 +268,17 @@ N_GSN = _KINETICS['buffers']['gsn_pool']['n_total']
 # high-affinity P-domain site or extend to HSP90B1 / CALU (issue #25).
 #
 # See `reports/dissertation-notes.md §2.1` for the full biological context.
-K_CALR = {
-	'k_on':    1.0,    # CALR_site + Ca²⁺ → CALR_site·Ca  (µM⁻¹·s⁻¹) — fast equilibrium
-	'k_off': 1000.0,   # reverse                          (s⁻¹)       — Kd = 1.0 mM
-}
+# DTS luminal buffer cluster — Phase 2/3 issues #25, #28.
+# ⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (Dolan 250 µM
+# target). Values + full literature commentary live in
+# `reports/params/calcium-v0.5.toml [buffers.*]` (issue #32 Phase 2
+# slice 9). See calibration-coupling-2026-05-25.qmd chain 4.
 
-# Total CALR Ca²⁺-binding sites: 20 324 CALR × 25 C-domain sites.
-N_CALR = 508_100
+K_CALR   = dict(_KINETICS['buffers']['calr'])
+N_CALR   = _KINETICS['buffers']['calr_pool']['n_total']
 
-# CALR high-affinity P-domain: 1 site per CALR molecule, Kd ~ 1 µM, slow
-# release kinetics (k_off ~ 1 s⁻¹). Source: Baksh & Michalak 1991,
-# Vassilakos 1998. At resting DTS [Ca²⁺] = 250 µM this site is always
-# saturated (occupancy > 99.6 %), so it doesn't matter much at rest — but
-# during IP3R-driven DTS depletion, the slow release rate means these
-# 20 324 Ca²⁺ ions take ~1 s to liberate after free [Ca²⁺]_DTS drops
-# below the Kd. This adds a small "delayed reservoir" that smooths DTS
-# recovery without preventing the transient depletion. See lab book.
-K_CALR_P = {
-	'k_on':    1.0,    # CALR_P + Ca²⁺ → CALR_P·Ca   (µM⁻¹·s⁻¹)
-	'k_off':   1.0,    # reverse                     (s⁻¹)       — Kd = 1.0 µM
-}
-N_CALR_P = 20_324
+K_CALR_P = dict(_KINETICS['buffers']['calr_p'])
+N_CALR_P = _KINETICS['buffers']['calr_p_pool']['n_total']
 
 
 # ── HSP90B1 / GRP94 / endoplasmin — Phase 3 / issue #25 ──────────────────
@@ -309,20 +299,15 @@ N_CALR_P = 20_324
 # lists it among the top ER-associated proteins; precise count is in the
 # supplementary table not directly extractable). Flagged in dissertation
 # notes as a v0.3 stretch estimate.
-K_HSP90B1_M = {
-	'k_on':    0.5,    # HSP90B1_M + Ca²⁺ → HSP90B1_M·Ca  (µM⁻¹·s⁻¹) — slow
-	'k_off':   1.0,    # reverse                          (s⁻¹) — Kd = 2 µM
-	                   # τ_release ≈ 1 s — matches transient timescale, so
-	                   # these sites hold their Ca²⁺ during the ~1 s peak
-	                   # and act as a "floor" keeping free DTS [Ca²⁺] > 0.
-}
-K_HSP90B1_L = {
-	'k_on':    1.0,    # HSP90B1_L + Ca²⁺ → HSP90B1_L·Ca  (µM⁻¹·s⁻¹)
-	'k_off': 600.0,    # reverse                          (s⁻¹) — Kd = 600 µM
-}
-N_HSP90B1 = 10_000              # molecules
-N_HSP90B1_M = N_HSP90B1 * 4     # 40 000 medium-affinity sites
-N_HSP90B1_L = N_HSP90B1 * 11    # 110 000 low-affinity sites
+K_HSP90B1_M = dict(_KINETICS['buffers']['hsp90b1_medium'])
+K_HSP90B1_L = dict(_KINETICS['buffers']['hsp90b1_low'])
+
+# Per-molecule × sites-per-molecule decomposition kept in TOML so a
+# biologist can edit either independently.
+_HSP90B1_POOL = _KINETICS['buffers']['hsp90b1_pool']
+N_HSP90B1   = _HSP90B1_POOL['n_molecules']
+N_HSP90B1_M = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_medium']
+N_HSP90B1_L = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_low']
 
 
 # ── BiP / HSPA5 / GRP78 — Phase 3 / issue #25 ────────────────────────────
@@ -334,15 +319,9 @@ N_HSP90B1_L = N_HSP90B1 * 11    # 110 000 low-affinity sites
 #
 # Platelet copy number: ~50 000 (order-of-magnitude estimate; BiP is the
 # canonically most-abundant ER chaperone, more so than CALR or HSP90B1).
-K_BIP = {
-	'k_on':    2.0,    # BiP + Ca²⁺ → BiP·Ca   (µM⁻¹·s⁻¹)
-	'k_off': 1000.0,   # reverse               (s⁻¹) — Kd = 500 µM
-}
-N_BIP = 50_000 * 1                 # 1 effective site per BiP molecule (mid of 1–2 range with the lower count used to stay biologically conservative — total sites 50 000)
-# (For 1.5-site stoichiometry: N_BIP_TOTAL = 50 000 × 1.5 = 75 000; using
-# 50 000 as the conservative estimate. Resulting bound at rest = 16 700
-# instead of 25 000 — closer to the lower bound of Lièvremont's 25 % of
-# store. Capacity can be scaled up in v0.4 with explicit two-site model.)
+K_BIP = dict(_KINETICS['buffers']['bip'])
+_BIP_POOL = _KINETICS['buffers']['bip_pool']
+N_BIP = _BIP_POOL['n_molecules'] * _BIP_POOL['sites_per']
 
 
 # ── CREC family pool — CALU + RCN1 + RCN2 lumped — Phase 3 / issue #25 ──
@@ -356,11 +335,9 @@ N_BIP = 50_000 * 1                 # 1 effective site per BiP molecule (mid of 1
 # Combined platelet copy number estimate: ~15 000 (CALU ~5 k + RCN1 ~5 k
 # + RCN2 ~5 k). Effective Ca²⁺-binding sites per molecule ~4 (most
 # EF-hands have functional Ca²⁺ binding; some are structural).
-K_CREC = {
-	'k_on':    0.5,    # CREC + Ca²⁺ → CREC·Ca  (µM⁻¹·s⁻¹)
-	'k_off': 500.0,    # reverse                (s⁻¹) — Kd = 1 mM
-}
-N_CREC = 15_000 * 4                # 60 000 sites
+K_CREC = dict(_KINETICS['buffers']['crec'])
+_CREC_POOL = _KINETICS['buffers']['crec_pool']
+N_CREC = _CREC_POOL['n_molecules'] * _CREC_POOL['sites_per']
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────

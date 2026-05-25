@@ -323,6 +323,88 @@ k_off = 100.0   # reverse                         (s⁻¹)       — Kd = 1.0 µ
 n_total = 1400000
 
 
+# ── DTS luminal Ca²⁺ buffers (Phase 2/3 issues #25, #28) ─────────────
+# ⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (target 250 µM
+# per Dolan 2014 Fig. 3). If any kinetics or pool count below changes,
+# re-verify resting cyt = 100 nM, DTS = 250 µM against the Phase 3
+# acceptance suite. See calibration-coupling-2026-05-25.qmd chain 4.
+
+# Calreticulin C-domain — dominant DTS dynamic buffer.
+# Domain breakdown: N (lectin) | P (1 site, Kd ~1 µM, slow — see
+# calr_p below) | C (~25 sites, Kd ~1 mM — this block). Platelet
+# copy number 20 324 (Burkhart 2012; Dolan 2014 Table S1). 25 C-domain
+# sites × 20 324 molecules → 508 100 binding sites total. With CALR
+# the DTS buffering ratio rises to ~72 % at rest, giving the DTS a
+# large "spring" that absorbs SERCA excess and releases during IP3R
+# drainage. See dissertation-notes §2.1.
+[buffers.calr]
+k_on  =    1.0     # CALR_site + Ca²⁺ → CALR_site·Ca  (µM⁻¹·s⁻¹) — fast eq
+k_off = 1000.0     # reverse                            (s⁻¹)     — Kd = 1.0 mM
+[buffers.calr_pool]
+n_total = 508100   # 20 324 CALR × 25 C-domain sites
+
+# CALR P-domain — 1 high-affinity site per molecule, slow kinetics.
+# Always saturated at resting DTS [Ca²⁺] = 250 µM (occupancy > 99.6%)
+# so doesn't matter much at rest. During IP3R-driven DTS depletion,
+# the slow k_off ~ 1 s⁻¹ means these ~20k Ca²⁺ take ~1 s to liberate
+# after free [Ca²⁺]_DTS drops below Kd — a small "delayed reservoir"
+# that smooths DTS recovery without preventing the transient
+# depletion. Source: Baksh & Michalak 1991, Vassilakos 1998.
+[buffers.calr_p]
+k_on  = 1.0    # CALR_P + Ca²⁺ → CALR_P·Ca  (µM⁻¹·s⁻¹)
+k_off = 1.0    # reverse                     (s⁻¹) — Kd = 1.0 µM
+[buffers.calr_p_pool]
+n_total = 20324  # 1 site per molecule
+
+# HSP90B1 / GRP94 / endoplasmin — second-most-abundant ER luminal
+# Ca²⁺-binding chaperone. Argon & Simen 1999: 15 sites per molecule,
+# split into 4 medium-affinity (Kd ~ 2 µM) and 11 low-affinity
+# (Kd ~ 600 µM). Modelling separately captures the depletion dynamics:
+# low-affinity sites release fast (bulk of deliverable reserve);
+# medium sites hold until free [Ca²⁺]_DTS drops below ~2 µM and act as
+# a "floor" keeping free DTS [Ca²⁺] > 0 during peak. Platelet copy
+# number ~10 000 (order-of-magnitude; v0.3 stretch estimate).
+[buffers.hsp90b1_medium]
+k_on  = 0.5    # HSP90B1_M + Ca²⁺ → HSP90B1_M·Ca  (µM⁻¹·s⁻¹) — slow
+k_off = 1.0    # reverse                           (s⁻¹) — Kd = 2 µM; τ ~1 s
+[buffers.hsp90b1_low]
+k_on  =   1.0  # HSP90B1_L + Ca²⁺ → HSP90B1_L·Ca  (µM⁻¹·s⁻¹)
+k_off = 600.0  # reverse                           (s⁻¹) — Kd = 600 µM
+[buffers.hsp90b1_pool]
+# Total binding-site counts derived in Python: N_M = molecules × medium,
+# N_L = molecules × low. Storing the decomposition lets a biologist
+# tweak either the protein count or the per-molecule stoichiometry.
+n_molecules   = 10000
+sites_medium  = 4    # per molecule (Argon & Simen 1999)
+sites_low     = 11   # per molecule (Argon & Simen 1999)
+
+# BiP / HSPA5 / GRP78 — most abundant ER chaperone. Lièvremont 1997
+# demonstrated BiP contributes ~25 % of the ER Ca²⁺ store, with
+# stoichiometry of 1–2 Ca²⁺ per molecule. Modelled as a single low-
+# affinity pool, conservative 1-site stoichiometry (lower count chosen
+# to stay biologically conservative; bound-at-rest 16 700 ≈ lower
+# bound of Lièvremont's 25 % of store). v0.4 may extend to explicit
+# two-site model.
+[buffers.bip]
+k_on  =    2.0  # BiP + Ca²⁺ → BiP·Ca   (µM⁻¹·s⁻¹)
+k_off = 1000.0  # reverse                (s⁻¹) — Kd = 500 µM
+[buffers.bip_pool]
+n_molecules = 50000
+sites_per   = 1   # conservative; range 1–2
+
+# CREC family pool (CALU + RCN1 + RCN2 lumped) — small multi-EF-hand
+# low-affinity Ca²⁺ binders, ER lumen + secretory pathway. Honoré &
+# Vorum 2000: 6–7 EF-hands per molecule, Kd "up to mM". v0.4 may split
+# into individual proteins if granule secretion work requires CALU
+# specifically.
+[buffers.crec]
+k_on  =   0.5  # CREC + Ca²⁺ → CREC·Ca  (µM⁻¹·s⁻¹)
+k_off = 500.0  # reverse                 (s⁻¹) — Kd = 1 mM
+[buffers.crec_pool]
+n_molecules = 15000  # CALU ~5k + RCN1 ~5k + RCN2 ~5k
+sites_per   = 4      # functional Ca²⁺-binding EF-hands per molecule
+
+
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ───────
 # Ca₄·CaM binds free PMCA (step 8), the complex binds and pumps Ca²⁺
 # with ~5× higher k_cat than basal (step 10 vs basal step 5). Step 11
