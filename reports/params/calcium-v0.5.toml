@@ -5,8 +5,8 @@
 # CA_EX_UM > 0). IP3_REST_UM is the cytosolic IP3 baseline target
 # (Purvis 2008 / Dolan Fig. S2 initial value).
 [resting]
-ca_ex_uM    = 1200.0   # extracellular Ca²⁺ reservoir (Dolan 2014)
-ip3_rest_uM = 0.05     # cyt IP3 baseline (50 nM; Purvis 2008)
+ca_ex_uM    = 1200.0   # (µM) — physiological extracellular [Ca²⁺] in blood plasma (1.2 mM); Dolan 2014 Methods uses this value, matches the standard platelet-experimental protocol (Sage & Rink 1985 et seq.)
+ip3_rest_uM = 0.05     # (µM) — cyt IP3 baseline at 50 nM; Purvis 2008 Table 1 / Dolan Fig. S2 initial value
 
 
 # ── SOCE: Orai single-channel Ca²⁺ conductance ───────────────────────
@@ -86,8 +86,8 @@ a2 = 0.2      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets 
 # 10 pS (Zschauer 1988 via Purvis 2008) was a bilayer measurement under
 # symmetric high Ca²⁺ and is not transferable.
 [ip3r.channel]
-n_total = 1328       # Burkhart 2012 ITPR2 count; Dolan 2014 Table S1
-gamma_s = 0.075e-12  # A/V — 0.075 pS Ca²⁺-specific conductance
+n_total = 1328       # (count) — Burkhart 2012 ITPR2 monomer abundance; Dolan 2014 Table S1
+gamma_s = 0.075e-12  # (A/V) — 0.075 pS Ca²⁺-specific conductance; calibrated (see header)
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b) ──────────
@@ -114,13 +114,13 @@ k_shuttle_r =  600.0    # E1 → E2                          (s⁻¹)
 k_bind_f    =  210.0    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺        (µM⁻²·s⁻¹)
 k_bind_r    =   10.0    # reverse                          (s⁻¹)
 k_phos_f    =  700.0    # E1·Ca → E1P·Ca                   (s⁻¹)
-k_phos_r    =    5.0
+k_phos_r    =    5.0    # reverse                          (s⁻¹)
 k_conf_f    =  600.0    # E1P·Ca ⇌ E2P·Ca                  (s⁻¹)
-k_conf_r    =   50.0
+k_conf_r    =   50.0    # reverse                          (s⁻¹)
 k_release_f = 1000.0    # E2P·Ca → E2P + 2 Ca²⁺_dts        (s⁻¹)
 k_release_r =    4.0e-3 # reverse                          (µM⁻²·s⁻¹; 4e9 M⁻²s⁻¹)
 k_dephos_f  =  500.0    # E2P → E2                         (s⁻¹)
-k_dephos_r  =    1.0
+k_dephos_r  =    1.0    # reverse                          (s⁻¹)
 
 
 # ── Agonist forcing curves — physiological stimulation inputs ────────
@@ -128,8 +128,19 @@ k_dephos_r  =    1.0
 # T_PEAK with rise τ TAU_RISE → exponential decay τ TAU_DECAY. The peak
 # is read live by the forcing functions in calcium_signalling.py, so a
 # dose-sweep runscript can override at runtime (cs_mod.X_PEAK_* = ...).
-# Calibration target: Dolan 2014 standard activation (1 nM thrombin /
-# 10 µM ADP / 10 µM ATP_ex peaks).
+#
+# Attribution:
+# - PEAK concentrations are sourced from the platelet-experimental
+#   literature (Dolan 2014 standard activation = 1 nM thrombin /
+#   10 µM ADP; ATP_ex peak 10 µM from dense granule release rates).
+# - The plateau-decay SHAPE (`tau_rise_s`, `t_peak_s`, `tau_decay_s`)
+#   is a *model choice* — there is no direct experimental measurement
+#   of the platelet-microenvironment agonist timecourse seen by a
+#   single platelet during clot formation. Values were chosen to
+#   produce a plausible Dolan-2014-shape activation curve and to
+#   give physiologically reasonable receptor-occupancy dynamics.
+#   Different choices would shift the absolute timing of the Ca²⁺
+#   transient peak by ±5–10 s but not its shape or magnitude.
 
 [agonists.thrombin]
 # PAR1/4 agonist. Clotting cascade gives a fast rise, sustained plateau,
@@ -187,20 +198,35 @@ k7r =   1.551   # reverse                        (s⁻¹)        step 7 rev
 # Trimeric ATP-gated cation channel in the plasma membrane. Three-state
 # scheme: Closed --(k_act × [ATP_ex])--> Open --(k_des)--> Desensitised.
 # Ca²⁺ flux through Open is Nernst-driven, gated on CA_EX_UM > 0.
+#
+# Attribution: Mahaut-Smith et al. 2000 / 2004 (platelet P2X1
+# electrophysiology — provides the time constants τ_des and τ_rec);
+# Vial & Evans 2002 (P2X1 in platelets); Hechler et al. 2003 (P2X1 in
+# thrombosis); Burnstock 2007 (P2X family review).
+#
+# The 3-state kinetic scheme below is a coarse fit to those time
+# constants — `k_des = 10 s⁻¹` → τ_des ≈ 100 ms (Mahaut-Smith) and
+# `k_rec = 0.03 s⁻¹` → τ_rec ≈ 30 s (Mahaut-Smith). `k_act` and
+# `k_close` are model-choice rates paired to give a steep activation
+# curve at ATP_PEAK ≈ 10 µM consistent with the EC50 reported in
+# Mahaut-Smith 2000.
 [p2x1.kinetics]
 k_act   = 30.0   # closed + ATP → open         (µM⁻¹·s⁻¹) — fast ATP binding
 k_close =  5.0   # open → closed               (s⁻¹)       — ATP unbinds
-k_des   = 10.0   # open → desensitised         (s⁻¹)       — τ_des ≈ 100 ms
-k_rec   =  0.03  # desensitised → closed       (s⁻¹)       — τ_rec ≈ 30 s
+k_des   = 10.0   # open → desensitised         (s⁻¹)       — τ_des ≈ 100 ms (Mahaut-Smith)
+k_rec   =  0.03  # desensitised → closed       (s⁻¹)       — τ_rec ≈ 30 s (Mahaut-Smith)
 
 [p2x1.channel]
-# Total P2X1 functional channels (trimers; ~3 × 45 kDa per trimer).
-n_total = 1000
-# Ca²⁺-specific effective conductance. Single-channel current ~0.5–1 pA
-# at -60 mV, Ca²⁺ fraction ~5–10 %, so effective γ ≈ 10–50 fS per
-# channel. Calibration anchor for the Phase 3 SOCE-differential target
-# (Dolan ~100 nM); see lab book.
-gamma_s = 1.3e-15  # A/V — 1.3 fS Ca²⁺-specific conductance
+# Total functional P2X1 trimers per platelet — Mahaut-Smith 2000 quotes
+# a 600–3 000 channel range from voltage-clamp recordings; we use 1 000
+# as a mid-range estimate.
+n_total = 1000     # (count of trimers; ~3 × 45 kDa per trimer)
+# Single-channel current ~0.5–1 pA at -60 mV (Mahaut-Smith 2000),
+# Ca²⁺ fraction ~5–10 % of total current → effective Ca²⁺-specific
+# γ ≈ 10–50 fS per channel. The value below is the calibration anchor
+# for the Phase 3 SOCE-differential target (Dolan ~100 nM); not an
+# independently measured single-channel γ. See lab book.
+gamma_s = 1.3e-15  # (A/V) — 1.3 fS Ca²⁺-specific conductance; calibrated
 
 
 # ── SOCE: STIM1 dimerisation cycle (mass-action) ─────────────────────
@@ -227,40 +253,55 @@ k_dim_r     = 1.0       # reverse                                  (s⁻¹)
 # platelet dimer counts: Ka_platelet × Sf_saturating (~170 dimers) ≈
 # Hoover's Ka × Stotal (~320) → Ka_platelet ≈ 1.9, rounded to 2 (the
 # MWC shape is insensitive to ~2× perturbations at saturation). f, a, L
-# are dimensionless and transfer directly.
+# are dimensionless and transfer directly from Hoover.
 [soce.mwc]
-L  = 1.0e-4    # opening equilibrium without STIM
-Ka = 2.0       # STIM2 association constant (rescaled from Hoover a.u.)
-f  = 14.2      # opening cooperativity per bound STIM2
-a  = 0.5       # binding cooperativity (negative)
+L  = 1.0e-4    # (dimensionless) — opening equilibrium without STIM
+Ka = 2.0       # (1/count of dimers) — STIM2 association constant (rescaled from Hoover a.u.)
+f  = 14.2      # (dimensionless) — opening cooperativity per bound STIM2
+a  = 0.5       # (dimensionless) — binding cooperativity (negative)
 
 
 # ── SOCE: Dolan 2014 puncta entry (eq. 2) ────────────────────────────
 # qp = α · [Ca²⁺]_cyt^n / (KM^n + [Ca²⁺]_cyt^n) + baseline
 # qp gives the fraction of STIM2 dimers translocated into puncta where
-# they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
-# two free parameters Dolan scans within homeostatic constraints.
+# they can engage Orai. α = 0.2 is the Dolan 2014 default. KM and n are
+# the two free parameters Dolan scans within homeostatic constraints
+# (Fig. 3); the mid-range values are used here.
 [soce.puncta]
-alpha    = 0.2    # max puncta fraction at saturating [Ca²⁺]_cyt
-KM_uM    = 0.5    # half-activation [Ca²⁺]_cyt   (Dolan-scanned)
-n        = 4.0    # Hill coefficient             (Dolan-scanned)
-baseline = 0.01   # constitutive puncta fraction at zero [Ca²⁺]_cyt
+alpha    = 0.2    # (dimensionless) — max puncta fraction at saturating [Ca²⁺]_cyt; Dolan default
+KM_uM    = 0.5    # (µM) — half-activation [Ca²⁺]_cyt; Dolan-scanned mid-range
+n        = 4.0    # (dimensionless) — Hill coefficient; Dolan-scanned mid-range
+baseline = 0.01   # (dimensionless) — constitutive puncta fraction at zero [Ca²⁺]_cyt
 
 
 # ── NCX (Na⁺/Ca²⁺ exchanger) — secondary Ca²⁺ extrusion ──────────────
 # Forward-mode 3:1 (3 Na⁺ in : 1 Ca²⁺ out), Na⁺-gradient driven (no ATP).
 # Provides a second extrusion pathway alongside PMCA, dominating at high
-# cyt Ca²⁺ where PMCA saturates. Kinetic scheme: substrate Hill term ×
-# allosteric Ca²⁺-activation gate (keeps NCX silent at rest). Forward
-# mode only; reverse mode requires cyt Na⁺ state + V_PM, out of scope
-# for v0.3. Functional contribution is contested in the platelet
-# literature — see `dissertation-notes.md §7.3` for the uncertainty
-# disclosure.
+# cyt Ca²⁺ where PMCA saturates. Forward mode only; reverse mode
+# requires cyt Na⁺ state + V_PM, out of scope for v0.3.
+#
+# Attribution:
+# - Platelet NCX presence: NCX1 (SLC8A1) and NCX3 (SLC8A3) detected
+#   in the Burkhart 2012 proteome.
+# - Functional contribution contested: Sage & Rink 1985 reported
+#   limited activity; later work (e.g., Roberts et al. 2012) argues
+#   NCX contributes 10–30 % of platelet Ca²⁺ extrusion at peak. See
+#   `dissertation-notes.md §7.3` for the uncertainty disclosure.
+# - Kinetic form: substrate Hill term × allosteric Ca²⁺-activation
+#   gate. Standard NCX biophysics (Blaustein & Lederer 1999 review;
+#   DiPolo & Beaugé 2006). The allosteric gate captures the
+#   regulatory Ca²⁺-binding site of real NCX, keeping it silent at
+#   resting cyt = 100 nM regardless of substrate kinetics.
+# - Values: V_max is a *calibration anchor* (not a measured platelet
+#   value — no platelet-specific Vmax exists in the literature). K_m
+#   and K_a sit within the experimental ranges quoted in those
+#   reviews (cardiac NCX K_m,Ca ≈ 1–10 µM; K_a ≈ 0.1–0.6 µM). h = 4
+#   is the upper end of reported allosteric cooperativity.
 [ncx.kinetics]
-V_max = 5000.0   # ions/s — total per platelet; calibration anchor
-K_m   = 5.0      # substrate Hill half-saturation (µM)
-K_a   = 0.2      # allosteric activation half-point (µM)
-h     = 4        # allosteric Hill cooperativity (int; switch-like)
+V_max = 5000.0   # (ions/s) — total per platelet; calibration anchor (not measured)
+K_m   = 5.0      # (µM) — substrate Hill half-saturation; within Blaustein & Lederer 1999 range
+K_a   = 0.2      # (µM) — allosteric activation half-point; within review range
+h     = 4        # (dimensionless int) — allosteric Hill cooperativity (switch-like)
 
 
 # ── GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ─────────────
@@ -274,32 +315,60 @@ h     = 4        # allosteric Hill cooperativity (int; switch-like)
 #   with k_rgs = 0.033  →  k_basal = 0.033 × 0.02/0.98 ≈ 6.7e-4 s⁻¹.
 
 [gpcr.p2y1]
-# ADP receptor, reversible binding. ~150 copies (Coller 1995).
-k_on  = 1.0   # P2Y1_i + ADP → P2Y1_a   (µM⁻¹·s⁻¹)
-k_off = 0.5   # reverse                  (s⁻¹)
+# P2Y1 ADP receptor — reversible binding, no proteolytic cleavage.
+# Copy number ~150 per platelet (Coller 1995). k_on and k_off here
+# are *model-choice* rates: there is no platelet-specific kon/koff
+# measurement for P2Y1. Chosen so that activation reaches ~67 %
+# at saturating ADP (= k_on·[ADP] / (k_on·[ADP] + k_off) for [ADP] = 1 µM),
+# matching the Mazet 2020 framework's P2Y1 activation profile.
+k_on  = 1.0   # (µM⁻¹·s⁻¹) — model choice
+k_off = 0.5   # (s⁻¹) — model choice
 
 [gpcr.par1]
-# Thrombin receptor, high-affinity, irreversible proteolytic cleavage.
-# ~2500 copies per platelet.
-k_cleave      = 2.0    # PAR1_i + thrombin → PAR1_a  (nM⁻¹·s⁻¹) — fast
-k_internalize = 0.02   # PAR1_a → PAR1_i             (s⁻¹) — τ ~50s (lumped)
+# PAR1 thrombin receptor — high-affinity, irreversible proteolytic
+# cleavage. ~2500 copies per platelet (Coller 1995).
+# k_cleave 2 nM⁻¹·s⁻¹: order-of-magnitude consistent with the
+# thrombin-PAR1 cleavage rates inferred from Vu et al. 1991 / Hung
+# et al. 1992 (the first PAR1 cloning and characterisation papers).
+# k_internalize: τ ~50 s as a lumped first-order proxy for the
+# receptor desensitisation + internalisation observed in Hammes &
+# Coughlin 1999. No direct platelet PAR1 internalisation rate
+# measurement exists; this is a Mazet 2020-framework model choice.
+k_cleave      = 2.0    # (nM⁻¹·s⁻¹) — fast cleavage; order-of-magnitude Vu 1991 / Hung 1992
+k_internalize = 0.02   # (s⁻¹) — τ ~50 s lumped (Hammes & Coughlin 1999 timescale)
 
 [gpcr.par4]
-# Thrombin receptor, low-affinity. ~500 copies per platelet.
-k_cleave      = 0.2    # PAR4_i + thrombin → PAR4_a  (nM⁻¹·s⁻¹) — slower
-k_internalize = 0.005  # PAR4_a → PAR4_i             (s⁻¹) — τ ~200s (sustained)
+# PAR4 thrombin receptor — low-affinity, slow cleavage. ~500 copies
+# per platelet (Coller 1995 / Kahn 1998). PAR4 contributes the
+# sustained / late phase of thrombin signalling; PAR1 dominates the
+# initial fast phase.
+# k_cleave 0.2 nM⁻¹·s⁻¹: ~10× slower than PAR1, consistent with
+# Kahn 1998 / Covic 2000 PAR4 thrombin-cleavage measurements.
+# k_internalize 0.005 s⁻¹ (τ ~200 s): chosen to give a slower decay
+# than PAR1, matching the sustained-response biology (model choice).
+k_cleave      = 0.2    # (nM⁻¹·s⁻¹) — Kahn 1998 / Covic 2000 (slower than PAR1)
+k_internalize = 0.005  # (s⁻¹) — τ ~200 s (sustained response; model choice)
 
 [gpcr.gq]
-# Gαq exchange + RGS-accelerated GTPase cycle.
-k_act_per_R = 0.001    # active receptor catalyses Gq exchange  (s⁻¹·count⁻¹)
-k_rgs       = 0.033    # Gq_active → Gq_inactive                 (s⁻¹) — τ ~30s
-k_basal     = 6.7e-4   # tonic Gq exchange at zero agonist       (s⁻¹)
+# Gαq exchange + RGS-accelerated GTPase cycle. k_act_per_R is the
+# per-receptor catalytic rate of Gq nucleotide exchange (Mazet 2020
+# framework, order-of-magnitude). k_rgs ~ 1/30 s⁻¹ matches the
+# RGS-accelerated GTPase decay time (Sondek & Siderovski 2001
+# review; standard value across G-protein signalling models). k_basal
+# is *calibrated* (not measured) to give resting Gq_active ≈ 100 →
+# gq_uM ≈ 0.1 µM, which holds basal IP3 at the Purvis ~50 nM
+# baseline: steady-state = k_basal / (k_basal + k_rgs); target
+# 100/5000 = 0.02 with k_rgs = 0.033 → k_basal ≈ 6.7e-4 s⁻¹.
+k_act_per_R = 0.001    # (s⁻¹·count⁻¹) — per-receptor Gq exchange catalytic rate (Mazet 2020 order)
+k_rgs       = 0.033    # (s⁻¹) — RGS-accelerated GTPase, τ ~30 s (Sondek & Siderovski 2001)
+k_basal     = 6.7e-4   # (s⁻¹) — tonic Gq exchange; calibrated to hold IP3 baseline
 
 [gpcr.gq_pool]
-# Total Gαq pool — Mazet, Tindall, Gibbins & Fry 2020. Inactive Gαq is
-# implicit (total minus active). Separated from rate constants so the
-# Python module-level name N_GQ_TOTAL maps to a single scalar.
-n_total = 5000
+# Total Gαq pool — Mazet, Tindall, Gibbins & Fry 2020 (~5 000
+# molecules per platelet from quantitative proteomics). Inactive Gαq
+# is implicit (total minus active). Separated from rate constants so
+# the Python module-level name N_GQ_TOTAL maps to a single scalar.
+n_total = 5000   # (count of Gαq molecules per platelet; Mazet 2020)
 
 
 # ── PI cycle / PLCβ — Phase 4 / issue #31 ────────────────────────────
@@ -350,15 +419,23 @@ k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
 # from all other cytosolic buffers not yet broken out. v0.3+ plan is
 # to split into explicit gelsolin / annexin / Ca-ATP — see
 # dissertation-notes §1.1.
+#
+# Attribution: k_on and k_off are *model-choice* rates set to give
+# Kd = 1.0 µM (within the EF-hand affinity range across the gelsolin
+# / parvalbumin / calbindin family). k_on = 100 µM⁻¹·s⁻¹ is the
+# diffusion-limited bimolecular rate typical of EF-hand binding
+# (Falke 1994; Linse & Forsén 1995 reviews). The N_GSN count below
+# is the tunable parameter; the per-rate values are not separately
+# calibrated.
 [buffers.gsn]
-k_on  = 100.0   # GSN_site + Ca²⁺ → GSN_site·Ca  (µM⁻¹·s⁻¹) — fast EF-hand
-k_off = 100.0   # reverse                         (s⁻¹)       — Kd = 1.0 µM
+k_on  = 100.0   # (µM⁻¹·s⁻¹) — fast EF-hand binding; Kd = 1 µM
+k_off = 100.0   # (s⁻¹) — reverse
 
 [buffers.gsn_pool]
 # Biological gelsolin alone is ~100 000 copies × ~5 sites = 500 000
 # sites (Burkhart 2012, Yin & Stossel 1979). N_GSN below is calibrated
 # against Phase 3 peak heights with CALR active — see lab book.
-n_total = 1400000
+n_total = 1400000   # (effective Ca²⁺-binding sites; calibrated against Phase 3)
 
 
 # ── DTS luminal Ca²⁺ buffers (Phase 2/3 issues #25, #28) ─────────────
@@ -375,11 +452,19 @@ n_total = 1400000
 # the DTS buffering ratio rises to ~72 % at rest, giving the DTS a
 # large "spring" that absorbs SERCA excess and releases during IP3R
 # drainage. See dissertation-notes §2.1.
+#
+# Attribution: independent 1:1 Ca²⁺-binder coarse-graining for
+# calreticulin follows the Sneyd 2014 / Hofer 1998 ER-buffer
+# framework. Kd = 1.0 mM from Baksh & Michalak 1991 (CALR C-domain
+# direct binding). k_on / k_off are paired to give that Kd; the
+# precise rates are not measured but are fast-equilibrium relative
+# to the IP3R-driven Ca²⁺ transient timescale (~1 s), so the model
+# is insensitive to the absolute rates as long as Kd is preserved.
 [buffers.calr]
-k_on  =    1.0     # CALR_site + Ca²⁺ → CALR_site·Ca  (µM⁻¹·s⁻¹) — fast eq
-k_off = 1000.0     # reverse                            (s⁻¹)     — Kd = 1.0 mM
+k_on  =    1.0     # (µM⁻¹·s⁻¹) — fast equilibrium; pair gives Kd = 1.0 mM
+k_off = 1000.0     # (s⁻¹) — reverse
 [buffers.calr_pool]
-n_total = 508100   # 20 324 CALR × 25 C-domain sites
+n_total = 508100   # (binding sites = 20 324 CALR × 25 C-domain sites)
 
 # CALR P-domain — 1 high-affinity site per molecule, slow kinetics.
 # Always saturated at resting DTS [Ca²⁺] = 250 µM (occupancy > 99.6%)
@@ -389,10 +474,10 @@ n_total = 508100   # 20 324 CALR × 25 C-domain sites
 # that smooths DTS recovery without preventing the transient
 # depletion. Source: Baksh & Michalak 1991, Vassilakos 1998.
 [buffers.calr_p]
-k_on  = 1.0    # CALR_P + Ca²⁺ → CALR_P·Ca  (µM⁻¹·s⁻¹)
-k_off = 1.0    # reverse                     (s⁻¹) — Kd = 1.0 µM
+k_on  = 1.0    # (µM⁻¹·s⁻¹) — Baksh & Michalak 1991; pair gives Kd = 1.0 µM
+k_off = 1.0    # (s⁻¹) — slow release; Vassilakos 1998
 [buffers.calr_p_pool]
-n_total = 20324  # 1 site per molecule
+n_total = 20324  # (binding sites; 1 P-domain site per CALR molecule)
 
 # HSP90B1 / GRP94 / endoplasmin — second-most-abundant ER luminal
 # Ca²⁺-binding chaperone. Argon & Simen 1999: 15 sites per molecule,
@@ -403,18 +488,26 @@ n_total = 20324  # 1 site per molecule
 # a "floor" keeping free DTS [Ca²⁺] > 0 during peak. Platelet copy
 # number ~10 000 (order-of-magnitude; v0.3 stretch estimate).
 [buffers.hsp90b1_medium]
-k_on  = 0.5    # HSP90B1_M + Ca²⁺ → HSP90B1_M·Ca  (µM⁻¹·s⁻¹) — slow
-k_off = 1.0    # reverse                           (s⁻¹) — Kd = 2 µM; τ ~1 s
+# Kd = 2 µM from Argon & Simen 1999. k_off ~ 1 s⁻¹ chosen to give
+# τ_release ≈ 1 s matching the transient timescale (so these sites
+# hold their Ca²⁺ during the ~1 s cyt peak and act as a depletion
+# floor); k_on paired to give the correct Kd. The rates themselves
+# are not directly measured.
+k_on  = 0.5    # (µM⁻¹·s⁻¹) — slow EF-hand; pair gives Kd = 2 µM
+k_off = 1.0    # (s⁻¹) — τ_release ≈ 1 s
 [buffers.hsp90b1_low]
-k_on  =   1.0  # HSP90B1_L + Ca²⁺ → HSP90B1_L·Ca  (µM⁻¹·s⁻¹)
-k_off = 600.0  # reverse                           (s⁻¹) — Kd = 600 µM
+# Kd = 600 µM (Argon & Simen 1999). Faster than the medium-affinity
+# sites — releases during depletion, providing the bulk of the
+# deliverable reserve.
+k_on  =   1.0  # (µM⁻¹·s⁻¹) — pair gives Kd = 600 µM
+k_off = 600.0  # (s⁻¹) — fast release
 [buffers.hsp90b1_pool]
 # Total binding-site counts derived in Python: N_M = molecules × medium,
 # N_L = molecules × low. Storing the decomposition lets a biologist
 # tweak either the protein count or the per-molecule stoichiometry.
-n_molecules   = 10000
-sites_medium  = 4    # per molecule (Argon & Simen 1999)
-sites_low     = 11   # per molecule (Argon & Simen 1999)
+n_molecules   = 10000   # (count of HSP90B1 molecules) — order-of-magnitude estimate; HSP90B1 is among the top ER-associated proteins in the Burkhart 2012 proteome (precise count not extractable from supplementary). v0.3 stretch estimate.
+sites_medium  = 4       # (sites per molecule) — Argon & Simen 1999
+sites_low     = 11      # (sites per molecule) — Argon & Simen 1999
 
 # BiP / HSPA5 / GRP78 — most abundant ER chaperone. Lièvremont 1997
 # demonstrated BiP contributes ~25 % of the ER Ca²⁺ store, with
@@ -424,11 +517,17 @@ sites_low     = 11   # per molecule (Argon & Simen 1999)
 # bound of Lièvremont's 25 % of store). v0.4 may extend to explicit
 # two-site model.
 [buffers.bip]
-k_on  =    2.0  # BiP + Ca²⁺ → BiP·Ca   (µM⁻¹·s⁻¹)
-k_off = 1000.0  # reverse                (s⁻¹) — Kd = 500 µM
+# Kd = 500 µM single low-affinity site (Lièvremont 1997 "mM-range
+# free [Ca²⁺]_ER" buffering). k_on / k_off paired to give that Kd.
+k_on  =    2.0  # (µM⁻¹·s⁻¹) — pair gives Kd = 500 µM
+k_off = 1000.0  # (s⁻¹) — reverse
 [buffers.bip_pool]
-n_molecules = 50000
-sites_per   = 1   # conservative; range 1–2
+# BiP is the canonically most-abundant ER chaperone (more so than
+# CALR or HSP90B1). Platelet copy number ~50 000 is an
+# order-of-magnitude estimate consistent with that ranking; no
+# direct platelet BiP count exists in the literature.
+n_molecules = 50000  # (count of BiP molecules) — order-of-magnitude estimate
+sites_per   = 1      # (sites per molecule) — conservative; Lièvremont range 1–2
 
 # CREC family pool (CALU + RCN1 + RCN2 lumped) — small multi-EF-hand
 # low-affinity Ca²⁺ binders, ER lumen + secretory pathway. Honoré &
@@ -436,11 +535,18 @@ sites_per   = 1   # conservative; range 1–2
 # into individual proteins if granule secretion work requires CALU
 # specifically.
 [buffers.crec]
-k_on  =   0.5  # CREC + Ca²⁺ → CREC·Ca  (µM⁻¹·s⁻¹)
-k_off = 500.0  # reverse                 (s⁻¹) — Kd = 1 mM
+# Kd ≈ 1 mM follows Honoré & Vorum 2000's "up to mM" assessment of
+# CREC family EF-hand affinities. k_on / k_off paired to give that Kd.
+k_on  =   0.5  # (µM⁻¹·s⁻¹) — pair gives Kd = 1 mM
+k_off = 500.0  # (s⁻¹) — reverse
 [buffers.crec_pool]
-n_molecules = 15000  # CALU ~5k + RCN1 ~5k + RCN2 ~5k
-sites_per   = 4      # functional Ca²⁺-binding EF-hands per molecule
+# Composite of three proteins. Per-protein platelet copy numbers are
+# ~5k each (order-of-magnitude across CALU / RCN1 / RCN2 from the
+# Burkhart 2012 ER-associated proteome ranking; no individual citation
+# per protein). Sites per molecule = 4 (functional EF-hands of 6–7
+# total; structural / non-Ca²⁺-binding excluded).
+n_molecules = 15000  # (count; CALU ~5k + RCN1 ~5k + RCN2 ~5k order-of-magnitude)
+sites_per   = 4      # (functional Ca²⁺-binding EF-hands per molecule)
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ───────
