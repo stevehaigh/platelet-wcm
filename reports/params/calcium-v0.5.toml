@@ -579,3 +579,124 @@ k10  =  30.0     # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻�
 k11  =  10.0     # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt    (s⁻¹)       step 11 fwd
 k11r =   7.332e-4 # reverse                                  (µM⁻⁴·s⁻¹)  step 11 rev
 k12  =   1.0     # PMCA·CaM → PMCA + CaM_free  (s⁻¹) — in-vivo rate (see above)
+
+
+# ── Bibliography ─────────────────────────────────────────────────────
+# Structured reference metadata. Each `[references.<key>]` sub-table is
+# read by `runscripts/manual/buildKineticsReview.py` to (a) auto-link
+# inline `Author YEAR` citations in the section comments above, and
+# (b) emit a BibTeX file (`calcium-v0.5-references.bib`) for one-click
+# import into Zotero / a future LaTeX writeup.
+#
+# Fields: authors / year / title / journal / volume / pages / doi / url.
+# `match` is an array of citation strings (e.g. ["Vu et al. 1991",
+# "Vu 1991"]) that should hyperlink to this entry. Add the longest
+# variant first.
+#
+# Seeded with the 10 references I web-verified during the May 25 audit
+# (Vu 1991, Hung 1992, Hammes & Coughlin 1999, Kahn 1998, Covic 2000,
+# Blaustein & Lederer 1999, DiPolo & Beaugé 2006, Falke 1994,
+# Linse & Forsén 1995, Roberts 2012). Remaining references in the
+# section comments above will render as plain text until their
+# `[references.<key>]` block is added here.
+
+[references.vu_1991]
+authors = "Vu, T. K. H. and Hung, D. T. and Wheaton, V. I. and Coughlin, S. R."
+year    = 1991
+title   = "Molecular cloning of a functional thrombin receptor reveals a novel proteolytic mechanism of receptor activation"
+journal = "Cell"
+volume  = "64"
+pages   = "1057-1068"
+doi     = "10.1016/0092-8674(91)90261-V"
+match   = ["Vu et al. 1991", "Vu 1991"]
+
+[references.hung_1992]
+authors = "Hung, D. T. and Vu, T. K. H. and Wheaton, V. I. and Ishii, K. and Coughlin, S. R."
+year    = 1992
+title   = "Cloned platelet thrombin receptor is necessary for thrombin-induced platelet activation"
+journal = "J. Clin. Invest."
+volume  = "89"
+pages   = "1350-1353"
+doi     = "10.1172/JCI115722"
+url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC442997/"
+match   = ["Hung et al. 1992", "Hung 1992"]
+
+[references.hammes_coughlin_1999]
+authors = "Hammes, S. R. and Shapiro, M. J. and Coughlin, S. R."
+year    = 1999
+title   = "Shutoff and agonist-triggered internalization of protease-activated receptor 1 can be separated by mutation of putative phosphorylation sites in the cytoplasmic tail"
+journal = "Biochemistry"
+volume  = "38"
+pages   = "9308-9316"
+doi     = "10.1021/bi9902236"
+match   = ["Hammes & Coughlin 1999", "Hammes 1999"]
+
+[references.kahn_1998]
+authors = "Kahn, M. L. and Zheng, Y.-W. and Huang, W. and Bigornia, V. and Zeng, D. and Moff, S. and Farese, R. V. and Tam, C. and Coughlin, S. R."
+year    = 1998
+title   = "A dual thrombin receptor system for platelet activation"
+journal = "Nature"
+volume  = "394"
+pages   = "690-694"
+doi     = "10.1038/29325"
+match   = ["Kahn et al. 1998", "Kahn 1998"]
+
+[references.covic_2000]
+authors = "Covic, L. and Gresser, A. L. and Kuliopulos, A."
+year    = 2000
+title   = "Biphasic kinetics of activation and signaling for PAR1 and PAR4 thrombin receptors in platelets"
+journal = "Biochemistry"
+volume  = "39"
+pages   = "5458-5467"
+doi     = "10.1021/bi9927078"
+match   = ["Covic et al. 2000", "Covic 2000"]
+
+[references.blaustein_lederer_1999]
+authors = "Blaustein, M. P. and Lederer, W. J."
+year    = 1999
+title   = "Sodium/calcium exchange: its physiological implications"
+journal = "Physiological Reviews"
+volume  = "79"
+pages   = "763-854"
+doi     = "10.1152/physrev.1999.79.3.763"
+match   = ["Blaustein & Lederer 1999"]
+
+[references.dipolo_beauge_2006]
+authors = "DiPolo, R. and Beaugé, L."
+year    = 2006
+title   = "Sodium/calcium exchanger: influence of metabolic regulation on ion carrier interactions"
+journal = "Physiological Reviews"
+volume  = "86"
+pages   = "155-203"
+doi     = "10.1152/physrev.00018.2005"
+match   = ["DiPolo & Beaugé 2006"]
+
+[references.falke_1994]
+authors = "Falke, J. J. and Drake, S. K. and Hazard, A. L. and Peersen, O. B."
+year    = 1994
+title   = "Molecular tuning of ion binding to calcium signaling proteins"
+journal = "Quarterly Reviews of Biophysics"
+volume  = "27"
+pages   = "219-290"
+doi     = "10.1017/S0033583500004017"
+match   = ["Falke et al. 1994", "Falke 1994"]
+
+[references.linse_forsen_1995]
+authors = "Linse, S. and Forsén, S."
+year    = 1995
+title   = "Determinants that govern high-affinity calcium binding"
+journal = "Advances in Second Messenger and Phosphoprotein Research"
+volume  = "30"
+pages   = "89-151"
+url     = "https://pubmed.ncbi.nlm.nih.gov/7549868/"
+match   = ["Linse & Forsén 1995"]
+
+[references.roberts_2012]
+authors = "Roberts, D. E. and McNicol, A. and Bose, R."
+year    = 2012
+title   = "Molecular and functional characterization of the human platelet Na+/Ca2+ exchangers"
+journal = "British Journal of Pharmacology"
+volume  = "165"
+pages   = "922-936"
+doi     = "10.1111/j.1476-5381.2011.01600.x"
+match   = ["Roberts et al. 2012", "Roberts 2012"]
