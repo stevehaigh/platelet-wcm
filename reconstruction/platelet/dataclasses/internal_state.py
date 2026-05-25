@@ -3,6 +3,50 @@ Internal state specifications for the platelet whole-cell model.
 
 Provides the bulk_molecules and unique_molecule sub-objects that the engine's
 BulkMolecules and UniqueMolecules states read during initialize().
+
+Species inventory
+-----------------
+The molecule inventory (id, mass, initial count, class for all 63 species)
+lives in ``reports/params/species-v0.5.tsv`` (issue #32 Phase 2, species
+side). It is loaded at import time via ``_species_loader.load_species()``
+and exposed below as ``_MOLECULES`` — bit-equal to the pre-refactor
+in-source list.
+
+Each row of the TSV is ``(id, mass_fg, initial_count, molecule_class)``:
+  - id              : str — molecule identifier with compartment tag
+  - mass_fg         : float — per-molecule mass in femtograms (mw_da × 1.661e-9)
+  - initial_count   : int — resting-state copy number per platelet
+  - molecule_class  : 'protein' | 'metabolite'
+
+Submass routing (matches SimulationDataPlatelet.submass_name_to_index):
+  'protein'    → submass column 0
+  'metabolite' → submass column 1
+
+Compartments:
+  [c]   = cytoplasm     [dts] = dense tubular system (Ca²⁺ store)
+  [dg]  = dense granule [ag]  = alpha granule
+  [pl]  = plasmalemma (plasma membrane)
+  [m]   = mitochondrial matrix
+
+Sub-state breakdowns
+--------------------
+IP3R, SERCA, PMCA, STIM1, and CaM are split into kinetic sub-states so
+CalciumDynamics can integrate the Li-Rinzel IP3R inactivation, the SERCA
+E1/E2 cycle, the Caride 2007 CaM-coupled PMCA scheme, the STIM1 sensor
+cycle (free / DTS-bound / dimer), and the CaM Ca²⁺-binding ladder. Sub-
+state initial counts are pre-equilibrated at the Dolan resting state
+(cyt = 100 nM, DTS = 250 µM) — derivations are documented next to the
+corresponding rate-constant block in
+``reconstruction/platelet/dataclasses/process/calcium_signalling.py``.
+
+DTS luminal buffers (CALR, HSP90B1, BiP, CREC) carry ~95–99 % of the
+DTS Ca²⁺ at rest; their free/bound sub-state counts are equilibrium-
+derived from the corresponding ``K_*`` Kd at DTS [Ca²⁺] = 250 µM.
+
+PI cycle / GPCR cascade sub-states (Phase 4 / issue #31 + Phase v0.4 /
+issue #9) are at the tonic resting equilibrium of their respective
+rate constants — see calcium_signalling.py for the Gq tonic-floor /
+PLCβ activation fraction / IP3 baseline calibration chain.
 """
 
 import numpy as np
@@ -10,207 +54,14 @@ import numpy as np
 from wholecell.utils import units
 from wholecell.utils.unit_struct_array import UnitStructArray
 
+from reconstruction.platelet.dataclasses._species_loader import load_species
 
-# Molecule inventory for the v0.2 platelet model (calcium core).
-# Raw data and citations: reconstruction/platelet/raw_data/molecules.tsv
-#
-# Each entry: (molecule_id, mass_fg, initial_count, molecule_class)
-#   molecule_class: 'protein' | 'metabolite'
-#   mass_fg: per-molecule mass in femtograms = mw_da × 1.661e-9
-#   initial_count: resting-state copy number per platelet (see TSV for sources)
-#
-# Submass routing (matches SimulationDataPlatelet.submass_name_to_index):
-#   'protein'    → submass column 0
-#   'metabolite' → submass column 1
-#
-# Compartments:
-#   [c]   = cytoplasm     [dts] = dense tubular system (Ca2+ store)
-#   [dg]  = dense granule [ag]  = alpha granule
-#   [pl]  = plasmalemma (plasma membrane)
-#
-# IP3R, SERCA, PMCA, STIM1, and CaM are split into their kinetic sub-states so
-# the CalciumDynamics ODE solver can integrate the 6-state Sneyd IP3R, the SERCA
-# E1/E2 cycle, the 5-state Caride 2007 CaM-coupled PMCA scheme, the STIM1
-# DTS-bound / free / dimer sensor cycle, and the 3-state CaM Ca²⁺-binding ladder.
-# Sub-state initial counts are the Dolan & Diamond 2014 Table S1 representative
-# configuration; protein totals match the per-protein totals in that table
-# (1,328 IP3R; 11,892 SERCA; 769 PMCA; 4,265 STIM1; 1,447 Orai1; 20,481 CaM).
-_MOLECULES = [
-	# id                   mass_fg      initial_count  molecule_class
-	# ── metabolites (concentrations derived from Purvis 2008 / Dolan 2014 / Sveshnikova 2025) ──
-	('CA2_CYT[c]',        6.660e-8,    361,           'metabolite'),  # 100 nM × 6 fL
-	('CA2_DTS[dts]',      6.660e-8,    38842,         'metabolite'),  # 250 µM × 4.3% × 6 fL
-	('ATP[c]',            8.424e-7,    10_839_600,    'metabolite'),  # 3 mM × 6 fL (Holmsen 1979/1981)
-	('ADP[c]',            7.096e-7,    1_083_960,     'metabolite'),  # 0.3 mM × 6 fL (ATP:ADP = 10:1)
-	('PI[c]',             1.580e-7,    361_320,       'metabolite'),  # 100 µM × 6 fL inorganic phosphate
-	('5HT[dg]',           2.927e-7,    3_500_000,     'metabolite'),  # serotonin; dense granule
-	('ADP[dg]',           7.096e-7,    400_000,       'metabolite'),  # ADP; dense granule
-	('IP3[c]',            6.977e-7,    181,           'metabolite'),  # 50 nM × 6 fL
-	# ── proteins (copy numbers from Burkhart 2012 unless noted) ──
-	('GP1BA[c]',          1.378e-4,    25_000,        'protein'),     # GpIbα; surface receptor
-	('ITGA2B[c]',         2.149e-4,    80_000,        'protein'),     # αIIb integrin
-	('ACTB[c]',           6.933e-5,    2_000_000,     'protein'),     # β-actin
-	('FGA[ag]',           5.647e-4,    30_000,        'protein'),     # fibrinogen hexamer; alpha granule
-	('SELP[ag]',          1.493e-4,    30_000,        'protein'),     # P-selectin; alpha granule
-	# ── IP3R inactivation state: deYoung-Keizer 1992 / Li-Rinzel 1994 ──────
-	# h = fraction of channels not Ca²⁺-inhibited at site 3.
-	# Stored as count (0–N_IP3R = 1 328); h = count / N_IP3R in the ODE.
-	# Initial value pre-equilibrated: h∞ = d₂/(Ca_cyt+d₂) = 1.049/1.149 = 0.913
-	# → count = round(0.913 × 1 328) = 1 212.
-	# Mass per unit = ITPR2 monomer fg / 1 (same as Sneyd-Dufour sub-states).
-	('IP3R_h[dts]',       5.110e-4,    1_212,         'protein'),
-	# ── SERCA3b sub-states (E1/E2 cycle; mass = ATP2A3 monomer) ──
-	# Initialised at the full 6-state cycle steady state at cyt = 100 nM,
-	# DTS = 250 µM (solved analytically; see lab-book-2026-05-11-dyk-ip3r-
-	# design.md). Recomputed 2026-05-11 (Phase 2 IP3R/SERCA retune) after
-	# `k_bind_f` was halved (1000 → 500 µM⁻²·s⁻¹) — see K_SERCA block in
-	# `calcium_signalling.py`.
-	('SERCA_E1[dts]',     1.814e-4,    5_895,         'protein'),     # E1 (cytosol-facing, empty)
-	('SERCA_E2[dts]',     1.814e-4,    5_915,         'protein'),     # E2 (DTS-facing, empty)
-	('SERCA_E1Ca[dts]',   1.814e-4,      18,          'protein'),     # E1·2Ca²⁺
-	('SERCA_E1PCa[dts]',  1.814e-4,      22,          'protein'),     # E1P·2Ca²⁺ (phosphorylated)
-	('SERCA_E2PCa[dts]',  1.814e-4,      18,          'protein'),     # E2P·2Ca²⁺
-	('SERCA_E2P[dts]',    1.814e-4,      24,          'protein'),     # E2P (Ca²⁺ released to DTS)
-	# ── PMCA4b sub-states (Caride 2007 Table 3 5-state CaM-coupled scheme) ──
-	# Basal path (steps 4–5): PMCA ⇌ PMCA·Ca → Ca²⁺_ex
-	# CaM-activated path (steps 8–11): PMCA + Ca₄·CaM ⇌ Ca₄·CaM·PMCA
-	#   → Ca₄·CaM·PMCA·Ca → Ca²⁺_ex; Ca₄·CaM·PMCA ⇌ PMCA·CaM + 4 Ca²⁺
-	# Complex sub-states carry combined mass: PMCA (2.114e-4) + CaM (2.775e-5) = 2.391e-4 fg
-	('PMCA[pl]',              2.114e-4,    765,     'protein'),  # PMCA free
-	('PMCA_Ca[pl]',           2.114e-4,    4,       'protein'),  # PMCA·Ca²⁺ (basal)
-	('Ca4_CaM_PMCA[pl]',      2.391e-4,    0,       'protein'),  # Ca₄·CaM·PMCA (CaM-activated, empty)
-	('Ca4_CaM_PMCA_Ca[pl]',   2.391e-4,    0,       'protein'),  # Ca₄·CaM·PMCA·Ca²⁺
-	('PMCA_CaM[pl]',          2.391e-4,    0,       'protein'),  # PMCA·CaM (deactivating)
-	# ── Calmodulin sub-states (Caride 2007 Table 3 steps 6–7; mass = CaM monomer 16,706 Da) ──
-	# CaM that is bound to PMCA is accounted for in the PMCA complex sub-states above;
-	# these three states cover all free (unbound) CaM.
-	# ICs are set at thermodynamic equilibrium with 100 nM free Ca²⁺ (Caride k6/k6r, k7/k7r).
-	# Dolan Table S1 gave total CaM = 20,481 with sub-state breakdown (15, 1) that reflects
-	# their original model without explicit CaM Ca²⁺-binding kinetics; those values are NOT
-	# at equilibrium with 100 nM Ca²⁺ in our ODE and cause a spurious CaM-loading burst in
-	# the first timestep.  The values below satisfy detailed balance exactly.
-	('CaM_free[c]',       2.775e-5,    20_062,  'protein'),  # free CaM (equilibrated)
-	('Ca2_CaM[c]',        2.775e-5,    200,     'protein'),  # Ca₂·CaM (N-lobe loaded; ~0.010 × free)
-	('Ca4_CaM[c]',        2.775e-5,    219,     'protein'),  # Ca₄·CaM (fully loaded; ~1.10 × Ca₂·CaM)
-	# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ──
-	# N_GSN = 1 400 000 effective Ca²⁺-binding sites (calibrated against
-	# Phase 3 with multi-buffer DTS — Phase 3 / issue #25 retune). Mass
-	# per site = gelsolin monomer mass / 5 sites = 1.395e-4 fg / 5 =
-	# 2.79e-5 fg, so total GSN protein mass ≈ 1 400 000 × 2.79e-5 = 39.1
-	# fg (consistent with ~280 000 gelsolin molecules at 5 sites each —
-	# at the upper end of the Burkhart 2012 / Yin & Stossel 1979 platelet
-	# abundance range of ~50 000–280 000).
-	# Pre-equilibrated at cyt = 100 nM, Kd = 1 µM: GSN_Ca/GSN_free = 0.1.
-	# Total = 1 400 000 → GSN_free = 1 272 727, GSN_Ca = 127 273.
-	('GSN_free[c]',       2.79e-5,  1_272_727, 'protein'),
-	('GSN_Ca[c]',         2.79e-5,    127_273, 'protein'),
-	# ── Calreticulin DTS Ca²⁺ buffer (Phase 2 / #28) ──
-	# 20 324 CALR molecules × 25 low-affinity Ca²⁺-binding sites = 508 100
-	# sites total. Mass per "site" = CALR monomer (46 kDa) / 25 sites:
-	#   46 000 Da × 1.661e-9 fg/Da / 25 = 3.056e-6 fg per site.
-	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 1 mM:
-	#   occupancy = 250 / (250 + 1000) = 0.20
-	#   CALR_Ca   = 508 100 × 0.20 = 101 620 (occupied sites)
-	#   CALR_free = 508 100 × 0.80 = 406 480 (empty sites)
-	# Adds ~101 620 bound Ca²⁺ ions to the DTS — represents real biological
-	# luminal Ca²⁺ that was previously omitted from the model (NOT a
-	# redistribution of the existing 38 842 free CA2_DTS pool).
-	# See K_CALR block in calcium_signalling.py for the biology disclosure.
-	('CALR_free[dts]',    3.056e-6,    406_480, 'protein'),  # empty Ca²⁺-binding sites
-	('CALR_Ca[dts]',      3.056e-6,    101_620, 'protein'),  # occupied sites
-	# CALR high-affinity P-domain (1 site per CALR; slow release kinetics).
-	# Kd ~ 1 µM; at DTS [Ca²⁺] = 250 µM, occupancy = 250/251 = 0.996.
-	# CALR_P_Ca = 20 324 × 0.996 = 20 243 (saturated at rest)
-	# CALR_P_free = 81 (mostly empty pool). Mass per site = mass of one
-	# CALR P-domain site = total CALR mass / 26 sites = 7.641e-5 / 26 =
-	# 2.939e-6 fg, but we model it sharing total mass with C-domain by
-	# using mass-per-site weighted: at 1:25 ratio of P:C, give P the
-	# correct fraction of total CALR mass. Simplest: 7.641e-5 / 26 =
-	# 2.939e-6 (close to C-domain value 3.056e-6 already in use).
-	('CALR_P_free[dts]',  2.939e-6,         81, 'protein'),
-	('CALR_P_Ca[dts]',    2.939e-6,    20_243, 'protein'),
-	# ── HSP90B1 / GRP94 — medium- and low-affinity Ca²⁺-binding sites ──
-	# 10 000 HSP90B1 molecules × (4 medium + 11 low) sites.
-	# MW = 92 kDa → 1.528e-4 fg per molecule, /15 sites = 1.019e-5 fg per site.
-	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM:
-	#   Medium (Kd = 2 µM):  occupancy = 250/252 = 0.992 → 39 683 bound / 317 free
-	#   Low    (Kd = 600 µM): occupancy = 250/850 = 0.294 → 32 353 bound / 77 647 free
-	# See K_HSP90B1_M / K_HSP90B1_L blocks in calcium_signalling.py.
-	('HSP90B1_M_free[dts]', 1.019e-5,       317, 'protein'),
-	('HSP90B1_M_Ca[dts]',   1.019e-5,    39_683, 'protein'),
-	('HSP90B1_L_free[dts]', 1.019e-5,    77_647, 'protein'),
-	('HSP90B1_L_Ca[dts]',   1.019e-5,    32_353, 'protein'),
-	# ── BiP / HSPA5 — single low-affinity Ca²⁺ site (Lièvremont 1997) ──
-	# 50 000 BiP molecules × 1 effective site. MW = 78 kDa → 1.296e-4 fg.
-	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 500 µM:
-	#   occupancy = 250/750 = 0.333 → 16 667 bound / 33 333 free.
-	('BiP_free[dts]',       1.296e-4,    33_333, 'protein'),
-	('BiP_Ca[dts]',         1.296e-4,    16_667, 'protein'),
-	# ── CREC pool (CALU + RCN1 + RCN2 aggregated; Honoré & Vorum 2000) ──
-	# 15 000 molecules × 4 effective EF-hand sites = 60 000 sites.
-	# Average MW ≈ 38 kDa → 6.32e-5 fg per molecule, /4 sites = 1.58e-5 fg.
-	# Pre-equilibrated at [Ca²⁺]_DTS = 250 µM, Kd = 1 mM:
-	#   occupancy = 250/1250 = 0.20 → 12 000 bound / 48 000 free.
-	('CREC_free[dts]',      1.58e-5,     48_000, 'protein'),
-	('CREC_Ca[dts]',        1.58e-5,     12_000, 'protein'),
-	# ── STIM1 sub-states (sensor cycle; mass = STIM1 monomer) ──
-	('STIM1_free[dts]',   1.285e-4,    438,           'protein'),     # free monomer (active sensor pool)
-	('STIM1_Ca[dts]',     1.285e-4,    3_805,         'protein'),     # DTS-bound (inactive)
-	('STIM1_dim[dts]',    2.570e-4,    11,            'protein'),     # 11 STIM1 dimer particles (Dolan Table S1)
-	# ── Orai1 (CRAC channel pore-forming subunit) ──
-	('ORAI1[pl]',         5.108e-5,    1_447,         'protein'),     # 30,768 Da; tetramerises to form ~360 channels
-	# ── P2X1 ATP-gated cation channel (Phase 2.5; see K_P2X1 block in
-	# calcium_signalling.py for biology). 1 000 functional channels;
-	# trimeric, mass per channel = 3 × 45 kDa = 2.241e-4 fg.
-	# All channels start closed at rest (no extracellular ATP).
-	('P2X1[pl]',          2.241e-4,    1_000,         'protein'),     # closed (resting)
-	('P2X1_O[pl]',        2.241e-4,        0,         'protein'),     # open
-	('P2X1_D[pl]',        2.241e-4,        0,         'protein'),     # desensitised
-	# ── PI cycle — Phase 4 / #31 (Mazet 2020 framework) ──
-	# PIP2 abundance: Mazet 2020 quote ~ 1.12 × 10⁶ molecules per platelet
-	# (Sci. Rep. 10:13244 main text; also Supp. Table S6). MW ~ 1 050 Da
-	# → 1.74e-6 fg. At 6 fL cytosol this is ≈ 310 µM, consistent with
-	# Sveshnikova 2015 / Lenoci 2011 platelet PIP2 = 200 µM.
-	# v0.4 lab-book 2026-05-15: corrected from 1.12 × 10⁵ (transcription
-	# error). K_PLCB['k_cat'] rescaled 1/10 to preserve IP3 production rate.
-	# DAG: smaller pool at rest (~5 % of PIP2 turnover), MW ~ 600 Da.
-	# PLCβ: ~1 000 molecules per platelet (order-of-magnitude estimate;
-	# Burkhart 2012 lists PLCβ-3 in platelet proteome). MW ~ 138 kDa
-	# → 2.29e-4 fg. All start inactive at rest (Gq tonic but low).
-	('PIP2[c]',           1.74e-6,   1_120_000,       'metabolite'),  # PIP2 (lipid; treated as metabolite for submass)
-	('DAG[c]',            9.97e-7,        56,         'metabolite'),  # diacylglycerol (steady-state at rest: 3.62/s prod ÷ 0.05/s deg ÷ 1.3 buffer ratio)
-	# PLCβ pre-equilibrated at GQ_REST = 0.1 µM:
-	#   plcb_a/plcb_i = k_act × Gq / k_inact = 0.5 × 0.1 / 0.3 = 0.167
-	#   With total 1 000: plcb_a = 143, plcb_i = 857
-	('PLCb_inactive[c]',  2.29e-4,       857,         'protein'),
-	('PLCb_active[c]',    2.29e-4,       143,         'protein'),
-	# Mitochondrial Ca²⁺ (issue #22) — pre-equilibrated at cyt = 100 nM,
-	# Hill n=4. At rest MCU uptake = 50000 × 0.0001/1.0001 = 5 ions/s.
-	# NCLX balances at: 5 / 0.005 = 1 000 ions = ~330 nM in matrix.
-	# Mito starts essentially empty; loads during transient via MCU,
-	# releases slowly via NCLX. Mass treated as Ca²⁺ metabolite.
-	('CA2_MITO[m]',       6.660e-8,    1_000,         'metabolite'),
-	# ── v0.4 GPCR cascade (issue #9) — P2Y1 + PAR1/4 → Gαq → PLCβ ──
-	# All receptors start inactive at rest (no agonist).
-	# Copy numbers from Coller 1995 (PAR1, PAR4) and Hechler 2002 (P2Y1).
-	# Mass: GPCR average MW ~50 kDa → 8.30e-5 fg/molecule.
-	('P2Y1_inactive[pl]', 8.30e-5,         150, 'protein'),  # ADP receptor (Gq)
-	('P2Y1_active[pl]',   8.30e-5,           0, 'protein'),
-	('PAR1_inactive[pl]', 8.30e-5,       2_500, 'protein'),  # thrombin (high-aff)
-	('PAR1_active[pl]',   8.30e-5,           0, 'protein'),
-	# v0.4.1: one-way internalized sink (no recycling on sim timescale)
-	('PAR1_internalized[pl]', 8.30e-5,       0, 'protein'),
-	('PAR4_inactive[pl]', 8.30e-5,         500, 'protein'),  # thrombin (low-aff)
-	('PAR4_active[pl]',   8.30e-5,           0, 'protein'),
-	('PAR4_internalized[pl]', 8.30e-5,       0, 'protein'),
-	# Gαq pool: 5 000 total (Mazet 2020). Pre-equilibrated at resting
-	# state — with k_basal = 6.7e-4 s⁻¹ and k_rgs = 0.033 s⁻¹, the
-	# equilibrium fraction is k_basal/(k_basal+k_rgs) = 0.02, so
-	# Gq_active = 5 000 × 0.02 = 100 at rest, giving gq_um = 0.1 µM —
-	# the tonic Gq floor that holds basal IP3 at the ~50 nM Purvis target.
-	# Mass per molecule: Gαq ~42 kDa → 6.97e-5 fg.
-	('Gq_active[c]',      6.97e-5,         100, 'protein'),
-]
+
+# Externalised species inventory — see module docstring above and the
+# v0.5 TSV for the source-of-truth values. `_MOLECULES` retains the
+# legacy 4-tuple shape so all downstream call sites (initial_counts
+# array, mass matrix, PROTEIN_MOLECULE_IDS) are unchanged.
+_MOLECULES = load_species()
 
 # Submass column index for each class (mirrors SimulationDataPlatelet).
 _SUBMASS_COL = {'protein': 0, 'metabolite': 1}
