@@ -39,6 +39,16 @@ import math
 import numpy as np
 from scipy.integrate import solve_ivp
 
+from reconstruction.platelet.dataclasses.process._params_loader import (
+	load_calcium_kinetics)
+
+
+# Externalised rate constants (issue #32 Phase 2). Sections of this dict
+# are spliced into the module-level K_* names below as the kinetics-as-data
+# refactor lands. Today only `[ip3r.k_dyk]` is sourced from the TOML; all
+# other K_* dicts remain inline literals until their slice arrives.
+_KINETICS = load_calcium_kinetics()
+
 
 # ── Compartment volumes ───────────────────────────────────────────────────
 # Source: Purvis 2008 (direct measurement; 6 fL cytosol, 4.3% DTS).
@@ -169,12 +179,10 @@ V_PM_V = -0.060          # plasma-membrane potential (V)
 #
 # Parameters from deYoung & Keizer 1992 PNAS 89:9895-9899 Table 1, via the
 # derived dissociation constants in Li & Rinzel 1994 J Theor Biol 166:461-473.
-K_DYK = {
-	'd1':  0.13,     # IP3 activation half-saturation   (µM)      b₁/a₁ = 52/400
-	'd2':  1.049,    # Ca²⁺ inhibition half-saturation  (µM)      b₄/a₄
-	'd5':  0.08234,  # Ca²⁺ activation half-saturation  (µM)      b₅/a₅
-	'a2':  0.2,      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets τ_h
-}
+# Values live in `reports/params/calcium-v0.5.toml [ip3r.k_dyk]` (issue #32
+# Phase 2). Edit there to change. `dict(...)` is a defensive copy so a
+# caller can't mutate the loader's underlying dict.
+K_DYK = dict(_KINETICS['ip3r']['k_dyk'])
 
 # Total IP3R channels: Burkhart 2012 ITPR2 count, Dolan 2014 Table S1.
 N_IP3R = 1328
