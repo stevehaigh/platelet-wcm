@@ -29,3 +29,43 @@ d1 = 0.13     # IP3 activation half-saturation   (µM)        b₁/a₁ = 52/400
 d2 = 1.049    # Ca²⁺ inhibition half-saturation  (µM)        b₄/a₄
 d5 = 0.08234  # Ca²⁺ activation half-saturation  (µM)        b₅/a₅
 a2 = 0.2      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets τ_h
+
+
+# ── Agonist forcing curves — physiological stimulation inputs ────────
+# Each receptor sees a plateau-decay timecourse: REST → ramp to PEAK at
+# T_PEAK with rise τ TAU_RISE → exponential decay τ TAU_DECAY. The peak
+# is read live by the forcing functions in calcium_signalling.py, so a
+# dose-sweep runscript can override at runtime (cs_mod.X_PEAK_* = ...).
+# Calibration target: Dolan 2014 standard activation (1 nM thrombin /
+# 10 µM ADP / 10 µM ATP_ex peaks).
+
+[agonists.thrombin]
+# PAR1/4 agonist. Clotting cascade gives a fast rise, sustained plateau,
+# slow decay. Standard stimulation = 1 nM peak (Dolan 2014).
+rest_nM     = 0.0
+peak_nM     = 1.0
+tau_rise_s  = 0.5
+t_peak_s    = 5.0
+tau_decay_s = 120.0
+
+[agonists.adp]
+# P2Y1 agonist. Released from dense granules during activation, cleared
+# by ectoNTPDases. Standard stimulation = 10 µM peak.
+rest_uM     = 0.0
+peak_uM     = 10.0
+tau_rise_s  = 1.0
+t_peak_s    = 5.0
+tau_decay_s = 30.0
+
+[agonists.atp_ex]
+# P2X1 agonist. Released from dense granules during activation, cleared
+# by CD39 over tens of seconds. CD39 keeps resting ATP_ex near zero —
+# any small baseline leaks P2X1 over hundreds of seconds and overfills
+# the DTS. Note: Python module names lack the `_S` suffix on the time
+# constants (`ATP_EX_TAU_RISE`, not `ATP_EX_TAU_RISE_S`); kept as-is
+# rather than renamed in this slice.
+rest_uM     = 0.0
+peak_uM     = 10.0
+tau_rise_s  = 0.5
+t_peak_s    = 1.0
+tau_decay_s = 30.0

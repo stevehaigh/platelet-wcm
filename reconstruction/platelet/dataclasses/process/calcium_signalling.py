@@ -504,11 +504,15 @@ GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calib
 # forming thrombus, then is cleared by ectonucleotidases (CD39) over tens of
 # seconds. CD39 keeps resting ATP_ex near zero — any small baseline leaks
 # P2X1 over hundreds of seconds and overfills the DTS.
-ATP_EX_REST_UM = 0.0
-ATP_EX_PEAK_UM = 10.0         # 10 µM peak during activation
-ATP_EX_TAU_RISE = 0.5         # s — fast rise (dense granule secretion)
-ATP_EX_T_PEAK = 1.0           # s — peak time
-ATP_EX_TAU_DECAY = 30.0       # s — ectonucleotidase clearance
+# Values live in `reports/params/calcium-v0.5.toml [agonists.atp_ex]`
+# (issue #32 Phase 2 slice 2). The Python name `ATP_EX_TAU_RISE` (no
+# `_S` suffix) is preserved verbatim from the pre-refactor module; the
+# TOML uses the consistent `tau_rise_s` key.
+ATP_EX_REST_UM   = _KINETICS['agonists']['atp_ex']['rest_uM']
+ATP_EX_PEAK_UM   = _KINETICS['agonists']['atp_ex']['peak_uM']
+ATP_EX_TAU_RISE  = _KINETICS['agonists']['atp_ex']['tau_rise_s']
+ATP_EX_T_PEAK    = _KINETICS['agonists']['atp_ex']['t_peak_s']
+ATP_EX_TAU_DECAY = _KINETICS['agonists']['atp_ex']['tau_decay_s']
 
 
 def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
@@ -689,19 +693,23 @@ N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
 
 # Thrombin (PAR1/4 agonist). Standard stimulation = 1 nM peak (Dolan 2014).
 # Clotting cascade gives a fast rise, sustained plateau, slow decay.
-THROMBIN_REST_NM     = 0.0
-THROMBIN_PEAK_NM     = 1.0
-THROMBIN_TAU_RISE_S  = 0.5
-THROMBIN_T_PEAK_S    = 5.0
-THROMBIN_TAU_DECAY_S = 120.0
+# Values live in `reports/params/calcium-v0.5.toml [agonists.thrombin]`
+# (issue #32 Phase 2 slice 2).
+THROMBIN_REST_NM     = _KINETICS['agonists']['thrombin']['rest_nM']
+THROMBIN_PEAK_NM     = _KINETICS['agonists']['thrombin']['peak_nM']
+THROMBIN_TAU_RISE_S  = _KINETICS['agonists']['thrombin']['tau_rise_s']
+THROMBIN_T_PEAK_S    = _KINETICS['agonists']['thrombin']['t_peak_s']
+THROMBIN_TAU_DECAY_S = _KINETICS['agonists']['thrombin']['tau_decay_s']
 
 # ADP (P2Y1 agonist). Released from dense granules during activation,
 # cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
-ADP_REST_UM     = 0.0
-ADP_PEAK_UM     = 10.0
-ADP_TAU_RISE_S  = 1.0
-ADP_T_PEAK_S    = 5.0
-ADP_TAU_DECAY_S = 30.0
+# Values live in `reports/params/calcium-v0.5.toml [agonists.adp]`
+# (issue #32 Phase 2 slice 2).
+ADP_REST_UM     = _KINETICS['agonists']['adp']['rest_uM']
+ADP_PEAK_UM     = _KINETICS['agonists']['adp']['peak_uM']
+ADP_TAU_RISE_S  = _KINETICS['agonists']['adp']['tau_rise_s']
+ADP_T_PEAK_S    = _KINETICS['agonists']['adp']['t_peak_s']
+ADP_TAU_DECAY_S = _KINETICS['agonists']['adp']['tau_decay_s']
 
 
 def thrombin_nM(t, delay=0.0, peak_nM=None):
