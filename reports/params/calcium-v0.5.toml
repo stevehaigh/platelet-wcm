@@ -617,9 +617,9 @@ title   = "Cloned platelet thrombin receptor is necessary for thrombin-induced p
 journal = "J. Clin. Invest."
 volume  = "89"
 pages   = "1350-1353"
-doi     = "10.1172/JCI115722"
 url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC442997/"
 match   = ["Hung et al. 1992", "Hung 1992"]
+# DOI not directly verified — JCI pattern inferred; user to confirm.
 
 [references.hammes_coughlin_1999]
 authors = "Hammes, S. R. and Shapiro, M. J. and Coughlin, S. R."
@@ -628,8 +628,9 @@ title   = "Shutoff and agonist-triggered internalization of protease-activated r
 journal = "Biochemistry"
 volume  = "38"
 pages   = "9308-9316"
-doi     = "10.1021/bi9902236"
+url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC24882/"
 match   = ["Hammes & Coughlin 1999", "Hammes 1999"]
+# DOI not directly verified — Biochemistry pattern inferred; user to confirm.
 
 [references.kahn_1998]
 authors = "Kahn, M. L. and Zheng, Y.-W. and Huang, W. and Bigornia, V. and Zeng, D. and Moff, S. and Farese, R. V. and Tam, C. and Coughlin, S. R."
@@ -678,8 +679,8 @@ title   = "Molecular tuning of ion binding to calcium signaling proteins"
 journal = "Quarterly Reviews of Biophysics"
 volume  = "27"
 pages   = "219-290"
-doi     = "10.1017/S0033583500004017"
 match   = ["Falke et al. 1994", "Falke 1994"]
+# DOI not directly verified; user to confirm via Cambridge Core (QRB).
 
 [references.linse_forsen_1995]
 authors = "Linse, S. and Forsén, S."
@@ -768,6 +769,10 @@ volume  = "108"
 pages   = "13299-13304"
 doi     = "10.1073/pnas.1101664108"
 match   = ["Hoover & Lewis 2011", "Hoover 2011"]
+via     = "dolan_diamond_2014"
+# Route: Dolan 2014 cites Hoover & Lewis 2011 as the source for the
+# MWC allosteric SOCE model parameters; the WCM's [soce.mwc] block
+# follows the Hoover scheme as implemented by Dolan.
 
 
 # ── Medium-frequency references (verified May 25 batch 3) ────────────
@@ -782,8 +787,8 @@ title   = "GRP94, an ER chaperone with protein and peptide binding properties"
 journal = "Seminars in Cell & Developmental Biology"
 volume  = "10"
 pages   = "495-505"
-doi     = "10.1006/scdb.1999.0335"
 match   = ["Argon & Simen 1999"]
+# DOI not directly verified; user to confirm via Sem Cell Dev Biol (Elsevier).
 
 [references.baksh_michalak_1991]
 authors = "Baksh, S. and Michalak, M."
@@ -802,8 +807,9 @@ title   = "Bell-shaped calcium-response curves of Ins(1,4,5)P3- and calcium-gate
 journal = "Nature"
 volume  = "351"
 pages   = "751-754"
-doi     = "10.1038/351751a0"
 match   = ["Bezprozvanny 1991"]
+# DOI not directly verified — Nature article-ID pattern would suggest
+# 10.1038/351751a0; user to confirm.
 
 [references.burnstock_2007]
 authors = "Burnstock, G."
@@ -812,8 +818,8 @@ title   = "Purine and pyrimidine receptors"
 journal = "Cellular and Molecular Life Sciences"
 volume  = "64"
 pages   = "1471-1483"
-doi     = "10.1007/s00018-007-6497-0"
 match   = ["Burnstock 2007"]
+# DOI not directly verified — Springer pattern inferred; user to confirm.
 
 [references.dode_2002]
 authors = "Dode, L. and Vilsen, B. and Van Baelen, K. and Wuytack, F. and Clausen, J. D. and Andersen, J. P."
@@ -824,6 +830,10 @@ volume  = "277"
 pages   = "45579-45591"
 doi     = "10.1074/jbc.M207778200"
 match   = ["Dode 2002"]
+via     = "purvis_2008"
+# Route: Purvis 2008 cites Dode 2002 as its sole SERCA rate-constant
+# source (Purvis suppl ref 1; main ref 24). The 6-state E1/E2 cycle in
+# our [serca.cycle] block is the Purvis adaptation of Dode's data.
 
 [references.hechler_2003]
 authors = "Hechler, B. and Lenain, N. and Marchese, P. and Vial, C. and Heim, V. and Freund, M. and Cazenave, J.-P. and Cattaneo, M. and Ruggeri, Z. M. and Evans, R. J. and Gachet, C."
@@ -832,8 +842,9 @@ title   = "A role of the fast ATP-gated P2X1 cation channel in thrombosis of sma
 journal = "Journal of Experimental Medicine"
 volume  = "198"
 pages   = "661-667"
-doi     = "10.1084/jem.20030144"
+url     = "https://pubmed.ncbi.nlm.nih.gov/12913094/"
 match   = ["Hechler et al. 2003", "Hechler 2003"]
+# DOI not directly verified — JEM pattern inferred; user to confirm.
 
 [references.honore_vorum_2000]
 authors = "Honoré, B. and Vorum, H."
@@ -842,8 +853,9 @@ title   = "The CREC family, a novel family of multiple EF-hand, low-affinity Ca2
 journal = "FEBS Letters"
 volume  = "466"
 pages   = "11-18"
-doi     = "10.1016/S0014-5793(99)01780-9"
+url     = "https://pubmed.ncbi.nlm.nih.gov/10648803/"
 match   = ["Honoré & Vorum 2000"]
+# DOI not directly verified — FEBS Lett pattern inferred; user to confirm.
 
 [references.lievremont_1997]
 authors = "Lièvremont, J.-P. and Rizzuto, R. and Hendershot, L. and Meldolesi, J."
@@ -862,8 +874,10 @@ title   = "ADP is not an agonist at P2X1 receptors: evidence for separate recept
 journal = "British Journal of Pharmacology"
 volume  = "131"
 pages   = "108-114"
-doi     = "10.1038/sj.bjp.0703517"
-match   = ["Mahaut-Smith et al. 2000 / 2004", "Mahaut-Smith 2000 / 2004", "Mahaut-Smith 2000", "Mahaut-Smith"]
+match   = ["Mahaut-Smith et al. 2000 / 2004", "Mahaut-Smith 2000 / 2004", "Mahaut-Smith 2000"]
+# DOI not directly verified — BJP pattern inferred; user to confirm.
+# Bare "Mahaut-Smith" intentionally omitted from match[] — too broad
+# (would substitute every author-only mention).
 
 [references.mak_foskett_1997]
 authors = "Mak, D.-O. D. and Foskett, J. K."
@@ -872,8 +886,15 @@ title   = "Single-channel kinetics, inactivation, and spatial distribution of in
 journal = "Journal of General Physiology"
 volume  = "109"
 pages   = "571-587"
-doi     = "10.1085/jgp.109.5.571"
+url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC2217068/"
 match   = ["Mak & Foskett 1997"]
+via     = "caride_2007"
+# DOI not directly verified — JGP pattern inferred; user to confirm.
+# Route: cited by Caride 2007 (as a related 2001 Mak/McBride/Foskett
+# follow-on); the IP3R γ_Ca discussion in our [ip3r.channel] block
+# refers to the Mak & Foskett 1997 cellular-conditions γ range
+# (0.05–0.5 pS). Route via Caride is best-guess — the user may have
+# read this paper directly.
 
 [references.penniston_enyedi_1998]
 authors = "Penniston, J. T. and Enyedi, Á."
@@ -882,8 +903,12 @@ title   = "Modulation of the plasma membrane Ca2+ pump"
 journal = "Journal of Membrane Biology"
 volume  = "165"
 pages   = "101-109"
-doi     = "10.1007/s002329900424"
 match   = ["Penniston & Enyedi 1998"]
+via     = "caride_2007"
+# DOI not directly verified — Springer pattern inferred; user to confirm.
+# Route: Caride 2007 cites Penniston & Enyedi 1998 as a PMCA-regulation
+# review (Caride ref 4). The PIP2-PMCA competition discussion in our
+# [pmca.cam_activated] block draws on this lineage.
 
 [references.prakriya_lewis_2002]
 authors = "Prakriya, M. and Lewis, R. S."
@@ -892,8 +917,9 @@ title   = "Separation and characterization of currents through store-operated CR
 journal = "Journal of General Physiology"
 volume  = "119"
 pages   = "487-507"
-doi     = "10.1085/jgp.20028551"
+url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC2233817/"
 match   = ["Prakriya & Lewis 2002"]
+# DOI not directly verified — JGP pattern inferred; user to confirm.
 
 [references.sage_rink_1985]
 authors = "Sage, S. O. and Rink, T. J."
@@ -902,8 +928,11 @@ title   = "Inhibition by forskolin of cytosolic calcium rise, shape change and a
 journal = "FEBS Letters"
 volume  = "188"
 pages   = "135-140"
-doi     = "10.1016/0014-5793(85)80891-5"
 match   = ["Sage & Rink 1985"]
+# DOI not directly verified — FEBS Lett pattern inferred; user to confirm.
+# Note: the TOML cites "Sage & Rink 1985" in multiple contexts; this is
+# the most likely matching paper but the user has more than one 1985
+# publication in this area.
 
 [references.vial_evans_2002]
 authors = "Vial, C. and Rolf, M. G. and Mahaut-Smith, M. P. and Evans, R. J."
@@ -912,8 +941,9 @@ title   = "A study of P2X1 receptor function in murine megakaryocytes and human 
 journal = "British Journal of Pharmacology"
 volume  = "135"
 pages   = "363-372"
-doi     = "10.1038/sj.bjp.0704486"
+url     = "https://pubmed.ncbi.nlm.nih.gov/11815371/"
 match   = ["Vial & Evans 2002"]
+# DOI not directly verified — BJP pattern inferred; user to confirm.
 
 [references.yin_stossel_1979]
 authors = "Yin, H. L. and Stossel, T. P."
@@ -922,8 +952,10 @@ title   = "Control of cytoplasmic actin gel-sol transformation by gelsolin, a ca
 journal = "Nature"
 volume  = "281"
 pages   = "583-586"
-doi     = "10.1038/281583a0"
+url     = "https://www.nature.com/articles/281583a0"
 match   = ["Yin & Stossel 1979"]
+# DOI inferred from Nature article-ID pattern (10.1038/281583a0); URL
+# from nature.com kept as the verified click target. User to confirm DOI.
 
 
 # ── Recent mitochondrial-Ca²⁺ references (2025-2026) ─────────────────

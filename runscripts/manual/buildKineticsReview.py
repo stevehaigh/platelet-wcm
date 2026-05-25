@@ -163,7 +163,12 @@ def build_match_index(refs: dict) -> List[Tuple[re.Pattern, str]]:
 			pairs.append((s, key))
 	# Longest first
 	pairs.sort(key=lambda p: -len(p[0]))
-	return [(re.compile(r"(?<![\w])" + re.escape(s) + r"(?![\w])"), k) for s, k in pairs]
+	# Negative lookbehind also excludes `[` so a match inside an
+	# already-substituted Markdown link `[Vu et al. 1991](#ref-...)` is
+	# not re-matched on a subsequent pass — otherwise a shorter alias
+	# like "Vu" or "Mahaut-Smith" would nest brackets inside the
+	# longer-form link.
+	return [(re.compile(r"(?<![\w\[])" + re.escape(s) + r"(?![\w])"), k) for s, k in pairs]
 
 
 def ref_url(meta: dict) -> str:
@@ -261,6 +266,26 @@ def render_kv_table(kv: List[Tuple[str, str, str]], linkifier) -> str:
 	return "\n".join(out)
 
 
+def _via_annotation(via_key: str, refs: dict) -> str:
+	"""Format a `via = "<key>"` field as a clickable citation chain link.
+
+	Returns ``" — *via* [Author YEAR](#ref-key)"`` when the upstream
+	reference exists; falls back to a plain ``" — *via* <key>"``
+	otherwise. The intent is for a reviewer scanning the bibliography
+	to see at a glance "I learned about Bezprozvanny 1991 because
+	Hoover 2011 cited it" and to click through to the upstream entry.
+	"""
+	upstream = refs.get(via_key)
+	if upstream is None:
+		return f" — *via* `{via_key}` (key not found in [references.*])"
+	up_authors = upstream.get("authors", "")
+	up_year = upstream.get("year", "")
+	# Use a short "FirstAuthorSurname YEAR" form for the visible label.
+	first_surname = up_authors.split(",")[0].split(" and ")[0].strip()
+	label = f"{first_surname} {up_year}".strip()
+	return f" — *via* [{label}](#ref-{via_key})"
+
+
 def render_references(refs: dict) -> str:
 	"""Render the bibliography section."""
 	out = ["", "# References", ""]
@@ -277,11 +302,13 @@ def render_references(refs: dict) -> str:
 		journal = meta.get("journal", "")
 		doi = meta.get("doi")
 		url = meta.get("url")
+		via = meta.get("via")
 		link = (
 			f"[doi:{doi}](https://doi.org/{doi})" if doi
 			else (f"<{url}>" if url else "")
 		)
-		entry = f"**{authors} ({year})** {anchor}. *{title}*. {journal}. {link}"
+		via_part = _via_annotation(via, refs) if via else ""
+		entry = f"**{authors} ({year})** {anchor}. *{title}*. {journal}. {link}{via_part}"
 		out.append("- " + entry)
 	out.append("")
 	return "\n".join(out)
@@ -392,6 +419,15 @@ def write_bibtex(refs: dict, path: Path) -> None:
 				continue
 			bibtex_field = {"authors": "author"}.get(f, f)
 			fields.append((bibtex_field, escape_bibtex(str(v))))
+		# Record citation route in a BibTeX `note` field so the chain
+		# survives Zotero import / future LaTeX writeups.
+		via = meta.get("via")
+		if via:
+			upstream = refs.get(via, {})
+			up_authors = upstream.get("authors", "")
+			up_year = upstream.get("year", "")
+			first_surname = up_authors.split(",")[0].split(" and ")[0].strip()
+			fields.append(("note", escape_bibtex(f"via {first_surname} {up_year}".strip())))
 		lines.append(f"@article{{{key},")
 		for k, v in fields:
 			lines.append(f"  {k:8s} = {{{v}}},")
