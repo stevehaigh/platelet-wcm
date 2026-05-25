@@ -282,11 +282,15 @@ baseline = 0.01   # (dimensionless) — constitutive puncta fraction at zero [Ca
 #
 # Attribution:
 # - Platelet NCX presence: NCX1 (SLC8A1) and NCX3 (SLC8A3) detected
-#   in the Burkhart 2012 proteome.
+#   in the Burkhart 2012 proteome. Roberts et al. 2012 (Br J
+#   Pharmacol) confirmed NCX/NCKX expression at the protein level
+#   and showed functional contribution during platelet activation.
 # - Functional contribution contested: Sage & Rink 1985 reported
-#   limited activity; later work (e.g., Roberts et al. 2012) argues
-#   NCX contributes 10–30 % of platelet Ca²⁺ extrusion at peak. See
-#   `dissertation-notes.md §7.3` for the uncertainty disclosure.
+#   limited activity; later work argues NCX makes a meaningful
+#   contribution to peak-Ca²⁺ extrusion (specific fractional figure
+#   not directly measured in platelets — order-of-magnitude estimate
+#   only). See `dissertation-notes.md §7.3` for the uncertainty
+#   disclosure.
 # - Kinetic form: substrate Hill term × allosteric Ca²⁺-activation
 #   gate. Standard NCX biophysics (Blaustein & Lederer 1999 review;
 #   DiPolo & Beaugé 2006). The allosteric gate captures the
@@ -352,15 +356,16 @@ k_internalize = 0.005  # (s⁻¹) — τ ~200 s (sustained response; model choic
 [gpcr.gq]
 # Gαq exchange + RGS-accelerated GTPase cycle. k_act_per_R is the
 # per-receptor catalytic rate of Gq nucleotide exchange (Mazet 2020
-# framework, order-of-magnitude). k_rgs ~ 1/30 s⁻¹ matches the
-# RGS-accelerated GTPase decay time (Sondek & Siderovski 2001
-# review; standard value across G-protein signalling models). k_basal
+# framework, order-of-magnitude). k_rgs ~ 1/30 s⁻¹ is the standard
+# RGS-accelerated Gαq GTPase decay timescale in G-protein signalling
+# models (the bare Gα GTP-hydrolysis rate ~ 1/100 s⁻¹ accelerates
+# ~10-100× when RGS proteins are bound). k_basal
 # is *calibrated* (not measured) to give resting Gq_active ≈ 100 →
 # gq_uM ≈ 0.1 µM, which holds basal IP3 at the Purvis ~50 nM
 # baseline: steady-state = k_basal / (k_basal + k_rgs); target
 # 100/5000 = 0.02 with k_rgs = 0.033 → k_basal ≈ 6.7e-4 s⁻¹.
 k_act_per_R = 0.001    # (s⁻¹·count⁻¹) — per-receptor Gq exchange catalytic rate (Mazet 2020 order)
-k_rgs       = 0.033    # (s⁻¹) — RGS-accelerated GTPase, τ ~30 s (Sondek & Siderovski 2001)
+k_rgs       = 0.033    # (s⁻¹) — RGS-accelerated GTPase, τ ~30 s; standard G-protein-signalling-model value
 k_basal     = 6.7e-4   # (s⁻¹) — tonic Gq exchange; calibrated to hold IP3 baseline
 
 [gpcr.gq_pool]
