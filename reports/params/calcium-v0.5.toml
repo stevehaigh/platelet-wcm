@@ -768,3 +768,191 @@ volume  = "108"
 pages   = "13299-13304"
 doi     = "10.1073/pnas.1101664108"
 match   = ["Hoover & Lewis 2011", "Hoover 2011"]
+
+
+# ── Medium-frequency references (verified May 25 batch 3) ────────────
+# References cited in 2-5 places across the section comments above.
+# DOIs verified via PubMed lookup where available; otherwise the `url`
+# field falls back to a PubMed / PMC permalink.
+
+[references.argon_simen_1999]
+authors = "Argon, Y. and Simen, B. B."
+year    = 1999
+title   = "GRP94, an ER chaperone with protein and peptide binding properties"
+journal = "Seminars in Cell & Developmental Biology"
+volume  = "10"
+pages   = "495-505"
+doi     = "10.1006/scdb.1999.0335"
+match   = ["Argon & Simen 1999"]
+
+[references.baksh_michalak_1991]
+authors = "Baksh, S. and Michalak, M."
+year    = 1991
+title   = "Expression of calreticulin in Escherichia coli and identification of its Ca2+ binding domains"
+journal = "Journal of Biological Chemistry"
+volume  = "266"
+pages   = "21458-21465"
+url     = "https://pubmed.ncbi.nlm.nih.gov/1939178/"
+match   = ["Baksh & Michalak 1991"]
+
+[references.bezprozvanny_1991]
+authors = "Bezprozvanny, I. and Watras, J. and Ehrlich, B. E."
+year    = 1991
+title   = "Bell-shaped calcium-response curves of Ins(1,4,5)P3- and calcium-gated channels from endoplasmic reticulum of cerebellum"
+journal = "Nature"
+volume  = "351"
+pages   = "751-754"
+doi     = "10.1038/351751a0"
+match   = ["Bezprozvanny 1991"]
+
+[references.burnstock_2007]
+authors = "Burnstock, G."
+year    = 2007
+title   = "Purine and pyrimidine receptors"
+journal = "Cellular and Molecular Life Sciences"
+volume  = "64"
+pages   = "1471-1483"
+doi     = "10.1007/s00018-007-6497-0"
+match   = ["Burnstock 2007"]
+
+[references.dode_2002]
+authors = "Dode, L. and Vilsen, B. and Van Baelen, K. and Wuytack, F. and Clausen, J. D. and Andersen, J. P."
+year    = 2002
+title   = "Dissection of the functional differences between sarco(endo)plasmic reticulum Ca2+-ATPase (SERCA) 1 and 3 isoforms by steady-state and transient kinetic analyses"
+journal = "Journal of Biological Chemistry"
+volume  = "277"
+pages   = "45579-45591"
+doi     = "10.1074/jbc.M207778200"
+match   = ["Dode 2002"]
+
+[references.hechler_2003]
+authors = "Hechler, B. and Lenain, N. and Marchese, P. and Vial, C. and Heim, V. and Freund, M. and Cazenave, J.-P. and Cattaneo, M. and Ruggeri, Z. M. and Evans, R. J. and Gachet, C."
+year    = 2003
+title   = "A role of the fast ATP-gated P2X1 cation channel in thrombosis of small arteries in vivo"
+journal = "Journal of Experimental Medicine"
+volume  = "198"
+pages   = "661-667"
+doi     = "10.1084/jem.20030144"
+match   = ["Hechler et al. 2003", "Hechler 2003"]
+
+[references.honore_vorum_2000]
+authors = "Honoré, B. and Vorum, H."
+year    = 2000
+title   = "The CREC family, a novel family of multiple EF-hand, low-affinity Ca2+-binding proteins localised to the secretory pathway of mammalian cells"
+journal = "FEBS Letters"
+volume  = "466"
+pages   = "11-18"
+doi     = "10.1016/S0014-5793(99)01780-9"
+match   = ["Honoré & Vorum 2000"]
+
+[references.lievremont_1997]
+authors = "Lièvremont, J.-P. and Rizzuto, R. and Hendershot, L. and Meldolesi, J."
+year    = 1997
+title   = "BiP, a major chaperone protein of the endoplasmic reticulum lumen, plays a direct and important role in the storage of the rapidly exchanging pool of Ca2+"
+journal = "Journal of Biological Chemistry"
+volume  = "272"
+pages   = "30873-30879"
+doi     = "10.1074/jbc.272.49.30873"
+match   = ["Lièvremont 1997"]
+
+[references.mahaut_smith_2000]
+authors = "Mahaut-Smith, M. P. and Ennion, S. J. and Rolf, M. G. and Evans, R. J."
+year    = 2000
+title   = "ADP is not an agonist at P2X1 receptors: evidence for separate receptors stimulated by ATP and ADP on human platelets"
+journal = "British Journal of Pharmacology"
+volume  = "131"
+pages   = "108-114"
+doi     = "10.1038/sj.bjp.0703517"
+match   = ["Mahaut-Smith et al. 2000 / 2004", "Mahaut-Smith 2000 / 2004", "Mahaut-Smith 2000", "Mahaut-Smith"]
+
+[references.mak_foskett_1997]
+authors = "Mak, D.-O. D. and Foskett, J. K."
+year    = 1997
+title   = "Single-channel kinetics, inactivation, and spatial distribution of inositol trisphosphate (IP3) receptors in Xenopus oocyte nucleus"
+journal = "Journal of General Physiology"
+volume  = "109"
+pages   = "571-587"
+doi     = "10.1085/jgp.109.5.571"
+match   = ["Mak & Foskett 1997"]
+
+[references.penniston_enyedi_1998]
+authors = "Penniston, J. T. and Enyedi, Á."
+year    = 1998
+title   = "Modulation of the plasma membrane Ca2+ pump"
+journal = "Journal of Membrane Biology"
+volume  = "165"
+pages   = "101-109"
+doi     = "10.1007/s002329900424"
+match   = ["Penniston & Enyedi 1998"]
+
+[references.prakriya_lewis_2002]
+authors = "Prakriya, M. and Lewis, R. S."
+year    = 2002
+title   = "Separation and characterization of currents through store-operated CRAC channels and Mg2+-inhibited cation (MIC) channels"
+journal = "Journal of General Physiology"
+volume  = "119"
+pages   = "487-507"
+doi     = "10.1085/jgp.20028551"
+match   = ["Prakriya & Lewis 2002"]
+
+[references.sage_rink_1985]
+authors = "Sage, S. O. and Rink, T. J."
+year    = 1985
+title   = "Inhibition by forskolin of cytosolic calcium rise, shape change and aggregation in quin2-loaded human platelets"
+journal = "FEBS Letters"
+volume  = "188"
+pages   = "135-140"
+doi     = "10.1016/0014-5793(85)80891-5"
+match   = ["Sage & Rink 1985"]
+
+[references.vial_evans_2002]
+authors = "Vial, C. and Rolf, M. G. and Mahaut-Smith, M. P. and Evans, R. J."
+year    = 2002
+title   = "A study of P2X1 receptor function in murine megakaryocytes and human platelets reveals synergy with P2Y receptors"
+journal = "British Journal of Pharmacology"
+volume  = "135"
+pages   = "363-372"
+doi     = "10.1038/sj.bjp.0704486"
+match   = ["Vial & Evans 2002"]
+
+[references.yin_stossel_1979]
+authors = "Yin, H. L. and Stossel, T. P."
+year    = 1979
+title   = "Control of cytoplasmic actin gel-sol transformation by gelsolin, a calcium-dependent regulatory protein"
+journal = "Nature"
+volume  = "281"
+pages   = "583-586"
+doi     = "10.1038/281583a0"
+match   = ["Yin & Stossel 1979"]
+
+
+# ── Recent mitochondrial-Ca²⁺ references (2025-2026) ─────────────────
+# Three recent papers on platelet MCU / mitochondrial Ca²⁺ used in the
+# [mito.kinetics] section header. Sources for the "MCU is functionally
+# important in platelets" claim that motivates the v0.4 mitochondrial
+# pool addition (issue #22).
+
+[references.ajanel_2025]
+authors = "Ajanel, A. and Hindle, M. S. and Naik, U. P. and Denorme, F. and Campbell, R. A."
+year    = 2025
+title   = "Mitochondrial calcium uniporter regulates ITAM-dependent platelet activation"
+journal = "Circulation Research"
+doi     = "10.1161/CIRCRESAHA.125.326443"
+match   = ["Ajanel et al. 2025"]
+
+[references.shehwar_2025]
+authors = "Shehwar, D. and Barki, S. and Aslam, M. A. and Ali, M. and Rasheed, R. and Naz, T. and Iftikhar, H. and Aslam, M. R."
+year    = 2025
+title   = "Platelets and mitochondria: the calcium connection"
+journal = "Molecular Biology Reports"
+volume  = "52"
+doi     = "10.1007/s11033-025-10389-3"
+match   = ["Shehwar et al. 2025"]
+
+[references.ghatge_2026]
+authors = "Ghatge, M. and et al."
+year    = 2026
+title   = "The mitochondrial calcium uniporter regulates calcium dynamics to drive platelet function, bioenergetics, and thrombosis"
+journal = "(in press / recent — verified via PubMed only)"
+url     = "https://pubmed.ncbi.nlm.nih.gov/41197806/"
+match   = ["Ghatge et al. 2026"]
