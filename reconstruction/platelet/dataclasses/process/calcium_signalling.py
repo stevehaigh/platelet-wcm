@@ -723,25 +723,12 @@ STIM_MONOMERS_PER_DIMER = 2
 # the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
 # transfer of Mazet's constants would require their full PI/PI4P chain,
 # which is out of scope for v0.3.
-K_PLCB = {
-	'k_act':    0.5,      # PLCb_i + Gq → PLCb_a    (µM⁻¹·s⁻¹) — calibrated
-	'k_inact':  0.3,      # PLCb_a    → PLCb_i      (s⁻¹)       — τ ~ 3 s
-	# k_cat × PIP2 product preserved when PIP2 count was rescaled
-	# 1.12e5 → 1.12e6 (lab-book 2026-05-15): k_cat 2.26e-7 → 2.26e-8.
-	'k_cat':    2.26e-8,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
-}
-
-K_PI_CYCLE = {
-	# PIP2 resynthesis — lumped PI → PI4P → PIP2 chain. Set equal to
-	# basal hydrolysis rate so PIP2 sits at its resting value.
-	'k_resynth':   3.62,   # PIP2 / s — calibrated to basal balance
-	# IP3 degradation (5-phosphatase to IP2 + 3-kinase to IP4, lumped).
-	# τ ~ 50 s matches the Dolan Fig. S2 decay tail used as a calibration
-	# reference target for the PI cycle parameters.
-	'k_ip3_deg':   0.02,   # IP3 → IP2/IP4   (s⁻¹)
-	# DAG kinase (DAG → PA)
-	'k_dag_deg':   0.05,   # DAG → PA       (s⁻¹) — τ ~ 20 s
-}
+# Values live in `reports/params/calcium-v0.5.toml [pi_cycle.*]`
+# (issue #32 Phase 2 slice 6). Calibration commentary
+# (PIP2-rescaling k_cat 2.26e-7 → 2.26e-8 from lab-book 2026-05-15;
+# τ_IP3 ≈ 50 s anchoring to Dolan Fig. S2) lives in the TOML headers.
+K_PLCB     = dict(_KINETICS['pi_cycle']['plcb'])
+K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -760,17 +747,9 @@ K_PI_CYCLE = {
 # during peak) → cyt (slow, over minutes) → DTS via SERCA → PMCA out
 # (gradually). Without MCU, all the SOCE-imported Ca²⁺ must exit via
 # the PMCA bottleneck.
-K_MITO = {
-	# MCU uptake — cooperative Hill kinetics. n=4 gives a sharp switch
-	# at K_MCU = 1 µM; at resting cyt (100 nM) MCU is effectively off
-	# (only ~5 ions/s), preserving the cyt peak signal. During the
-	# transient (cyt > 1 µM) MCU activates strongly.
-	'V_max_MCU':  50_000.0,   # ions/s — total over all mitochondria; calibrated
-	'K_MCU':      1.0,        # Hill half-saturation (µM); literature 0.5–10
-	'n_MCU':      4,          # Hill cooperativity; literature 2–4 (we use upper end for switch-like)
-	# NCLX efflux — linear in [Ca²⁺]_mito; slow release.
-	'k_NCLX':     0.005,      # s⁻¹  (τ = 200 s ~ 3 min slow release)
-}
+# Values live in `reports/params/calcium-v0.5.toml [mito.kinetics]`
+# (issue #32 Phase 2 slice 6).
+K_MITO = dict(_KINETICS['mito']['kinetics'])
 
 
 

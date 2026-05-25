@@ -208,3 +208,42 @@ k_basal     = 6.7e-4   # tonic Gq exchange at zero agonist       (s⁻¹)
 # implicit (total minus active). Separated from rate constants so the
 # Python module-level name N_GQ_TOTAL maps to a single scalar.
 n_total = 5000
+
+
+# ── PI cycle / PLCβ — Phase 4 / issue #31 ────────────────────────────
+# Coarse-grained PI cycle (v0.3 scope; full PI/PI4P/PI45P2 chain in
+# v0.4). Mazet et al. 2020 framework has 35 rate constants in the full
+# cycle; here we use a 5-constant reduction calibrated to reproduce the
+# Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
+# transfer of Mazet's constants would require their full chain, out of
+# scope for v0.3.
+
+[pi_cycle.plcb]
+# PLCβ activation + PIP2 hydrolysis. k_cat × PIP2 product was preserved
+# when the PIP2 count was rescaled 1.12e5 → 1.12e6 (lab-book 2026-05-15):
+# k_cat 2.26e-7 → 2.26e-8.
+k_act   = 0.5      # PLCb_i + Gq → PLCb_a              (µM⁻¹·s⁻¹) — calibrated
+k_inact = 0.3      # PLCb_a    → PLCb_i                 (s⁻¹) — τ ~ 3 s
+k_cat   = 2.26e-8  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG (count⁻¹·s⁻¹)
+
+[pi_cycle.metabolism]
+# PIP2 resynthesis (lumped PI → PI4P → PIP2) + IP3 and DAG degradation.
+# τ_IP3 ≈ 50 s matches the Dolan Fig. S2 decay tail used as a
+# calibration reference target.
+k_resynth = 3.62   # PIP2 / s — basal balance with k_cat × PIP2
+k_ip3_deg = 0.02   # IP3 → IP2/IP4 (lumped 5-phosphatase + 3-kinase)  (s⁻¹)
+k_dag_deg = 0.05   # DAG → PA      (DAG kinase)                       (s⁻¹) — τ ~ 20 s
+
+
+# ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────
+# Real platelets have 2–5 mitochondria per cell. MCU (inner-membrane
+# channel) and NCLX (Na/Ca exchanger) together act as a fast cyt Ca²⁺
+# buffer during transients: fast Hill-cooperative uptake, slow linear
+# release. Without MCU, all SOCE-imported Ca²⁺ must exit via PMCA.
+# Sources: Ghatge et al. 2026, Ajanel et al. 2025, Shehwar et al. 2025
+# (all in source-info/calcium-papers/).
+[mito.kinetics]
+V_max_MCU = 50000.0  # ions/s — total over all mitochondria; calibrated
+K_MCU     = 1.0      # Hill half-saturation (µM)         literature 0.5–10
+n_MCU     = 4        # Hill cooperativity (int)          literature 2–4
+k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
