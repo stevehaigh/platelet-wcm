@@ -532,19 +532,10 @@ def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
 # creates 1 dimer particle. Rate constants chosen so the Dolan 2014
 # Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at
 # detailed balance.
-K_STIM = {
-	# STIM1·Ca²⁺_dts ↔ STIM1_free + Ca²⁺_dts (Ca²⁺ release from STIM EF-hand)
-	'k_release_f':   0.1,      # forward (s⁻¹)
-	# k_release_r derived from detailed balance at Dolan IC:
-	#   k_release_r = k_release_f × st_Ca / (st_free × ca_dts)
-	#               = 0.1 × 3805 / (438 × 250) = 3.475e-3 µM⁻¹·s⁻¹
-	'k_release_r':   3.475e-3, # reverse (µM⁻¹·s⁻¹)
-	# 2 STIM1_free ↔ STIM1_dim — diffusion-limited dimerisation.
-	# k_dim_f from detailed balance at Dolan IC (dimer-particle count):
-	#   k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 11 / 438² ≈ 5.73e-5
-	'k_dim_f':      5.73e-5,   # forward (count⁻¹·s⁻¹)
-	'k_dim_r':       1.0,      # reverse (s⁻¹)
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.stim]`
+# (issue #32 Phase 2 slice 4). Detailed-balance derivation for
+# `k_release_r` and `k_dim_f` is documented in the TOML section header.
+K_STIM = dict(_KINETICS['soce']['stim'])
 
 # Hoover & Lewis 2011 MWC parameters (Fig. 4 best-fit, verified PDF):
 #   L  — intrinsic opening equilibrium constant (closed→open without STIM)
@@ -561,23 +552,18 @@ K_STIM = {
 #        to 2 (the MWC shape is insensitive to ~2× perturbations once at the
 #        saturating end of the binding curve). f, a, and L are dimensionless
 #        and transfer directly.
-K_MWC = {
-	'L':   1.0e-4,      # opening equilibrium without STIM
-	'Ka':  2.0,         # STIM2 association constant (rescaled from Hoover a.u.)
-	'f':   14.2,        # opening cooperativity per bound STIM2
-	'a':   0.5,         # binding cooperativity (negative)
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.mwc]`
+# (issue #32 Phase 2 slice 4). Ka rescaling from Hoover a.u. → platelet
+# dimer counts is documented in the TOML section header.
+K_MWC = dict(_KINETICS['soce']['mwc'])
 
 # Dolan 2014 puncta entry (eq. 2): qp = α·[Ca]_cyt^n / (KM^n + [Ca]_cyt^n) + 0.01
 #   qp gives the fraction of STIM2 dimers translocated into puncta where
 #   they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
 #   two free parameters Dolan scans within homeostatic constraints.
-PUNCTA = {
-	'alpha':  0.2,      # max puncta fraction at saturating [Ca²⁺]_cyt
-	'KM_uM':  0.5,      # half-activation [Ca²⁺]_cyt (chosen mid-range; Dolan-scanned)
-	'n':      4.0,      # Hill coefficient (chosen mid-range; Dolan-scanned)
-	'baseline': 0.01,   # constitutive puncta fraction at zero [Ca²⁺]_cyt
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.puncta]`
+# (issue #32 Phase 2 slice 4).
+PUNCTA = dict(_KINETICS['soce']['puncta'])
 
 # Orai single-channel Ca²⁺ conductance. The CRAC channel literature value is
 # ~24 fS (Prakriya & Lewis 2002, Vig 2006), measured at saturating Po with
@@ -624,12 +610,9 @@ J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
 # of substrate kinetics — captures the regulatory Ca²⁺-binding site of
 # real NCX. Only forward mode modelled (reverse mode requires cyt Na⁺
 # state + membrane potential, both out of scope for v0.3).
-K_NCX = {
-	'V_max':  5_000.0,   # ions/s — total per platelet; calibration anchor
-	'K_m':    5.0,       # substrate Hill half-saturation (µM)
-	'K_a':    0.2,       # allosteric activation half-point (µM) — slightly lower for more recovery-phase contribution
-	'h':      4,         # allosteric Hill cooperativity (switch-like)
-}
+# Values live in `reports/params/calcium-v0.5.toml [ncx.kinetics]`
+# (issue #32 Phase 2 slice 4).
+K_NCX = dict(_KINETICS['ncx']['kinetics'])
 
 
 # ── GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ─────────────────
