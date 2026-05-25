@@ -632,33 +632,16 @@ K_NCX = dict(_KINETICS['ncx']['kinetics'])
 # P2Y12 (Gi-coupled, inhibitory — issue #10); receptor desensitisation /
 # internalisation kinetics (lumped into a slow first-order decay).
 
-K_P2Y1 = {
-	'k_on':   1.0,    # P2Y1_i + ADP → P2Y1_a       (µM⁻¹·s⁻¹) — reversible
-	'k_off':  0.5,    # P2Y1_a → P2Y1_i + ADP        (s⁻¹)
-}
+# Values live in `reports/params/calcium-v0.5.toml [gpcr.*]`
+# (issue #32 Phase 2 slice 5). Receptor/Gq calibration commentary
+# (k_basal derivation from resting Gq fraction) lives in the TOML
+# section header.
+K_P2Y1 = dict(_KINETICS['gpcr']['p2y1'])
+K_PAR1 = dict(_KINETICS['gpcr']['par1'])
+K_PAR4 = dict(_KINETICS['gpcr']['par4'])
+K_GQ   = dict(_KINETICS['gpcr']['gq'])
 
-K_PAR1 = {
-	'k_cleave':       2.0,    # PAR1_i + thrombin → PAR1_a   (nM⁻¹·s⁻¹) — fast cleavage
-	'k_internalize':  0.02,   # PAR1_a → PAR1_i              (s⁻¹) — τ ~50s (lumped internalisation+recycling)
-}
-
-K_PAR4 = {
-	'k_cleave':       0.2,    # PAR4_i + thrombin → PAR4_a   (nM⁻¹·s⁻¹) — slower than PAR1
-	'k_internalize':  0.005,  # PAR4_a → PAR4_i              (s⁻¹) — τ ~200s (sustained response)
-}
-
-K_GQ = {
-	'k_act_per_R':  0.001,    # active receptor catalyses Gq exchange  (s⁻¹·count⁻¹)
-	'k_rgs':        0.033,    # Gq_active → Gq_inactive (RGS-accelerated GTPase)  (s⁻¹) — τ ~30s
-	# Tonic Gαq exchange in the absence of agonist. Calibrated to give a
-	# resting Gq_active ≈ 100 → gq_um ≈ 0.1 µM (steady-state fraction
-	# k_basal / (k_basal + k_rgs); target 100/5000 = 0.02 with k_rgs = 0.033
-	# → k_basal = 0.033 × 0.02/0.98 = 6.7e-4 s⁻¹). The 0.1 µM resting Gq
-	# floor is what holds basal IP3 at its ~50 nM Purvis baseline.
-	'k_basal':      6.7e-4,
-}
-
-N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
+N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
 
 # ── Agonist forcing functions — stimulation inputs ───────────────────────
