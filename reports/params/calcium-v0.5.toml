@@ -247,3 +247,50 @@ V_max_MCU = 50000.0  # ions/s — total over all mitochondria; calibrated
 K_MCU     = 1.0      # Hill half-saturation (µM)         literature 0.5–10
 n_MCU     = 4        # Hill cooperativity (int)          literature 2–4
 k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
+
+
+# ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────
+# Single 1:1 buffer representing the cytosolic Ca²⁺ buffering capacity.
+# N_GSN counts effective Ca²⁺-binding sites, not gelsolin molecules.
+# Calibrated jointly with CALR (Phase 2 / #28): the Phase 2 calibration
+# intentionally over-shoots the Sage & Rink ~50:1 buffering ratio
+# (current rest ~200:1) — this single tunable buffer absorbs slack
+# from all other cytosolic buffers not yet broken out. v0.3+ plan is
+# to split into explicit gelsolin / annexin / Ca-ATP — see
+# dissertation-notes §1.1.
+[buffers.gsn]
+k_on  = 100.0   # GSN_site + Ca²⁺ → GSN_site·Ca  (µM⁻¹·s⁻¹) — fast EF-hand
+k_off = 100.0   # reverse                         (s⁻¹)       — Kd = 1.0 µM
+
+[buffers.gsn_pool]
+# Biological gelsolin alone is ~100 000 copies × ~5 sites = 500 000
+# sites (Burkhart 2012, Yin & Stossel 1979). N_GSN below is calibrated
+# against Phase 3 peak heights with CALR active — see lab book.
+n_total = 1400000
+
+
+# ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ───────
+# Ca₄·CaM binds free PMCA (step 8), the complex binds and pumps Ca²⁺
+# with ~5× higher k_cat than basal (step 10 vs basal step 5). Step 11
+# dissociates 4 Ca²⁺ from the active complex; step 12 is the slow CaM
+# dissociation. Both 11 and 12 required for mass conservation: with 11
+# active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
+# previously worked around by omitting step 11 entirely; restored
+# 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
+#
+# k12 special note: Caride 2007 measured 0.033 s⁻¹ in vitro (τ = 30 s),
+# but in vivo PIP2 binding to the PMCA C-terminus competitively
+# displaces CaM on a much faster timescale (Penniston & Enyedi 1998
+# review; Mandal 2024). The in vitro value traps PMCA in PMCA·CaM
+# during sustained Ca²⁺ elevation; using 1 s⁻¹ (in-vivo, 30× faster)
+# restores physiological PMCA Vmax during transient recovery. v0.3.1
+# fix — see lab book 2026-05-12 (DTS overshoot diagnosis).
+[pmca.cam_activated]
+k8   =   0.2     # PMCA + Ca₄·CaM → Ca₄·CaM·PMCA           (µM⁻¹·s⁻¹) step 8 fwd
+k8r  =   8.0e-4  # reverse                                   (s⁻¹)       step 8 rev
+k9   =  50.0     # Ca₄·CaM·PMCA + Ca²⁺ → Ca₄·CaM·PMCA·Ca   (µM⁻¹·s⁻¹) step 9
+k9r  =  10.0     # reverse                                   (s⁻¹)
+k10  =  30.0     # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹)       step 10
+k11  =  10.0     # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt    (s⁻¹)       step 11 fwd
+k11r =   7.332e-4 # reverse                                  (µM⁻⁴·s⁻¹)  step 11 rev
+k12  =   1.0     # PMCA·CaM → PMCA + CaM_free  (s⁻¹) — in-vivo rate (see above)

@@ -281,16 +281,11 @@ K_CAM = dict(_KINETICS['cam']['binding'])
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
 # v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
-K_GSN = {
-	'k_on':  100.0,    # GSN_site + Ca²⁺ → GSN_site·Ca  (µM⁻¹·s⁻¹) — fast EF-hand binding
-	'k_off': 100.0,    # reverse                        (s⁻¹)       — Kd = 1.0 µM
-}
+# Values live in `reports/params/calcium-v0.5.toml [buffers.gsn]` and
+# [buffers.gsn_pool] (issue #32 Phase 2 slice 7).
+K_GSN = dict(_KINETICS['buffers']['gsn'])
 
-# Effective Ca²⁺-binding sites (Phase 2 cyt+DTS-coupled calibration).
-# Biological gelsolin: ~100 000 copies × ~5 sites = 500 000 sites (Burkhart
-# 2012; Yin & Stossel 1979). N_GSN below is calibrated against Phase 3
-# peak heights with CALR active — see lab book for the iteration log.
-N_GSN = 1_400_000
+N_GSN = _KINETICS['buffers']['gsn_pool']['n_total']
 
 
 # ── Calreticulin (CALR) DTS Ca²⁺ buffer — Phase 2 / issue #28 ────────────
@@ -426,25 +421,10 @@ N_CREC = 15_000 * 4                # 60 000 sites
 # 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
 # previously worked around by omitting step 11 entirely; restored
 # 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
-K_CAM_PMCA = {
-	'k8':   0.2,       # PMCA + Ca₄·CaM → Ca₄·CaM·PMCA  (µM⁻¹·s⁻¹) step 8 fwd
-	'k8r':  8.0e-4,    # reverse                         (s⁻¹)       step 8 rev
-	'k9':  50.0,       # Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca (µM⁻¹·s⁻¹) step 9
-	'k9r': 10.0,       # reverse                         (s⁻¹)
-	'k10': 30.0,       # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹) step 10
-	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt (s⁻¹) step 11 fwd
-	'k11r':  7.332e-4, # reverse (µM⁻⁴·s⁻¹)                          step 11 rev
-	# k12 = CaM dissociation from PMCA. Caride 2007 measured 0.033 s⁻¹
-	# (τ = 30 s) in purified in vitro preparation. In vivo, PIP2 binding
-	# to the PMCA C-terminus competitively displaces CaM on a much faster
-	# timescale (Penniston & Enyedi 1998 review; Mandal 2024). The in
-	# vitro value traps PMCA in PMCA·CaM during sustained Ca²⁺ elevation
-	# and prevents recovery; using an effective in vivo rate of 1 s⁻¹
-	# (τ = 1 s, 30× faster) restores physiological PMCA Vmax during
-	# transient recovery. v0.3.1 fix — see lab book 2026-05-12 (DTS
-	# overshoot diagnosis).
-	'k12':    1.0,     # PMCA·CaM → PMCA + CaM_free (s⁻¹) — in-vivo rate
-}
+# Values live in `reports/params/calcium-v0.5.toml [pmca.cam_activated]`
+# (issue #32 Phase 2 slice 7). k12 in-vivo override commentary (1 s⁻¹
+# vs Caride's in-vitro 0.033 s⁻¹) lives in the TOML section header.
+K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
 
 
 # ── P2X1 ATP-gated cation channel (Phase 2.5, 2026-05-11) ────────────────
