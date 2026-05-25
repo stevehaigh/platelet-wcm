@@ -31,6 +31,10 @@ types-mock==5.0.0.6
 dash==2.18.2
 plotly==5.24.1
 
+# ── Terminal UI (animated replayer at runscripts/manual/replayTui.py) ─────────
+rich==15.0.0
+textual==8.2.7
+
 
 ipython==8.13.2
 ipdb==0.13.13
