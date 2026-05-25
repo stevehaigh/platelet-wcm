@@ -184,69 +184,20 @@ V_PM_V = -0.060          # plasma-membrane potential (V)
 # caller can't mutate the loader's underlying dict.
 K_DYK = dict(_KINETICS['ip3r']['k_dyk'])
 
-# Total IP3R channels: Burkhart 2012 ITPR2 count, Dolan 2014 Table S1.
-N_IP3R = 1328
-
-# IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
-#   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
-#
-# ⚠ CALIBRATION-COUPLED PARAMETER — read before changing.
-# γ_IP3R is *not* an independently measured single-channel conductance.
-# It is the value that balances `K_SERCA` (above) at the Dolan 2014
-# platelet resting state (cyt = 100 nM, DTS = 250 µM). If you change
-# any of `k_bind_f`, `k_phos_f`, `k_conf_f`, `k_release_f` or the SERCA
-# total copy number, you MUST re-derive γ_IP3R from the new SERCA
-# cycle flux. See `reports/dissertation-notes.md §3.1` for the
-# coupling diagram and §3.2 for the open question of whether the
-# Purvis 2008 SERCA rate constants themselves over-estimate the
-# SERCA3b pump rate at low cyt Ca²⁺.
-#
-# Derivation: SERCA 6-state cycle steady-state flux at cyt = 100 nM,
-# DTS = 250 µM, solved analytically as a linear system, gives J =
-# 112 570 Ca²⁺ ions/s (56 285 cycles/s × 2 Ca²⁺/cycle). Setting IP3R
-# resting flux equal to this and inverting the Nernst flux formula:
-#   γ_required = J / (N · Po · |driving| · NA/zF)
-#              = 112 570 / (1 328 · 4.91×10⁻⁴ · 0.1605 · 3.122×10¹⁸)
-#              = 0.344 pS → rounded to 0.35 pS.
-#
-# Biological plausibility: Bezprozvanny 1991 and Mak & Foskett 1997
-# measured effective IP3R Ca²⁺ conductance in cellular conditions at
-# ~0.05–0.5 pS, with K⁺ carrying most of the unitary current. Our 0.35
-# pS sits within that range. The historical 10 pS (Zschauer 1988, via
-# Purvis 2008) was a bilayer measurement under symmetric high Ca²⁺
-# where K⁺ contributes negligibly to current and is not transferable.
-GAMMA_IP3R_S = 0.075e-12         # 0.075 pS = calibrated Ca²⁺ conductance, A/V
+# IP3R channel ensemble (count + conductance). Values + full
+# calibration-coupling commentary live in `reports/params/calcium-v0.5.toml
+# [ip3r.channel]` (issue #32 Phase 2 slice 8).
+# ⚠ CALIBRATION-COUPLED with K_SERCA below — see TOML and
+# calibration-coupling-2026-05-25.qmd chains 1 + 2.
+N_IP3R       = _KINETICS['ip3r']['channel']['n_total']
+GAMMA_IP3R_S = _KINETICS['ip3r']['channel']['gamma_s']
 
 
-# ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
-# Primary-source values restored. Earlier calibration reduced k_bind_f by
-# ~470× to compensate for IP3R Po and flux bugs; with Po⁴ + Nernst the
-# Purvis Vmax balances the corrected IP3R leak (~1.18×10⁵ ions/s) at rest.
-#
-# ⚠ CALIBRATION-COUPLED — any change to these rate constants requires
-# re-deriving GAMMA_IP3R_S (above) to restore the resting-state flux
-# balance. See `reports/dissertation-notes.md §3.1`.
-# ⚠ OPEN BIOLOGY QUESTION — these constants imply ~4.7 cycles/s per
-# pump at cyt = 100 nM, which is ~2–5× higher than the SERCA3b Vmax /
-# Km literature (Inesi 1985; Nishi 1992; Dode 2002 itself: Vmax ~30–50
-# cycles/s saturating, Km ~0.7–1.1 µM, so v/Vmax at 100 nM ≈ 2%). The
-# Purvis 2008 rate constants appear to over-estimate the platelet SERCA
-# pump rate at resting Ca²⁺. v0.3+ should re-derive from primary
-# sources. See `reports/dissertation-notes.md §3.2`.
-K_SERCA = {
-	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
-	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	'k_bind_f':     210.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
-	'k_bind_r':      10.0,    # reverse                        (s⁻¹)
-	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
-	'k_phos_r':       5.0,
-	'k_conf_f':     600.0,    # E1P·Ca ⇌ E2P·Ca                (s⁻¹)
-	'k_conf_r':      50.0,
-	'k_release_f': 1000.0,    # E2P·Ca → E2P + 2 Ca²⁺_dts      (s⁻¹)
-	'k_release_r':  4.0e-3,   # reverse (µM⁻²·s⁻¹; 4e9 M⁻²s⁻¹)
-	'k_dephos_f':   500.0,    # E2P → E2                       (s⁻¹)
-	'k_dephos_r':     1.0,
-}
+# SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics).
+# Values + ⚠ CALIBRATION-COUPLED commentary + open-biology-question
+# notes live in `reports/params/calcium-v0.5.toml [serca.cycle]`
+# (issue #32 Phase 2 slice 8).
+K_SERCA = dict(_KINETICS['serca']['cycle'])
 
 
 # ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
