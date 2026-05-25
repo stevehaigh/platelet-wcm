@@ -1,3 +1,41 @@
+# ── Resting concentrations (calibration targets) ─────────────────────
+# CA_EX_UM is runtime-overridable from runscripts via
+# `cs_mod.CA_EX_UM = X` — set to 0 for the Dolan Fig. 4 EDTA / no-
+# extracellular-Ca²⁺ condition (SOCE current + PM leak both gate on
+# CA_EX_UM > 0). IP3_REST_UM is the cytosolic IP3 baseline target
+# (Purvis 2008 / Dolan Fig. S2 initial value).
+[resting]
+ca_ex_uM    = 1200.0   # extracellular Ca²⁺ reservoir (Dolan 2014)
+ip3_rest_uM = 0.05     # cyt IP3 baseline (50 nM; Purvis 2008)
+
+
+# ── SOCE: Orai single-channel Ca²⁺ conductance ───────────────────────
+# Effective single-channel γ for the CRAC/Orai pore. CRAC literature
+# γ ~24 fS (Prakriya & Lewis 2002; Vig 2006), measured at saturating Po
+# with patch clamp in HEK cells. Calibrated against the resting balance
+# SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s at the Po(MWC, Sf_rest)
+# ≈ 1.2×10⁻³ value produced by the rescaled K_MWC['Ka']. See issue
+# #46 for the full single-channel current calibration.
+# ⚠ CALIBRATION-COUPLED with PMCA basal outflow at rest.
+[soce.orai]
+gamma_s = 0.3e-15      # A/V — 0.3 fS effective Ca²⁺-specific γ
+
+
+# ── Plasma-membrane basal Ca²⁺ leak ──────────────────────────────────
+# Small constant cyt influx that balances PMCA outflow at rest, keeping
+# resting Ca²⁺ at ~100 nM. Biologically: unidentified background entry
+# (TRPC, NCX reverse, residual constitutive permeability — Sage & Rink
+# 1985–1990; Brandman & Liou 2010 review). Calibrated against the
+# steady-state PM balance J_SOCE + J_leak = J_PMCA at cyt = 100 nM,
+# DTS = 250 µM:
+#   PMCA quasi-eq outflow ≈ k_cat · PMCA·Ca_eq ≈ 5.5 × 14 = 77
+#   SOCE at full DTS / basal STIM1_dim ≈ 6
+#   ⇒ leak ≈ 71 ions/s, rounded to 75.
+# ⚠ CALIBRATION-COUPLED with PMCA basal turnover and CA_EX_UM gating.
+[pm.leak]
+ions_s = 75.0         # ions/s — constant cyt influx
+
+
 # Platelet WCM — calcium signalling kinetics (v0.5)
 #
 # Source-of-truth values for the rate constants consumed by

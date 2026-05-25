@@ -141,8 +141,12 @@ N_SPECIES = len(MOLECULE_NAMES)
 
 
 # ── Resting concentrations ────────────────────────────────────────────────
-CA_EX_UM = 1200.0       # extracellular Ca²⁺, fixed reservoir (Dolan 2014)
-IP3_REST_UM = 0.05      # cytosolic IP3 baseline (50 nM; Purvis 2008)
+# Values live in `reports/params/calcium-v0.5.toml [resting]` (issue
+# #32 Phase 2 slice 10). CA_EX_UM is runtime-overridable for the EDTA
+# condition (`cs_mod.CA_EX_UM = 0.0`); the override pattern survives
+# because module-name reassignment doesn't care about origin.
+CA_EX_UM    = _KINETICS['resting']['ca_ex_uM']
+IP3_REST_UM = _KINETICS['resting']['ip3_rest_uM']
 
 
 # ── Physical constants ────────────────────────────────────────────────────
@@ -482,7 +486,10 @@ PUNCTA = dict(_KINETICS['soce']['puncta'])
 # resting balance condition SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s,
 # which gives γ_SOC ≈ 0.3 fS at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value our
 # rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
-GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
+# Value lives in `[soce.orai] gamma_s` of calcium-v0.5.toml
+# (issue #32 Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal
+# outflow at rest — see TOML section header.
+GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
 
 # ── Basal plasma-membrane Ca²⁺ leak ──────────────────────────────────────
 # A small constant cyt influx that compensates PMCA outflow at rest, keeping
@@ -496,7 +503,10 @@ GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
 #   ⇒ leak ≈ 71 ions/s, rounded to 75
 # This is the (ii) addition diagnosed in lab-book 2026-05-05; before this
 # term the model had no PM-side cyt source large enough to balance PMCA.
-J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
+# Value lives in `[pm.leak] ions_s` of calcium-v0.5.toml (issue #32
+# Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal turnover
+# and CA_EX_UM gating — see TOML section header.
+J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
 
 
 # ── NCX (Na⁺/Ca²⁺ exchanger) — v0.3.4 / second extrusion pathway ─────────
