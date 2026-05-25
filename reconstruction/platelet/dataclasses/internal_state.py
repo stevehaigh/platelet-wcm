@@ -35,9 +35,21 @@ CalciumDynamics can integrate the Li-Rinzel IP3R inactivation, the SERCA
 E1/E2 cycle, the Caride 2007 CaM-coupled PMCA scheme, the STIM1 sensor
 cycle (free / DTS-bound / dimer), and the CaM Ca²⁺-binding ladder. Sub-
 state initial counts are pre-equilibrated at the Dolan resting state
-(cyt = 100 nM, DTS = 250 µM) — derivations are documented next to the
-corresponding rate-constant block in
-``reconstruction/platelet/dataclasses/process/calcium_signalling.py``.
+(cyt = 100 nM, DTS = 250 µM).
+
+Derivations for the rate constants that pin those equilibria are
+documented in two complementary places (the kinetics-as-data refactor,
+issue #32, externalised most rate constants into TOML):
+
+  - ``reports/params/calcium-v0.5.toml`` — source-of-truth for the
+    rate constants themselves, with literature attribution and
+    calibration-coupling notes inline.
+  - ``reports/design/kinetics-v0.5-review.pdf`` — clickable PDF
+    rendering of the above; regenerate via
+    ``runscripts/manual/buildKineticsReview.py``.
+  - ``reconstruction/platelet/dataclasses/process/calcium_signalling.py``
+    — Python module-level names (``K_SERCA`` etc.) that the engine
+    reads; today these are populated from the TOML at import time.
 
 DTS luminal buffers (CALR, HSP90B1, BiP, CREC) carry ~95–99 % of the
 DTS Ca²⁺ at rest; their free/bound sub-state counts are equilibrium-

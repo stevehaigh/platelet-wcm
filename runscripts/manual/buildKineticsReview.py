@@ -180,12 +180,15 @@ def ref_url(meta: dict) -> str:
 def linkify(text: str, match_index: List[Tuple[re.Pattern, str]], refs: dict) -> str:
 	"""Convert citations / DOIs / URLs into Markdown hyperlinks."""
 
-	# 1. Author-YEAR citations → links to reference list (and DOI).
+	# 1. Author-YEAR citations → anchor link into the [References]
+	# section. The link target is always the in-document anchor; the
+	# DOI/URL belongs in the bibliography entry itself, where readers
+	# arrive after clicking the citation. We link whenever a matching
+	# `[references.<key>]` exists, regardless of whether that entry has
+	# a `doi` or `url` field set.
 	def cite_sub(m, ref_key):
-		meta = refs[ref_key]
-		url = ref_url(meta)
 		txt = m.group(0)
-		if url:
+		if ref_key in refs:
 			return f"[{txt}](#ref-{ref_key})"
 		return txt
 
@@ -369,6 +372,17 @@ def write_bibtex(refs: dict, path: Path) -> None:
 		"% Regenerate with: PYTHONPATH=$PWD python runscripts/manual/buildKineticsReview.py",
 		"",
 	]
+	def escape_bibtex(s: str) -> str:
+		"""Escape characters that would break a BibTeX `{...}` value.
+
+		Bare `{` / `}` in a value collide with BibTeX's brace grouping;
+		`\\` would be interpreted as a TeX control sequence. Prefix each
+		with a backslash. No field in the current TOML triggers any of
+		these, but the escaping is cheap insurance against future
+		additions (e.g., titles or notes containing math braces).
+		"""
+		return s.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}")
+
 	for key in sorted(refs.keys()):
 		meta = refs[key]
 		fields: List[Tuple[str, str]] = []
@@ -377,10 +391,9 @@ def write_bibtex(refs: dict, path: Path) -> None:
 			if v is None or v == "":
 				continue
 			bibtex_field = {"authors": "author"}.get(f, f)
-			fields.append((bibtex_field, str(v)))
+			fields.append((bibtex_field, escape_bibtex(str(v))))
 		lines.append(f"@article{{{key},")
 		for k, v in fields:
-			# Escape braces in BibTeX values (none expected here, but be safe).
 			lines.append(f"  {k:8s} = {{{v}}},")
 		lines.append("}")
 		lines.append("")

@@ -43,10 +43,17 @@ from reconstruction.platelet.dataclasses.process._params_loader import (
 	load_calcium_kinetics)
 
 
-# Externalised rate constants (issue #32 Phase 2). Sections of this dict
-# are spliced into the module-level K_* names below as the kinetics-as-data
-# refactor lands. Today only `[ip3r.k_dyk]` is sourced from the TOML; all
-# other K_* dicts remain inline literals until their slice arrives.
+# Externalised rate constants (issue #32 Phase 2). At Phase 2 completion
+# essentially every K_*, N_*, GAMMA_*, agonist forcing scalar, and
+# calibration-coupled scalar in this module is sourced from
+# `reports/params/calcium-v0.5.toml`. The remaining Python literals are
+# physical constants (R, T, F, NA), structural integers (ORAI subunits
+# per channel, STIM monomers per dimer), and compartment volumes —
+# biology-fixed values that belong in code, not data.
+#
+# Full per-section attribution and the clickable bibliography live in
+# `reports/design/kinetics-v0.5-review.pdf` (regenerate via
+# `runscripts/manual/buildKineticsReview.py`).
 _KINETICS = load_calcium_kinetics()
 
 
