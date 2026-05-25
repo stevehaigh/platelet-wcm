@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from models.platelet.sim.simulation import PlateletSimulation
 from reconstruction.platelet.simulation_data import SimulationDataPlatelet
@@ -116,6 +117,7 @@ class TestPlateletSimulationScaffold(unittest.TestCase):
 			self.assertTrue(os.path.isdir(os.path.join(
 				paths['sim_out_dir'], 'Mass')))
 
+	@pytest.mark.slow
 	def test_mass_listener_dry_mass_positive(self):
 		"""dryMass should be positive throughout the simulation.
 

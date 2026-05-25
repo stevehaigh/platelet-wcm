@@ -22,6 +22,8 @@ import os
 import tempfile
 import unittest
 
+import pytest
+
 from models.platelet.analysis.phase3_dolan_fig4 import make_phase3_plot
 from runscripts.manual.runPlateletSim import run_platelet_sim
 
@@ -30,6 +32,7 @@ GOLDEN_SEED = 0
 GOLDEN_LENGTH_SEC = 200
 
 
+@pytest.mark.slow
 class TestPhase3DolanFig4(unittest.TestCase):
 	"""Regression: Phase 3 two-condition pipeline must produce stable peaks."""
 

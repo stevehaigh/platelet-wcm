@@ -2,6 +2,8 @@ import os
 import tempfile
 import unittest
 
+import pytest
+
 from runscripts.manual.analysisPlatelet import (
 	expand_plot_names, run_platelet_analysis)
 from runscripts.manual.runPlateletSim import run_platelet_sim
@@ -13,6 +15,7 @@ class TestPlateletAnalysis(unittest.TestCase):
 			['scaffold_summary.py', 'calcium_trace.py'],
 			expand_plot_names([]))
 
+	@pytest.mark.slow
 	def test_run_platelet_analysis_writes_plot_output(self):
 		with tempfile.TemporaryDirectory() as sim_path:
 			run_platelet_sim(sim_path, length_sec=1, seed=3, log_to_shell=False)

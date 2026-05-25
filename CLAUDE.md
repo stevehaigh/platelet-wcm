@@ -93,6 +93,9 @@ runs the +Ca²⁺ and EDTA conditions back-to-back.
 # All platelet tests
 PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/ -v
 
+# Fast iteration — skip simulation-running tests (~3 s vs ~24 s)
+PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/ -m "not slow"
+
 # Single test file or method
 PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/sim/test_simulation.py
 PYTHONPATH=$PWD python3 -m pytest wholecell/tests/utils/test_units.py::TestUnits::test_some_method

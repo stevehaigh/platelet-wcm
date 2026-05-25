@@ -36,6 +36,14 @@ jobs:
         run: |
           python -m pytest models/platelet/tests/ -v --tb=short
 
+      - name: Run wholecell framework tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          OPENBLAS_NUM_THREADS: "1"
+          MPLBACKEND: Agg
+        run: |
+          python -m pytest wholecell/tests/ -v --tb=short
+
   # ── Type checking (platelet paths only) ───────────────────────────────────
   typecheck:
     name: mypy

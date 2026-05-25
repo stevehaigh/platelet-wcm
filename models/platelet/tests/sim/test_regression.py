@@ -22,6 +22,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from runscripts.manual.runPlateletSim import run_platelet_sim
 from wholecell.io.tablereader import TableReader
@@ -30,6 +31,7 @@ GOLDEN_SEED = 42
 GOLDEN_LENGTH_SEC = 60
 
 
+@pytest.mark.slow
 class TestPlateletGoldenRun(unittest.TestCase):
 	"""Regression suite: key metrics must stay within tolerance of baseline."""
 

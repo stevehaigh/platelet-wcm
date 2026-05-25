@@ -10,6 +10,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from runscripts.manual.runDoseSweep import (
 	OBSERVABLES,
@@ -18,6 +19,7 @@ from runscripts.manual.runDoseSweep import (
 )
 
 
+@pytest.mark.slow
 class TestDoseSweepSmoke(unittest.TestCase):
 	"""End-to-end on a 2x2 grid; CI-safe."""
 

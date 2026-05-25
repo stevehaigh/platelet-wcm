@@ -27,6 +27,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from runscripts.manual.runPlateletSim import run_platelet_sim
 from wholecell.io.tablereader import TableReader
@@ -91,6 +92,7 @@ def _compare_or_regenerate(scenario_name: str,
 				f'regenerate with REGEN_GOLDEN=1.')
 
 
+@pytest.mark.slow
 class TestByteIdenticalRegression(unittest.TestCase):
 	"""Locks in the bit-level numerical output of a small set of scenarios.
 

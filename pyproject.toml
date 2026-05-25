@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+markers = [
+	"slow: tests that run a full simulation (>0.5 s). Skip in fast iteration with `pytest -m 'not slow'`.",
+]
