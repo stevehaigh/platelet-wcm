@@ -69,3 +69,43 @@ peak_uM     = 10.0
 tau_rise_s  = 0.5
 t_peak_s    = 1.0
 tau_decay_s = 30.0
+
+
+# ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────
+# Basal turnover; the CaM-activated path (steps 8–11) is `[pmca.cam_activated]`
+# and remains inline in calcium_signalling.py until a future slice.
+[pmca.basal]
+k_on  = 10.0    # PMCA + Ca²⁺ ⇌ PMCA·Ca         (µM⁻¹·s⁻¹)  step 4 fwd
+k_off = 50.0    # reverse                       (s⁻¹)        step 4 rev
+k_cat =  5.5    # PMCA·Ca → PMCA + Ca²⁺_ex      (s⁻¹)        step 5 (basal)
+
+
+# ── Calmodulin Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ──────────
+# Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe
+# (step 7). Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or
+# s⁻¹ (reverse).
+[cam.binding]
+k6  =   2.669   # CaM + 2 Ca²⁺ → Ca₂·CaM        (µM⁻²·s⁻¹)  step 6 fwd
+k6r =   2.682   # reverse                        (s⁻¹)        step 6 rev
+k7  = 170.4     # Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM    (µM⁻²·s⁻¹)  step 7 fwd
+k7r =   1.551   # reverse                        (s⁻¹)        step 7 rev
+
+
+# ── P2X1 ATP-gated cation channel (Phase 2.5, 2026-05-11) ────────────
+# Trimeric ATP-gated cation channel in the plasma membrane. Three-state
+# scheme: Closed --(k_act × [ATP_ex])--> Open --(k_des)--> Desensitised.
+# Ca²⁺ flux through Open is Nernst-driven, gated on CA_EX_UM > 0.
+[p2x1.kinetics]
+k_act   = 30.0   # closed + ATP → open         (µM⁻¹·s⁻¹) — fast ATP binding
+k_close =  5.0   # open → closed               (s⁻¹)       — ATP unbinds
+k_des   = 10.0   # open → desensitised         (s⁻¹)       — τ_des ≈ 100 ms
+k_rec   =  0.03  # desensitised → closed       (s⁻¹)       — τ_rec ≈ 30 s
+
+[p2x1.channel]
+# Total P2X1 functional channels (trimers; ~3 × 45 kDa per trimer).
+n_total = 1000
+# Ca²⁺-specific effective conductance. Single-channel current ~0.5–1 pA
+# at -60 mV, Ca²⁺ fraction ~5–10 %, so effective γ ≈ 10–50 fS per
+# channel. Calibration anchor for the Phase 3 SOCE-differential target
+# (Dolan ~100 nM); see lab book.
+gamma_s = 1.3e-15  # A/V — 1.3 fS Ca²⁺-specific conductance

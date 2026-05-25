@@ -251,21 +251,16 @@ K_SERCA = {
 
 # ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
 # Steps 4–5 are unchanged; the CaM-activated path (steps 8–11) is below.
-K_PMCA = {
-	'k_on':   10.0,    # PMCA + Ca²⁺ ⇌ PMCA·Ca   (µM⁻¹·s⁻¹)  step 4 fwd
-	'k_off':  50.0,    # reverse                  (s⁻¹)        step 4 rev
-	'k_cat':   5.5,    # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)        step 5 (basal turnover)
-}
+# Values live in `reports/params/calcium-v0.5.toml [pmca.basal]`
+# (issue #32 Phase 2 slice 3).
+K_PMCA = dict(_KINETICS['pmca']['basal'])
 
 # ── CaM Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ─────────────────────
 # Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7).
 # Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
-K_CAM = {
-	'k6':    2.669,   # CaM + 2 Ca²⁺ → Ca₂·CaM  (µM⁻²·s⁻¹)  step 6 fwd
-	'k6r':   2.682,   # reverse                  (s⁻¹)        step 6 rev
-	'k7':  170.4,     # Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM (µM⁻²·s⁻¹) step 7 fwd
-	'k7r':   1.551,   # reverse                  (s⁻¹)        step 7 rev
-}
+# Values live in `reports/params/calcium-v0.5.toml [cam.binding]`
+# (issue #32 Phase 2 slice 3).
+K_CAM = dict(_KINETICS['cam']['binding'])
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────────
 # Real platelet cytosolic Ca²⁺ buffering ratio is ~50:1 (bound:free; Sage
@@ -481,22 +476,20 @@ K_CAM_PMCA = {
 # This is exactly what should close the SOCE-differential gap in
 # Phase 3: the +Ca_ex peak now has a fast P2X1 contribution that −Ca_ex
 # lacks (real biology: ~100 nM differential at peak).
-K_P2X1 = {
-	'k_act':    30.0,    # closed + ATP → open       (µM⁻¹·s⁻¹) — fast ATP binding
-	'k_close':   5.0,    # open → closed             (s⁻¹)       — ATP unbinds
-	'k_des':    10.0,    # open → desensitised       (s⁻¹)       — τ_des ≈ 100 ms
-	'k_rec':     0.03,   # desensitised → closed     (s⁻¹)       — τ_rec ≈ 30 s
-}
+# Values live in `reports/params/calcium-v0.5.toml [p2x1.kinetics]`
+# (issue #32 Phase 2 slice 3).
+K_P2X1 = dict(_KINETICS['p2x1']['kinetics'])
 
 # Total P2X1 functional channels (trimers; mass per trimer = 3 × 45 kDa).
-N_P2X1 = 1_000
+# Value lives in `[p2x1.channel] n_total`.
+N_P2X1 = _KINETICS['p2x1']['channel']['n_total']
 
 # P2X1 Ca²⁺-specific effective conductance.
 # Single-channel current ~0.5–1 pA at -60 mV, Ca²⁺ fraction ~5–10 %,
 # so effective Ca²⁺-specific γ ≈ 10–50 fS per channel. Starting from
 # 0.01 pS — calibration anchor for Phase 3 SOCE-differential target
-# (Dolan ~100 nM). See lab book.
-GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calibrated
+# (Dolan ~100 nM). See lab book. Value lives in `[p2x1.channel] gamma_s`.
+GAMMA_P2X1_S = _KINETICS['p2x1']['channel']['gamma_s']
 
 
 # ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
