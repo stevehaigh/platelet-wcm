@@ -700,3 +700,71 @@ volume  = "165"
 pages   = "922-936"
 doi     = "10.1111/j.1476-5381.2011.01600.x"
 match   = ["Roberts et al. 2012", "Roberts 2012"]
+
+# ── High-frequency references (verified May 25 batch 2) ──────────────
+# The six references cited most often in the section-level prose
+# above: Dolan & Diamond 2014 (validation target), Purvis 2008
+# (rate-constant source-of-truth), Caride 2007 (PMCA + CaM scheme),
+# Mazet et al. 2020 (PI cycle + Gαq framework), Burkhart et al. 2012
+# (quantitative proteome → copy numbers), Hoover & Lewis 2011 (MWC
+# SOCE allosteric scheme). DOIs verified via PubMed lookup.
+
+[references.dolan_diamond_2014]
+authors = "Dolan, A. T. and Diamond, S. L."
+year    = 2014
+title   = "Systems modeling of Ca2+ homeostasis and mobilization in platelets mediated by IP3 and store-operated Ca2+ entry"
+journal = "Biophysical Journal"
+volume  = "106"
+pages   = "2049-2060"
+doi     = "10.1016/j.bpj.2014.03.028"
+match   = ["Dolan & Diamond 2014", "Dolan 2014"]
+
+[references.purvis_2008]
+authors = "Purvis, J. E. and Chatterjee, M. S. and Brass, L. F. and Diamond, S. L."
+year    = 2008
+title   = "A molecular signaling model of platelet phosphoinositide and calcium regulation during homeostasis and P2Y1 activation"
+journal = "Blood"
+volume  = "112"
+pages   = "4069-4079"
+doi     = "10.1182/blood-2008-05-157883"
+match   = ["Purvis et al. 2008", "Purvis 2008"]
+
+[references.caride_2007]
+authors = "Caride, A. J. and Filoteo, A. G. and Penniston, J. T. and Strehler, E. E."
+year    = 2007
+title   = "The plasma membrane Ca2+ pump isoform 4a differs from isoform 4b in the mechanism of calmodulin binding and activation kinetics: implications for Ca2+ signaling"
+journal = "Journal of Biological Chemistry"
+volume  = "282"
+pages   = "25640-25648"
+doi     = "10.1074/jbc.M701129200"
+match   = ["Caride et al. 2007", "Caride 2007"]
+
+[references.mazet_2020]
+authors = "Mazet, F. and Tindall, M. J. and Gibbins, J. M. and Fry, M. J."
+year    = 2020
+title   = "A model of the PI cycle reveals the regulating roles of lipid-binding proteins and pitfalls of using mosaic biological data"
+journal = "Scientific Reports"
+volume  = "10"
+pages   = "13244"
+doi     = "10.1038/s41598-020-70215-7"
+match   = ["Mazet, Tindall, Gibbins & Fry 2020", "Mazet et al. 2020", "Mazet 2020"]
+
+[references.burkhart_2012]
+authors = "Burkhart, J. M. and Vaudel, M. and Gambaryan, S. and Radau, S. and Walter, U. and Martens, L. and Geiger, J. and Sickmann, A. and Zahedi, R. P."
+year    = 2012
+title   = "The first comprehensive and quantitative analysis of human platelet protein composition allows the comparative analysis of structural and functional pathways"
+journal = "Blood"
+volume  = "120"
+pages   = "e73-e82"
+doi     = "10.1182/blood-2012-04-416594"
+match   = ["Burkhart et al. 2012", "Burkhart 2012"]
+
+[references.hoover_lewis_2011]
+authors = "Hoover, P. J. and Lewis, R. S."
+year    = 2011
+title   = "Stoichiometric requirements for trapping and gating of Ca2+ release-activated Ca2+ (CRAC) channels by stromal interaction molecule 1 (STIM1)"
+journal = "Proceedings of the National Academy of Sciences USA"
+volume  = "108"
+pages   = "13299-13304"
+doi     = "10.1073/pnas.1101664108"
+match   = ["Hoover & Lewis 2011", "Hoover 2011"]
