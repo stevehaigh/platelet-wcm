@@ -320,7 +320,14 @@ h     = 4        # (dimensionless int) — allosteric Hill cooperativity (switch
 
 [gpcr.p2y1]
 # P2Y1 ADP receptor — reversible binding, no proteolytic cleavage.
-# Copy number ~150 per platelet (Coller 1995). k_on and k_off here
+# Copy number ~150 per platelet (Burkhart 2012 platelet proteome,
+# Supp Table 3 P2RY1 entry; exact Supp Table value not directly
+# cross-checked, but the ~150 figure is the widely-cited field
+# consensus for P2Y1 binding sites per platelet). Earlier lab-book
+# attribution to "Coller 1995" was incorrect — Coller's 1995
+# Circulation review covers only GPIIb/IIIa / adhesion receptors,
+# not ADP receptors (verified against the local EPUB 2026-05-26).
+# k_on and k_off here
 # are *model-choice* rates: there is no platelet-specific kon/koff
 # measurement for P2Y1. Chosen so that activation reaches ~67 %
 # at saturating ADP (= k_on·[ADP] / (k_on·[ADP] + k_off) for [ADP] = 1 µM),
@@ -330,7 +337,11 @@ k_off = 0.5   # (s⁻¹) — model choice
 
 [gpcr.par1]
 # PAR1 thrombin receptor — high-affinity, irreversible proteolytic
-# cleavage. ~2500 copies per platelet (Coller 1995).
+# cleavage. ~2500 copies per platelet (Brass 1992 / Burkhart 2012
+# proteomics; validated in lab-book-2026-05-15-mike-papers-pip2-fix.md
+# calibration table). Sveshnikova 2025 uses an equivalent ~2200
+# molecules in their Table 1 model (consistent within Burkhart's ±15%
+# inter-subject CV).
 # k_cleave 2 nM⁻¹·s⁻¹: order-of-magnitude consistent with the
 # thrombin-PAR1 cleavage rates inferred from Vu et al. 1991 / Hung
 # et al. 1992 (the first PAR1 cloning and characterisation papers).
@@ -343,7 +354,11 @@ k_internalize = 0.02   # (s⁻¹) — τ ~50 s lumped (Hammes & Coughlin 1999 ti
 
 [gpcr.par4]
 # PAR4 thrombin receptor — low-affinity, slow cleavage. ~500 copies
-# per platelet (Coller 1995 / Kahn 1998). PAR4 contributes the
+# per platelet. Source-of-truth is implicit "lower abundance than
+# PAR1" per the original v0.4 design lab book; specific primary
+# citation not pinned down (likely Kahn 1998 / Burkhart 2012, but
+# May 15 calibration table doesn't tie the ~500 number to a specific
+# paper). User-to-confirm. PAR4 contributes the
 # sustained / late phase of thrombin signalling; PAR1 dominates the
 # initial fast phase.
 # k_cleave 0.2 nM⁻¹·s⁻¹: ~10× slower than PAR1, consistent with
@@ -617,9 +632,8 @@ title   = "Cloned platelet thrombin receptor is necessary for thrombin-induced p
 journal = "J. Clin. Invest."
 volume  = "89"
 pages   = "1350-1353"
-url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC442997/"
+doi     = "10.1172/JCI115721"
 match   = ["Hung et al. 1992", "Hung 1992"]
-# DOI not directly verified — JCI pattern inferred; user to confirm.
 
 [references.hammes_coughlin_1999]
 authors = "Hammes, S. R. and Shapiro, M. J. and Coughlin, S. R."
@@ -628,9 +642,8 @@ title   = "Shutoff and agonist-triggered internalization of protease-activated r
 journal = "Biochemistry"
 volume  = "38"
 pages   = "9308-9316"
-url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC24882/"
+doi     = "10.1021/bi9902236"
 match   = ["Hammes & Coughlin 1999", "Hammes 1999"]
-# DOI not directly verified — Biochemistry pattern inferred; user to confirm.
 
 [references.kahn_1998]
 authors = "Kahn, M. L. and Zheng, Y.-W. and Huang, W. and Bigornia, V. and Zeng, D. and Moff, S. and Farese, R. V. and Tam, C. and Coughlin, S. R."
@@ -679,8 +692,9 @@ title   = "Molecular tuning of ion binding to calcium signaling proteins"
 journal = "Quarterly Reviews of Biophysics"
 volume  = "27"
 pages   = "219-290"
+doi     = "10.1017/s0033583500003012"
+url     = "https://pubmed.ncbi.nlm.nih.gov/7899550/"
 match   = ["Falke et al. 1994", "Falke 1994"]
-# DOI not directly verified; user to confirm via Cambridge Core (QRB).
 
 [references.linse_forsen_1995]
 authors = "Linse, S. and Forsén, S."
@@ -689,7 +703,8 @@ title   = "Determinants that govern high-affinity calcium binding"
 journal = "Advances in Second Messenger and Phosphoprotein Research"
 volume  = "30"
 pages   = "89-151"
-url     = "https://pubmed.ncbi.nlm.nih.gov/7549868/"
+doi     = "10.1016/s1040-7952(05)80005-9"
+url     = "https://pubmed.ncbi.nlm.nih.gov/7695999/"
 match   = ["Linse & Forsén 1995"]
 
 [references.roberts_2012]
@@ -787,8 +802,9 @@ title   = "GRP94, an ER chaperone with protein and peptide binding properties"
 journal = "Seminars in Cell & Developmental Biology"
 volume  = "10"
 pages   = "495-505"
+doi     = "10.1006/scdb.1999.0320"
+url     = "https://pubmed.ncbi.nlm.nih.gov/10597632/"
 match   = ["Argon & Simen 1999"]
-# DOI not directly verified; user to confirm via Sem Cell Dev Biol (Elsevier).
 
 [references.baksh_michalak_1991]
 authors = "Baksh, S. and Michalak, M."
@@ -799,6 +815,8 @@ volume  = "266"
 pages   = "21458-21465"
 url     = "https://pubmed.ncbi.nlm.nih.gov/1939178/"
 match   = ["Baksh & Michalak 1991"]
+# No DOI — pre-DOI-era JBC paper (PMID 1939178); URL is the canonical
+# click target.
 
 [references.bezprozvanny_1991]
 authors = "Bezprozvanny, I. and Watras, J. and Ehrlich, B. E."
@@ -807,9 +825,11 @@ title   = "Bell-shaped calcium-response curves of Ins(1,4,5)P3- and calcium-gate
 journal = "Nature"
 volume  = "351"
 pages   = "751-754"
+doi     = "10.1038/351751a0"
+url     = "https://pubmed.ncbi.nlm.nih.gov/1648178/"
 match   = ["Bezprozvanny 1991"]
-# DOI not directly verified — Nature article-ID pattern would suggest
-# 10.1038/351751a0; user to confirm.
+# Route unknown — possibly via hoover_lewis_2011 (CRAC γ context)
+# or first-party. User unsure.
 
 [references.burnstock_2007]
 authors = "Burnstock, G."
@@ -818,8 +838,9 @@ title   = "Purine and pyrimidine receptors"
 journal = "Cellular and Molecular Life Sciences"
 volume  = "64"
 pages   = "1471-1483"
+doi     = "10.1007/s00018-007-6497-0"
+url     = "https://pubmed.ncbi.nlm.nih.gov/17375261/"
 match   = ["Burnstock 2007"]
-# DOI not directly verified — Springer pattern inferred; user to confirm.
 
 [references.dode_2002]
 authors = "Dode, L. and Vilsen, B. and Van Baelen, K. and Wuytack, F. and Clausen, J. D. and Andersen, J. P."
@@ -842,9 +863,8 @@ title   = "A role of the fast ATP-gated P2X1 cation channel in thrombosis of sma
 journal = "Journal of Experimental Medicine"
 volume  = "198"
 pages   = "661-667"
-url     = "https://pubmed.ncbi.nlm.nih.gov/12913094/"
+doi     = "10.1084/jem.20030144"
 match   = ["Hechler et al. 2003", "Hechler 2003"]
-# DOI not directly verified — JEM pattern inferred; user to confirm.
 
 [references.honore_vorum_2000]
 authors = "Honoré, B. and Vorum, H."
@@ -853,9 +873,8 @@ title   = "The CREC family, a novel family of multiple EF-hand, low-affinity Ca2
 journal = "FEBS Letters"
 volume  = "466"
 pages   = "11-18"
-url     = "https://pubmed.ncbi.nlm.nih.gov/10648803/"
+doi     = "10.1016/s0014-5793(99)01780-9"
 match   = ["Honoré & Vorum 2000"]
-# DOI not directly verified — FEBS Lett pattern inferred; user to confirm.
 
 [references.lievremont_1997]
 authors = "Lièvremont, J.-P. and Rizzuto, R. and Hendershot, L. and Meldolesi, J."
@@ -874,10 +893,14 @@ title   = "ADP is not an agonist at P2X1 receptors: evidence for separate recept
 journal = "British Journal of Pharmacology"
 volume  = "131"
 pages   = "108-114"
+doi     = "10.1038/sj.bjp.0703517"
+url     = "https://pubmed.ncbi.nlm.nih.gov/10960076/"
 match   = ["Mahaut-Smith et al. 2000 / 2004", "Mahaut-Smith 2000 / 2004", "Mahaut-Smith 2000"]
-# DOI not directly verified — BJP pattern inferred; user to confirm.
 # Bare "Mahaut-Smith" intentionally omitted from match[] — too broad
 # (would substitute every author-only mention).
+# Note: TOML inline citations mention "Mahaut-Smith 2000 / 2004"
+# suggesting a 2004 follow-up paper too. If used, that would warrant
+# its own [references.mahaut_smith_2004] entry.
 
 [references.mak_foskett_1997]
 authors = "Mak, D.-O. D. and Foskett, J. K."
@@ -887,14 +910,9 @@ journal = "Journal of General Physiology"
 volume  = "109"
 pages   = "571-587"
 url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC2217068/"
+via     = "hoover_lewis_2011"
 match   = ["Mak & Foskett 1997"]
-via     = "caride_2007"
-# DOI not directly verified — JGP pattern inferred; user to confirm.
-# Route: cited by Caride 2007 (as a related 2001 Mak/McBride/Foskett
-# follow-on); the IP3R γ_Ca discussion in our [ip3r.channel] block
-# refers to the Mak & Foskett 1997 cellular-conditions γ range
-# (0.05–0.5 pS). Route via Caride is best-guess — the user may have
-# read this paper directly.
+# No DOI — pre-DOI-era JGP paper. URL is the canonical click target.
 
 [references.penniston_enyedi_1998]
 authors = "Penniston, J. T. and Enyedi, Á."
@@ -903,9 +921,10 @@ title   = "Modulation of the plasma membrane Ca2+ pump"
 journal = "Journal of Membrane Biology"
 volume  = "165"
 pages   = "101-109"
-match   = ["Penniston & Enyedi 1998"]
+doi     = "10.1007/s002329900424"
+url     = "https://pubmed.ncbi.nlm.nih.gov/9744998/"
 via     = "caride_2007"
-# DOI not directly verified — Springer pattern inferred; user to confirm.
+match   = ["Penniston & Enyedi 1998"]
 # Route: Caride 2007 cites Penniston & Enyedi 1998 as a PMCA-regulation
 # review (Caride ref 4). The PIP2-PMCA competition discussion in our
 # [pmca.cam_activated] block draws on this lineage.
@@ -917,9 +936,9 @@ title   = "Separation and characterization of currents through store-operated CR
 journal = "Journal of General Physiology"
 volume  = "119"
 pages   = "487-507"
-url     = "https://pmc.ncbi.nlm.nih.gov/articles/PMC2233817/"
+doi     = "10.1085/jgp.20028551"
+via     = "hoover_lewis_2011"
 match   = ["Prakriya & Lewis 2002"]
-# DOI not directly verified — JGP pattern inferred; user to confirm.
 
 [references.sage_rink_1985]
 authors = "Sage, S. O. and Rink, T. J."
@@ -928,11 +947,14 @@ title   = "Inhibition by forskolin of cytosolic calcium rise, shape change and a
 journal = "FEBS Letters"
 volume  = "188"
 pages   = "135-140"
+doi     = "10.1016/0014-5793(85)80890-5"
+url     = "https://pubmed.ncbi.nlm.nih.gov/2410292/"
 match   = ["Sage & Rink 1985"]
-# DOI not directly verified — FEBS Lett pattern inferred; user to confirm.
-# Note: the TOML cites "Sage & Rink 1985" in multiple contexts; this is
-# the most likely matching paper but the user has more than one 1985
-# publication in this area.
+# Note: TOML inline citations include "Sage & Rink 1985 et seq." and
+# "Sage & Rink 1985–1990", implying more than one paper across that
+# range. The FEBS Lett forskolin paper is the canonical 1985 entry;
+# additional Sage & Rink papers from 1985-1990 could warrant separate
+# entries if used distinctly.
 
 [references.vial_evans_2002]
 authors = "Vial, C. and Rolf, M. G. and Mahaut-Smith, M. P. and Evans, R. J."
@@ -941,9 +963,8 @@ title   = "A study of P2X1 receptor function in murine megakaryocytes and human 
 journal = "British Journal of Pharmacology"
 volume  = "135"
 pages   = "363-372"
-url     = "https://pubmed.ncbi.nlm.nih.gov/11815371/"
+doi     = "10.1038/sj.bjp.0704486"
 match   = ["Vial & Evans 2002"]
-# DOI not directly verified — BJP pattern inferred; user to confirm.
 
 [references.yin_stossel_1979]
 authors = "Yin, H. L. and Stossel, T. P."
@@ -954,8 +975,7 @@ volume  = "281"
 pages   = "583-586"
 url     = "https://www.nature.com/articles/281583a0"
 match   = ["Yin & Stossel 1979"]
-# DOI inferred from Nature article-ID pattern (10.1038/281583a0); URL
-# from nature.com kept as the verified click target. User to confirm DOI.
+# No DOI — pre-DOI-era Nature paper. URL is the canonical click target.
 
 
 # ── Recent mitochondrial-Ca²⁺ references (2025-2026) ─────────────────
@@ -981,10 +1001,31 @@ volume  = "52"
 doi     = "10.1007/s11033-025-10389-3"
 match   = ["Shehwar et al. 2025"]
 
+[references.brass_1992]
+authors = "Brass, L. F. and Vassallo, R. R. and Belmonte, E. and Ahuja, M. and Cichowski, K. and Hoxie, J. A."
+year    = 1992
+title   = "Structure and function of the human platelet thrombin receptor"
+journal = "Journal of Biological Chemistry"
+volume  = "267"
+pages   = "13795-13798"
+url     = "https://pubmed.ncbi.nlm.nih.gov/1321125/"
+match   = ["Brass 1992", "Brass et al. 1992"]
+# No DOI — pre-DOI-era JBC paper (PMID 1321125). Cited in
+# lab-book-2026-05-15-mike-papers-pip2-fix.md as the source of the
+# ~2500 PAR1 copy number figure ("Repo matches Brass 1992 / Burkhart
+# 2012 proteomics ✓").
+
 [references.ghatge_2026]
 authors = "Ghatge, M. and et al."
 year    = 2026
 title   = "The mitochondrial calcium uniporter regulates calcium dynamics to drive platelet function, bioenergetics, and thrombosis"
-journal = "(in press / recent — verified via PubMed only)"
-url     = "https://pubmed.ncbi.nlm.nih.gov/41197806/"
+journal = "Journal of Thrombosis and Haemostasis"
+doi     = "10.1016/j.jtha.2025.10.019"
 match   = ["Ghatge et al. 2026"]
+# Year discrepancy: DOI/journal suggests 2025 publication; TOML inline
+# citation reads "Ghatge et al. 2026". Common Elsevier
+# online-ahead-of-print case. User to confirm whether to keep year =
+# 2026 (= formal print year) or change to 2025 (= online year) — and
+# whether to update the inline "Ghatge et al. 2026" prose citation
+# and `match` accordingly. `authors = "Ghatge, M. and et al."` is
+# stub-only and should be replaced with the full author list.
