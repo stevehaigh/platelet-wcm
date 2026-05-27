@@ -327,8 +327,8 @@ format:
     pdf-engine: xelatex
     geometry: "margin=2.5cm"
     fontsize: 10pt
-    mainfont: "STIX Two Text"
-    monofont: "Menlo"
+    mainfont: "TeX Gyre Termes"
+    monofont: "DejaVu Sans Mono"
     colorlinks: true
     linkcolor: blue
     urlcolor: blue

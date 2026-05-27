@@ -62,6 +62,12 @@ jobs:
         with:
           tinytex: true
 
+      - name: Install TeX Live font packages used by kinetics-review
+        # tex-gyre + dejavu are not in tinytex's base profile; the
+        # `make kinetics-fonts` step needs them on disk so it can copy
+        # them into the user font dir for fontspec/fontconfig discovery.
+        run: tlmgr install tex-gyre dejavu
+
       - name: Build kinetics review PDF
         run: make kinetics-review
 
