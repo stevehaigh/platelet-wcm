@@ -66,7 +66,19 @@ jobs:
         # tex-gyre + dejavu are not in tinytex's base profile; the
         # `make kinetics-fonts` step needs them on disk so it can copy
         # them into the user font dir for fontspec/fontconfig discovery.
-        run: tlmgr install tex-gyre dejavu
+        # quarto-actions/setup@v2 installs TinyTeX but does not add its
+        # bin dir to PATH for later steps, so we locate tlmgr explicitly.
+        run: |
+          TLMGR=$(find "$HOME/.TinyTeX" -name tlmgr -type f 2>/dev/null | head -1)
+          if [ -z "$TLMGR" ]; then
+            echo "tlmgr not found under $HOME/.TinyTeX" >&2
+            ls -la "$HOME/.TinyTeX" 2>&1 || true
+            exit 1
+          fi
+          "$TLMGR" install tex-gyre dejavu
+          # Expose tlmgr's parent dir to subsequent steps so kpsewhich (used by
+          # `make kinetics-fonts`) is also on PATH.
+          dirname "$TLMGR" >> "$GITHUB_PATH"
 
       - name: Build kinetics review PDF
         run: make kinetics-review
