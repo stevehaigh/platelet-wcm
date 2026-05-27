@@ -248,10 +248,28 @@ Compartments specific to platelets:
 
 Note `pl` (not `pm`) to avoid clashing with `m` (mitochondria).
 
-Rate constants and ODE state for calcium signalling live in
-`reconstruction/platelet/dataclasses/process/calcium_signalling.py`. Initial counts
-live in `reconstruction/platelet/dataclasses/internal_state.py` and the
-`raw_data/molecules.tsv` table.
+Rate constants for calcium signalling are externalised to
+`reports/params/calcium-v0.5.toml` (issue #32 Phase 2) and loaded at import
+time by
+`reconstruction/platelet/dataclasses/process/_params_loader.py:load_calcium_kinetics()`.
+`calcium_signalling.py` consumes the loaded dict as `_KINETICS = load_calcium_kinetics()`
+and assigns the remaining ODE state / per-channel scalars; physical constants
+(R, T, F, NA), structural integers, and compartment volumes stay in Python.
+
+The molecule inventory (id, mass, initial count, class for all 63 species)
+lives in `reports/params/species-v0.5.tsv` and is loaded by
+`reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
+exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`
+directory in this repo.
+
+**Scope note.** The kinetics-as-data scaffold is currently calcium-only:
+the loader, the TSV, and `runscripts/manual/buildKineticsReview.py` are all
+hardcoded to the calcium pathway. Extending to a second pathway (e.g.,
+mitochondrial metabolism, integrin signalling, cytoskeleton) would require
+a new `<pathway>-v0.N.toml`, a parallel `_<pathway>_loader.py`, registration
+in whichever process consumes it, and updates to `CHAPTER_TITLES` in the
+review renderer so its sections render. None of that scaffolding exists yet
+(see `reports/design/kinetics-as-data-2026-05-22.qmd` "Level 2" sketch).
 
 ## Key Conventions
 

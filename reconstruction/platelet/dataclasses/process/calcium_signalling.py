@@ -39,6 +39,23 @@ import math
 import numpy as np
 from scipy.integrate import solve_ivp
 
+from reconstruction.platelet.dataclasses.process._params_loader import (
+	load_calcium_kinetics)
+
+
+# Externalised rate constants (issue #32 Phase 2). At Phase 2 completion
+# essentially every K_*, N_*, GAMMA_*, agonist forcing scalar, and
+# calibration-coupled scalar in this module is sourced from
+# `reports/params/calcium-v0.5.toml`. The remaining Python literals are
+# physical constants (R, T, F, NA), structural integers (ORAI subunits
+# per channel, STIM monomers per dimer), and compartment volumes —
+# biology-fixed values that belong in code, not data.
+#
+# Full per-section attribution and the clickable bibliography live in
+# `reports/design/kinetics-v0.5-review.pdf` (regenerate via
+# `runscripts/manual/buildKineticsReview.py`).
+_KINETICS = load_calcium_kinetics()
+
 
 # ── Compartment volumes ───────────────────────────────────────────────────
 # Source: Purvis 2008 (direct measurement; 6 fL cytosol, 4.3% DTS).
@@ -131,8 +148,12 @@ N_SPECIES = len(MOLECULE_NAMES)
 
 
 # ── Resting concentrations ────────────────────────────────────────────────
-CA_EX_UM = 1200.0       # extracellular Ca²⁺, fixed reservoir (Dolan 2014)
-IP3_REST_UM = 0.05      # cytosolic IP3 baseline (50 nM; Purvis 2008)
+# Values live in `reports/params/calcium-v0.5.toml [resting]` (issue
+# #32 Phase 2 slice 10). CA_EX_UM is runtime-overridable for the EDTA
+# condition (`cs_mod.CA_EX_UM = 0.0`); the override pattern survives
+# because module-name reassignment doesn't care about origin.
+CA_EX_UM    = _KINETICS['resting']['ca_ex_uM']
+IP3_REST_UM = _KINETICS['resting']['ip3_rest_uM']
 
 
 # ── Physical constants ────────────────────────────────────────────────────
@@ -169,95 +190,39 @@ V_PM_V = -0.060          # plasma-membrane potential (V)
 #
 # Parameters from deYoung & Keizer 1992 PNAS 89:9895-9899 Table 1, via the
 # derived dissociation constants in Li & Rinzel 1994 J Theor Biol 166:461-473.
-K_DYK = {
-	'd1':  0.13,     # IP3 activation half-saturation   (µM)      b₁/a₁ = 52/400
-	'd2':  1.049,    # Ca²⁺ inhibition half-saturation  (µM)      b₄/a₄
-	'd5':  0.08234,  # Ca²⁺ activation half-saturation  (µM)      b₅/a₅
-	'a2':  0.2,      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets τ_h
-}
+# Values live in `reports/params/calcium-v0.5.toml [ip3r.k_dyk]` (issue #32
+# Phase 2). Edit there to change. `dict(...)` is a defensive copy so a
+# caller can't mutate the loader's underlying dict.
+K_DYK = dict(_KINETICS['ip3r']['k_dyk'])
 
-# Total IP3R channels: Burkhart 2012 ITPR2 count, Dolan 2014 Table S1.
-N_IP3R = 1328
-
-# IP3R Ca²⁺ flux: Nernst-based Purvis 2008 eq. 13 / Dolan 2014 eq. 4
-#   I = γ · N · Po · (NA/(zF)) · (ψ_IM − E_Ca,IM)
-#
-# ⚠ CALIBRATION-COUPLED PARAMETER — read before changing.
-# γ_IP3R is *not* an independently measured single-channel conductance.
-# It is the value that balances `K_SERCA` (above) at the Dolan 2014
-# platelet resting state (cyt = 100 nM, DTS = 250 µM). If you change
-# any of `k_bind_f`, `k_phos_f`, `k_conf_f`, `k_release_f` or the SERCA
-# total copy number, you MUST re-derive γ_IP3R from the new SERCA
-# cycle flux. See `reports/dissertation-notes.md §3.1` for the
-# coupling diagram and §3.2 for the open question of whether the
-# Purvis 2008 SERCA rate constants themselves over-estimate the
-# SERCA3b pump rate at low cyt Ca²⁺.
-#
-# Derivation: SERCA 6-state cycle steady-state flux at cyt = 100 nM,
-# DTS = 250 µM, solved analytically as a linear system, gives J =
-# 112 570 Ca²⁺ ions/s (56 285 cycles/s × 2 Ca²⁺/cycle). Setting IP3R
-# resting flux equal to this and inverting the Nernst flux formula:
-#   γ_required = J / (N · Po · |driving| · NA/zF)
-#              = 112 570 / (1 328 · 4.91×10⁻⁴ · 0.1605 · 3.122×10¹⁸)
-#              = 0.344 pS → rounded to 0.35 pS.
-#
-# Biological plausibility: Bezprozvanny 1991 and Mak & Foskett 1997
-# measured effective IP3R Ca²⁺ conductance in cellular conditions at
-# ~0.05–0.5 pS, with K⁺ carrying most of the unitary current. Our 0.35
-# pS sits within that range. The historical 10 pS (Zschauer 1988, via
-# Purvis 2008) was a bilayer measurement under symmetric high Ca²⁺
-# where K⁺ contributes negligibly to current and is not transferable.
-GAMMA_IP3R_S = 0.075e-12         # 0.075 pS = calibrated Ca²⁺ conductance, A/V
+# IP3R channel ensemble (count + conductance). Values + full
+# calibration-coupling commentary live in `reports/params/calcium-v0.5.toml
+# [ip3r.channel]` (issue #32 Phase 2 slice 8).
+# ⚠ CALIBRATION-COUPLED with K_SERCA below — see TOML and
+# calibration-coupling-2026-05-25.qmd chains 1 + 2.
+N_IP3R       = _KINETICS['ip3r']['channel']['n_total']
+GAMMA_IP3R_S = _KINETICS['ip3r']['channel']['gamma_s']
 
 
-# ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics) ──────
-# Primary-source values restored. Earlier calibration reduced k_bind_f by
-# ~470× to compensate for IP3R Po and flux bugs; with Po⁴ + Nernst the
-# Purvis Vmax balances the corrected IP3R leak (~1.18×10⁵ ions/s) at rest.
-#
-# ⚠ CALIBRATION-COUPLED — any change to these rate constants requires
-# re-deriving GAMMA_IP3R_S (above) to restore the resting-state flux
-# balance. See `reports/dissertation-notes.md §3.1`.
-# ⚠ OPEN BIOLOGY QUESTION — these constants imply ~4.7 cycles/s per
-# pump at cyt = 100 nM, which is ~2–5× higher than the SERCA3b Vmax /
-# Km literature (Inesi 1985; Nishi 1992; Dode 2002 itself: Vmax ~30–50
-# cycles/s saturating, Km ~0.7–1.1 µM, so v/Vmax at 100 nM ≈ 2%). The
-# Purvis 2008 rate constants appear to over-estimate the platelet SERCA
-# pump rate at resting Ca²⁺. v0.3+ should re-derive from primary
-# sources. See `reports/dissertation-notes.md §3.2`.
-K_SERCA = {
-	'k_shuttle_f':  600.0,    # E2 → E1                        (s⁻¹)
-	'k_shuttle_r':  600.0,    # E1 → E2                        (s⁻¹)
-	'k_bind_f':     210.0,    # E1 + 2 Ca²⁺_cyt → E1·Ca²⁺      (µM⁻²·s⁻¹)
-	'k_bind_r':      10.0,    # reverse                        (s⁻¹)
-	'k_phos_f':     700.0,    # E1·Ca → E1P·Ca                 (s⁻¹)
-	'k_phos_r':       5.0,
-	'k_conf_f':     600.0,    # E1P·Ca ⇌ E2P·Ca                (s⁻¹)
-	'k_conf_r':      50.0,
-	'k_release_f': 1000.0,    # E2P·Ca → E2P + 2 Ca²⁺_dts      (s⁻¹)
-	'k_release_r':  4.0e-3,   # reverse (µM⁻²·s⁻¹; 4e9 M⁻²s⁻¹)
-	'k_dephos_f':   500.0,    # E2P → E2                       (s⁻¹)
-	'k_dephos_r':     1.0,
-}
+# SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics).
+# Values + ⚠ CALIBRATION-COUPLED commentary + open-biology-question
+# notes live in `reports/params/calcium-v0.5.toml [serca.cycle]`
+# (issue #32 Phase 2 slice 8).
+K_SERCA = dict(_KINETICS['serca']['cycle'])
 
 
 # ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
 # Steps 4–5 are unchanged; the CaM-activated path (steps 8–11) is below.
-K_PMCA = {
-	'k_on':   10.0,    # PMCA + Ca²⁺ ⇌ PMCA·Ca   (µM⁻¹·s⁻¹)  step 4 fwd
-	'k_off':  50.0,    # reverse                  (s⁻¹)        step 4 rev
-	'k_cat':   5.5,    # PMCA·Ca → PMCA + Ca²⁺_ex (s⁻¹)        step 5 (basal turnover)
-}
+# Values live in `reports/params/calcium-v0.5.toml [pmca.basal]`
+# (issue #32 Phase 2 slice 3).
+K_PMCA = dict(_KINETICS['pmca']['basal'])
 
 # ── CaM Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ─────────────────────
 # Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7).
 # Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
-K_CAM = {
-	'k6':    2.669,   # CaM + 2 Ca²⁺ → Ca₂·CaM  (µM⁻²·s⁻¹)  step 6 fwd
-	'k6r':   2.682,   # reverse                  (s⁻¹)        step 6 rev
-	'k7':  170.4,     # Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM (µM⁻²·s⁻¹) step 7 fwd
-	'k7r':   1.551,   # reverse                  (s⁻¹)        step 7 rev
-}
+# Values live in `reports/params/calcium-v0.5.toml [cam.binding]`
+# (issue #32 Phase 2 slice 3).
+K_CAM = dict(_KINETICS['cam']['binding'])
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────────
 # Real platelet cytosolic Ca²⁺ buffering ratio is ~50:1 (bound:free; Sage
@@ -278,16 +243,11 @@ K_CAM = {
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
 # v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
-K_GSN = {
-	'k_on':  100.0,    # GSN_site + Ca²⁺ → GSN_site·Ca  (µM⁻¹·s⁻¹) — fast EF-hand binding
-	'k_off': 100.0,    # reverse                        (s⁻¹)       — Kd = 1.0 µM
-}
+# Values live in `reports/params/calcium-v0.5.toml [buffers.gsn]` and
+# [buffers.gsn_pool] (issue #32 Phase 2 slice 7).
+K_GSN = dict(_KINETICS['buffers']['gsn'])
 
-# Effective Ca²⁺-binding sites (Phase 2 cyt+DTS-coupled calibration).
-# Biological gelsolin: ~100 000 copies × ~5 sites = 500 000 sites (Burkhart
-# 2012; Yin & Stossel 1979). N_GSN below is calibrated against Phase 3
-# peak heights with CALR active — see lab book for the iteration log.
-N_GSN = 1_400_000
+N_GSN = _KINETICS['buffers']['gsn_pool']['n_total']
 
 
 # ── Calreticulin (CALR) DTS Ca²⁺ buffer — Phase 2 / issue #28 ────────────
@@ -319,27 +279,17 @@ N_GSN = 1_400_000
 # high-affinity P-domain site or extend to HSP90B1 / CALU (issue #25).
 #
 # See `reports/dissertation-notes.md §2.1` for the full biological context.
-K_CALR = {
-	'k_on':    1.0,    # CALR_site + Ca²⁺ → CALR_site·Ca  (µM⁻¹·s⁻¹) — fast equilibrium
-	'k_off': 1000.0,   # reverse                          (s⁻¹)       — Kd = 1.0 mM
-}
+# DTS luminal buffer cluster — Phase 2/3 issues #25, #28.
+# ⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (Dolan 250 µM
+# target). Values + full literature commentary live in
+# `reports/params/calcium-v0.5.toml [buffers.*]` (issue #32 Phase 2
+# slice 9). See calibration-coupling-2026-05-25.qmd chain 4.
 
-# Total CALR Ca²⁺-binding sites: 20 324 CALR × 25 C-domain sites.
-N_CALR = 508_100
+K_CALR   = dict(_KINETICS['buffers']['calr'])
+N_CALR   = _KINETICS['buffers']['calr_pool']['n_total']
 
-# CALR high-affinity P-domain: 1 site per CALR molecule, Kd ~ 1 µM, slow
-# release kinetics (k_off ~ 1 s⁻¹). Source: Baksh & Michalak 1991,
-# Vassilakos 1998. At resting DTS [Ca²⁺] = 250 µM this site is always
-# saturated (occupancy > 99.6 %), so it doesn't matter much at rest — but
-# during IP3R-driven DTS depletion, the slow release rate means these
-# 20 324 Ca²⁺ ions take ~1 s to liberate after free [Ca²⁺]_DTS drops
-# below the Kd. This adds a small "delayed reservoir" that smooths DTS
-# recovery without preventing the transient depletion. See lab book.
-K_CALR_P = {
-	'k_on':    1.0,    # CALR_P + Ca²⁺ → CALR_P·Ca   (µM⁻¹·s⁻¹)
-	'k_off':   1.0,    # reverse                     (s⁻¹)       — Kd = 1.0 µM
-}
-N_CALR_P = 20_324
+K_CALR_P = dict(_KINETICS['buffers']['calr_p'])
+N_CALR_P = _KINETICS['buffers']['calr_p_pool']['n_total']
 
 
 # ── HSP90B1 / GRP94 / endoplasmin — Phase 3 / issue #25 ──────────────────
@@ -360,20 +310,15 @@ N_CALR_P = 20_324
 # lists it among the top ER-associated proteins; precise count is in the
 # supplementary table not directly extractable). Flagged in dissertation
 # notes as a v0.3 stretch estimate.
-K_HSP90B1_M = {
-	'k_on':    0.5,    # HSP90B1_M + Ca²⁺ → HSP90B1_M·Ca  (µM⁻¹·s⁻¹) — slow
-	'k_off':   1.0,    # reverse                          (s⁻¹) — Kd = 2 µM
-	                   # τ_release ≈ 1 s — matches transient timescale, so
-	                   # these sites hold their Ca²⁺ during the ~1 s peak
-	                   # and act as a "floor" keeping free DTS [Ca²⁺] > 0.
-}
-K_HSP90B1_L = {
-	'k_on':    1.0,    # HSP90B1_L + Ca²⁺ → HSP90B1_L·Ca  (µM⁻¹·s⁻¹)
-	'k_off': 600.0,    # reverse                          (s⁻¹) — Kd = 600 µM
-}
-N_HSP90B1 = 10_000              # molecules
-N_HSP90B1_M = N_HSP90B1 * 4     # 40 000 medium-affinity sites
-N_HSP90B1_L = N_HSP90B1 * 11    # 110 000 low-affinity sites
+K_HSP90B1_M = dict(_KINETICS['buffers']['hsp90b1_medium'])
+K_HSP90B1_L = dict(_KINETICS['buffers']['hsp90b1_low'])
+
+# Per-molecule × sites-per-molecule decomposition kept in TOML so a
+# biologist can edit either independently.
+_HSP90B1_POOL = _KINETICS['buffers']['hsp90b1_pool']
+N_HSP90B1   = _HSP90B1_POOL['n_molecules']
+N_HSP90B1_M = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_medium']
+N_HSP90B1_L = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_low']
 
 
 # ── BiP / HSPA5 / GRP78 — Phase 3 / issue #25 ────────────────────────────
@@ -385,15 +330,9 @@ N_HSP90B1_L = N_HSP90B1 * 11    # 110 000 low-affinity sites
 #
 # Platelet copy number: ~50 000 (order-of-magnitude estimate; BiP is the
 # canonically most-abundant ER chaperone, more so than CALR or HSP90B1).
-K_BIP = {
-	'k_on':    2.0,    # BiP + Ca²⁺ → BiP·Ca   (µM⁻¹·s⁻¹)
-	'k_off': 1000.0,   # reverse               (s⁻¹) — Kd = 500 µM
-}
-N_BIP = 50_000 * 1                 # 1 effective site per BiP molecule (mid of 1–2 range with the lower count used to stay biologically conservative — total sites 50 000)
-# (For 1.5-site stoichiometry: N_BIP_TOTAL = 50 000 × 1.5 = 75 000; using
-# 50 000 as the conservative estimate. Resulting bound at rest = 16 700
-# instead of 25 000 — closer to the lower bound of Lièvremont's 25 % of
-# store. Capacity can be scaled up in v0.4 with explicit two-site model.)
+K_BIP = dict(_KINETICS['buffers']['bip'])
+_BIP_POOL = _KINETICS['buffers']['bip_pool']
+N_BIP = _BIP_POOL['n_molecules'] * _BIP_POOL['sites_per']
 
 
 # ── CREC family pool — CALU + RCN1 + RCN2 lumped — Phase 3 / issue #25 ──
@@ -407,11 +346,9 @@ N_BIP = 50_000 * 1                 # 1 effective site per BiP molecule (mid of 1
 # Combined platelet copy number estimate: ~15 000 (CALU ~5 k + RCN1 ~5 k
 # + RCN2 ~5 k). Effective Ca²⁺-binding sites per molecule ~4 (most
 # EF-hands have functional Ca²⁺ binding; some are structural).
-K_CREC = {
-	'k_on':    0.5,    # CREC + Ca²⁺ → CREC·Ca  (µM⁻¹·s⁻¹)
-	'k_off': 500.0,    # reverse                (s⁻¹) — Kd = 1 mM
-}
-N_CREC = 15_000 * 4                # 60 000 sites
+K_CREC = dict(_KINETICS['buffers']['crec'])
+_CREC_POOL = _KINETICS['buffers']['crec_pool']
+N_CREC = _CREC_POOL['n_molecules'] * _CREC_POOL['sites_per']
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
@@ -423,25 +360,10 @@ N_CREC = 15_000 * 4                # 60 000 sites
 # 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
 # previously worked around by omitting step 11 entirely; restored
 # 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
-K_CAM_PMCA = {
-	'k8':   0.2,       # PMCA + Ca₄·CaM → Ca₄·CaM·PMCA  (µM⁻¹·s⁻¹) step 8 fwd
-	'k8r':  8.0e-4,    # reverse                         (s⁻¹)       step 8 rev
-	'k9':  50.0,       # Ca₄·CaM·PMCA + Ca²⁺ ⇌ Ca₄·CaM·PMCA·Ca (µM⁻¹·s⁻¹) step 9
-	'k9r': 10.0,       # reverse                         (s⁻¹)
-	'k10': 30.0,       # Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹) step 10
-	'k11':  10.0,      # Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt (s⁻¹) step 11 fwd
-	'k11r':  7.332e-4, # reverse (µM⁻⁴·s⁻¹)                          step 11 rev
-	# k12 = CaM dissociation from PMCA. Caride 2007 measured 0.033 s⁻¹
-	# (τ = 30 s) in purified in vitro preparation. In vivo, PIP2 binding
-	# to the PMCA C-terminus competitively displaces CaM on a much faster
-	# timescale (Penniston & Enyedi 1998 review; Mandal 2024). The in
-	# vitro value traps PMCA in PMCA·CaM during sustained Ca²⁺ elevation
-	# and prevents recovery; using an effective in vivo rate of 1 s⁻¹
-	# (τ = 1 s, 30× faster) restores physiological PMCA Vmax during
-	# transient recovery. v0.3.1 fix — see lab book 2026-05-12 (DTS
-	# overshoot diagnosis).
-	'k12':    1.0,     # PMCA·CaM → PMCA + CaM_free (s⁻¹) — in-vivo rate
-}
+# Values live in `reports/params/calcium-v0.5.toml [pmca.cam_activated]`
+# (issue #32 Phase 2 slice 7). k12 in-vivo override commentary (1 s⁻¹
+# vs Caride's in-vitro 0.033 s⁻¹) lives in the TOML section header.
+K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
 
 
 # ── P2X1 ATP-gated cation channel (Phase 2.5, 2026-05-11) ────────────────
@@ -473,22 +395,20 @@ K_CAM_PMCA = {
 # This is exactly what should close the SOCE-differential gap in
 # Phase 3: the +Ca_ex peak now has a fast P2X1 contribution that −Ca_ex
 # lacks (real biology: ~100 nM differential at peak).
-K_P2X1 = {
-	'k_act':    30.0,    # closed + ATP → open       (µM⁻¹·s⁻¹) — fast ATP binding
-	'k_close':   5.0,    # open → closed             (s⁻¹)       — ATP unbinds
-	'k_des':    10.0,    # open → desensitised       (s⁻¹)       — τ_des ≈ 100 ms
-	'k_rec':     0.03,   # desensitised → closed     (s⁻¹)       — τ_rec ≈ 30 s
-}
+# Values live in `reports/params/calcium-v0.5.toml [p2x1.kinetics]`
+# (issue #32 Phase 2 slice 3).
+K_P2X1 = dict(_KINETICS['p2x1']['kinetics'])
 
 # Total P2X1 functional channels (trimers; mass per trimer = 3 × 45 kDa).
-N_P2X1 = 1_000
+# Value lives in `[p2x1.channel] n_total`.
+N_P2X1 = _KINETICS['p2x1']['channel']['n_total']
 
 # P2X1 Ca²⁺-specific effective conductance.
 # Single-channel current ~0.5–1 pA at -60 mV, Ca²⁺ fraction ~5–10 %,
 # so effective Ca²⁺-specific γ ≈ 10–50 fS per channel. Starting from
 # 0.01 pS — calibration anchor for Phase 3 SOCE-differential target
-# (Dolan ~100 nM). See lab book.
-GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calibrated
+# (Dolan ~100 nM). See lab book. Value lives in `[p2x1.channel] gamma_s`.
+GAMMA_P2X1_S = _KINETICS['p2x1']['channel']['gamma_s']
 
 
 # ── Extracellular ATP forcing (drives P2X1) ───────────────────────────────
@@ -496,11 +416,15 @@ GAMMA_P2X1_S = 0.0013e-12   # 1.3 fS Ca²⁺-specific conductance, A/V — calib
 # forming thrombus, then is cleared by ectonucleotidases (CD39) over tens of
 # seconds. CD39 keeps resting ATP_ex near zero — any small baseline leaks
 # P2X1 over hundreds of seconds and overfills the DTS.
-ATP_EX_REST_UM = 0.0
-ATP_EX_PEAK_UM = 10.0         # 10 µM peak during activation
-ATP_EX_TAU_RISE = 0.5         # s — fast rise (dense granule secretion)
-ATP_EX_T_PEAK = 1.0           # s — peak time
-ATP_EX_TAU_DECAY = 30.0       # s — ectonucleotidase clearance
+# Values live in `reports/params/calcium-v0.5.toml [agonists.atp_ex]`
+# (issue #32 Phase 2 slice 2). The Python name `ATP_EX_TAU_RISE` (no
+# `_S` suffix) is preserved verbatim from the pre-refactor module; the
+# TOML uses the consistent `tau_rise_s` key.
+ATP_EX_REST_UM   = _KINETICS['agonists']['atp_ex']['rest_uM']
+ATP_EX_PEAK_UM   = _KINETICS['agonists']['atp_ex']['peak_uM']
+ATP_EX_TAU_RISE  = _KINETICS['agonists']['atp_ex']['tau_rise_s']
+ATP_EX_T_PEAK    = _KINETICS['agonists']['atp_ex']['t_peak_s']
+ATP_EX_TAU_DECAY = _KINETICS['agonists']['atp_ex']['tau_decay_s']
 
 
 def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
@@ -527,19 +451,10 @@ def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
 # creates 1 dimer particle. Rate constants chosen so the Dolan 2014
 # Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at
 # detailed balance.
-K_STIM = {
-	# STIM1·Ca²⁺_dts ↔ STIM1_free + Ca²⁺_dts (Ca²⁺ release from STIM EF-hand)
-	'k_release_f':   0.1,      # forward (s⁻¹)
-	# k_release_r derived from detailed balance at Dolan IC:
-	#   k_release_r = k_release_f × st_Ca / (st_free × ca_dts)
-	#               = 0.1 × 3805 / (438 × 250) = 3.475e-3 µM⁻¹·s⁻¹
-	'k_release_r':   3.475e-3, # reverse (µM⁻¹·s⁻¹)
-	# 2 STIM1_free ↔ STIM1_dim — diffusion-limited dimerisation.
-	# k_dim_f from detailed balance at Dolan IC (dimer-particle count):
-	#   k_dim_f = k_dim_r × st_dim / st_free² = 1.0 × 11 / 438² ≈ 5.73e-5
-	'k_dim_f':      5.73e-5,   # forward (count⁻¹·s⁻¹)
-	'k_dim_r':       1.0,      # reverse (s⁻¹)
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.stim]`
+# (issue #32 Phase 2 slice 4). Detailed-balance derivation for
+# `k_release_r` and `k_dim_f` is documented in the TOML section header.
+K_STIM = dict(_KINETICS['soce']['stim'])
 
 # Hoover & Lewis 2011 MWC parameters (Fig. 4 best-fit, verified PDF):
 #   L  — intrinsic opening equilibrium constant (closed→open without STIM)
@@ -556,23 +471,18 @@ K_STIM = {
 #        to 2 (the MWC shape is insensitive to ~2× perturbations once at the
 #        saturating end of the binding curve). f, a, and L are dimensionless
 #        and transfer directly.
-K_MWC = {
-	'L':   1.0e-4,      # opening equilibrium without STIM
-	'Ka':  2.0,         # STIM2 association constant (rescaled from Hoover a.u.)
-	'f':   14.2,        # opening cooperativity per bound STIM2
-	'a':   0.5,         # binding cooperativity (negative)
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.mwc]`
+# (issue #32 Phase 2 slice 4). Ka rescaling from Hoover a.u. → platelet
+# dimer counts is documented in the TOML section header.
+K_MWC = dict(_KINETICS['soce']['mwc'])
 
 # Dolan 2014 puncta entry (eq. 2): qp = α·[Ca]_cyt^n / (KM^n + [Ca]_cyt^n) + 0.01
 #   qp gives the fraction of STIM2 dimers translocated into puncta where
 #   they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
 #   two free parameters Dolan scans within homeostatic constraints.
-PUNCTA = {
-	'alpha':  0.2,      # max puncta fraction at saturating [Ca²⁺]_cyt
-	'KM_uM':  0.5,      # half-activation [Ca²⁺]_cyt (chosen mid-range; Dolan-scanned)
-	'n':      4.0,      # Hill coefficient (chosen mid-range; Dolan-scanned)
-	'baseline': 0.01,   # constitutive puncta fraction at zero [Ca²⁺]_cyt
-}
+# Values live in `reports/params/calcium-v0.5.toml [soce.puncta]`
+# (issue #32 Phase 2 slice 4).
+PUNCTA = dict(_KINETICS['soce']['puncta'])
 
 # Orai single-channel Ca²⁺ conductance. The CRAC channel literature value is
 # ~24 fS (Prakriya & Lewis 2002, Vig 2006), measured at saturating Po with
@@ -583,7 +493,10 @@ PUNCTA = {
 # resting balance condition SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s,
 # which gives γ_SOC ≈ 0.3 fS at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value our
 # rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
-GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
+# Value lives in `[soce.orai] gamma_s` of calcium-v0.5.toml
+# (issue #32 Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal
+# outflow at rest — see TOML section header.
+GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
 
 # ── Basal plasma-membrane Ca²⁺ leak ──────────────────────────────────────
 # A small constant cyt influx that compensates PMCA outflow at rest, keeping
@@ -597,7 +510,10 @@ GAMMA_SOC_S = 0.3e-15            # 0.3 fS = effective single-channel conductance
 #   ⇒ leak ≈ 71 ions/s, rounded to 75
 # This is the (ii) addition diagnosed in lab-book 2026-05-05; before this
 # term the model had no PM-side cyt source large enough to balance PMCA.
-J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
+# Value lives in `[pm.leak] ions_s` of calcium-v0.5.toml (issue #32
+# Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal turnover
+# and CA_EX_UM gating — see TOML section header.
+J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
 
 
 # ── NCX (Na⁺/Ca²⁺ exchanger) — v0.3.4 / second extrusion pathway ─────────
@@ -619,12 +535,9 @@ J_PM_LEAK_IONS_S = 75.0          # ions/s, constant cyt influx
 # of substrate kinetics — captures the regulatory Ca²⁺-binding site of
 # real NCX. Only forward mode modelled (reverse mode requires cyt Na⁺
 # state + membrane potential, both out of scope for v0.3).
-K_NCX = {
-	'V_max':  5_000.0,   # ions/s — total per platelet; calibration anchor
-	'K_m':    5.0,       # substrate Hill half-saturation (µM)
-	'K_a':    0.2,       # allosteric activation half-point (µM) — slightly lower for more recovery-phase contribution
-	'h':      4,         # allosteric Hill cooperativity (switch-like)
-}
+# Values live in `reports/params/calcium-v0.5.toml [ncx.kinetics]`
+# (issue #32 Phase 2 slice 4).
+K_NCX = dict(_KINETICS['ncx']['kinetics'])
 
 
 # ── GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9) ─────────────────
@@ -644,33 +557,16 @@ K_NCX = {
 # P2Y12 (Gi-coupled, inhibitory — issue #10); receptor desensitisation /
 # internalisation kinetics (lumped into a slow first-order decay).
 
-K_P2Y1 = {
-	'k_on':   1.0,    # P2Y1_i + ADP → P2Y1_a       (µM⁻¹·s⁻¹) — reversible
-	'k_off':  0.5,    # P2Y1_a → P2Y1_i + ADP        (s⁻¹)
-}
+# Values live in `reports/params/calcium-v0.5.toml [gpcr.*]`
+# (issue #32 Phase 2 slice 5). Receptor/Gq calibration commentary
+# (k_basal derivation from resting Gq fraction) lives in the TOML
+# section header.
+K_P2Y1 = dict(_KINETICS['gpcr']['p2y1'])
+K_PAR1 = dict(_KINETICS['gpcr']['par1'])
+K_PAR4 = dict(_KINETICS['gpcr']['par4'])
+K_GQ   = dict(_KINETICS['gpcr']['gq'])
 
-K_PAR1 = {
-	'k_cleave':       2.0,    # PAR1_i + thrombin → PAR1_a   (nM⁻¹·s⁻¹) — fast cleavage
-	'k_internalize':  0.02,   # PAR1_a → PAR1_i              (s⁻¹) — τ ~50s (lumped internalisation+recycling)
-}
-
-K_PAR4 = {
-	'k_cleave':       0.2,    # PAR4_i + thrombin → PAR4_a   (nM⁻¹·s⁻¹) — slower than PAR1
-	'k_internalize':  0.005,  # PAR4_a → PAR4_i              (s⁻¹) — τ ~200s (sustained response)
-}
-
-K_GQ = {
-	'k_act_per_R':  0.001,    # active receptor catalyses Gq exchange  (s⁻¹·count⁻¹)
-	'k_rgs':        0.033,    # Gq_active → Gq_inactive (RGS-accelerated GTPase)  (s⁻¹) — τ ~30s
-	# Tonic Gαq exchange in the absence of agonist. Calibrated to give a
-	# resting Gq_active ≈ 100 → gq_um ≈ 0.1 µM (steady-state fraction
-	# k_basal / (k_basal + k_rgs); target 100/5000 = 0.02 with k_rgs = 0.033
-	# → k_basal = 0.033 × 0.02/0.98 = 6.7e-4 s⁻¹). The 0.1 µM resting Gq
-	# floor is what holds basal IP3 at its ~50 nM Purvis baseline.
-	'k_basal':      6.7e-4,
-}
-
-N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
+N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
 
 # ── Agonist forcing functions — stimulation inputs ───────────────────────
@@ -681,19 +577,23 @@ N_GQ_TOTAL = 5_000  # Mazet 2020 platelet Gαq molecules
 
 # Thrombin (PAR1/4 agonist). Standard stimulation = 1 nM peak (Dolan 2014).
 # Clotting cascade gives a fast rise, sustained plateau, slow decay.
-THROMBIN_REST_NM     = 0.0
-THROMBIN_PEAK_NM     = 1.0
-THROMBIN_TAU_RISE_S  = 0.5
-THROMBIN_T_PEAK_S    = 5.0
-THROMBIN_TAU_DECAY_S = 120.0
+# Values live in `reports/params/calcium-v0.5.toml [agonists.thrombin]`
+# (issue #32 Phase 2 slice 2).
+THROMBIN_REST_NM     = _KINETICS['agonists']['thrombin']['rest_nM']
+THROMBIN_PEAK_NM     = _KINETICS['agonists']['thrombin']['peak_nM']
+THROMBIN_TAU_RISE_S  = _KINETICS['agonists']['thrombin']['tau_rise_s']
+THROMBIN_T_PEAK_S    = _KINETICS['agonists']['thrombin']['t_peak_s']
+THROMBIN_TAU_DECAY_S = _KINETICS['agonists']['thrombin']['tau_decay_s']
 
 # ADP (P2Y1 agonist). Released from dense granules during activation,
 # cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
-ADP_REST_UM     = 0.0
-ADP_PEAK_UM     = 10.0
-ADP_TAU_RISE_S  = 1.0
-ADP_T_PEAK_S    = 5.0
-ADP_TAU_DECAY_S = 30.0
+# Values live in `reports/params/calcium-v0.5.toml [agonists.adp]`
+# (issue #32 Phase 2 slice 2).
+ADP_REST_UM     = _KINETICS['agonists']['adp']['rest_uM']
+ADP_PEAK_UM     = _KINETICS['agonists']['adp']['peak_uM']
+ADP_TAU_RISE_S  = _KINETICS['agonists']['adp']['tau_rise_s']
+ADP_T_PEAK_S    = _KINETICS['agonists']['adp']['t_peak_s']
+ADP_TAU_DECAY_S = _KINETICS['agonists']['adp']['tau_decay_s']
 
 
 def thrombin_nM(t, delay=0.0, peak_nM=None):
@@ -748,25 +648,12 @@ STIM_MONOMERS_PER_DIMER = 2
 # the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
 # transfer of Mazet's constants would require their full PI/PI4P chain,
 # which is out of scope for v0.3.
-K_PLCB = {
-	'k_act':    0.5,      # PLCb_i + Gq → PLCb_a    (µM⁻¹·s⁻¹) — calibrated
-	'k_inact':  0.3,      # PLCb_a    → PLCb_i      (s⁻¹)       — τ ~ 3 s
-	# k_cat × PIP2 product preserved when PIP2 count was rescaled
-	# 1.12e5 → 1.12e6 (lab-book 2026-05-15): k_cat 2.26e-7 → 2.26e-8.
-	'k_cat':    2.26e-8,  # PLCb_a + PIP2 → PLCb_a + IP3 + DAG  (count⁻¹·s⁻¹)
-}
-
-K_PI_CYCLE = {
-	# PIP2 resynthesis — lumped PI → PI4P → PIP2 chain. Set equal to
-	# basal hydrolysis rate so PIP2 sits at its resting value.
-	'k_resynth':   3.62,   # PIP2 / s — calibrated to basal balance
-	# IP3 degradation (5-phosphatase to IP2 + 3-kinase to IP4, lumped).
-	# τ ~ 50 s matches the Dolan Fig. S2 decay tail used as a calibration
-	# reference target for the PI cycle parameters.
-	'k_ip3_deg':   0.02,   # IP3 → IP2/IP4   (s⁻¹)
-	# DAG kinase (DAG → PA)
-	'k_dag_deg':   0.05,   # DAG → PA       (s⁻¹) — τ ~ 20 s
-}
+# Values live in `reports/params/calcium-v0.5.toml [pi_cycle.*]`
+# (issue #32 Phase 2 slice 6). Calibration commentary
+# (PIP2-rescaling k_cat 2.26e-7 → 2.26e-8 from lab-book 2026-05-15;
+# τ_IP3 ≈ 50 s anchoring to Dolan Fig. S2) lives in the TOML headers.
+K_PLCB     = dict(_KINETICS['pi_cycle']['plcb'])
+K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -785,17 +672,9 @@ K_PI_CYCLE = {
 # during peak) → cyt (slow, over minutes) → DTS via SERCA → PMCA out
 # (gradually). Without MCU, all the SOCE-imported Ca²⁺ must exit via
 # the PMCA bottleneck.
-K_MITO = {
-	# MCU uptake — cooperative Hill kinetics. n=4 gives a sharp switch
-	# at K_MCU = 1 µM; at resting cyt (100 nM) MCU is effectively off
-	# (only ~5 ions/s), preserving the cyt peak signal. During the
-	# transient (cyt > 1 µM) MCU activates strongly.
-	'V_max_MCU':  50_000.0,   # ions/s — total over all mitochondria; calibrated
-	'K_MCU':      1.0,        # Hill half-saturation (µM); literature 0.5–10
-	'n_MCU':      4,          # Hill cooperativity; literature 2–4 (we use upper end for switch-like)
-	# NCLX efflux — linear in [Ca²⁺]_mito; slow release.
-	'k_NCLX':     0.005,      # s⁻¹  (τ = 200 s ~ 3 min slow release)
-}
+# Values live in `reports/params/calcium-v0.5.toml [mito.kinetics]`
+# (issue #32 Phase 2 slice 6).
+K_MITO = dict(_KINETICS['mito']['kinetics'])
 
 
 

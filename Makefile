@@ -1,4 +1,4 @@
-.PHONY: help run stop deploy pdfs pdfs-clean
+.PHONY: help run stop deploy pdfs pdfs-clean kinetics-review kinetics-fonts
 
 help:
 	@echo ""
@@ -12,8 +12,9 @@ help:
 	@echo "    deploy        Push current branch to webapp → triggers Azure CI pipeline"
 	@echo ""
 	@echo "  Reports"
-	@echo "    pdfs          Build PDFs from reports/*.md into reports/pdf/"
-	@echo "    pdfs-clean    Delete reports/pdf/"
+	@echo "    pdfs            Build PDFs from reports/*.md into reports/pdf/"
+	@echo "    pdfs-clean      Delete reports/pdf/"
+	@echo "    kinetics-review Render reports/design/kinetics-v0.5-review.pdf from calcium-v0.5.toml"
 	@echo ""
 	@echo "  Options"
 	@echo "    PORT=NNNN     Override port (default: $(PORT))"
@@ -99,4 +100,50 @@ reports/pdf-quarto/%.pdf: reports/%.qmd reports/pandoc-header.tex
 
 quarto-pdfs-clean:
 	rm -rf reports/pdf-quarto
+
+# ── Kinetics review: TOML → clickable PDF ─────────────────────────────────────
+# Regenerates reports/design/kinetics-v0.5-review.{qmd,pdf} and
+# reports/params/calcium-v0.5-references.bib from
+# reports/params/calcium-v0.5.toml. The runscript shells out to `quarto render`
+# for the PDF step, so quarto + xelatex must be on PATH.
+#
+# The QMD header sets `mainfont: "TeX Gyre Termes"` + `monofont: "DejaVu Sans
+# Mono"` — both ship with TeX Live but xelatex/fontspec resolves them through
+# the OS font lookup (CoreText on macOS, fontconfig on Linux), not TeX's own
+# kpathsea. `kinetics-fonts` copies them out of the TeX Live tree into the
+# user font dir so fontspec can find them. Idempotent.
+
+KINETICS_FONT_DIR := $(if $(filter Darwin,$(shell uname)),$(HOME)/Library/Fonts,$(HOME)/.fonts)
+
+kinetics-fonts:
+	@set -e; \
+	 if command -v fc-list >/dev/null 2>&1 \
+			&& fc-list | grep -q "TeX Gyre Termes" \
+			&& fc-list | grep -q "DejaVu Sans Mono"; then \
+		echo "kinetics-fonts: TeX Gyre Termes + DejaVu Sans Mono already installed"; \
+		exit 0; \
+	 fi; \
+	 mkdir -p "$(KINETICS_FONT_DIR)"; \
+	 gyre_dir=$$(dirname $$(kpsewhich texgyretermes-regular.otf 2>/dev/null)); \
+	 if [ -z "$$gyre_dir" ] || [ ! -d "$$gyre_dir" ]; then \
+		echo "error: TeX Gyre Termes OTFs not found via kpsewhich; is TeX Live installed?" >&2; \
+		exit 1; \
+	 fi; \
+	 for f in "$$gyre_dir"/texgyretermes-*.otf; do \
+		cp -n "$$f" "$(KINETICS_FONT_DIR)/" 2>/dev/null || true; \
+	 done; \
+	 dejavu_path=$$(kpsewhich DejaVuSansMono.ttf 2>/dev/null); \
+	 if [ -z "$$dejavu_path" ] || [ ! -f "$$dejavu_path" ]; then \
+		echo "error: DejaVu Sans Mono TTFs not found via kpsewhich" >&2; \
+		exit 1; \
+	 fi; \
+	 dejavu_dir=$$(dirname "$$dejavu_path"); \
+	 for f in "$$dejavu_dir"/DejaVuSansMono*.ttf; do \
+		cp -n "$$f" "$(KINETICS_FONT_DIR)/" 2>/dev/null || true; \
+	 done; \
+	 if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(KINETICS_FONT_DIR)" >/dev/null; fi; \
+	 echo "kinetics-fonts: TeX Gyre Termes + DejaVu Sans Mono installed under $(KINETICS_FONT_DIR)"
+
+kinetics-review: kinetics-fonts
+	PYTHONPATH="$$PWD" python runscripts/manual/buildKineticsReview.py
 

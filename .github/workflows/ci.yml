@@ -44,6 +44,48 @@ jobs:
         run: |
           python -m pytest wholecell/tests/ -v --tb=short
 
+  # ── Kinetics review: render reports/design/kinetics-v0.5-review.pdf ───────
+  kinetics-review:
+    name: kinetics-review PDF
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.5"
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          tinytex: true
+
+      - name: Install kinetics-review fonts (system-wide via apt)
+        # Quarto's bundled TinyTeX doesn't ship tlmgr, and even if it
+        # did, fontspec resolves via fontconfig (system fonts), not
+        # TeX's kpathsea. Ubuntu's `fonts-texgyre` + `fonts-dejavu-core`
+        # apt packages install both fonts directly under /usr/share/fonts
+        # where xelatex finds them. `make kinetics-fonts` detects this
+        # and skips its TeX-Live-copy path.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-texgyre fonts-dejavu-core
+          fc-cache -f
+
+      - name: Build kinetics review PDF
+        run: make kinetics-review
+
+      - name: Upload kinetics-review artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinetics-review
+          path: |
+            reports/design/kinetics-v0.5-review.pdf
+            reports/design/kinetics-v0.5-review.qmd
+            reports/params/calcium-v0.5-references.bib
+
   # ── Type checking (platelet paths only) ───────────────────────────────────
   typecheck:
     name: mypy

@@ -1,0 +1,540 @@
+---
+title: "Platelet WCM — calcium kinetics review (v0.5)"
+subtitle: "Source-of-truth review document, auto-generated from `reports/params/calcium-v0.5.toml`"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 10pt
+    mainfont: "TeX Gyre Termes"
+    monofont: "DejaVu Sans Mono"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 3
+    include-in-header: ../pandoc-header.tex
+---
+
+::: callout-note
+This document is auto-generated from
+[`reports/params/calcium-v0.5.toml`](../params/calcium-v0.5.toml).
+Edit the TOML, then re-run
+`runscripts/manual/buildKineticsReview.py` to regenerate.
+
+Citations of the form *Author YEAR* are auto-linked to the
+[References](#references) section if a matching entry exists in the
+TOML's `[references.*]` block. Citations without a reference entry
+appear as plain text — add a `[references.<key>]` block to the TOML
+to make them clickable.
+:::
+
+
+
+# Resting concentrations and calibration targets
+
+## `[resting]`
+
+Platelet WCM — calcium signalling kinetics (v0.5)
+
+Source-of-truth values for the rate constants consumed by `reconstruction/platelet/dataclasses/process/calcium_signalling.py`.
+
+This file is the externalised form of the K_* dicts in that module (issue #32, Phase 2). It is read at import time by `_params_loader.load_calcium_kinetics()`. Editing a value here changes the model's behaviour at the next sim — no Python edit required.
+
+Provenance: each section carries its primary literature citation inline. Calibration-coupling chains ("if you change X re-derive Y") are documented in `reports/design/calibration-coupling-2026-05-25.qmd`.
+
+Versioning: bump the filename suffix (calcium-v0.6.toml, etc.) when changing the schema shape. Value-only updates can stay on the current file; pin the value's history in git.
+
+CA_EX_UM is runtime-overridable from runscripts via `cs_mod.CA_EX_UM = X` — set to 0 for the Dolan Fig. 4 EDTA / no- extracellular-Ca²⁺ condition (SOCE current + PM leak both gate on CA_EX_UM > 0). IP3_REST_UM is the cytosolic IP3 baseline target ([Purvis 2008](#ref-purvis_2008) / Dolan Fig. S2 initial value).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `ca_ex_uM` | `1200.0` | (µM) — physiological extracellular [Ca²⁺] in blood plasma (1.2 mM); [Dolan 2014](#ref-dolan_diamond_2014) Methods uses this value, matches the standard platelet-experimental protocol ([Sage & Rink 1985](#ref-sage_rink_1985) et seq.) |
+| `ip3_rest_uM` | `0.05` | (µM) — cyt IP3 baseline at 50 nM; [Purvis 2008](#ref-purvis_2008) Table 1 / Dolan Fig. S2 initial value |
+
+
+# Store-operated Ca²⁺ entry (STIM1 / MWC / puncta / Orai)
+
+## `[soce.orai]` — SOCE: Orai single-channel Ca²⁺ conductance
+
+Effective single-channel γ for the CRAC/Orai pore. CRAC literature γ ~24 fS ([Prakriya & Lewis 2002](#ref-prakriya_lewis_2002); [Vig 2006](#ref-vig_2006)), measured at saturating Po with patch clamp in HEK cells. Calibrated against the resting balance SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value produced by the rescaled K_MWC['Ka']. See issue #46 for the full single-channel current calibration. ⚠ CALIBRATION-COUPLED with PMCA basal outflow at rest.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `gamma_s` | `0.3e-15` | A/V — 0.3 fS effective Ca²⁺-specific γ |
+
+
+# Plasma-membrane Ca²⁺ leak
+
+## `[pm.leak]` — Plasma-membrane basal Ca²⁺ leak
+
+Small constant cyt influx that balances PMCA outflow at rest, keeping resting Ca²⁺ at ~100 nM. Biologically: unidentified background entry (TRPC, NCX reverse, residual constitutive permeability — [Sage & Rink 1985](#ref-sage_rink_1985)–1990; [Brandman et al. 2007](#ref-brandman_2007) STIM2 review). Calibrated against the steady-state PM balance J_SOCE + J_leak = J_PMCA at cyt = 100 nM, DTS = 250 µM: PMCA quasi-eq outflow ≈ k_cat · PMCA·Ca_eq ≈ 5.5 × 14 = 77 SOCE at full DTS / basal STIM1_dim ≈ 6 ⇒ leak ≈ 71 ions/s, rounded to 75. ⚠ CALIBRATION-COUPLED with PMCA basal turnover and CA_EX_UM gating.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `ions_s` | `75.0` | ions/s — constant cyt influx |
+
+
+# IP3R (deYoung-Keizer / Li-Rinzel)
+
+## `[ip3r.k_dyk]` — IP3R: deYoung-Keizer 1992 / Li-Rinzel 1994
+
+[Li & Rinzel 1994](#ref-li_rinzel_1994) reduction of the [deYoung-[Keizer 1992](#ref-deyoung_keizer_1992)](#ref-deyoung_keizer_1992) 8-state IP3R model to one slow ODE: m∞(IP3, Ca) = [IP3 / (IP3 + d₁)] × [Ca_cyt / (Ca_cyt + d₅)] dh/dt       = a₂ × [d₂ − (Ca_cyt + d₂) × h] Po          = m∞⁴ × h Parameters from [deYoung & [Keizer 1992](#ref-deyoung_keizer_1992)](#ref-deyoung_keizer_1992) PNAS 89:9895-9899 Table 1, via [Li & Rinzel 1994](#ref-li_rinzel_1994) J Theor Biol 166:461-473.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `d1` | `0.13` | IP3 activation half-saturation   (µM)        b₁/a₁ = 52/400 |
+| `d2` | `1.049` | Ca²⁺ inhibition half-saturation  (µM)        b₄/a₄ |
+| `d5` | `0.08234` | Ca²⁺ activation half-saturation  (µM)        b₅/a₅ |
+| `a2` | `0.2` | Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets τ_h |
+
+## `[ip3r.channel]` — IP3R channel ensemble — N + γ (CALIBRATION-COUPLED, see below)
+
+γ_IP3R is *not* an independently measured single-channel conductance. It balances K_SERCA below at the [Dolan 2014](#ref-dolan_diamond_2014) platelet resting state (cyt = 100 nM, DTS = 250 µM). If you change any K_SERCA rate or N_IP3R, you MUST re-derive γ_IP3R from the new SERCA cycle flux. See calibration-coupling-2026-05-25.qmd chains 1 + 2.
+
+Derivation (original target γ = 0.35 pS; current calibrated value 0.075 pS reflects a later re-balance against the corrected IP3R Po⁴ × Nernst flux): SERCA 6-state steady-state flux at the Dolan resting state = 112 570 Ca²⁺ ions/s. Setting IP3R resting flux equal: γ_required = J / (N · Po · |driving| · NA/zF) Biological plausibility: [Bezprozvanny 1991](#ref-bezprozvanny_1991) / [Mak & Foskett 1997](#ref-mak_foskett_1997) give effective IP3R γ_Ca in cellular conditions at 0.05–0.5 pS (K⁺ carries most of the unitary current); our value is in range. The historical 10 pS (Zschauer 1988 via [Purvis 2008](#ref-purvis_2008)) was a bilayer measurement under symmetric high Ca²⁺ and is not transferable.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `1328` | (count) — [Burkhart 2012](#ref-burkhart_2012) ITPR2 monomer abundance; [Dolan 2014](#ref-dolan_diamond_2014) Table S1 |
+| `gamma_s` | `0.075e-12` | (A/V) — 0.075 pS Ca²⁺-specific conductance; calibrated (see header) |
+
+
+# SERCA cycle
+
+## `[serca.cycle]` — SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b)
+
+6-state E1/E2 cycle. Primary-source values restored from [Purvis 2008](#ref-purvis_2008) (earlier calibration had reduced k_bind_f ~470× to compensate for IP3R Po and flux bugs; with the corrected Po⁴ + Nernst flux the Purvis Vmax balances the IP3R leak at rest).
+
+⚠ CALIBRATION-COUPLED with `[ip3r.channel]` γ above — any change to these rate constants requires re-deriving γ_IP3R from the new SERCA cycle flux at the Dolan resting state. See calibration-coupling-2026-05-25.qmd chain 1.
+
+⚠ OPEN BIOLOGY QUESTION: these constants imply ~4.7 cycles/s per pump at cyt = 100 nM, which is ~2–5× higher than the SERCA3b Vmax/Km literature ([Inesi 1985](#ref-inesi_1985); [Dode 2002](#ref-dode_2002) itself: Vmax 30-50 cycles/s saturating, Km 0.7-1.1 µM → v/Vmax at 100 nM ≈ 2%). The [Purvis 2008](#ref-purvis_2008) rate constants appear to over-estimate the platelet SERCA pump rate at resting Ca²⁺. v0.3+ should re-derive from primary sources. See dissertation-notes §3.2.
+
+Note: an earlier draft of this comment also cited "Nishi 1992" as a third SERCA-literature data point. The primary Nishi 1992 paper could not be located in the 2026-05-26 reference audit (no clear PubMed match found by user or by web search); the figures it would have contributed come transitively via the [Purvis 2008](#ref-purvis_2008) SERCA bibliography. Citation removed pending source identification.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_shuttle_f` | `600.0` | E2 → E1                          (s⁻¹) |
+| `k_shuttle_r` | `600.0` | E1 → E2                          (s⁻¹) |
+| `k_bind_f` | `210.0` | E1 + 2 Ca²⁺_cyt → E1·Ca²⁺        (µM⁻²·s⁻¹) |
+| `k_bind_r` | `10.0` | reverse                          (s⁻¹) |
+| `k_phos_f` | `700.0` | E1·Ca → E1P·Ca                   (s⁻¹) |
+| `k_phos_r` | `5.0` | reverse                          (s⁻¹) |
+| `k_conf_f` | `600.0` | E1P·Ca ⇌ E2P·Ca                  (s⁻¹) |
+| `k_conf_r` | `50.0` | reverse                          (s⁻¹) |
+| `k_release_f` | `1000.0` | E2P·Ca → E2P + 2 Ca²⁺_dts        (s⁻¹) |
+| `k_release_r` | `4.0e-3` | reverse                          (µM⁻²·s⁻¹; 4e9 M⁻²s⁻¹) |
+| `k_dephos_f` | `500.0` | E2P → E2                         (s⁻¹) |
+| `k_dephos_r` | `1.0` | reverse                          (s⁻¹) |
+
+
+# Agonist forcing curves
+
+## `[agonists.thrombin]` — Agonist forcing curves — physiological stimulation inputs
+
+Each receptor sees a plateau-decay timecourse: REST → ramp to PEAK at T_PEAK with rise τ TAU_RISE → exponential decay τ TAU_DECAY. The peak is read live by the forcing functions in calcium_signalling.py, so a dose-sweep runscript can override at runtime (cs_mod.X_PEAK_* = ...).
+
+Attribution: - PEAK concentrations are sourced from the platelet-experimental literature ([Dolan 2014](#ref-dolan_diamond_2014) standard activation = 1 nM thrombin / 10 µM ADP; ATP_ex peak 10 µM from dense granule release rates). - The plateau-decay SHAPE (`tau_rise_s`, `t_peak_s`, `tau_decay_s`) is a *model choice* — there is no direct experimental measurement of the platelet-microenvironment agonist timecourse seen by a single platelet during clot formation. Values were chosen to produce a plausible Dolan-2014-shape activation curve and to give physiologically reasonable receptor-occupancy dynamics. Different choices would shift the absolute timing of the Ca²⁺ transient peak by ±5–10 s but not its shape or magnitude.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `rest_nM` | `0.0` |  |
+| `peak_nM` | `1.0` |  |
+| `tau_rise_s` | `0.5` |  |
+| `t_peak_s` | `5.0` |  |
+| `tau_decay_s` | `120.0` |  |
+
+## `[agonists.adp]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `rest_uM` | `0.0` |  |
+| `peak_uM` | `10.0` |  |
+| `tau_rise_s` | `1.0` |  |
+| `t_peak_s` | `5.0` |  |
+| `tau_decay_s` | `30.0` |  |
+
+## `[agonists.atp_ex]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `rest_uM` | `0.0` |  |
+| `peak_uM` | `10.0` |  |
+| `tau_rise_s` | `0.5` |  |
+| `t_peak_s` | `1.0` |  |
+| `tau_decay_s` | `30.0` |  |
+
+
+# PMCA (basal + CaM-activated)
+
+## `[pmca.basal]` — PMCA4b basal path (Caride 2007 Table 3 steps 4–5)
+
+Basal turnover; the CaM-activated path (steps 8–11) is `[pmca.cam_activated]` and remains inline in calcium_signalling.py until a future slice.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `10.0` | PMCA + Ca²⁺ ⇌ PMCA·Ca         (µM⁻¹·s⁻¹)  step 4 fwd |
+| `k_off` | `50.0` | reverse                       (s⁻¹)        step 4 rev |
+| `k_cat` | `5.5` | PMCA·Ca → PMCA + Ca²⁺_ex      (s⁻¹)        step 5 (basal) |
+
+
+# Calmodulin Ca²⁺ binding
+
+## `[cam.binding]` — Calmodulin Ca²⁺ binding (Caride 2007 Table 3 steps 6–7)
+
+Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7). Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k6` | `2.669` | CaM + 2 Ca²⁺ → Ca₂·CaM        (µM⁻²·s⁻¹)  step 6 fwd |
+| `k6r` | `2.682` | reverse                        (s⁻¹)        step 6 rev |
+| `k7` | `170.4` | Ca₂·CaM + 2 Ca²⁺ → Ca₄·CaM    (µM⁻²·s⁻¹)  step 7 fwd |
+| `k7r` | `1.551` | reverse                        (s⁻¹)        step 7 rev |
+
+
+# P2X1 ATP-gated cation channel
+
+## `[p2x1.kinetics]` — P2X1 ATP-gated cation channel (Phase 2.5, 2026-05-11)
+
+Trimeric ATP-gated cation channel in the plasma membrane. Three-state scheme: Closed --(k_act × [ATP_ex])--> Open --(k_des)--> Desensitised. Ca²⁺ flux through Open is Nernst-driven, gated on CA_EX_UM > 0.
+
+Attribution: [Mahaut-Smith et al. 2000 / 2004](#ref-mahaut_smith_2000) (platelet P2X1 electrophysiology — provides the time constants τ_des and τ_rec); [Vial & Evans 2002](#ref-vial_evans_2002) (P2X1 in platelets); [Hechler et al. 2003](#ref-hechler_2003) (P2X1 in thrombosis); [Burnstock 2007](#ref-burnstock_2007) (P2X family review).
+
+The 3-state kinetic scheme below is a coarse fit to those time constants — `k_des = 10 s⁻¹` → τ_des ≈ 100 ms (Mahaut-Smith) and `k_rec = 0.03 s⁻¹` → τ_rec ≈ 30 s (Mahaut-Smith). `k_act` and `k_close` are model-choice rates paired to give a steep activation curve at ATP_PEAK ≈ 10 µM consistent with the EC50 reported in [Mahaut-Smith 2000](#ref-mahaut_smith_2000).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_act` | `30.0` | closed + ATP → open         (µM⁻¹·s⁻¹) — fast ATP binding |
+| `k_close` | `5.0` | open → closed               (s⁻¹)       — ATP unbinds |
+| `k_des` | `10.0` | open → desensitised         (s⁻¹)       — τ_des ≈ 100 ms (Mahaut-Smith) |
+| `k_rec` | `0.03` | desensitised → closed       (s⁻¹)       — τ_rec ≈ 30 s (Mahaut-Smith) |
+
+## `[p2x1.channel]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `1000` | (count of trimers; ~3 × 45 kDa per trimer) |
+| `gamma_s` | `1.3e-15` | (A/V) — 1.3 fS Ca²⁺-specific conductance; calibrated |
+
+
+# Store-operated Ca²⁺ entry (STIM1 / MWC / puncta / Orai)
+
+## `[soce.stim]` — SOCE: STIM1 dimerisation cycle (mass-action)
+
+STIM1 cycle keeps the dimer pool size as a state variable. STIM1_dim is counted in DIMER PARTICLES (matches Dolan Table S1 "STIM1₂ (11)") — 1 dimerisation event consumes 2 free monomers and creates 1 dimer particle. Rate constants chosen so the [Dolan 2014](#ref-dolan_diamond_2014) Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at detailed balance: k_release_r = k_release_f × st_Ca / (st_free × ca_dts) = 0.1 × 3805 / (438 × 250) = 3.475e-3 µM⁻¹·s⁻¹ k_dim_f     = k_dim_r × st_dim / st_free² = 1.0 × 11 / 438² ≈ 5.73e-5  count⁻¹·s⁻¹
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_release_f` | `0.1` | STIM1·Ca → STIM1_free + Ca_dts          (s⁻¹) |
+| `k_release_r` | `3.475e-3` | reverse                                  (µM⁻¹·s⁻¹) |
+| `k_dim_f` | `5.73e-5` | 2 STIM1_free → STIM1_dim                (count⁻¹·s⁻¹) |
+| `k_dim_r` | `1.0` | reverse                                  (s⁻¹) |
+
+## `[soce.mwc]` — SOCE: Hoover & Lewis 2011 MWC allosteric (Dolan eq. 3)
+
+Open-probability model for the Orai channel as a function of bound STIM2 dimers. Parameters from [Hoover & Lewis 2011](#ref-hoover_lewis_2011) Fig. 4 best-fit (verified PDF). Ka is rescaled from Hoover's HEK arbitrary units to platelet dimer counts: Ka_platelet × Sf_saturating (~170 dimers) ≈ Hoover's Ka × Stotal (~320) → Ka_platelet ≈ 1.9, rounded to 2 (the MWC shape is insensitive to ~2× perturbations at saturation). f, a, L are dimensionless and transfer directly from Hoover.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `L` | `1.0e-4` | (dimensionless) — opening equilibrium without STIM |
+| `Ka` | `2.0` | (1/count of dimers) — STIM2 association constant (rescaled from Hoover a.u.) |
+| `f` | `14.2` | (dimensionless) — opening cooperativity per bound STIM2 |
+| `a` | `0.5` | (dimensionless) — binding cooperativity (negative) |
+
+## `[soce.puncta]` — SOCE: Dolan 2014 puncta entry (eq. 2)
+
+qp = α · [Ca²⁺]_cyt^n / (KM^n + [Ca²⁺]_cyt^n) + baseline qp gives the fraction of STIM2 dimers translocated into puncta where they can engage Orai. α = 0.2 is the [Dolan 2014](#ref-dolan_diamond_2014) default. KM and n are the two free parameters Dolan scans within homeostatic constraints (Fig. 3); the mid-range values are used here.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `alpha` | `0.2` | (dimensionless) — max puncta fraction at saturating [Ca²⁺]_cyt; Dolan default |
+| `KM_uM` | `0.5` | (µM) — half-activation [Ca²⁺]_cyt; Dolan-scanned mid-range |
+| `n` | `4.0` | (dimensionless) — Hill coefficient; Dolan-scanned mid-range |
+| `baseline` | `0.01` | (dimensionless) — constitutive puncta fraction at zero [Ca²⁺]_cyt |
+
+
+# Na⁺/Ca²⁺ exchanger
+
+## `[ncx.kinetics]` — NCX (Na⁺/Ca²⁺ exchanger) — secondary Ca²⁺ extrusion
+
+Forward-mode 3:1 (3 Na⁺ in : 1 Ca²⁺ out), Na⁺-gradient driven (no ATP). Provides a second extrusion pathway alongside PMCA, dominating at high cyt Ca²⁺ where PMCA saturates. Forward mode only; reverse mode requires cyt Na⁺ state + V_PM, out of scope for v0.3.
+
+Attribution: - Platelet NCX presence: NCX1 (SLC8A1) and NCX3 (SLC8A3) detected in the [Burkhart 2012](#ref-burkhart_2012) proteome. [Roberts et al. 2012](#ref-roberts_2012) (Br J Pharmacol) confirmed NCX/NCKX expression at the protein level and showed functional contribution during platelet activation. - Functional contribution contested: [Sage & Rink 1985](#ref-sage_rink_1985) reported limited activity; later work argues NCX makes a meaningful contribution to peak-Ca²⁺ extrusion (specific fractional figure not directly measured in platelets — order-of-magnitude estimate only). See `dissertation-notes.md §7.3` for the uncertainty disclosure. - Kinetic form: substrate Hill term × allosteric Ca²⁺-activation gate. Standard NCX biophysics ([Blaustein & Lederer 1999](#ref-blaustein_lederer_1999) review; [DiPolo & Beaugé 2006](#ref-dipolo_beauge_2006)). The allosteric gate captures the regulatory Ca²⁺-binding site of real NCX, keeping it silent at resting cyt = 100 nM regardless of substrate kinetics. - Values: V_max is a *calibration anchor* (not a measured platelet value — no platelet-specific Vmax exists in the literature). K_m and K_a sit within the experimental ranges quoted in those reviews (cardiac NCX K_m,Ca ≈ 1–10 µM; K_a ≈ 0.1–0.6 µM). h = 4 is the upper end of reported allosteric cooperativity.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `V_max` | `5000.0` | (ions/s) — total per platelet; calibration anchor (not measured) |
+| `K_m` | `5.0` | (µM) — substrate Hill half-saturation; within [Blaustein & Lederer 1999](#ref-blaustein_lederer_1999) range |
+| `K_a` | `0.2` | (µM) — allosteric activation half-point; within review range |
+| `h` | `4` | (dimensionless int) — allosteric Hill cooperativity (switch-like) |
+
+
+# GPCR cascade (P2Y1 / PAR1 / PAR4 / Gαq)
+
+## `[gpcr.p2y1]` — GPCR cascade — P2Y1 + PAR1/4 → Gαq → PLCβ (issue #9)
+
+Explicit receptor → G-protein cascade. Three Gq-coupled receptors in scope (P2Y1, PAR1, PAR4). Total Gαq pool from [Mazet et al. 2020](#ref-mazet_2020). Out of scope: GPVI (collagen, PLCγ2 path), P2Y12 (Gi-coupled, issue #10), receptor desensitisation kinetics (lumped into first-order decay). `k_basal` is calibrated to give resting Gq_active ≈ 100 → gq_uM ≈ 0.1 µM, which holds basal IP3 at the Purvis ~50 nM baseline: steady-state = k_basal / (k_basal + k_rgs); target 100/5000 = 0.02 with k_rgs = 0.033  →  k_basal = 0.033 × 0.02/0.98 ≈ 6.7e-4 s⁻¹.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `1.0` | (µM⁻¹·s⁻¹) — model choice |
+| `k_off` | `0.5` | (s⁻¹) — model choice |
+
+## `[gpcr.par1]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_cleave` | `2.0` | (nM⁻¹·s⁻¹) — fast cleavage; order-of-magnitude [Vu 1991](#ref-vu_1991) / [Hung 1992](#ref-hung_1992) |
+| `k_internalize` | `0.02` | (s⁻¹) — τ ~50 s lumped ([Hammes & [Coughlin 1999](#ref-hammes_coughlin_1999)](#ref-hammes_coughlin_1999) timescale) |
+
+## `[gpcr.par4]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_cleave` | `0.2` | (nM⁻¹·s⁻¹) — [Kahn 1998](#ref-kahn_1998) / [Covic 2000](#ref-covic_2000) (slower than PAR1) |
+| `k_internalize` | `0.005` | (s⁻¹) — τ ~200 s (sustained response; model choice) |
+
+## `[gpcr.gq]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_act_per_R` | `0.001` | (s⁻¹·count⁻¹) — per-receptor Gq exchange catalytic rate ([Mazet 2020](#ref-mazet_2020) order) |
+| `k_rgs` | `0.033` | (s⁻¹) — RGS-accelerated GTPase, τ ~30 s; standard G-protein-signalling-model value |
+| `k_basal` | `6.7e-4` | (s⁻¹) — tonic Gq exchange; calibrated to hold IP3 baseline |
+
+## `[gpcr.gq_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `5000` | (count of Gαq molecules per platelet; [Mazet 2020](#ref-mazet_2020)) |
+
+
+# PI cycle (PLCβ / metabolism)
+
+## `[pi_cycle.plcb]` — PI cycle / PLCβ — Phase 4 / issue #31
+
+Coarse-grained PI cycle (v0.3 scope; full PI/PI4P/PI45P2 chain in v0.4). [Mazet et al. 2020](#ref-mazet_2020) framework has 35 rate constants in the full cycle; here we use a 5-constant reduction calibrated to reproduce the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct transfer of Mazet's constants would require their full chain, out of scope for v0.3.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_act` | `0.5` | PLCb_i + Gq → PLCb_a              (µM⁻¹·s⁻¹) — calibrated |
+| `k_inact` | `0.3` | PLCb_a    → PLCb_i                 (s⁻¹) — τ ~ 3 s |
+| `k_cat` | `2.26e-8` | PLCb_a + PIP2 → PLCb_a + IP3 + DAG (count⁻¹·s⁻¹) |
+
+## `[pi_cycle.metabolism]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_resynth` | `3.62` | PIP2 / s — basal balance with k_cat × PIP2 |
+| `k_ip3_deg` | `0.02` | IP3 → IP2/IP4 (lumped 5-phosphatase + 3-kinase)  (s⁻¹) |
+| `k_dag_deg` | `0.05` | DAG → PA      (DAG kinase)                       (s⁻¹) — τ ~ 20 s |
+
+
+# Mitochondrial Ca²⁺ (MCU + NCLX)
+
+## `[mito.kinetics]` — Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22
+
+Real platelets have 2–5 mitochondria per cell. MCU (inner-membrane channel) and NCLX (Na/Ca exchanger) together act as a fast cyt Ca²⁺ buffer during transients: fast Hill-cooperative uptake, slow linear release. Without MCU, all SOCE-imported Ca²⁺ must exit via PMCA. Sources: [Ghatge et al. 2026](#ref-ghatge_2026), [Ajanel et al. 2025](#ref-ajanel_2025), [Shehwar et al. 2025](#ref-shehwar_2025) (all in source-info/calcium-papers/).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `V_max_MCU` | `50000.0` | ions/s — total over all mitochondria; calibrated |
+| `K_MCU` | `1.0` | Hill half-saturation (µM)         literature 0.5–10 |
+| `n_MCU` | `4` | Hill cooperativity (int)          literature 2–4 |
+| `k_NCLX` | `0.005` | NCLX linear efflux (s⁻¹)          τ = 200 s |
+
+
+# Ca²⁺ buffers (cytosolic + DTS luminal)
+
+## `[buffers.gsn]` — Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy)
+
+Single 1:1 buffer representing the cytosolic Ca²⁺ buffering capacity. N_GSN counts effective Ca²⁺-binding sites, not gelsolin molecules. Calibrated jointly with CALR (Phase 2 / #28): the Phase 2 calibration intentionally over-shoots the Sage & Rink ~50:1 buffering ratio (current rest ~200:1) — this single tunable buffer absorbs slack from all other cytosolic buffers not yet broken out. v0.3+ plan is to split into explicit gelsolin / annexin / Ca-ATP — see dissertation-notes §1.1.
+
+Attribution: k_on and k_off are *model-choice* rates set to give Kd = 1.0 µM (within the EF-hand affinity range across the gelsolin / parvalbumin / calbindin family). k_on = 100 µM⁻¹·s⁻¹ is the diffusion-limited bimolecular rate typical of EF-hand binding ([Falke 1994](#ref-falke_1994); [Linse & Forsén 1995](#ref-linse_forsen_1995) reviews). The N_GSN count below is the tunable parameter; the per-rate values are not separately calibrated.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `100.0` | (µM⁻¹·s⁻¹) — fast EF-hand binding; Kd = 1 µM |
+| `k_off` | `100.0` | (s⁻¹) — reverse |
+
+## `[buffers.gsn_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `1400000` | (effective Ca²⁺-binding sites; calibrated against Phase 3) |
+
+## `[buffers.calr]` — DTS luminal Ca²⁺ buffers (Phase 2/3 issues #25, #28)
+
+⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (target 250 µM per [Dolan 2014](#ref-dolan_diamond_2014) Fig. 3). If any kinetics or pool count below changes, re-verify resting cyt = 100 nM, DTS = 250 µM against the Phase 3 acceptance suite. See calibration-coupling-2026-05-25.qmd chain 4.
+
+Calreticulin C-domain — dominant DTS dynamic buffer. Domain breakdown: N (lectin) | P (1 site, Kd ~1 µM, slow — see calr_p below) | C (~25 sites, Kd ~1 mM — this block). Platelet copy number 20 324 ([Burkhart 2012](#ref-burkhart_2012); [Dolan 2014](#ref-dolan_diamond_2014) Table S1). 25 C-domain sites × 20 324 molecules → 508 100 binding sites total. With CALR the DTS buffering ratio rises to ~72 % at rest, giving the DTS a large "spring" that absorbs SERCA excess and releases during IP3R drainage. See dissertation-notes §2.1.
+
+Attribution: independent 1:1 Ca²⁺-binder coarse-graining for calreticulin follows the [Sneyd & Dufour 2002](#ref-sneyd_dufour_2002) / [Hofer 1998](#ref-hofer_1998) ER-buffer framework. Kd = 1.0 mM from [Baksh & Michalak 1991](#ref-baksh_michalak_1991) (CALR C-domain direct binding). k_on / k_off are paired to give that Kd; the precise rates are not measured but are fast-equilibrium relative to the IP3R-driven Ca²⁺ transient timescale (~1 s), so the model is insensitive to the absolute rates as long as Kd is preserved.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `1.0` | (µM⁻¹·s⁻¹) — fast equilibrium; pair gives Kd = 1.0 mM |
+| `k_off` | `1000.0` | (s⁻¹) — reverse |
+
+## `[buffers.calr_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `508100` | (binding sites = 20 324 CALR × 25 C-domain sites) |
+
+## `[buffers.calr_p]`
+
+CALR P-domain — 1 high-affinity site per molecule, slow kinetics. Always saturated at resting DTS [Ca²⁺] = 250 µM (occupancy > 99.6%) so doesn't matter much at rest. During IP3R-driven DTS depletion, the slow k_off ~ 1 s⁻¹ means these ~20k Ca²⁺ take ~1 s to liberate after free [Ca²⁺]_DTS drops below Kd — a small "delayed reservoir" that smooths DTS recovery without preventing the transient depletion. Source: [Baksh & Michalak 1991](#ref-baksh_michalak_1991), [Vassilakos 1998](#ref-vassilakos_1998).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `1.0` | (µM⁻¹·s⁻¹) — [Baksh & Michalak 1991](#ref-baksh_michalak_1991); pair gives Kd = 1.0 µM |
+| `k_off` | `1.0` | (s⁻¹) — slow release; [Vassilakos 1998](#ref-vassilakos_1998) |
+
+## `[buffers.calr_p_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `20324` | (binding sites; 1 P-domain site per CALR molecule) |
+
+## `[buffers.hsp90b1_medium]`
+
+HSP90B1 / GRP94 / endoplasmin — second-most-abundant ER luminal Ca²⁺-binding chaperone. [Argon & Simen 1999](#ref-argon_simen_1999): 15 sites per molecule, split into 4 medium-affinity (Kd ~ 2 µM) and 11 low-affinity (Kd ~ 600 µM). Modelling separately captures the depletion dynamics: low-affinity sites release fast (bulk of deliverable reserve); medium sites hold until free [Ca²⁺]_DTS drops below ~2 µM and act as a "floor" keeping free DTS [Ca²⁺] > 0 during peak. Platelet copy number ~10 000 (order-of-magnitude; v0.3 stretch estimate).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `0.5` | (µM⁻¹·s⁻¹) — slow EF-hand; pair gives Kd = 2 µM |
+| `k_off` | `1.0` | (s⁻¹) — τ_release ≈ 1 s |
+
+## `[buffers.hsp90b1_low]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `1.0` | (µM⁻¹·s⁻¹) — pair gives Kd = 600 µM |
+| `k_off` | `600.0` | (s⁻¹) — fast release |
+
+## `[buffers.hsp90b1_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_molecules` | `10000` | (count of HSP90B1 molecules) — order-of-magnitude estimate; HSP90B1 is among the top ER-associated proteins in the [Burkhart 2012](#ref-burkhart_2012) proteome (precise count not extractable from supplementary). v0.3 stretch estimate. |
+| `sites_medium` | `4` | (sites per molecule) — [Argon & Simen 1999](#ref-argon_simen_1999) |
+| `sites_low` | `11` | (sites per molecule) — [Argon & Simen 1999](#ref-argon_simen_1999) |
+
+## `[buffers.bip]`
+
+BiP / HSPA5 / GRP78 — most abundant ER chaperone. [Lièvremont 1997](#ref-lievremont_1997) demonstrated BiP contributes ~25 % of the ER Ca²⁺ store, with stoichiometry of 1–2 Ca²⁺ per molecule. Modelled as a single low- affinity pool, conservative 1-site stoichiometry (lower count chosen to stay biologically conservative; bound-at-rest 16 700 ≈ lower bound of Lièvremont's 25 % of store). v0.4 may extend to explicit two-site model.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `2.0` | (µM⁻¹·s⁻¹) — pair gives Kd = 500 µM |
+| `k_off` | `1000.0` | (s⁻¹) — reverse |
+
+## `[buffers.bip_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_molecules` | `50000` | (count of BiP molecules) — order-of-magnitude estimate |
+| `sites_per` | `1` | (sites per molecule) — conservative; Lièvremont range 1–2 |
+
+## `[buffers.crec]`
+
+CREC family pool (CALU + RCN1 + RCN2 lumped) — small multi-EF-hand low-affinity Ca²⁺ binders, ER lumen + secretory pathway. [Honoré & Vorum 2000](#ref-honore_vorum_2000): 6–7 EF-hands per molecule, Kd "up to mM". v0.4 may split into individual proteins if granule secretion work requires CALU specifically.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `0.5` | (µM⁻¹·s⁻¹) — pair gives Kd = 1 mM |
+| `k_off` | `500.0` | (s⁻¹) — reverse |
+
+## `[buffers.crec_pool]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_molecules` | `15000` | (count; CALU ~5k + RCN1 ~5k + RCN2 ~5k order-of-magnitude) |
+| `sites_per` | `4` | (functional Ca²⁺-binding EF-hands per molecule) |
+
+
+# PMCA (basal + CaM-activated)
+
+## `[pmca.cam_activated]` — PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12)
+
+Ca₄·CaM binds free PMCA (step 8), the complex binds and pumps Ca²⁺ with ~5× higher k_cat than basal (step 10 vs basal step 5). Step 11 dissociates 4 Ca²⁺ from the active complex; step 12 is the slow CaM dissociation. Both 11 and 12 required for mass conservation: with 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug previously worked around by omitting step 11 entirely; restored 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
+
+k12 special note: [Caride 2007](#ref-caride_2007) measured 0.033 s⁻¹ in vitro (τ = 30 s), but in vivo PIP2 binding to the PMCA C-terminus competitively displaces CaM on a much faster timescale ([Penniston & Enyedi 1998](#ref-penniston_enyedi_1998) review). The in vitro value traps PMCA in PMCA·CaM during sustained Ca²⁺ elevation; using 1 s⁻¹ (in-vivo, 30× faster) restores physiological PMCA Vmax during transient recovery. v0.3.1 fix — see lab book 2026-05-12 (DTS overshoot diagnosis).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k8` | `0.2` | PMCA + Ca₄·CaM → Ca₄·CaM·PMCA           (µM⁻¹·s⁻¹) step 8 fwd |
+| `k8r` | `8.0e-4` | reverse                                   (s⁻¹)       step 8 rev |
+| `k9` | `50.0` | Ca₄·CaM·PMCA + Ca²⁺ → Ca₄·CaM·PMCA·Ca   (µM⁻¹·s⁻¹) step 9 |
+| `k9r` | `10.0` | reverse                                   (s⁻¹) |
+| `k10` | `30.0` | Ca₄·CaM·PMCA·Ca → Ca₄·CaM·PMCA + Ca²⁺_ex (s⁻¹)       step 10 |
+| `k11` | `10.0` | Ca₄·CaM·PMCA → PMCA·CaM + 4 Ca²⁺_cyt    (s⁻¹)       step 11 fwd |
+| `k11r` | `7.332e-4` | reverse                                  (µM⁻⁴·s⁻¹)  step 11 rev |
+| `k12` | `1.0` | PMCA·CaM → PMCA + CaM_free  (s⁻¹) — in-vivo rate (see above) |
+
+
+# References
+
+- **Ajanel, A. and Hindle, M. S. and Naik, U. P. and Denorme, F. and Campbell, R. A. (2025)** {#ref-ajanel_2025}. *Mitochondrial calcium uniporter regulates ITAM-dependent platelet activation*. Circulation Research. [doi:10.1161/CIRCRESAHA.125.326443](https://doi.org/10.1161/CIRCRESAHA.125.326443)
+- **Argon, Y. and Simen, B. B. (1999)** {#ref-argon_simen_1999}. *GRP94, an ER chaperone with protein and peptide binding properties*. Seminars in Cell & Developmental Biology. [doi:10.1006/scdb.1999.0320](https://doi.org/10.1006/scdb.1999.0320)
+- **Baksh, S. and Michalak, M. (1991)** {#ref-baksh_michalak_1991}. *Expression of calreticulin in Escherichia coli and identification of its Ca2+ binding domains*. Journal of Biological Chemistry. <https://pubmed.ncbi.nlm.nih.gov/1939178/>
+- **Balabin, F. A. and Korobkina, J. D. D. and Galkina, S. V. and Panteleev, M. A. and Sveshnikova, A. N. (2024)** {#ref-balabin_2024}. *Personalization of a computational systems biology model of blood platelet calcium signaling*. Biomeditsinskaia Khimiia. [doi:10.18097/PBMC20247006394](https://doi.org/10.18097/PBMC20247006394)
+- **Bezprozvanny, I. and Watras, J. and Ehrlich, B. E. (1991)** {#ref-bezprozvanny_1991}. *Bell-shaped calcium-response curves of Ins(1,4,5)P3- and calcium-gated channels from endoplasmic reticulum of cerebellum*. Nature. [doi:10.1038/351751a0](https://doi.org/10.1038/351751a0)
+- **Blaustein, M. P. and Lederer, W. J. (1999)** {#ref-blaustein_lederer_1999}. *Sodium/calcium exchange: its physiological implications*. Physiological Reviews. [doi:10.1152/physrev.1999.79.3.763](https://doi.org/10.1152/physrev.1999.79.3.763)
+- **Brandman, O. and Liou, J. and Park, W. S. and Meyer, T. (2007)** {#ref-brandman_2007}. *STIM2 Is a Feedback Regulator that Stabilizes Basal Cytosolic and Endoplasmic Reticulum Ca2+ Levels*. Cell. [doi:10.1016/j.cell.2007.11.039](https://doi.org/10.1016/j.cell.2007.11.039)
+- **Brass, L. F. and Vassallo, R. R. and Belmonte, E. and Ahuja, M. and Cichowski, K. and Hoxie, J. A. (1992)** {#ref-brass_1992}. *Structure and function of the human platelet thrombin receptor*. Journal of Biological Chemistry. <https://pubmed.ncbi.nlm.nih.gov/1321125/>
+- **Burkhart, J. M. and Vaudel, M. and Gambaryan, S. and Radau, S. and Walter, U. and Martens, L. and Geiger, J. and Sickmann, A. and Zahedi, R. P. (2012)** {#ref-burkhart_2012}. *The first comprehensive and quantitative analysis of human platelet protein composition allows the comparative analysis of structural and functional pathways*. Blood. [doi:10.1182/blood-2012-04-416594](https://doi.org/10.1182/blood-2012-04-416594)
+- **Burnstock, G. (2007)** {#ref-burnstock_2007}. *Purine and pyrimidine receptors*. Cellular and Molecular Life Sciences. [doi:10.1007/s00018-007-6497-0](https://doi.org/10.1007/s00018-007-6497-0)
+- **Caride, A. J. and Filoteo, A. G. and Penniston, J. T. and Strehler, E. E. (2007)** {#ref-caride_2007}. *The plasma membrane Ca2+ pump isoform 4a differs from isoform 4b in the mechanism of calmodulin binding and activation kinetics: implications for Ca2+ signaling*. Journal of Biological Chemistry. [doi:10.1074/jbc.M701129200](https://doi.org/10.1074/jbc.M701129200)
+- **Coller, B. S. and Anderson, K. and Weisman, H. F. (1995)** {#ref-coller_1995}. *New antiplatelet agents: platelet GPIIb/IIIa antagonists*. Thrombosis and Haemostasis. 
+- **Covic, L. and Gresser, A. L. and Kuliopulos, A. (2000)** {#ref-covic_2000}. *Biphasic kinetics of activation and signaling for PAR1 and PAR4 thrombin receptors in platelets*. Biochemistry. [doi:10.1021/bi9927078](https://doi.org/10.1021/bi9927078)
+- **De Young, G. W. and Keizer, J. (1992)** {#ref-deyoung_keizer_1992}. *A single-pool inositol 1,4,5-trisphosphate-receptor-based model for agonist-stimulated oscillations in Ca2+ concentration*. Proceedings of the National Academy of Sciences. [doi:10.1073/pnas.89.20.9895](https://doi.org/10.1073/pnas.89.20.9895)
+- **DiPolo, R. and Beaugé, L. (2006)** {#ref-dipolo_beauge_2006}. *Sodium/calcium exchanger: influence of metabolic regulation on ion carrier interactions*. Physiological Reviews. [doi:10.1152/physrev.00018.2005](https://doi.org/10.1152/physrev.00018.2005)
+- **Dode, L. and Vilsen, B. and Van Baelen, K. and Wuytack, F. and Clausen, J. D. and Andersen, J. P. (2002)** {#ref-dode_2002}. *Dissection of the functional differences between sarco(endo)plasmic reticulum Ca2+-ATPase (SERCA) 1 and 3 isoforms by steady-state and transient kinetic analyses*. Journal of Biological Chemistry. [doi:10.1074/jbc.M207778200](https://doi.org/10.1074/jbc.M207778200) — *via* [Purvis 2008](#ref-purvis_2008)
+- **Dolan, A. T. and Diamond, S. L. (2014)** {#ref-dolan_diamond_2014}. *Systems modeling of Ca2+ homeostasis and mobilization in platelets mediated by IP3 and store-operated Ca2+ entry*. Biophysical Journal. [doi:10.1016/j.bpj.2014.03.028](https://doi.org/10.1016/j.bpj.2014.03.028)
+- **Falke, J. J. and Drake, S. K. and Hazard, A. L. and Peersen, O. B. (1994)** {#ref-falke_1994}. *Molecular tuning of ion binding to calcium signaling proteins*. Quarterly Reviews of Biophysics. [doi:10.1017/s0033583500003012](https://doi.org/10.1017/s0033583500003012)
+- **Ghatge, M. and Flora, G. D. and Patel, R. B. and Nayak, M. K. and Kumskova, M. and Nguyen, T. and Usachev, Y. M. and Chauhan, A. K. (2026)** {#ref-ghatge_2026}. *The mitochondrial calcium uniporter regulates calcium dynamics to drive platelet function, bioenergetics, and thrombosis*. Journal of Thrombosis and Haemostasis. [doi:10.1016/j.jtha.2025.10.019](https://doi.org/10.1016/j.jtha.2025.10.019)
+- **Hammes, S. R. and Shapiro, M. J. and Coughlin, S. R. (1999)** {#ref-hammes_coughlin_1999}. *Shutoff and agonist-triggered internalization of protease-activated receptor 1 can be separated by mutation of putative phosphorylation sites in the cytoplasmic tail*. Biochemistry. [doi:10.1021/bi9902236](https://doi.org/10.1021/bi9902236)
+- **Hechler, B. and Lenain, N. and Marchese, P. and Vial, C. and Heim, V. and Freund, M. and Cazenave, J.-P. and Cattaneo, M. and Ruggeri, Z. M. and Evans, R. J. and Gachet, C. (2003)** {#ref-hechler_2003}. *A role of the fast ATP-gated P2X1 cation channel in thrombosis of small arteries in vivo*. Journal of Experimental Medicine. [doi:10.1084/jem.20030144](https://doi.org/10.1084/jem.20030144)
+- **Honoré, B. and Vorum, H. (2000)** {#ref-honore_vorum_2000}. *The CREC family, a novel family of multiple EF-hand, low-affinity Ca2+-binding proteins localised to the secretory pathway of mammalian cells*. FEBS Letters. [doi:10.1016/s0014-5793(99)01780-9](https://doi.org/10.1016/s0014-5793(99)01780-9)
+- **Hoover, P. J. and Lewis, R. S. (2011)** {#ref-hoover_lewis_2011}. *Stoichiometric requirements for trapping and gating of Ca2+ release-activated Ca2+ (CRAC) channels by stromal interaction molecule 1 (STIM1)*. Proceedings of the National Academy of Sciences USA. [doi:10.1073/pnas.1101664108](https://doi.org/10.1073/pnas.1101664108) — *via* [Dolan 2014](#ref-dolan_diamond_2014)
+- **Hung, D. T. and Vu, T. K. H. and Wheaton, V. I. and Ishii, K. and Coughlin, S. R. (1992)** {#ref-hung_1992}. *Cloned platelet thrombin receptor is necessary for thrombin-induced platelet activation*. J. Clin. Invest.. [doi:10.1172/JCI115721](https://doi.org/10.1172/JCI115721)
+- **Inesi, G. (1985)** {#ref-inesi_1985}. *Mechanism of calcium transport*. Annual Review of Physiology. [doi:10.1146/annurev.ph.47.030185.003041](https://doi.org/10.1146/annurev.ph.47.030185.003041)
+- **Kahn, M. L. and Zheng, Y.-W. and Huang, W. and Bigornia, V. and Zeng, D. and Moff, S. and Farese, R. V. and Tam, C. and Coughlin, S. R. (1998)** {#ref-kahn_1998}. *A dual thrombin receptor system for platelet activation*. Nature. [doi:10.1038/29325](https://doi.org/10.1038/29325)
+- **Landolfi, B. and Curci, S. and Debellis, L. and Pozzan, T. and Hofer, A. M. (1998)** {#ref-hofer_1998}. *Ca2+ homeostasis in the agonist-sensitive internal store: functional interactions between mitochondria and the ER measured in situ in intact cells*. Journal of Cell Biology. [doi:10.1083/jcb.142.5.1235](https://doi.org/10.1083/jcb.142.5.1235)
+- **Li, Y.-X. and Rinzel, J. (1994)** {#ref-li_rinzel_1994}. *Equations for InsP3 Receptor-mediated [Ca2+]i Oscillations Derived from a Detailed Kinetic Model: A Hodgkin-Huxley Like Formalism*. Journal of Theoretical Biology. [doi:10.1006/jtbi.1994.1041](https://doi.org/10.1006/jtbi.1994.1041)
+- **Linse, S. and Forsén, S. (1995)** {#ref-linse_forsen_1995}. *Determinants that govern high-affinity calcium binding*. Advances in Second Messenger and Phosphoprotein Research. [doi:10.1016/s1040-7952(05)80005-9](https://doi.org/10.1016/s1040-7952(05)80005-9)
+- **Lièvremont, J.-P. and Rizzuto, R. and Hendershot, L. and Meldolesi, J. (1997)** {#ref-lievremont_1997}. *BiP, a major chaperone protein of the endoplasmic reticulum lumen, plays a direct and important role in the storage of the rapidly exchanging pool of Ca2+*. Journal of Biological Chemistry. [doi:10.1074/jbc.272.49.30873](https://doi.org/10.1074/jbc.272.49.30873)
+- **Mahaut-Smith, M. P. and Ennion, S. J. and Rolf, M. G. and Evans, R. J. (2000)** {#ref-mahaut_smith_2000}. *ADP is not an agonist at P2X1 receptors: evidence for separate receptors stimulated by ATP and ADP on human platelets*. British Journal of Pharmacology. [doi:10.1038/sj.bjp.0703517](https://doi.org/10.1038/sj.bjp.0703517)
+- **Mak, D.-O. D. and Foskett, J. K. (1997)** {#ref-mak_foskett_1997}. *Single-channel kinetics, inactivation, and spatial distribution of inositol trisphosphate (IP3) receptors in Xenopus oocyte nucleus*. Journal of General Physiology. <https://pmc.ncbi.nlm.nih.gov/articles/PMC2217068/> — *via* [Hoover 2011](#ref-hoover_lewis_2011)
+- **Mazet, F. and Tindall, M. J. and Gibbins, J. M. and Fry, M. J. (2020)** {#ref-mazet_2020}. *A model of the PI cycle reveals the regulating roles of lipid-binding proteins and pitfalls of using mosaic biological data*. Scientific Reports. [doi:10.1038/s41598-020-70215-7](https://doi.org/10.1038/s41598-020-70215-7)
+- **Penniston, J. T. and Enyedi, Á. (1998)** {#ref-penniston_enyedi_1998}. *Modulation of the plasma membrane Ca2+ pump*. Journal of Membrane Biology. [doi:10.1007/s002329900424](https://doi.org/10.1007/s002329900424) — *via* [Caride 2007](#ref-caride_2007)
+- **Prakriya, M. and Lewis, R. S. (2002)** {#ref-prakriya_lewis_2002}. *Separation and characterization of currents through store-operated CRAC channels and Mg2+-inhibited cation (MIC) channels*. Journal of General Physiology. [doi:10.1085/jgp.20028551](https://doi.org/10.1085/jgp.20028551) — *via* [Hoover 2011](#ref-hoover_lewis_2011)
+- **Purvis, J. E. and Chatterjee, M. S. and Brass, L. F. and Diamond, S. L. (2008)** {#ref-purvis_2008}. *A molecular signaling model of platelet phosphoinositide and calcium regulation during homeostasis and P2Y1 activation*. Blood. [doi:10.1182/blood-2008-05-157883](https://doi.org/10.1182/blood-2008-05-157883)
+- **Roberts, D. E. and McNicol, A. and Bose, R. (2012)** {#ref-roberts_2012}. *Molecular and functional characterization of the human platelet Na+/Ca2+ exchangers*. British Journal of Pharmacology. [doi:10.1111/j.1476-5381.2011.01600.x](https://doi.org/10.1111/j.1476-5381.2011.01600.x)
+- **Sage, S. O. and Rink, T. J. (1985)** {#ref-sage_rink_1985}. *Inhibition by forskolin of cytosolic calcium rise, shape change and aggregation in quin2-loaded human platelets*. FEBS Letters. [doi:10.1016/0014-5793(85)80890-5](https://doi.org/10.1016/0014-5793(85)80890-5)
+- **Shehwar, D. and Barki, S. and Aslam, M. A. and Ali, M. and Rasheed, R. and Naz, T. and Iftikhar, H. and Aslam, M. R. (2025)** {#ref-shehwar_2025}. *Platelets and mitochondria: the calcium connection*. Molecular Biology Reports. [doi:10.1007/s11033-025-10389-3](https://doi.org/10.1007/s11033-025-10389-3)
+- **Sneyd, J. and Dufour, J.-F. (2002)** {#ref-sneyd_dufour_2002}. *A dynamic model of the type-2 inositol trisphosphate receptor*. Proceedings of the National Academy of Sciences. [doi:10.1073/pnas.032281999](https://doi.org/10.1073/pnas.032281999)
+- **Vassilakos, A. and Michalak, M. and Lehrman, M. A. (1998)** {#ref-vassilakos_1998}. *Oligosaccharide Binding Characteristics of the Molecular Chaperones Calnexin and Calreticulin*. Biochemistry. [doi:10.1021/bi972465g](https://doi.org/10.1021/bi972465g)
+- **Vial, C. and Rolf, M. G. and Mahaut-Smith, M. P. and Evans, R. J. (2002)** {#ref-vial_evans_2002}. *A study of P2X1 receptor function in murine megakaryocytes and human platelets reveals synergy with P2Y receptors*. British Journal of Pharmacology. [doi:10.1038/sj.bjp.0704486](https://doi.org/10.1038/sj.bjp.0704486)
+- **Vig, M. and Peinelt, C. and Beck, A. and Koomoa, D. L. and Rabah, D. and Koblan-Huberson, M. and Kraft, S. and Turner, H. and Fleig, A. and Penner, R. and Kinet, J.-P. (2006)** {#ref-vig_2006}. *CRACM1 Is a Plasma Membrane Protein Essential for Store-Operated Ca2+ Entry*. Science. [doi:10.1126/science.1127883](https://doi.org/10.1126/science.1127883)
+- **Vu, T. K. H. and Hung, D. T. and Wheaton, V. I. and Coughlin, S. R. (1991)** {#ref-vu_1991}. *Molecular cloning of a functional thrombin receptor reveals a novel proteolytic mechanism of receptor activation*. Cell. [doi:10.1016/0092-8674(91)90261-V](https://doi.org/10.1016/0092-8674(91)90261-V)
+- **Yin, H. L. and Stossel, T. P. (1979)** {#ref-yin_stossel_1979}. *Control of cytoplasmic actin gel-sol transformation by gelsolin, a calcium-dependent regulatory protein*. Nature. <https://www.nature.com/articles/281583a0>
