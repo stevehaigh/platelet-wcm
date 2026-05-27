@@ -17,6 +17,7 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from runscripts.manual.replayTui import (
 	Snapshot,
@@ -81,6 +82,7 @@ class TestReplayTuiHelpers(unittest.TestCase):
 		self.assertEqual(_ca_colour(500), 'red')
 
 
+@pytest.mark.slow
 class TestReplayTuiLoad(unittest.TestCase):
 	"""End-to-end load against a fresh 5-second sim."""
 
@@ -215,6 +217,7 @@ class TestReplayTuiLoad(unittest.TestCase):
 				'AUC above rest is a cumulative integral; must be monotone')
 
 
+@pytest.mark.slow
 class TestTextualApp(unittest.TestCase):
 	"""Construct-and-introspect smoke test for the Textual app.
 

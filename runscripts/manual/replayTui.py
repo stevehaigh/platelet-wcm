@@ -117,10 +117,14 @@ class Snapshot:
 	# DTS buffers (informational)
 	calr_free: int
 	calr_ca: int
-	# Pumps / flux
+	# Pumps / flux — all 5 PMCA sub-states (Caride 2007). pmca_cam is the
+	# slow CaM-dissociation state, NOT a CaM-active state; the actively
+	# pumping CaM-loaded states are ca4_cam_pmca + ca4_cam_pmca_ca.
 	pmca_free: int
 	pmca_ca: int
 	pmca_cam: int
+	ca4_cam_pmca: int
+	ca4_cam_pmca_ca: int
 	soce_flux_nMs: float
 	# Derived metrics
 	peak_ca_so_far: float
@@ -204,6 +208,8 @@ def load_snapshots(simout: Path) -> tuple[list[Snapshot], Totals, dict]:
 	pmca_free_col = ca_reader.readColumn('pmca_free').flatten()
 	pmca_ca_col = ca_reader.readColumn('pmca_ca').flatten()
 	pmca_cam_col = ca_reader.readColumn('pmca_cam').flatten()
+	ca4_cam_pmca_col = ca_reader.readColumn('ca4_cam_pmca').flatten()
+	ca4_cam_pmca_ca_col = ca_reader.readColumn('ca4_cam_pmca_ca').flatten()
 
 	# BulkMolecules: counts matrix (T, N)
 	counts = bm_reader.readColumn('counts')
@@ -236,7 +242,8 @@ def load_snapshots(simout: Path) -> tuple[list[Snapshot], Totals, dict]:
 		p2x1=int(col('P2X1[pl]')[0] + col('P2X1_O[pl]')[0] + col('P2X1_D[pl]')[0]),
 		gq=cs.N_GQ_TOTAL,
 		plcb=int(col('PLCb_inactive[c]')[0] + col('PLCb_active[c]')[0]),
-		pmca=int(pmca_free_col[0] + pmca_ca_col[0] + pmca_cam_col[0]),
+		pmca=int(pmca_free_col[0] + pmca_ca_col[0] + pmca_cam_col[0]
+			+ ca4_cam_pmca_col[0] + ca4_cam_pmca_ca_col[0]),
 		calr=cs.N_CALR,
 	)
 
@@ -284,6 +291,8 @@ def load_snapshots(simout: Path) -> tuple[list[Snapshot], Totals, dict]:
 			pmca_free=int(pmca_free_col[i]),
 			pmca_ca=int(pmca_ca_col[i]),
 			pmca_cam=int(pmca_cam_col[i]),
+			ca4_cam_pmca=int(ca4_cam_pmca_col[i]),
+			ca4_cam_pmca_ca=int(ca4_cam_pmca_ca_col[i]),
 			soce_flux_nMs=float(soce[i]),
 			peak_ca_so_far=float(running_peak[i]),
 			auc_above_rest=float(auc_above[i]),
@@ -450,7 +459,7 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 	bottom_membrane = _membrane_line('╚', '╝', '═', [
 		_receptor_tag('PAR4', par4_frac),
 		_flux_tag('SOCE', f'{s.soce_flux_nMs:>+6.2f} nM/s'),
-		_flux_tag('PMleak', '75 ions/s'),
+		_flux_tag('PMleak', f'{cs.J_PM_LEAK_IONS_S:.0f} ions/s'),
 	])
 
 	# ── Inside the cell ───────────────────────────────────────────
@@ -577,14 +586,19 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 	dts_bottom = '└' + '─' * (DTS_W - 2) + '┘'
 	inside_lines.append(f'║{indent}{dts_bottom}{gap_str}{" " * MITO_W}{trail}║')
 
-	# PMCA / SOCE pump details — bottom of cytosol space
+	# PMCA / SOCE pump details — bottom of cytosol space.
+	# "CaM-active" is the sum of the two Ca₄·CaM-loaded states
+	# (ca4_cam_pmca + ca4_cam_pmca_ca, Caride 2007 Steps 9–10 — the
+	# actively pumping forms). pmca_cam (Step 12) is the slow CaM-
+	# dissociation state, labelled here as "deact" to keep the line short.
+	cam_active = s.ca4_cam_pmca + s.ca4_cam_pmca_ca
 	pmca_line = (
-		f'  [b]PMCA[/b]  basal {s.pmca_ca:>4}   CaM-active {s.pmca_cam:>4}   '
-		f'free {s.pmca_free:>4}'
+		f'  [b]PMCA[/b]  basal {s.pmca_ca:>4}   CaM-active {cam_active:>4}   '
+		f'deact {s.pmca_cam:>4}   free {s.pmca_free:>4}'
 	)
 	pmca_visible = len(
-		f'  PMCA  basal {s.pmca_ca:>4}   CaM-active {s.pmca_cam:>4}   '
-		f'free {s.pmca_free:>4}')
+		f'  PMCA  basal {s.pmca_ca:>4}   CaM-active {cam_active:>4}   '
+		f'deact {s.pmca_cam:>4}   free {s.pmca_free:>4}')
 	inside_lines.append(inside(pmca_line, pmca_visible))
 
 	# Extracellular reservoir label — sits on the same row as the top
@@ -763,7 +777,11 @@ class PlateletReplayApp(App):
 		if not self.is_running:
 			return
 		snap = self.snapshots[self.frame]
-		ca_ex_mM = float(self.meta.get('ca_ex_mM') or 1.2)
+		# `ca_ex_mM = 0` is the Dolan Fig. 4 EDTA condition — must not
+		# be swallowed by an `or` fallback. Default only when the key
+		# is missing entirely (older sims without metadata).
+		meta_ca_ex = self.meta.get('ca_ex_mM')
+		ca_ex_mM = float(meta_ca_ex) if meta_ca_ex is not None else 1.2
 		ca_ex_uM = ca_ex_mM * 1000.0
 		extra = f'seed {self.meta.get("seed", "?")} · Ca_ex {ca_ex_mM} mM'
 
@@ -863,7 +881,8 @@ def _dump_one_frame(simout: Path, frame_idx: int) -> int:
 	idx = max(0, min(frame_idx, len(snapshots) - 1))
 	snap = snapshots[idx]
 	console = Console()
-	ca_ex_mM = float(meta.get('ca_ex_mM') or 1.2)
+	meta_ca_ex = meta.get('ca_ex_mM')
+	ca_ex_mM = float(meta_ca_ex) if meta_ca_ex is not None else 1.2
 	ca_ex_uM = ca_ex_mM * 1000.0
 
 	# Diagnostic header
