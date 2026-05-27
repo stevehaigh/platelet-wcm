@@ -25,7 +25,7 @@ gamma_s = 0.3e-15      # A/V — 0.3 fS effective Ca²⁺-specific γ
 # Small constant cyt influx that balances PMCA outflow at rest, keeping
 # resting Ca²⁺ at ~100 nM. Biologically: unidentified background entry
 # (TRPC, NCX reverse, residual constitutive permeability — Sage & Rink
-# 1985–1990; Brandman & Liou 2010 review). Calibrated against the
+# 1985–1990; Brandman et al. 2007 STIM2 review). Calibrated against the
 # steady-state PM balance J_SOCE + J_leak = J_PMCA at cyt = 100 nM,
 # DTS = 250 µM:
 #   PMCA quasi-eq outflow ≈ k_cat · PMCA·Ca_eq ≈ 5.5 × 14 = 77
@@ -103,11 +103,18 @@ gamma_s = 0.075e-12  # (A/V) — 0.075 pS Ca²⁺-specific conductance; calibrat
 #
 # ⚠ OPEN BIOLOGY QUESTION: these constants imply ~4.7 cycles/s per pump
 # at cyt = 100 nM, which is ~2–5× higher than the SERCA3b Vmax/Km
-# literature (Inesi 1985; Nishi 1992; Dode 2002 itself: Vmax 30-50
-# cycles/s saturating, Km 0.7-1.1 µM → v/Vmax at 100 nM ≈ 2%). The
-# Purvis 2008 rate constants appear to over-estimate the platelet
-# SERCA pump rate at resting Ca²⁺. v0.3+ should re-derive from primary
-# sources. See dissertation-notes §3.2.
+# literature (Inesi 1985; Dode 2002 itself: Vmax 30-50 cycles/s
+# saturating, Km 0.7-1.1 µM → v/Vmax at 100 nM ≈ 2%). The Purvis 2008
+# rate constants appear to over-estimate the platelet SERCA pump rate
+# at resting Ca²⁺. v0.3+ should re-derive from primary sources. See
+# dissertation-notes §3.2.
+#
+# Note: an earlier draft of this comment also cited "Nishi 1992" as a
+# third SERCA-literature data point. The primary Nishi 1992 paper
+# could not be located in the 2026-05-26 reference audit (no clear
+# PubMed match found by user or by web search); the figures it would
+# have contributed come transitively via the Purvis 2008 SERCA
+# bibliography. Citation removed pending source identification.
 [serca.cycle]
 k_shuttle_f =  600.0    # E2 → E1                          (s⁻¹)
 k_shuttle_r =  600.0    # E1 → E2                          (s⁻¹)
@@ -324,9 +331,10 @@ h     = 4        # (dimensionless int) — allosteric Hill cooperativity (switch
 # Supp Table 3 P2RY1 entry; exact Supp Table value not directly
 # cross-checked, but the ~150 figure is the widely-cited field
 # consensus for P2Y1 binding sites per platelet). Earlier lab-book
-# attribution to "Coller 1995" was incorrect — Coller's 1995
-# Circulation review covers only GPIIb/IIIa / adhesion receptors,
-# not ADP receptors (verified against the local EPUB 2026-05-26).
+# attribution to "Coller 1995" was incorrect — Coller, Anderson &
+# Weisman's 1995 Thrombosis and Haemostasis review covers only
+# GPIIb/IIIa / adhesion receptors, not ADP receptors (verified
+# against the local EPUB 2026-05-26).
 # k_on and k_off here
 # are *model-choice* rates: there is no platelet-specific kon/koff
 # measurement for P2Y1. Chosen so that activation reaches ~67 %
@@ -339,7 +347,7 @@ k_off = 0.5   # (s⁻¹) — model choice
 # PAR1 thrombin receptor — high-affinity, irreversible proteolytic
 # cleavage. ~2500 copies per platelet (Brass 1992 / Burkhart 2012
 # proteomics; validated in lab-book-2026-05-15-mike-papers-pip2-fix.md
-# calibration table). Sveshnikova 2025 uses an equivalent ~2200
+# calibration table). Balabin et al. 2024 uses an equivalent ~2200
 # molecules in their Table 1 model (consistent within Burkhart's ±15%
 # inter-subject CV).
 # k_cleave 2 nM⁻¹·s⁻¹: order-of-magnitude consistent with the
@@ -354,13 +362,9 @@ k_internalize = 0.02   # (s⁻¹) — τ ~50 s lumped (Hammes & Coughlin 1999 ti
 
 [gpcr.par4]
 # PAR4 thrombin receptor — low-affinity, slow cleavage. ~500 copies
-# per platelet. Source-of-truth is implicit "lower abundance than
-# PAR1" per the original v0.4 design lab book; specific primary
-# citation not pinned down (likely Kahn 1998 / Burkhart 2012, but
-# May 15 calibration table doesn't tie the ~500 number to a specific
-# paper). User-to-confirm. PAR4 contributes the
-# sustained / late phase of thrombin signalling; PAR1 dominates the
-# initial fast phase.
+# per platelet (Burkhart 2012 platelet proteome). PAR4 contributes
+# the sustained / late phase of thrombin signalling; PAR1 dominates
+# the initial fast phase.
 # k_cleave 0.2 nM⁻¹·s⁻¹: ~10× slower than PAR1, consistent with
 # Kahn 1998 / Covic 2000 PAR4 thrombin-cleavage measurements.
 # k_internalize 0.005 s⁻¹ (τ ~200 s): chosen to give a slower decay
@@ -474,7 +478,7 @@ n_total = 1400000   # (effective Ca²⁺-binding sites; calibrated against Phase
 # drainage. See dissertation-notes §2.1.
 #
 # Attribution: independent 1:1 Ca²⁺-binder coarse-graining for
-# calreticulin follows the Sneyd 2014 / Hofer 1998 ER-buffer
+# calreticulin follows the Sneyd & Dufour 2002 / Hofer 1998 ER-buffer
 # framework. Kd = 1.0 mM from Baksh & Michalak 1991 (CALR C-domain
 # direct binding). k_on / k_off are paired to give that Kd; the
 # precise rates are not measured but are fast-equilibrium relative
@@ -581,7 +585,7 @@ sites_per   = 4      # (functional Ca²⁺-binding EF-hands per molecule)
 # k12 special note: Caride 2007 measured 0.033 s⁻¹ in vitro (τ = 30 s),
 # but in vivo PIP2 binding to the PMCA C-terminus competitively
 # displaces CaM on a much faster timescale (Penniston & Enyedi 1998
-# review; Mandal 2024). The in vitro value traps PMCA in PMCA·CaM
+# review). The in vitro value traps PMCA in PMCA·CaM
 # during sustained Ca²⁺ elevation; using 1 s⁻¹ (in-vivo, 30× faster)
 # restores physiological PMCA Vmax during transient recovery. v0.3.1
 # fix — see lab book 2026-05-12 (DTS overshoot diagnosis).
@@ -643,7 +647,7 @@ journal = "Biochemistry"
 volume  = "38"
 pages   = "9308-9316"
 doi     = "10.1021/bi9902236"
-match   = ["Hammes & Coughlin 1999", "Hammes 1999"]
+match   = ["Hammes & Coughlin 1999", "Hammes 1999", "Coughlin 1999"]
 
 [references.kahn_1998]
 authors = "Kahn, M. L. and Zheng, Y.-W. and Huang, W. and Bigornia, V. and Zeng, D. and Moff, S. and Farese, R. V. and Tam, C. and Coughlin, S. R."
@@ -763,7 +767,7 @@ journal = "Scientific Reports"
 volume  = "10"
 pages   = "13244"
 doi     = "10.1038/s41598-020-70215-7"
-match   = ["Mazet, Tindall, Gibbins & Fry 2020", "Mazet et al. 2020", "Mazet 2020"]
+match   = ["Mazet, Tindall, Gibbins & Fry 2020", "Mazet et al. 2020", "Mazet 2020", "Gibbins & Fry 2020"]
 
 [references.burkhart_2012]
 authors = "Burkhart, J. M. and Vaudel, M. and Gambaryan, S. and Radau, S. and Walter, U. and Martens, L. and Geiger, J. and Sickmann, A. and Zahedi, R. P."
@@ -1001,6 +1005,31 @@ volume  = "52"
 doi     = "10.1007/s11033-025-10389-3"
 match   = ["Shehwar et al. 2025"]
 
+[references.hofer_1998]
+authors = "Landolfi, B. and Curci, S. and Debellis, L. and Pozzan, T. and Hofer, A. M."
+year    = 1998
+title   = "Ca2+ homeostasis in the agonist-sensitive internal store: functional interactions between mitochondria and the ER measured in situ in intact cells"
+journal = "Journal of Cell Biology"
+volume  = "142"
+pages   = "1235-1243"
+doi     = "10.1083/jcb.142.5.1235"
+url     = "https://pubmed.ncbi.nlm.nih.gov/9732284/"
+match   = ["Hofer 1998"]
+# Key uses "hofer_1998" because that's the inline citation style in
+# the TOML (Hofer is the senior / corresponding author from Padova).
+# Landolfi is first author; full author list above. PDF locally at
+# source-info/calcium-papers/Landolfi et al. - 1998 - ...
+
+[references.inesi_1985]
+authors = "Inesi, G."
+year    = 1985
+title   = "Mechanism of calcium transport"
+journal = "Annual Review of Physiology"
+volume  = "47"
+doi     = "10.1146/annurev.ph.47.030185.003041"
+url     = "https://pubmed.ncbi.nlm.nih.gov/2581506/"
+match   = ["Inesi 1985"]
+
 [references.brass_1992]
 authors = "Brass, L. F. and Vassallo, R. R. and Belmonte, E. and Ahuja, M. and Cichowski, K. and Hoxie, J. A."
 year    = 1992
@@ -1016,16 +1045,110 @@ match   = ["Brass 1992", "Brass et al. 1992"]
 # 2012 proteomics ✓").
 
 [references.ghatge_2026]
-authors = "Ghatge, M. and et al."
+authors = "Ghatge, M. and Flora, G. D. and Patel, R. B. and Nayak, M. K. and Kumskova, M. and Nguyen, T. and Usachev, Y. M. and Chauhan, A. K."
 year    = 2026
 title   = "The mitochondrial calcium uniporter regulates calcium dynamics to drive platelet function, bioenergetics, and thrombosis"
 journal = "Journal of Thrombosis and Haemostasis"
+volume  = "24"
+pages   = "716-731"
 doi     = "10.1016/j.jtha.2025.10.019"
 match   = ["Ghatge et al. 2026"]
-# Year discrepancy: DOI/journal suggests 2025 publication; TOML inline
-# citation reads "Ghatge et al. 2026". Common Elsevier
-# online-ahead-of-print case. User to confirm whether to keep year =
-# 2026 (= formal print year) or change to 2025 (= online year) — and
-# whether to update the inline "Ghatge et al. 2026" prose citation
-# and `match` accordingly. `authors = "Ghatge, M. and et al."` is
-# stub-only and should be replaced with the full author list.
+
+[references.sneyd_dufour_2002]
+authors = "Sneyd, J. and Dufour, J.-F."
+year    = 2002
+title   = "A dynamic model of the type-2 inositol trisphosphate receptor"
+journal = "Proceedings of the National Academy of Sciences"
+volume  = "99"
+pages   = "2398-2403"
+doi     = "10.1073/pnas.032281999"
+match   = ["Sneyd & Dufour 2002", "Sneyd 2014"]
+
+[references.coller_1995]
+authors = "Coller, B. S. and Anderson, K. and Weisman, H. F."
+year    = 1995
+title   = "New antiplatelet agents: platelet GPIIb/IIIa antagonists"
+journal = "Thrombosis and Haemostasis"
+volume  = "74"
+pages   = "302-308"
+pmid    = "8578476"
+match   = ["Coller 1995", "Coller, Anderson & Weisman 1995"]
+# Cited only in a corrective annotation at [gpcr.p2y1]: an earlier
+# lab-book misattributed the P2Y1 ~150 copies/platelet figure to
+# this review. Coller, Anderson & Weisman 1995 covers GPIIb/IIIa
+# antagonists, not ADP receptors. Retained in bib so readers
+# investigating the prose note can find the source.
+
+[references.deyoung_keizer_1992]
+authors = "De Young, G. W. and Keizer, J."
+year    = 1992
+title   = "A single-pool inositol 1,4,5-trisphosphate-receptor-based model for agonist-stimulated oscillations in Ca2+ concentration"
+journal = "Proceedings of the National Academy of Sciences"
+volume  = "89"
+pages   = "9895-9899"
+doi     = "10.1073/pnas.89.20.9895"
+match   = ["de Young & Keizer 1992", "deYoung & Keizer 1992", "deYoung-Keizer 1992", "Keizer 1992"]
+
+[references.li_rinzel_1994]
+authors = "Li, Y.-X. and Rinzel, J."
+year    = 1994
+title   = "Equations for InsP3 Receptor-mediated [Ca2+]i Oscillations Derived from a Detailed Kinetic Model: A Hodgkin-Huxley Like Formalism"
+journal = "Journal of Theoretical Biology"
+volume  = "166"
+pages   = "461-473"
+doi     = "10.1006/jtbi.1994.1041"
+match   = ["Li & Rinzel 1994", "Li-Rinzel 1994"]
+
+[references.brandman_2007]
+authors = "Brandman, O. and Liou, J. and Park, W. S. and Meyer, T."
+year    = 2007
+title   = "STIM2 Is a Feedback Regulator that Stabilizes Basal Cytosolic and Endoplasmic Reticulum Ca2+ Levels"
+journal = "Cell"
+volume  = "131"
+pages   = "1327-1339"
+doi     = "10.1016/j.cell.2007.11.039"
+match   = ["Brandman et al. 2007", "Brandman & Liou 2010"]
+# 2010 is a long-standing misremembered year in the prose; the
+# canonical Brandman+Liou STIM2 paper is this 2007 Cell paper.
+
+[references.vassilakos_1998]
+authors = "Vassilakos, A. and Michalak, M. and Lehrman, M. A."
+year    = 1998
+title   = "Oligosaccharide Binding Characteristics of the Molecular Chaperones Calnexin and Calreticulin"
+journal = "Biochemistry"
+volume  = "37"
+pages   = "3480-3490"
+doi     = "10.1021/bi972465g"
+match   = ["Vassilakos 1998"]
+# Primary topic is CALR/CNX lectin chaperone function, not Ca²⁺
+# binding kinetics; the slow-k_off attribution at [buffers.calr_p]
+# flows transitively through the Michalak CALR-review chain.
+
+[references.vig_2006]
+authors = "Vig, M. and Peinelt, C. and Beck, A. and Koomoa, D. L. and Rabah, D. and Koblan-Huberson, M. and Kraft, S. and Turner, H. and Fleig, A. and Penner, R. and Kinet, J.-P."
+year    = 2006
+title   = "CRACM1 Is a Plasma Membrane Protein Essential for Store-Operated Ca2+ Entry"
+journal = "Science"
+volume  = "312"
+pages   = "1220-1223"
+doi     = "10.1126/science.1127883"
+match   = ["Vig 2006", "Vig et al. 2006"]
+
+[references.balabin_2024]
+authors = "Balabin, F. A. and Korobkina, J. D. D. and Galkina, S. V. and Panteleev, M. A. and Sveshnikova, A. N."
+year    = 2024
+title   = "Personalization of a computational systems biology model of blood platelet calcium signaling"
+journal = "Biomeditsinskaia Khimiia"
+volume  = "70"
+pages   = "394-402"
+doi     = "10.18097/PBMC20247006394"
+match   = ["Balabin et al. 2024", "Sveshnikova 2025"]
+# Sveshnikova is the senior (last) author; the prose previously cited
+# this paper as "Sveshnikova 2025" but the actual publication is
+# 2024-12 with Balabin as first author. Match list preserves the
+# legacy form for any straggling references.
+# 2014 is a long-standing misremembered year in the prose; the
+# canonical reference for the ER-buffer / IP3R kinetics framework
+# we're attributing to is this 2002 PNAS paper. Used 2026-05-08 to
+# fix the Purvis 2008 Table 1 k₃ transcription error (11 → 0.11 s⁻¹);
+# see lab-book-2026-05-08-sneyd-dufour-audit.md.
