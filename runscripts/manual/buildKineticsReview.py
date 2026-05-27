@@ -94,7 +94,7 @@ def parse_toml_blocks(path: Path) -> List[Block]:
 	current_pre: List[str] = []
 	current_kv: List[Tuple[str, str, str]] = []
 
-	for raw in path.read_text().splitlines():
+	for raw in path.read_text(encoding='utf-8').splitlines():
 		stripped = raw.strip()
 		m_sec = _SECTION_RE.match(stripped)
 
@@ -433,7 +433,7 @@ def write_bibtex(refs: dict, path: Path) -> None:
 			lines.append(f"  {k:8s} = {{{v}}},")
 		lines.append("}")
 		lines.append("")
-	path.write_text("\n".join(lines))
+	path.write_text("\n".join(lines), encoding='utf-8')
 
 
 def main() -> int:
@@ -446,7 +446,7 @@ def main() -> int:
 	qmd_text = build_qmd(blocks, refs)
 
 	QMD_PATH.parent.mkdir(parents=True, exist_ok=True)
-	QMD_PATH.write_text(qmd_text)
+	QMD_PATH.write_text(qmd_text, encoding='utf-8')
 	print(f"Wrote {QMD_PATH}")
 
 	# BibTeX side-output for Zotero import / future LaTeX use.

@@ -71,9 +71,10 @@ models/platelet/           Platelet model
   sim/                     PlateletSimulation — wires processes and listeners
   tests/                   Regression and unit tests
 
-reconstruction/platelet/   Parameter calculator
-  sim_data.py              SimulationDataPlatelet — fitted parameters
-  fit_sim_data.py          Parameter fitting pipeline
+reconstruction/platelet/   Parameter container
+  simulation_data.py       SimulationDataPlatelet — constructed directly (no ParCa)
+  initialization.py        Helpers that seed BulkMolecules at sim start
+  dataclasses/             Per-process / per-state dataclasses + TOML/TSV loaders
 
 wholecell/                 Generic simulation framework (from CovertLab/wcEcoli)
   sim/                     Simulation loop
@@ -87,6 +88,55 @@ runscripts/manual/         Entry points: runPlateletSim.py, analysisPlatelet.py,
 reports/                   Lab books, design docs, figures, calibration data
 docker/                    Dockerfiles for staging deployment
 ```
+
+
+## Editing parameters
+
+Calcium-pathway rate constants and the molecule inventory are externalised to
+TSV/TOML files under `reports/params/` and loaded at import time. You do **not**
+need to edit Python to change a value — edit the data file, re-run the sim.
+
+| File | Purpose | Loader |
+|------|---------|--------|
+| `reports/params/calcium-v0.5.toml` | Rate constants, calibration scalars, agonist forcing peaks, and `[references.*]` bibliography for the calcium pathway | `reconstruction/platelet/dataclasses/process/_params_loader.py` |
+| `reports/params/species-v0.5.tsv` | Molecule inventory: `id`, `mass_fg`, `initial_count`, `molecule_class` for all 63 species | `reconstruction/platelet/dataclasses/_species_loader.py` |
+
+**Change a rate constant.** Open `calcium-v0.5.toml`, find the section
+(e.g. `[serca.cycle]`), edit the value, re-run. The inline `# ...` comment
+on each row is the per-parameter provenance / citation; update it too if the
+new value comes from a different source.
+
+**Add a new rate constant to an existing section.** Add a `key = value`
+row in the TOML section, then add the corresponding `K_FOO['new_key']`
+reference in `calcium_signalling.py` where the dict is consumed.
+
+**Add a new receptor / sub-pathway within calcium.** (1) Add a new
+`[section.subsection]` block to `calcium-v0.5.toml` with its rate
+constants and inline citations. (2) Add a `K_FOO = dict(_KINETICS['section']['subsection'])`
+line in `calcium_signalling.py` near the existing `K_*` block. (3) Wire it
+into `_ode_rhs()`. (4) If the receptor adds a species, append a row to
+`species-v0.5.tsv` (id with compartment tag, mass_fg, initial_count,
+class). (5) Add a `[references.<key>]` block for any new citations and a
+`match = [...]` list so the kinetics review auto-links them.
+
+**Regenerate the clickable review PDF** (renders the TOML to
+`reports/design/kinetics-v0.5-review.pdf` with auto-linked citations + a
+BibTeX side-output at `reports/params/calcium-v0.5-references.bib`):
+
+```bash
+make kinetics-review        # needs quarto + xelatex on PATH
+```
+
+CI builds the same artifact on every PR — download it from the Actions run
+under "Artifacts → kinetics-review".
+
+> **Scope.** The kinetics-as-data scaffold is currently calcium-only.
+> Extending to a non-calcium pathway (e.g. mitochondrial metabolism,
+> cytoskeleton) needs a new `<pathway>-v0.N.toml`, a parallel
+> `_<pathway>_loader.py`, and updates to `CHAPTER_TITLES` in
+> `runscripts/manual/buildKineticsReview.py`. See
+> `reports/design/kinetics-as-data-2026-05-22.qmd` for the
+> post-dissertation generalisation sketch.
 
 
 ## Web interface

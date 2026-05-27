@@ -44,7 +44,7 @@ def load_species(version: str = _DEFAULT_VERSION) -> List[SpeciesRow]:
 	"""
 	path = os.path.join(_PARAMS_DIR, f'species-{version}.tsv')
 	rows: List[SpeciesRow] = []
-	with open(path, newline='') as f:
+	with open(path, newline='', encoding='utf-8') as f:
 		reader = csv.DictReader(f, delimiter='\t')
 		for r in reader:
 			rows.append((

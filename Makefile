@@ -1,4 +1,4 @@
-.PHONY: help run stop deploy pdfs pdfs-clean
+.PHONY: help run stop deploy pdfs pdfs-clean kinetics-review
 
 help:
 	@echo ""
@@ -12,8 +12,9 @@ help:
 	@echo "    deploy        Push current branch to webapp → triggers Azure CI pipeline"
 	@echo ""
 	@echo "  Reports"
-	@echo "    pdfs          Build PDFs from reports/*.md into reports/pdf/"
-	@echo "    pdfs-clean    Delete reports/pdf/"
+	@echo "    pdfs            Build PDFs from reports/*.md into reports/pdf/"
+	@echo "    pdfs-clean      Delete reports/pdf/"
+	@echo "    kinetics-review Render reports/design/kinetics-v0.5-review.pdf from calcium-v0.5.toml"
 	@echo ""
 	@echo "  Options"
 	@echo "    PORT=NNNN     Override port (default: $(PORT))"
@@ -99,4 +100,13 @@ reports/pdf-quarto/%.pdf: reports/%.qmd reports/pandoc-header.tex
 
 quarto-pdfs-clean:
 	rm -rf reports/pdf-quarto
+
+# ── Kinetics review: TOML → clickable PDF ─────────────────────────────────────
+# Regenerates reports/design/kinetics-v0.5-review.{qmd,pdf} and
+# reports/params/calcium-v0.5-references.bib from
+# reports/params/calcium-v0.5.toml. The runscript shells out to `quarto render`
+# for the PDF step, so quarto + xelatex must be on PATH.
+
+kinetics-review:
+	PYTHONPATH="$$PWD" python runscripts/manual/buildKineticsReview.py
 

@@ -1,3 +1,21 @@
+# Platelet WCM — calcium signalling kinetics (v0.5)
+#
+# Source-of-truth values for the rate constants consumed by
+# `reconstruction/platelet/dataclasses/process/calcium_signalling.py`.
+#
+# This file is the externalised form of the K_* dicts in that module
+# (issue #32, Phase 2). It is read at import time by
+# `_params_loader.load_calcium_kinetics()`. Editing a value here changes
+# the model's behaviour at the next sim — no Python edit required.
+#
+# Provenance: each section carries its primary literature citation
+# inline. Calibration-coupling chains ("if you change X re-derive Y")
+# are documented in `reports/design/calibration-coupling-2026-05-25.qmd`.
+#
+# Versioning: bump the filename suffix (calcium-v0.6.toml, etc.) when
+# changing the schema shape. Value-only updates can stay on the current
+# file; pin the value's history in git.
+
 # ── Resting concentrations (calibration targets) ─────────────────────
 # CA_EX_UM is runtime-overridable from runscripts via
 # `cs_mod.CA_EX_UM = X` — set to 0 for the Dolan Fig. 4 EDTA / no-
@@ -35,24 +53,6 @@ gamma_s = 0.3e-15      # A/V — 0.3 fS effective Ca²⁺-specific γ
 [pm.leak]
 ions_s = 75.0         # ions/s — constant cyt influx
 
-
-# Platelet WCM — calcium signalling kinetics (v0.5)
-#
-# Source-of-truth values for the rate constants consumed by
-# `reconstruction/platelet/dataclasses/process/calcium_signalling.py`.
-#
-# This file is the externalised form of the K_* dicts in that module
-# (issue #32, Phase 2). It is read at import time by
-# `_params_loader.load_calcium_kinetics()`. Editing a value here changes
-# the model's behaviour at the next sim — no Python edit required.
-#
-# Provenance: each section carries its primary literature citation
-# inline. Calibration-coupling chains ("if you change X re-derive Y")
-# are documented in `reports/design/calibration-coupling-2026-05-25.qmd`.
-#
-# Versioning: bump the filename suffix (calcium-v0.6.toml, etc.) when
-# changing the schema shape. Value-only updates can stay on the current
-# file; pin the value's history in git.
 
 # ── IP3R: deYoung-Keizer 1992 / Li-Rinzel 1994 ────────────────────────
 # Li & Rinzel 1994 reduction of the deYoung-Keizer 1992 8-state IP3R
