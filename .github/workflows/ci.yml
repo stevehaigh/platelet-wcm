@@ -62,23 +62,17 @@ jobs:
         with:
           tinytex: true
 
-      - name: Install TeX Live font packages used by kinetics-review
-        # tex-gyre + dejavu are not in tinytex's base profile; the
-        # `make kinetics-fonts` step needs them on disk so it can copy
-        # them into the user font dir for fontspec/fontconfig discovery.
-        # quarto-actions/setup@v2 installs TinyTeX but does not add its
-        # bin dir to PATH for later steps, so we locate tlmgr explicitly.
+      - name: Install kinetics-review fonts (system-wide via apt)
+        # Quarto's bundled TinyTeX doesn't ship tlmgr, and even if it
+        # did, fontspec resolves via fontconfig (system fonts), not
+        # TeX's kpathsea. Ubuntu's `fonts-texgyre` + `fonts-dejavu-core`
+        # apt packages install both fonts directly under /usr/share/fonts
+        # where xelatex finds them. `make kinetics-fonts` detects this
+        # and skips its TeX-Live-copy path.
         run: |
-          TLMGR=$(find "$HOME/.TinyTeX" -name tlmgr -type f 2>/dev/null | head -1)
-          if [ -z "$TLMGR" ]; then
-            echo "tlmgr not found under $HOME/.TinyTeX" >&2
-            ls -la "$HOME/.TinyTeX" 2>&1 || true
-            exit 1
-          fi
-          "$TLMGR" install tex-gyre dejavu
-          # Expose tlmgr's parent dir to subsequent steps so kpsewhich (used by
-          # `make kinetics-fonts`) is also on PATH.
-          dirname "$TLMGR" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-texgyre fonts-dejavu-core
+          fc-cache -f
 
       - name: Build kinetics review PDF
         run: make kinetics-review
