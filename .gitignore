@@ -183,3 +183,7 @@ node_modules
 
 /.quarto/
 **/*.quarto_ipynb
+
+# Rendered thesis output (build from reports/thesis/*.qmd via quarto render --to pdf|docx)
+/reports/thesis/**/*.pdf
+/reports/thesis/**/*.docx

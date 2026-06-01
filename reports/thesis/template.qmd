@@ -1,0 +1,215 @@
+---
+title: "TITLE — brief, descriptive, accessible to a broad scientific audience"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: false
+    include-in-header: ../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: false
+    # reference-doc: thesis-reference.docx  # optional Word style template
+bibliography: references.bib
+# Harvard referencing is required by the handbook. Download a Harvard CSL
+# (e.g. https://www.zotero.org/styles/harvard-cite-them-right) into this
+# folder and uncomment the next line:
+# csl: harvard-cite-them-right.csl
+---
+
+```{=html}
+<!--
+================================================================================
+MRes Project Dissertation — structure from Appendix 3 of the MRes Research
+Project Handbook. Written in the style of a scientific research paper.
+
+GLOBAL RULES (Appendix 3):
+  • The word counts below are a GUIDE.
+  • Legends, citations and references do NOT contribute to the word count.
+  • Use published research papers as inspiration for how to structure this.
+  • References: Harvard style; the majority should be journal articles.
+
+The report should demonstrate your ability to:
+  • Engage critically with the literature
+  • Design and carry out research at an advanced undergraduate level
+  • Analyse and interpret results in a rigorous and critical manner
+  • Communicate research clearly, concisely, and professionally in written form
+
+Guidance is kept in HTML comments so it shows here in the source while you
+draft, but does not appear in the rendered PDF. Delete it as you go.
+================================================================================
+-->
+```
+
+## Abstract
+
+```{=html}
+<!--
+250–300 words. Must be STRUCTURED using the four bold sub-headings below.
+-->
+```
+
+**Background and Purpose:** <!-- Why the study was performed and what question it was intended to answer. -->
+
+**Experimental Approach:** <!-- Outline what methods were used. Do NOT give details on media, buffers,
+     drug concentrations, time points, statistics, etc. unless they are
+     important in relation to the question addressed. -->
+
+**Key Results:** <!-- Main results relevant to the question, WITHOUT quantitative details. -->
+
+**Conclusion and Implications:** <!-- Main implications that follow from the results, plus the study's
+     limitations. Must clearly state how the work advances understanding. -->
+
+## Graphical abstract
+
+```{=html}
+<!--
+A single, concise, visual summary of the project — the central finding at a
+glance. Principles: Simplicity (central message, not every detail);
+Self-contained (understandable without the manuscript text).
+See: Elsevier graphical-abstract guidelines; Springer Nature "5 Tips for
+Creating a Graphical Abstract"; NIH "10 simple rules for designing graphical
+abstracts".
+
+Embed with a figure block, e.g.:
+![Graphical abstract.](figures/graphical-abstract.png){#fig-graphical width=70%}
+-->
+```
+
+## Significance statement
+
+```{=html}
+<!--
+Up to 120 words. Explain the significance of the research at a level
+understandable to an undergraduate-educated scientist outside their field of
+specialty.
+-->
+```
+
+## Introduction
+
+```{=html}
+<!--
+Up to 600 words.
+  • Present the background and scientific context of the project
+  • Critically review the literature
+  • Identify the knowledge gap your project addresses
+  • State clearly the aims and hypotheses
+-->
+```
+
+## Methods
+
+```{=html}
+<!--
+Up to 800 words.
+  • Describe the experimental or analytical approach in sufficient detail for
+    reproducibility
+  • Include information on study design, materials, techniques, and analysis
+  • Justify chosen methods and acknowledge limitations
+  • Include any software used.
+-->
+```
+
+## Results
+
+```{=html}
+<!--
+Up to 1500 words. FOUR results figures.
+  • Present findings clearly and logically.
+  • Figures, tables and images numbered sequentially and referred to
+    specifically in the text.
+  • Each figure/table embedded within the text, immediately below the
+    paragraph in which it is first referenced.
+      - Figures followed immediately by a numbered legend.
+      - Tables preceded by a numbered header.
+      - High enough resolution.
+  • Describe results WITHOUT interpretation (save that for the Discussion).
+  • Avoid unnecessary repetition of data.
+  • Clearly labelled error bars in all graphs, described in the legend.
+  • Correct units throughout.
+
+Figure-legend guidance: begin with a brief sentence describing the overall
+content; describe what error bars represent; indicate n (independent data
+points); if technical replicates were averaged before plotting, say so.
+
+Quarto figure pattern (cross-reference with @fig-result1):
+-->
+```
+
+<!-- Refer to the figure in text, e.g. "... as shown in @fig-result1." -->
+
+```{=html}
+<!--
+![**Figure 1.** Overall content in one sentence. Error bars = ...; n = ...](figures/result1.png){#fig-result1 width=80%}
+-->
+```
+
+## Discussion
+
+```{=html}
+<!--
+1,500–2000 words.
+  • Interpret findings critically in relation to aims and existing literature
+  • Highlight strengths, limitations, and uncertainties
+  • Discuss implications of results and possible future directions
+  • Avoid restating results — focus on interpretation and meaning
+-->
+```
+
+## Conclusion
+
+```{=html}
+<!--
+100–200 words. Summarise the main findings succinctly and reinforce the
+significance of the work.
+-->
+```
+
+## Acknowledgements
+
+```{=html}
+<!--
+Optional. Not formally assessed, but contributes to overall professionalism.
+-->
+```
+
+## AI statement
+
+```{=html}
+<!--
+See the handbook section "Use of Generative Artificial Intelligence (GenAI)
+tools" and complete as required.
+-->
+```
+
+## References
+
+```{=html}
+<!--
+Full list of cited sources in Harvard style; the majority should be journal
+articles. Cite as you write with a reference manager (Zotero) so the
+bibliography formats automatically. References do not count towards the word
+limit. The list below is generated by Quarto from references.bib.
+-->
+```
+
+::: {#refs}
+:::
+
+## Appendices
+
+```{=html}
+<!--
+If needed: supplementary data, extended tables, raw data, or detailed
+protocols as appropriate.
+-->
+```

@@ -1,0 +1,169 @@
+---
+title: "Supplementary: COPASI, VCell, and the whole-cell approach — a framework comparison"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: true
+    include-in-header: ../../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: true
+    # reference-doc: ../thesis-reference.docx  # optional Word style template
+bibliography: ../references.bib
+# csl: ../harvard-cite-them-right.csl  # add Harvard CSL (see references.bib)
+---
+
+## Purpose and framing
+
+The platelet Ca²⁺ model could have been built with several mature tools, and
+meaningful work was achievable with any of them. This note sets out, as
+dispassionately as I can, three things: what building this model in **COPASI**
+[@hoops2006] or **VCell** [@blinov2008] would have required; what each tool
+would have given in return; and why the **whole-cell** approach derived from
+*wcEcoli* [@karr2012; @macklin2020] was ultimately chosen. The argument is
+about long-term architectural fit, not about any tool being inadequate — at
+the current scale, the better-tooled choice for the calcium pathway alone is
+arguably COPASI or VCell, not the path I took.
+
+## What the model is, computationally
+
+The calcium model is roughly 50 species distributed across well-mixed
+compartments (cytosol, dense tubular system [DTS], mitochondria, plasmalemma,
+extracellular space), integrated as ordinary differential equations on a
+one-second outer timestep, driven by agonist forcing and validated against
+Dolan & Diamond's resting state and IP₃-transient experiment [@dolan2014]. It
+is presently **non-spatial** (no Ca²⁺ microdomains). Crucially, the *intended*
+end state is not this pathway in isolation but a whole-cell substrate to which
+granule release, integrin activation and metabolism attach as further
+processes sharing one mass-balanced state. That ambition, more than any
+current requirement, drives the comparison below.
+
+## The three approaches at a glance
+
+| Dimension | COPASI | VCell | This work (wcEcoli-derived) |
+|---|---|---|---|
+| Paradigm | Single kinetic network | Single network in a geometry | Integrated multi-process cell |
+| Spatial resolution | Well-mixed compartments | Well-mixed **or** spatial PDE / particle | Well-mixed (by design, for now) |
+| Model definition | GUI + SBML | GUI + database; rule-based (BioNetGen) | Plain Python code |
+| Copy-number / mass balance | Concentrations, per network | Concentrations / particles, per network | First-class proteome counts across compartments |
+| Solvers | Mature deterministic + stochastic | Mature deterministic, stochastic, spatial | `scipy` `solve_ivp` (BDF) |
+| Parameter estimation | First-class | Available | Manual / coupled calibration |
+| Standards / interop | SBML → BioModels | SBML, SED-ML, central DB | None (no SBML export) |
+| Reproducibility | `.cps` / SBML files | Server-stored models | Git, tests, CI (code review) |
+| Multi-process integration | — | — | Native (the whole point) |
+| Best-fit use case | Well-mixed kinetics + estimation | Spatial / microdomain biology | Extensible whole-cell substrate |
+
+## Building it in COPASI
+
+**What it would take.** Define each compartment with a volume; enter the ~50
+species; encode every reaction with a kinetic law (mass action, plus custom
+rate laws for the Li–Rinzel IP3R, the SERCA and PMCA enzymatic cycles, and the
+STIM1/Orai1 SOCE flux); represent agonist time courses as events or
+interpolated assignment rules; calibrate against the Dolan transients using
+COPASI's parameter-estimation task; then run time-courses and parameter scans.
+
+**What COPASI would give.** Decades of validated solver engineering —
+deterministic (LSODA-class) and exact/approximate stochastic integration in
+one package — together with genuinely first-class parameter estimation,
+optimisation, sensitivity analysis and metabolic control analysis. SBML
+import/export [@keating2020] would make the model depositable to curated
+repositories such as BioModels [@maliksheriff2020], and the GUI plus Python
+scripting bindings lower the barrier to reproducing and extending it.
+
+**Where it falls short for this project.** COPASI is well-mixed, which is fine
+*now* but forecloses microdomain biology later. More fundamentally, it models
+**one network**: there is no notion of a proteome-wide copy-number budget or
+of several processes sharing and partitioning a common state. Growing toward
+granules and integrins would mean an ever-larger monolithic reaction set,
+increasingly hard to modularise — precisely the combinatorial-complexity
+problem the field has long flagged [@blinov2008].
+
+## Building it in VCell
+
+**What it would take.** Define structures (compartments) and the membranes
+between them (plasmalemma, DTS membrane, mitochondrial membranes); place
+volume reactions and membrane fluxes (PMCA, Orai1/SOCE, P2X1, MCU) on the
+appropriate structures; choose a *compartmental* application for a well-mixed
+run, or a *spatial* application with image-derived geometry; calibrate; and
+simulate deterministically, stochastically, or — for combinatorial signalling
+— via rule-based network generation [@blinov2008].
+
+**What VCell would give.** Everything COPASI offers at the well-mixed level,
+plus the capabilities that make it the strongest *single-model* fit for this
+biology: native spatial reaction–diffusion with realistic geometry, membrane
+electrophysiology, and particle-based stochastic simulation, all behind a
+mature GUI with a central model database [cite: VCell — catalogue in Zotero].
+This matters here for a concrete reason worth conceding plainly: the SOCE
+mechanism the model reproduces is **intrinsically spatial** — STIM1 and Orai1
+assemble into puncta at DTS–plasmalemma junctions [@dolan2014]. Should the
+platelet model ever need explicit microdomains or puncta geometry, VCell could
+represent natively what the current well-mixed formulation only lumps. That is
+a real capability the chosen approach gives up.
+
+**Where it falls short for this project.** Despite that power, VCell still
+models a **single reaction network within a geometry**. It offers no
+whole-cell copy-number accounting and no multi-process scheduling, and models
+live in VCell's database and formats rather than as plain code under version
+control. The integrative bookkeeping the whole-cell goal requires sits outside
+its design centre.
+
+## What the whole-cell approach gives — and costs
+
+The *wcEcoli*-derived framework [@karr2012; @macklin2020] supplies exactly what
+the two dedicated tools do not: a multi-process architecture in which
+processes declare resource requests, a partitioning step allocates shared
+molecules, processes evolve state, and listeners record — with copy-number and
+mass balance tracked as first-class quantities across compartments, and many
+subsystems able to share one cell state. Because it is plain Python under git,
+tests and continuous integration, every parameter and equation is diff-able
+and code-reviewable.
+
+The costs are real and should be stated without flinching. The inherited
+framework is large and had to be pruned; there is no GUI; the integrator is
+general-purpose `scipy` rather than a specialised biochemical solver (adequate
+at one-second platelet timescales, but with no built-in parameter-estimation,
+metabolic control analysis, or stochastic toolkit); and there is **no SBML
+export**, so the model cannot currently be shared through standard repositories
+[@keating2020; @maliksheriff2020] without a translation layer. The community
+around this exact stack is also small.
+
+## Why this approach
+
+The deciding axis is **scope, not capability at the current scale**. As a
+single calibrated calcium pathway, this model would likely have been faster to
+build — and better served by parameter estimation and solver maturity — in
+COPASI, or in VCell if spatial microdomains were the priority; a prior platelet
+model was itself a large single-network ODE system [@purvis2008]. But the
+project's aim is a *whole-cell* model: an integrated, mass-balanced,
+copy-number-accounted substrate onto which further subsystems attach as
+processes sharing one state. That integration is what *wcEcoli* was built for
+[@karr2012; @macklin2020] and what neither COPASI nor VCell provides;
+reproducing it inside either would mean rebuilding a multi-process whole-cell
+scaffold around a tool designed for single networks. Choosing the whole-cell
+framework front-loads infrastructure cost to buy architectural fit for the
+long-term goal, plus code-level reproducibility — a defensible trade given the
+ambition, and an honest one given what is surrendered: mature solvers,
+estimation tooling, spatial capability, and standards interoperability.
+
+Put as a decision rule: **COPASI** is the right call for well-mixed kinetics
+needing rigorous estimation and SBML sharing; **VCell** for spatial,
+microdomain, or membrane-geometry biology; the **whole-cell** approach for an
+integrated, extensible, copy-number-accounted cell. The work here is governed
+by the third aim, which is why it was chosen — with the first two recorded
+here as the roads not taken, either of which could have produced meaningful
+results.
+
+## References
+
+::: {#refs}
+:::
