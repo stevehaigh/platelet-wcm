@@ -63,6 +63,25 @@ current requirement, drives the comparison below.
 | Multi-process integration | — | — | Native (the whole point) |
 | Best-fit use case | Well-mixed kinetics + estimation | Spatial / microdomain biology | Extensible whole-cell substrate |
 
+**The field's own verdict.** This comparison is not only mine: whole-cell
+modellers have assessed these same tools. A review from the Karr group lists
+both COPASI and Virtual Cell among the general biomodel simulators that can run
+and visualise submodels — supporting deterministic, stochastic, hybrid,
+network-free and spatial simulation — but observes that *no existing simulator*
+supports **both** capabilities a whole-cell model needs together: network-free
+**and** multi-algorithmic simulation [@goldberg2018]. *Network-free* simulation
+executes a rule-based model (BioNetGen-style [@blinov2008]) by tracking only the
+molecular species and complexes that actually arise during a run, instead of
+first enumerating every possible species and reaction — indispensable when
+combinatorial modification states (phosphorylation, multi-site binding) would
+otherwise generate an intractably large reaction network. *Multi-algorithmic*
+co-simulation runs different submodels under the mathematics each demands — ODE
+here, stochastic there, flux-balance elsewhere — inside one synchronised cell.
+COPASI and VCell each provide much of the first, and VCell adds spatial detail
+besides; what neither provides is the second — composing whole heterogeneous
+cells. That gap is precisely why the field turned to multi-algorithmic engines
+such as E-Cell and, later, to composition frameworks such as Vivarium (below).
+
 ## Building it in COPASI
 
 **What it would take.** Define each compartment with a volume; enter the ~50
@@ -114,8 +133,12 @@ a real capability the chosen approach gives up.
 models a **single reaction network within a geometry**. It offers no
 whole-cell copy-number accounting and no multi-process scheduling, and models
 live in VCell's database and formats rather than as plain code under version
-control. The integrative bookkeeping the whole-cell goal requires sits outside
-its design centre.
+control. The integrative bookkeeping a whole-cell model requires — many
+processes, each simulated by the mathematics appropriate to it, sharing one
+mass-balanced state [@karr2012; @macklin2020] — sits outside its design
+centre; that hybrid, multi-method integration is a defining feature of
+whole-cell models as a class [cite: Georgouli et al. 2023], not a capability
+any single-network tool is built to provide.
 
 ## What the whole-cell approach gives — and costs
 
@@ -162,6 +185,78 @@ integrated, extensible, copy-number-accounted cell. The work here is governed
 by the third aim, which is why it was chosen — with the first two recorded
 here as the roads not taken, either of which could have produced meaningful
 results.
+
+## Vivarium: composing the next iteration
+
+The *wcEcoli* framework used here is, architecturally, a monolith: a fixed set
+of processes wired into one simulation, where adding biology means editing the
+core rather than dropping in a module. The Covert group's own response to that
+limit was **Vivarium** [cite: Agmon et al. 2022] — not a model but an
+*interface and engine* for integrative multiscale modelling, in which
+independent processes expose typed ports, a bus couples them, and a simulation
+is assembled from parts that can each use whatever mathematics — ODE,
+stochastic, spatial, agent-based — best suits them. Where *wcEcoli* hard-codes
+the integration, Vivarium makes it a first-class, reconfigurable object; it is
+the natural successor architecture to the framework this project inherited.
+
+This reframes the whole comparison. A composable engine does not replace
+COPASI or VCell — it can *wrap* them: a well-mixed kinetic module authored and
+calibrated in COPASI and exported as SBML [@keating2020], a spatial microdomain
+submodel built in VCell, each coupled as a Vivarium process sharing the same
+Ca²⁺ state. The dichotomy of "build it all in one tool" versus "build a bespoke
+whole-cell scaffold" is, in that light, a false one; the mature path is to
+integrate specialised, individually validated tools under a common engine. For
+the present model it is also the natural way to grow — granule release,
+integrin activation and metabolism each as a process against one shared state,
+rather than further terms bolted onto a single ODE right-hand side. The cost is
+honest: Vivarium is itself young, with a small community, and adopting it would
+mean re-expressing the current model against its process interface.
+
+## Forward look: what the problem space taught, and where it points
+
+Three lessons surfaced from building even this single pathway, each pointing
+somewhere specific.
+
+**The binding constraint is data, not solvers.** Calibration meant assembling
+rate constants and concentrations across sources, organisms and conditions — a
+mosaic whose internal inconsistency, not any failure of integration, set the
+ceiling on confidence. This is the characteristic problem of the class:
+whole-cell models' most-cited contribution has been to *expose* the gap between
+the data available and the data a mechanistic model needs [cite: Georgouli et
+al. 2023], and a dedicated platelet PI-cycle study reached the same conclusion
+about mosaic biological data [@mazet2020]; the community blueprint for human
+whole-cell modelling reaches the same verdict from the other direction, naming
+data aggregation, standards and collaboration — not simulation — as the
+principal bottlenecks [@szigeti2017]. [CHECK: @szigeti2017 resolves to the 2017
+bioRxiv preprint (doi 10.1101/198044); confirm whether to keep the preprint or
+switch to the published version, Curr. Opin. Syst. Biol. 2018;7:8–15.] The
+direction is unglamorous but real — parameter provenance and sensitivity analysis deserve as much
+investment as new biology, and quantitative platelet datasets, the copy-number
+proteome in particular [@burkhart2012], should anchor parameters wherever they
+can.
+
+**Well-mixed is a deliberate simplification with a known frontier.** The model
+reproduces SOCE without representing the STIM1/Orai1 puncta that physically
+generate it [@dolan2014; @hoover2011]; adequate for bulk Ca²⁺ transients, this
+forecloses any question about microdomain signalling. The honest next step is
+not to abandon the well-mixed core but to make spatial resolution *selective* —
+a hybrid resolving only the junctional microdomain spatially, of the kind VCell
+supports natively, while the rest stays well-mixed.
+
+**Monolithic integration does not scale; composition might.** Each subsystem
+added to a single reaction network raises the combinatorial and maintenance
+cost [@blinov2008]. The path beyond a handful of processes is explicit
+modularity — Vivarium-style composition [cite: Agmon et al. 2022] — together
+with standards interoperability, so modules are portable rather than locked in
+bespoke code: SBML export of the well-mixed core [@keating2020] and deposition
+to repositories such as BioModels [@maliksheriff2020] would turn the project's
+current standards debt into a shareable asset.
+
+Taken together these point less toward a bigger monolith than toward a
+*federated* model: specialised, individually validated, standards-described
+submodels — kinetic, spatial, stochastic — composed under a common engine,
+with data provenance treated as part of the model rather than an afterthought.
+That is where the problem space, more than any single tool, seems to lead.
 
 ## References
 
