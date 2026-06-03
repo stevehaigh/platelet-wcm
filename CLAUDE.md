@@ -37,6 +37,9 @@ PYTHONPATH=$PWD python runscripts/manual/runPhase3.py [sim_outdir] --length 200
 # 2-D dose-response sweep over ADP × thrombin (one row per cell → heatmaps + 3-D surface)
 PYTHONPATH=$PWD python runscripts/manual/runDoseSweep.py [sim_outdir] --grid 9 --length 200
 
+# Animated terminal replay of a finished sim (rich-based; demo prop)
+PYTHONPATH=$PWD python runscripts/manual/replayTui.py out/<sim_outdir>/.../simOut --speed 0.2
+
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it

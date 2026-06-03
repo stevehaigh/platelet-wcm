@@ -118,6 +118,18 @@ def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 	sim_data = SimulationDataPlatelet()
 	write_sim_data(sim_path, sim_data)
 
+	# Per-run metadata so downstream tooling (replayTui, analysis) can
+	# recover the agonist peaks + extracellular-Ca²⁺ condition. Issue #47
+	# fix: this lived in the CLI `main()` only, so dose-sweep cells (which
+	# call run_platelet_sim() directly) had no metadata.json and
+	# replayTui silently fell back to the module-default agonist peaks.
+	description = os.path.basename(os.path.normpath(sim_path)) or sim_path
+	write_metadata(sim_path, description, seed, length_sec, ca_ex_mM,
+		thrombin_peak_nM=thrombin_peak_nM,
+		adp_peak_uM=adp_peak_uM,
+		atp_ex_peak_uM=atp_ex_peak_uM,
+		agonist_delay=agonist_delay)
+
 	cell_dir = fp.makedirs(
 		sim_path,
 		f'platelet_stub_{seed:06d}',
@@ -254,13 +266,7 @@ def main(argv=None):
 		if atp_ex_peak_uM is None:
 			atp_ex_peak_uM = 0.0
 
-	description = os.path.basename(os.path.normpath(sim_path)) or sim_path
-	write_metadata(sim_path, description, args.seed, args.length_sec,
-		args.ca_ex_mM,
-		thrombin_peak_nM=thrombin_peak_nM,
-		adp_peak_uM=adp_peak_uM,
-		atp_ex_peak_uM=atp_ex_peak_uM,
-		agonist_delay=args.agonist_delay)
+	# metadata is now written inside run_platelet_sim().
 	paths = run_platelet_sim(
 		sim_path,
 		length_sec=args.length_sec,
