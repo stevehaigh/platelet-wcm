@@ -131,9 +131,10 @@ as prose. Handbook word limits and rules are kept as hidden HTML comments.
      each embedded immediately below the paragraph that first cites it,
      followed by a numbered legend. Describe WITHOUT interpretation. Error
      bars labelled and described. Correct units.
-     NOTE: handbook requires four results figures. Currently one data figure
-     (validation) plus a schematic — promote the three mechanistic findings
-     below into data figures to reach four. -->
+     NOTE: handbook requires four results figures. Four data figures now
+     present — validation (@fig-validation), dose-response (@fig-dosesweep),
+     PMCA (@fig-pmca), MCU (@fig-mcu) — plus the architecture schematic
+     (@fig-architecture). -->
 ```
 
 ### Model architecture
@@ -147,6 +148,12 @@ as prose. Handbook word limits and rules are kept as hidden HTML comments.
 *\[\~400 words + figure. The headline result. (1) Describe the Dolan Fig. 4 experiment: paired conditions with and without extracellular Ca²⁺, IP₃-driven transients shaped by presence or absence of SOCE refill. (2) State the five Phase 3 acceptance criteria (resting cyt 100 ± 10 nM, resting DTS within band, transient peak height, transient duration, paired-condition difference). (3) Report 5/5 with resting cyt = 104 nM, DTS = 235 µM, IP₃ = 50 nM, Gαq-active = 100. (4) Achieved without IP₃ forcing.\]* See @fig-validation:
 
 ![Free vs. bound Ca²⁺ during an agonist-evoked transient without extracellular Ca²⁺ (EDTA condition). After a 60 s resting baseline, agonist stimulation evokes a self-limiting cytosolic transient: free cytosolic Ca²⁺ rises from \~106 nM to a \~313 nM peak within \~15 s, then recovers slowly as PMCA and NCX extrude Ca²⁺ (\~220 nM by 360 s). With extracellular Ca²⁺ removed, SOCE is inactive, so the dense tubular system empties during the peak and does not refill. Cytosolic (calmodulin, gelsolin) and luminal (calreticulin, HSP90B1, BiP, CREC) buffer occupancy rise and fall in step with the free pools, showing tight buffer–free coupling; IP₃ (bottom panel) is generated endogenously through the PI cycle, not forced.](../figures/ca-bound-free-edta-2026-06-10.png){#fig-validation width="100%"}
+
+### Dose-response across the agonist landscape
+
+*\[\~250 words + figure. Descriptive, no interpretation.\]* To map model behaviour across the physiological stimulus range, agonist peaks were swept on a 9×9 grid (ADP 10⁻⁴–1 µM × thrombin 10⁻⁶–10⁻³ nM; 200 s sims, seed 0) and two scalar observables harvested per cell: peak cytosolic Ca²⁺ and the Ca²⁺ AUC above resting baseline. The two observables vary differently across the grid (@fig-dosesweep). Peak Ca²⁺ (panel A) is flat at \~436 nM throughout the supra-threshold region — independent of stimulus strength — and falls to the \~157 nM resting floor only where both agonists are sub-threshold, an all-or-nothing store-release step. The integrated response (panel B) instead varies continuously over an \~8× range (\~8,000–62,650 nM·s) and rises monotonically with both agonists; thrombin and ADP are approximately multiplicative, and ADP alone drives nearly the full response above \~0.1 µM. The upstream and integrated outputs are thus graded with dose while the peak is not.
+
+![**Dose-response of the Ca²⁺ system across the agonist landscape.** 9×9 sweep of agonist peaks (ADP 10⁻⁴–1 µM × thrombin 10⁻⁶–10⁻³ nM; 200 s, seed 0), both panels in one colourblind-safe colormap. **A:** 3-D surface of peak cytosolic Ca²⁺ — a flat \~436 nM plateau across the supra-threshold region with a cliff to the \~157 nM resting floor where both agonists are sub-threshold (binary store release). **B:** heatmap of Ca²⁺ AUC above resting baseline — graded over an \~8× range (\~8,000–62,650 nM·s) and monotonic in both agonists (graded integrated response). Deterministic model, one run per grid cell.](../figures/dose-sweep-transition-surface-auc-2026-06-10.png){#fig-dosesweep width="100%"}
 
 ### Mechanistic findings
 
