@@ -167,6 +167,8 @@ reconstruction/ecoli/scripts/nca/data/regulon-db/*.tsv
 
 # VSCode:
 .vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
 
 # Personal notes #
 ###################
