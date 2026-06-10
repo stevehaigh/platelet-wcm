@@ -20,7 +20,7 @@ format:
     number-sections: true
     # reference-doc: ../thesis-reference.docx  # optional Word style template
 bibliography: ../references.bib
-# csl: ../harvard-cite-them-right.csl  # add Harvard CSL (see references.bib)
+csl: ../harvard-leeds-beckett-university.csl
 ---
 
 ## Purpose and framing

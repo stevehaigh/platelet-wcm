@@ -1,0 +1,97 @@
+---
+title: "Reflective Document — MRes Platelet Whole-Cell Model"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: false
+    include-in-header: ../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: false
+bibliography: references.bib
+csl: harvard-leeds-beckett-university.csl
+---
+
+```{=html}
+<!--
+SKELETON. ASSESSED — 20 marks. Target ~2,000 words. Structure from Appendix 5
+(adaptable). Planning notes in *[italic brackets]*.
+
+THREE THINGS THAT EARN THE MARKS (see review-part-2.md §2A and §9):
+1. Appendix 5 is WET-LAB framed. Translate each item to its computational
+   analogue rather than skipping it — and say you are doing so. The act of
+   translating IS reflective ("questioning of assumptions").
+2. Use a NAMED reflective framework as the lens (Gibbs' reflective cycle,
+   Kolb's experiential-learning cycle, or Schön's reflection-in/on-action) —
+   markers reward a recognised structure over free-form musing.
+3. Reflective marks come from INSIGHT INTO THE PROCESS, not a success story.
+   Be honest about what went wrong. The Purvis k₃ episode is the centrepiece.
+
+This is the assessed home for the AI-USE narrative — keep it here, not in the
+AI supplement. Disclose AI use honestly (and consistently with the thesis AI
+statement). Suggested word budget per section is noted inline.
+
+MARKING CRITERION — "Depth of Critical Reflection": the top band wants strong,
+CONSISTENT critical reflection (analysis, NOT description), with well-developed
+analysis of three targets — (a) DECISIONS, (b) CHALLENGES, (c) PERSONAL
+DEVELOPMENT — plus self-awareness, independent thinking, and clear evaluation
+of BOTH successes AND setbacks. The three targets map onto the sections:
+decisions -> Planning and Preparation; challenges -> Research Process; personal
+development -> Learning and Development. Practical test for every paragraph:
+"Have I analysed WHY and WHAT I'D CHANGE, or only narrated WHAT HAPPENED?" For
+every episode, state what worked AND what didn't — setbacks are where the marks
+are. Independent thinking = your own reasoned positions (the modest-claim
+stance; "the bottleneck is data, not computation"), not received wisdom.
+-->
+```
+
+## Introduction
+
+*[~200 words. Brief overview of the project (feasibility of a whole-cell platelet model, focused on the Ca²⁺ pathway) — its scientific context and aims, without duplicating the thesis. Then state the purpose of this document and name the reflective framework you will use as a lens.]*
+
+## Planning and Preparation
+
+*[~350 words.]*
+
+- *[Hypothesis generation: a feasibility study's "hypothesis" is that a major platelet pathway can be modelled mechanistically and validated within a whole-cell framework. Reflect on how that aim was framed and narrowed.]*
+- *[Literature review and experimental design: how you assembled the mosaic of sources, and how you designed the in-silico "experiments" (validation against Dolan & Diamond 2014; the 2-D dose sweep; the perturbation runs).]*
+- *[Justification of methods/models: the framework choice — wcEcoli vs COPASI vs VCell — as a reasoned judgement under uncertainty, trading infrastructure cost for architectural fit. A strong reflective episode: a decision made, the alternatives weighed, what you would reconsider.]*
+
+## Research Process and Challenges
+
+*[~600 words — the core of the document. Translate "laboratory work / troubleshooting experimental issues" to the modelling and development work.]*
+
+- *[**The Purvis k₃ episode (centrepiece).** Implementing SERCA from a review, the resting state failing, back-tracing to a rate constant that turned out to be the reciprocal of the cited primary value — a transcription error reproduced unchecked, including by AI assistance. What it taught you about verifying against primary sources. Apply the reflective-framework cycle explicitly here (what happened → feelings → evaluation → analysis → conclusion → action).]*
+- *[Other debugging episodes as honest "experimental issues": the deYoung-Keizer IP3R low-Ca²⁺ bistability artefact (>2000 s); the argmax rise-time metric artefact in the dose sweep; the integer-rounding state-representation artefact.]*
+- *[**Data quality, reproducibility, reliability.** The mosaic-data problem (parameters across organisms/conditions); how version control, automated tests, CI, fixed seeds and Docker gave a reproducibility story stronger than typical wet-lab repeatability.]*
+- *[**Ethics, H&S, GLP — translated.** In-silico work has no wet-lab H&S or ethical approvals, and saying so is correct. The genuine analogues: responsible research-software practice (open code, data provenance, deterministic results) and, distinctively, **responsible use of AI** — disclosure, the verification discipline forced by the k₃ failure, refusing to let a tool fabricate citations or parameters. This is the assessed home for your AI-use reflection.]*
+
+## Learning and Development
+
+*[~400 words. This section carries the "personal development" analysis target — be self-aware: not a skills inventory, but how you changed as a researcher, including an honest read of where gaps remain.]*
+
+- *[Research skills gained: computational modelling, scientific Python and numerical ODE methods, software engineering and testing, data visualisation, and AI-assisted development as a skill in its own right (with its failure modes).]*
+- *[Transferable skills: scientific writing, critical thinking, time management across a long build, and collaboration (Mike Fry's PI-cycle framework; building on the Covert Lab's open-source release).]*
+
+## Future Implications
+
+*[~300 words. How this shapes your next steps: the feasibility verdict pointing toward a PhD on extending the model (the supplements double as that plan); what you would do differently; how AI-assisted mechanistic modelling and the data-bottleneck insight inform your ambitions in computational biosciences.]*
+
+## Conclusion
+
+*[~150 words. Synthesise the key insights and give an overall, honest evaluation of your development as a biosciences researcher. Calibrated, not triumphant.]*
+
+## References
+
+::: {#refs}
+:::

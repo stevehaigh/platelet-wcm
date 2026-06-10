@@ -1,0 +1,74 @@
+---
+title: "Supplementary: Literature review — platelet calcium signalling and whole-cell modelling"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: true
+    include-in-header: ../../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: true
+bibliography: ../references.bib
+csl: ../harvard-leeds-beckett-university.csl
+---
+
+```{=html}
+<!--
+SKELETON. Planning notes are in *[italic brackets]* (author's convention) and
+render as visible placeholders; replace with prose. This supplement is
+UNASSESSED but expected — it extends, and must NOT duplicate, the main
+thesis Introduction's mini-review. It also doubles as the literature spine
+for the PhD proposal. Verify every citation against Zotero before use.
+-->
+```
+
+## Scope and approach
+
+*[1 short paragraph. State what this review covers (platelet Ca²⁺ handling + the whole-cell modelling lineage) and how sources were assembled. Note the relationship to the Introduction: the Intro gives the headline argument; this gives the breadth and the wider reading the marking descriptors reward.]*
+
+## Platelet activation as a calcium event
+
+*[Background on the agonist → cytosolic Ca²⁺ transient as the central event in platelet activation and haemostasis; clinical relevance (thrombosis, antiplatelet drug targets). Anchor: [@dolan2014]. ~200 words.]*
+
+## The calcium-handling machinery — primary literature by mechanism
+
+*[Walk the 12 mechanisms, citing the primary source used for each. One short paragraph or a table. Sources already in use:]*
+
+- **GPCRs / Gαq cascade** — P2Y1, PAR1, PAR4, P2X1; receptor counts [@coller1995].
+- **PI cycle** — PIP₂ → IP₃ + DAG [@mazet2020] (the Mike Fry group framework).
+- **IP3R gating** — \[cite: De Young & Keizer 1992\]; Li–Rinzel reduction \[cite: Li & Rinzel 1994\].
+- **SERCA** — [@purvis2008], cross-checked against \[cite: Dode 2002\] (the k₃ correction; see Methods).
+- **PMCA + calmodulin** — [@caride2007].
+- **SOCE (STIM1 / Orai1)** — [@hoover2011; @dolan2014].
+- **Mitochondrial Ca²⁺ (MCU / NCLX)** and **luminal/cytosolic buffers** — *[cite the buffer and mito sources from `reports/data/calcium-data-provenance.md`].*
+
+## Prior platelet and calcium models
+
+*[Critical comparison, not just listing. [@purvis2008] = a large single-network ODE platelet model; [@mazet2020] = upstream PI cycle, stops at IP₃; [@dolan2014] = fixed-point Ca²⁺ handling with hand-fitted IP₃ forcing. The gap: no calibrated multi-process platelet model connecting upstream to downstream end-to-end. Also note resting-baseline disagreement in the literature — Sveshnikova vs Dolan (issues #37/#38) — as a genuine open controversy.]*
+
+## The whole-cell modelling lineage
+
+*[Karr 2012 *Mycoplasma genitalium* [@karr2012] = first mechanistic whole-cell model; Covert lab *wcEcoli* [@macklin2020]; the H1 hESC effort and the community blueprint [@szigeti2017] naming data/standards/collaboration as the bottleneck. Define "whole-cell model" precisely (mechanistic, mass-balanced, multi-process) so the distinction from data-driven "virtual cells" is clear — see the AI supplement.]*
+
+## Data resources for calibration
+
+*[Burkhart 2012 copy-number proteome [@burkhart2012] as the anchor; the mosaic-data problem (parameters drawn across organisms/conditions). Point to `reports/data/` provenance files.]*
+
+## Synthesis — the gap this work addresses
+
+*[Close by stating the gap: a mass-balanced, copy-number-accounted, multi-process platelet model validated end-to-end. Keep the claim modest (worth pursuing), per the thesis stance.]*
+
+## References
+
+::: {#refs}
+:::

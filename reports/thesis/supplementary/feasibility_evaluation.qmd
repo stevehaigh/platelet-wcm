@@ -1,0 +1,80 @@
+---
+title: "Supplementary: Feasibility evaluation and a work estimate toward a whole-cell platelet model"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: true
+    include-in-header: ../../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: true
+bibliography: ../references.bib
+csl: ../harvard-leeds-beckett-university.csl
+---
+
+```{=html}
+<!--
+SKELETON. Planning notes in *[italic brackets]*. This is the most
+intellectually valuable supplement and the spine of the PhD proposal. IMPORTANT:
+the feasibility VERDICT itself belongs in the main thesis Discussion (don't bury
+the punchline in an appendix); this supplement carries the DETAILED breakdown.
+Keep the claim MODEST throughout (decision 4): the approach is worth pushing
+further — not "a WCM is feasible / done". Reasoning developed in
+`reports/thesis/review-part-2.md` §4.
+-->
+```
+
+## Purpose
+
+*[State the relationship to the main thesis: the Discussion gives the verdict; this gives the module-by-module evidence and the work estimate behind it.]*
+
+## What would count as a "genuine" whole-cell platelet model
+
+*[Define the target. A mechanistic, mass-balanced, copy-number-accounted model spanning the major functional modules of the platelet, validated per module. Distinguish from (a) a single-pathway model and (b) a data-driven "virtual cell" (cross-ref the AI supplement).]*
+
+## How strongly is feasibility proved? — a three-tier assessment
+
+*[The honest core. Reproduce and expand the tiered framing:]*
+
+- **Weak claim — proved.** *[One Ca²⁺ pathway modelled mechanistically and validated (Dolan 5/5, resting state held, no hand-fitted forcing).]*
+- **Medium claim — partially shown.** *[The architecture ports to platelet biology (adaptation ✓) and is extensible (asserted, NOT yet demonstrated — only one pathway exists; no second process sharing state). Name this as the honest soft spot.]*
+- **Strong claim — not proved, not claimed.** *[A complete WCM is feasible. Defensible substitute: viable proof-of-concept; principal risk is data, not architecture/computation [@szigeti2017].]*
+
+## Module-by-module breakdown
+
+*[Table: module | status | primary data source(s) | data availability | rough effort. Rows: Ca²⁺ signalling core (DONE); metabolism / mitochondrial ATP + glycolysis; cytoskeleton / shape change; granule biogenesis + secretion; integrin αIIbβ3 inside-out/outside-in; full GPCR receptor complement; membrane lipid / PI dynamics; procoagulant (PS exposure). Flag the 2-3 modules likely blocked on missing wet-lab data.]*
+
+## The anucleate tractability argument
+
+*[The platelet's key advantage: no transcription, translation, replication, or division — exactly where Karr 2012 [@karr2012] spent the most effort. This is the strongest single feasibility argument; make it explicitly.]*
+
+## The binding constraint: data, not computation
+
+*[Argue, with evidence, that calibration/data curation dominates cost, not coding or solver time. The community blueprint [@szigeti2017] and the PI-cycle study [@mazet2020] reach the same conclusion; the k₃ episode is first-hand evidence. AI-assisted coding compresses engineering, not data cost.]*
+
+## A rough work estimate
+
+*[Reasoned, order-of-magnitude, with caveats. ~8-15 major modules; small team (2-4 people); ~3-5 years; dominated by data, with 2-3 modules potentially infeasible today without new measurement. Present as person-years and a dependency on data availability, NOT a coding schedule. Show the reasoning so it reads as judgement, not a guess.]*
+
+## Risks and unknowns
+
+*[What could make this harder than estimated: data that doesn't exist; modules that don't compose cleanly; validation experiments that aren't available; the well-mixed simplification breaking down (microdomains). Honest about each.]*
+
+## Verdict
+
+*[Modest close: the proof-of-concept is encouraging and the obstacles are well-characterised enough to justify pushing the idea further. Mirror, don't duplicate, the main-thesis Discussion.]*
+
+## References
+
+::: {#refs}
+:::

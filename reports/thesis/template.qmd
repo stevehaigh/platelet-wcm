@@ -19,10 +19,8 @@ format:
     number-sections: false
     # reference-doc: thesis-reference.docx  # optional Word style template
 bibliography: references.bib
-# Harvard referencing is required by the handbook. Download a Harvard CSL
-# (e.g. https://www.zotero.org/styles/harvard-cite-them-right) into this
-# folder and uncomment the next line:
-# csl: harvard-cite-them-right.csl
+# Harvard referencing is required by the handbook.
+csl: harvard-leeds-beckett-university.csl
 ---
 
 ```{=html}

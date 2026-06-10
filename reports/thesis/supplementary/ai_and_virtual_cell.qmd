@@ -1,0 +1,64 @@
+---
+title: "Supplementary: AI and the virtual cell — two paradigms for modelling cells"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: true
+    include-in-header: ../../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: true
+bibliography: ../references.bib
+csl: ../harvard-leeds-beckett-university.csl
+---
+
+```{=html}
+<!--
+SKELETON. Planning notes in *[italic brackets]*. UNASSESSED supplement, but the
+FIELD-POSITIONING half earns "wider reading / beyond standard material" marks
+if folded into the Introduction. FRAME AS A TWO-PARADIGM CONTRAST, not a survey.
+NB: the PERSONAL account of using AI to build this model belongs in the
+REFLECTIVE DOCUMENT (assessed, 20 marks) — keep this supplement at the field
+level and cross-reference. Verify every CZI/Allen claim and date against a
+primary source (the dates below are from web search, June 2026).
+-->
+```
+
+## Two roads to a model of a cell
+
+*[Set up the dichotomy: mechanistic / bottom-up (equations and parameters, this work's lineage) vs data-driven / top-down (learned from large-scale measurement). State the question the supplement answers: which reaches a "genuine" whole-cell model first, and are they complementary?]*
+
+## Mechanistic / bottom-up modelling
+
+*[The Karr → Covert → this-work lineage [@karr2012; @macklin2020]. Strengths: interpretable, causally interrogable, mass-balanced. Weakness: data-bottlenecked — the binding constraint is parameter availability, not computation [@szigeti2017]. Tie to the k₃ experience.]*
+
+## Data-driven / AI virtual cells
+
+*[The emerging, far better-resourced camp. CZI Virtual Cells Platform and the NVIDIA partnership (Oct 2025); the rBio reasoning model trained on virtual-cell simulations (Aug 2025); the Allen Integrated Cell (a statistical 3-D model of cell morphology) and CellScapes; the Human Cell Atlas as the data substrate. Strengths: scale, prediction, perturbation inference. Weakness: correlative rather than mechanistic — predicts without necessarily explaining. CITE primary sources; see `review-part-2.md` Sources for URLs.]*
+
+## Where the paradigms meet
+
+*[Complementarity, not rivalry. Can data-driven models supply the parameters mechanistic models lack? Can mechanistic simulators generate training data for AI models (as rBio does)? The federated/compositional vision (cf. the Vivarium argument in the COPASI/VCell supplement): specialised, individually validated submodels under a common engine.]*
+
+## AI as a tool for building models (brief)
+
+*[A short pointer, NOT the full account: AI assistance was used to build this model. The honest, first-person reflection — what it got right, the Purvis k₃ failure mode, the verification discipline that resulted — lives in the REFLECTIVE DOCUMENT. Here, note only the field-level point: AI-assisted coding compresses the engineering cost of mechanistic modelling but not the data-curation cost.]*
+
+## Outlook
+
+*[Where the field is heading and where a mechanistic platelet model sits within it. Keep modest: this work is a small mechanistic proof-of-concept in a field being reshaped by data-driven methods; its value is interpretability and extensibility, not scale.]*
+
+## References
+
+::: {#refs}
+:::

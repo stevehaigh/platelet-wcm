@@ -1,0 +1,79 @@
+---
+title: "Supplementary: A software engineer's description of the model, for biologists"
+author: "Steve Haigh"
+date: today
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    number-sections: true
+    include-in-header: ../../pandoc-header.tex
+  docx:
+    toc: false
+    number-sections: true
+bibliography: ../references.bib
+csl: ../harvard-leeds-beckett-university.csl
+---
+
+```{=html}
+<!--
+SKELETON. Planning notes in *[italic brackets]*. UNASSESSED but a valuable
+artefact (and PhD onboarding doc). REGISTER WARNING: the audience is
+biologists, not engineers. Motivate every technical choice BIOLOGICALLY;
+each abstraction should answer "what biological thing does this represent?"
+or it reads as code documentation. Keep code snippets minimal and explained.
+Much of this can be drafted from CLAUDE.md + the codebase, then human-verified.
+-->
+```
+
+## Purpose and audience
+
+*[Who this is for and why it exists: a plain-language account of how a whole-cell model is built in software, aimed at biologists who will read, trust, or extend it. State the register explicitly.]*
+
+## What a whole-cell model is, computationally
+
+*[The core idea in one page: a set of biological processes that each modify a shared, mass-balanced inventory of molecules over time, with every protein counted. Contrast with a single ODE system. The biological pay-off: you can ask "what is the whole cell doing", not just "what is one pathway doing".]*
+
+## Architecture: three layers
+
+*[The framework / model / parameters split, with the biological motivation for each:]*
+
+- **Framework (`wholecell/`)** — *[the reusable engine inherited from wcEcoli [@macklin2020]; analogy: the laboratory apparatus, independent of which cell you study].*
+- **Model (`models/platelet/`)** — *[the platelet biology: processes and listeners].*
+- **Reconstruction (`reconstruction/platelet/`)** — *[the parameters: copy numbers, rate constants, compartment volumes — the "cell's measured properties"].*
+
+## The simulation loop
+
+*[The 1-second timestep cycle in biologist's terms: processes declare what molecules they need → a partitioning step shares the limited pool → processes react → results merge → listeners record. Why discrete timesteps; why mass balance matters.]*
+
+## Core abstractions, biologically
+
+*[Table mapping each software abstraction to its biological meaning: Process = a mechanism (e.g. SERCA pumping); State = a molecular inventory in a compartment; Listener = an instrument recording a readout; Analysis = the figures. Compartment tags (`Ca[c]`, `Ca[dts]`, …).]*
+
+## How the calcium biology maps to code
+
+*[The `CalciumDynamics` process is a thin wrapper around the ODE right-hand side in `calcium_signalling.py`. Show how one mechanism (e.g. IP3R) becomes a flux term. Keep one short, annotated snippet. Explain the integrator (`scipy solve_ivp`, BDF) without jargon.]*
+
+## Parameters as data
+
+*[The kinetics-as-data refactor (#32): rate constants live in `reports/params/calcium-v0.5.toml`, species in `species-v0.5.tsv`, each value carrying a citation. Biological motivation: parameters are evidence, so they should be inspectable, sourced, and changeable without touching code.]*
+
+## Reproducibility and engineering practice
+
+*[Version control, automated tests, continuous integration, Docker, fixed seeds, `OPENBLAS_NUM_THREADS=1`. Frame as the computational analogue of a documented wet-lab protocol — this is the "repeatable methods" the marking descriptors reward (see `review-part-2.md` §9).]*
+
+## Extending the model
+
+*[How a new mechanism attaches as a process sharing the same Ca²⁺ state — the composition argument that distinguishes a whole-cell model from a single network. Note this is currently demonstrated for one pathway; adding a second sharing state is the decisive next step (cross-ref the feasibility supplement).]*
+
+## References
+
+::: {#refs}
+:::
