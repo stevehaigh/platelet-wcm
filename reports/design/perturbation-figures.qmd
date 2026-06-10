@@ -1,0 +1,98 @@
+---
+title: "Platelet WCM — perturbation-figure design (PMCA V_max & MCU)"
+author: "Steve Haigh"
+date: "2026-06-09"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: false
+    include-in-header: ../pandoc-header.tex
+---
+
+# Purpose
+
+The thesis Results section claims two mechanistic findings with **no figure or data behind them yet**:
+
+1. *PMCA V_max rate-limits cytosolic Ca²⁺ recovery at low cytosolic concentrations.*
+2. *MCU buffering alone does not accelerate DTS recovery.*
+
+This document designs two in-silico **perturbation experiments** on the frozen **v0.5** model that produce those figures. No new biology; the model is unchanged. The harness reuses the `runDoseSweep.py` service-layer pattern (a pure scan function plus a thin `main()`). These become **Results Fig. 4 and Fig. 4b**, completing the handbook's four-figure requirement (see `reports/thesis/review-part-2.md` §6, §9).
+
+The two experiments are *designed in-silico experiments with a control* (the baseline / factor = 1 condition), which is how they satisfy the marking descriptors' "experimental design," "controls (where applicable)," and "data analysis" criteria.
+
+# Refinement after exploratory run (2026-06-10)
+
+The exploratory run showed the original protocol assumption was wrong: under the
+default *sustained* agonist, thrombin irreversibly cleaves PAR1/4, so the cell
+never returns to rest — "time to recovery" and "DTS refill time" are undefined.
+The design was refined accordingly (implemented in
+`runscripts/manual/runPerturbation.py`):
+
+- **Exp A (PMCA)** runs in the **EDTA / no-extracellular-Ca²⁺** condition. SOCE
+  cannot refill the store, so the DTS releases one bolus and PMCA/NCX clear the
+  cytosol — a self-limiting transient. Observable: **recovery-tail AUC** =
+  ∫ max(cyt − rest, 0) dt over the post-peak window (censoring-free), which
+  falls monotonically as PMCA V_max rises.
+- **Exp B (MCU)** is reframed from "DTS refill time" to **cytosolic buffering**:
+  MCU lowers the cytosolic peak (KO 651 → baseline 436 → ×4 380 nM) while the
+  DTS depletes fully regardless of MCU.
+
+The sections below record the original intent; the runner reflects the
+refinement above.
+
+# Parameter knobs (confirmed in code)
+
+| Mechanism | Module handle | Baseline | Defined |
+|---|---|---|---|
+| PMCA V_max | `cs_mod.K_PMCA['k_cat']` | **5.5 s⁻¹** | `calcium_signalling.py:218` (`dict(_KINETICS['pmca']['basal'])`); TOML `[pmca.basal] k_cat` |
+| MCU uptake | `cs_mod.K_MITO['V_max_MCU']` | **50000 ions/s** | `calcium_signalling.py:677` (`dict(_KINETICS['mito']['kinetics'])`); TOML `[mito.kinetics]` |
+
+Both are mutated in place before sim construction — the same live-read override the dose sweep relies on (`cs_mod.CA_EX_UM = X`). PMCA V_max ∝ `k_cat` × [PMCA·Ca]; the MCU flux is Hill, `v_mcu = V_max_MCU · cyt^n / (K_MCU^n + cyt^n)` with `n_MCU = 4`, `K_MCU = 1 µM` (`calcium_signalling.py:1156–1158`), so knockout = `V_max_MCU = 0`.
+
+> ⚠ **PMCA `k_cat` is calibration-coupled** with the PM leak / resting balance (`J_SOCE + J_leak = J_PMCA` at rest; `calcium_signalling.py:493–524`). Scaling it shifts each condition's resting cytosolic Ca²⁺. Measure recovery relative to **each condition's own settled baseline**, and report the baseline shift — it is itself an informative result.
+
+# Experiment A — PMCA V_max rate-limits cytosolic recovery (Fig. 4)
+
+- **Knob / conditions:** `K_PMCA['k_cat']` scaled by **{0.25, 0.5, 1.0, 2.0, 4.0}×**. Not zero — PMCA is the dominant extrusion, so full knockout breaks the resting state.
+- **Protocol:** standard Phase-3 **+Ca²⁺** agonist transient (same stimulus as validation). Settle each condition to its own rest (agonist delay), stimulate, observe recovery. Length **~300–400 s** — long enough for the late tail, well below the >2000 s deYoung–Keizer bistability regime.
+- **Observable:** `t_recovery_cyt_s` = time from peak to 90 % recovery toward *that condition's own* baseline — **threshold-crossing on the falling phase, not `argmax`** (flat-topped-trace lesson).
+- **Figure (2-panel):** (left) overlaid cyt Ca²⁺ traces vs time, viridis-graded by factor (legend = the V_max axis); (right) `t_recovery_cyt_s` vs V_max factor. Expected: recovery lengthens monotonically as V_max falls — the tail is PMCA-limited.
+
+# Experiment B — MCU does not accelerate DTS refill (Fig. 4b)
+
+- **Knob / conditions:** `K_MITO['V_max_MCU']` ∈ **{0 (knockout), 1.0 (baseline), 4.0 (over-expression)}**. Knockout is biologically clean — MCU is a transient buffer, not homeostatic extrusion.
+- **Observable:** `t_refill_dts_s` = time for DTS Ca²⁺ to return to 90 % of its resting level after depletion (threshold-crossing). Also track cyt + mito pools to show *where the Ca²⁺ goes*.
+- **Prediction tested:** DTS refill is unchanged or *slower* with MCU active, because MCU diverts cytosolic Ca²⁺ into mitochondria, away from SERCA → DTS refilling.
+- **Validation bonus:** the code cites **Ghatge et al. 2026 — MCU⁻/⁻ platelets show elevated cytosolic Ca²⁺**. The `V_max_MCU = 0` trace can be compared qualitatively to that knockout data, turning Exp. B from pure prediction into a *semi-validation*.
+- **Figure (2-panel):** (left) DTS Ca²⁺ traces for KO / baseline / over-expression; (right) cyt + mito traces showing the diversion (or `t_refill_dts_s` vs MCU level).
+
+# Harness
+
+- New `runscripts/manual/runPerturbation.py`, modelled on `runDoseSweep.py`: a pure `run_perturbation_scan(knob, factors, …)` that loops conditions, sets the module handle, constructs + runs the sim, harvests the trace + scalar observable, and **restores the handle between runs** (the dose-sweep module-mutation lesson — no state leakage).
+- Observables are threshold-based; right-censor at sim length if no crossing.
+- Artefacts: per-condition trace `.npz` + summary `.json` + the 2-panel PNG, reusing the dose-sweep plotting style **with colourbars + units** (the Jambor figure-clarity fix).
+- Tests: a smoke test (artefacts written) + a regression anchor that **factor = 1 reproduces the Phase-3 baseline**.
+
+# Acceptance criteria
+
+1. `factor = 1` / `MCU baseline` reproduces Phase-3 (regression anchor).
+2. Exp. A: `t_recovery_cyt_s` increases monotonically as PMCA V_max decreases.
+3. Exp. B: `t_refill_dts_s` is **not** decreased by MCU activity; `V_max_MCU = 0` shows elevated / prolonged cyt Ca²⁺ (qualitatively consistent with Ghatge 2026).
+4. Two committed figures + `.npz` + summary `.json`; resting state reported per condition.
+
+# Open items to confirm before coding
+
+1. Whether the resting state holds under `V_max_MCU = 0` (expected; verify) and the magnitude of the PMCA baseline drift across factors.
+2. Recovery-/refill-threshold percentage and exact sim length — pick from one quick exploratory run.
+3. Whether to emit the scalar curves from the same run that emits the traces (one pass) or harvest separately.
+
+# Risk / effort
+
+Low risk — no new biology, reuses the frozen model and the proven dose-sweep harness. ~2–4 days. Keep sim length < 2000 s to avoid the deYoung–Keizer low-Ca²⁺ bistability regime.

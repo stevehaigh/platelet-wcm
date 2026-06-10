@@ -1179,15 +1179,16 @@ class CalciumSignalling:
 	def __init__(self, sim_data):
 		self.molecule_names = np.array(MOLECULE_NAMES, dtype='U30')
 		self.n_species = N_SPECIES
-		# Per-species fractional-delta residual carried over between
-		# timesteps. Without it, any species whose |dy/dt| < 0.5 ions/s
-		# is frozen at its current integer count (rounding artifact):
-		# the ODE evolves with float precision but the commit to bulk
-		# molecules rounds to int per-step. For slow approach to
-		# equilibrium (e.g. IP3 near rest, PIP2 refill), this stranded
-		# the model at a non-equilibrium fixed point. Tracking the
-		# unused fractional part and adding it to the next step's delta
-		# preserves the ODE dynamics on average. Diagnosed in
+		# Per-species fractional residual: the gap between the continuous
+		# ODE state and the integer bulk-molecule counts. Without it, any
+		# species whose |dy/dt| < 0.5 ions/s is frozen at its current
+		# integer count (rounding artifact): the ODE evolves with float
+		# precision but the commit to bulk molecules rounds to int per-step.
+		# For slow approach to equilibrium (e.g. IP3 near rest, PIP2 refill),
+		# this stranded the model at a non-equilibrium fixed point. The
+		# residual both seeds the next step's integration (so the ODE
+		# continues from the continuous state, not the rounded counts) and
+		# accumulates the uncommitted fraction. Diagnosed in
 		# lab-book-2026-05-12-pi-cycle-design.md §"IP3 stuck-at-205".
 		self._residual = np.zeros(N_SPECIES)
 
@@ -1208,7 +1209,15 @@ class CalciumSignalling:
 			Number of ATP molecules consumed by SERCA + PMCA pumping
 			during this step.
 		"""
-		y0 = counts.astype(float)
+		counts_f = counts.astype(float)
+		# Seed the integration from the *continuous* state (integer counts
+		# plus the fractional residual carried from last step), not the
+		# rounded counts. Re-seeding from the rounded state each second
+		# injects a sub-ion perturbation that, in the slow recovery tail,
+		# sustains as a period-2 numerical ripple (~8 nM) locked to the 1-s
+		# commit grid (PMCA perturbation figures, issue #53). Carrying the
+		# continuous state across the commit removes it at source.
+		y0 = counts_f + self._residual
 
 		sol = solve_ivp(
 			_ode_rhs, (0.0, dt), y0,
@@ -1224,12 +1233,11 @@ class CalciumSignalling:
 				f'CalciumSignalling ODE failed at t_sim={t_sim}: {sol.message}')
 
 		y_final = np.maximum(sol.y[:, -1], 0.0)
-		# Carry over fractional residuals across timesteps so that
-		# sub-1-ion-per-second fluxes still integrate correctly over
-		# many steps. The exact float delta is integer-rounded for
-		# the commit, and the unused fraction is added to the next
-		# step's accumulator. See `__init__` for the diagnosis.
-		fractional_delta = y_final - y0 + self._residual
+		# Commit the integer delta against the counts bulk molecules hold;
+		# the uncommitted fraction becomes the next step's residual, so the
+		# continuous state (y_final == counts + residual) is preserved
+		# exactly across the commit. See `__init__` for the diagnosis.
+		fractional_delta = y_final - counts_f
 		delta = np.round(fractional_delta).astype(np.int64)
 		self._residual = fractional_delta - delta
 
