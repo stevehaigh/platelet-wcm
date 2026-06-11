@@ -68,14 +68,14 @@ SERCA simulation diverged in seconds. Back-traced to one rate constant. The Purv
 
 ## The model — 12 coupled mechanisms
 
-![Platelet Ca²⁺ pathway, v0.4.1. Agonist → receptors → Gαq → PLCβ → IP3 → IP3R → Ca²⁺_cyt, with buffering, SOCE refill, mito shuttle, and extrusion.](../figures/model-status-graphviz.png)
+![Platelet Ca²⁺ pathway, v0.4.1. Agonist → receptors → Gαq → PLCβ → IP3 → IP3R → Ca²⁺_cyt, with buffering, SOCE refill, mito shuttle, and extrusion.](../figures/v0.5/model-status-graphviz.png)
 
 ## Validation — Dolan & Diamond 2014 Fig. 4
 
 ::: {.columns}
 ::: {.column width="55%"}
 
-![Free vs. bound Ca²⁺ over a 240 s IP3-driven transient. Cyt rises from ~100 nM to ~500 nM and recovers; DTS depletes and refills via SOCE; buffer occupancy shifts visibly during the peak.](../figures/ca-bound-free-v0.4.0.png)
+![Free vs. bound Ca²⁺ over a 240 s IP3-driven transient. Cyt rises from ~100 nM to ~500 nM and recovers; DTS depletes and refills via SOCE; buffer occupancy shifts visibly during the peak.](../figures/v0.5/ca-bound-free-v0.4.0.png)
 
 :::
 ::: {.column width="45%"}

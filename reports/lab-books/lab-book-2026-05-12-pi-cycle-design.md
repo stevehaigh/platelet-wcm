@@ -333,7 +333,7 @@ essentially unchanged.
 
 The model's IP3 timecourse (PI cycle output) tracks the Dolan Fig. S2
 reference within ±15 % of peak height, peak timing, and decay tail.
-See `reports/figures/ca-bound-free-2026-05-12-v0.3.png` panel 4 —
+See `reports/figures/v0.5/ca-bound-free-2026-05-12-v0.3.png` panel 4 —
 the model IP3 (purple) vs Dolan reference (grey dashed) show the
 same general shape, slightly shifted timing due to the lumped PI cycle
 dynamics.

@@ -28,7 +28,7 @@ Renamed all 30 run directories with a `YYYY-MM-DD_` prefix (date of the files
 within) so old data is obvious at a glance. `out/` is gitignored, so no repo
 churn; a reference scan confirmed nothing functional pointed at the old names
 (only generic example commands, a docstring, historical lab books, and
-`reports/figures/*.png` filenames).
+`reports/figures/v0.5/*.png` filenames).
 
 Identified the thesis-relevant runs and archived the rest (25 exploratory /
 superseded runs → `out/_archive/`). Kept at top level:
@@ -99,7 +99,7 @@ refinement and tick off the acceptance criteria.
 
 ## 4. Wired into the thesis
 
-Copied the two figures (and the decay-stub figure) into `reports/figures/`,
+Copied the two figures (and the decay-stub figure) into `reports/figures/v0.5/`,
 embedded them as `@fig-pmca` / `@fig-mcu` in the `draft-thesis.qmd` Results
 section, and rewrote the two mechanistic-finding paragraphs from planning notes
 into real prose citing the figures. With the validation and dose-sweep figures
@@ -110,7 +110,7 @@ this completes the handbook's four-figure Results requirement.
 - `runscripts/manual/runPerturbation.py` (new, ~250 LoC)
 - `models/platelet/tests/sim/test_perturbation.py` (new)
 - `reports/design/perturbation-figures.qmd` (refinement note added)
-- `reports/figures/perturbation-{pmca,mcu}-2026-06-10.png`,
+- `reports/figures/v0.5/perturbation-{pmca,mcu}-2026-06-10.png`,
   `original-decay-stub-2026-04-29.png` (new)
 - `reports/thesis/draft-thesis.qmd` (Results: 2 figures + prose;
   also corrected a stale `raw_data/` reference in Methods)

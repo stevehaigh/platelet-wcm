@@ -24,7 +24,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('simOutDir', nargs='?',
 		default='out/long-recovery/platelet_stub_000000/000000/generation_000000/000000/simOut')
-	parser.add_argument('--out', default='reports/figures/long-recovery-2026-05-12.png')
+	parser.add_argument('--out', default='reports/figures/v0.5/long-recovery-2026-05-12.png')
 	parser.add_argument('--stim-onset', type=float, default=60.0)
 	args = parser.parse_args()
 

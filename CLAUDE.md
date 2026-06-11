@@ -320,7 +320,7 @@ Instances at `platelet-wcm.uksouth.azurecontainer.io`.
 - `platelet-plan/` — high-level project plan (`overview.md`, `architecture.md`)
 - `reports/design/` — design docs (calcium pathway, runtime scaffold, reconstruction)
 - `reports/lab-books/` — dated session notes (most recent is current state of the work)
-- `reports/data/`, `reports/figures/` — calibration data and rendered figures
+- `reports/data/`, `reports/figures/` — calibration data and rendered figures (figures are snapshotted per model release under a version subdir, e.g. `reports/figures/v0.5/`)
 - `make pdfs` builds PDFs of any `reports/*.md` into `reports/pdf/` (pandoc + xelatex)
 - `make quarto-pdfs` builds PDFs of any `reports/*.qmd` into `reports/pdf-quarto/` (Quarto + xelatex)
 - `runscripts/manual/buildDocsSite.py` renders every `.md` / `.qmd` under `reports/{design,lab-books,data,decks,external}` to HTML and writes an auto-generated index at `reports/site/index.html` (lab-book and design-doc listings are produced automatically from the file headers)

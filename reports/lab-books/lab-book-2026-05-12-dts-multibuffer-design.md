@@ -344,7 +344,7 @@ because the buffer's release rate (HSP90B1_M: k_off × N_bound = 1 × 40 k =
 40 k ions/s) is much smaller than IP3R peak drain (~few M ions/s).
 
 **However the bound DTS pools are clearly retained** during the transient
-— see `reports/figures/ca-bound-free-2026-05-12.png` panel 3: the
+— see `reports/figures/v0.5/ca-bound-free-2026-05-12.png` panel 3: the
 HSP90B1 medium-affinity trace (green) drops only modestly during the
 transient, holding ~30 k of its 40 k Ca²⁺ ions while the fast buffers
 (CALR C, HSP90B1-L+BiP+CREC pool) fully release. So **the bound pool

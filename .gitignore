@@ -111,7 +111,7 @@ reconstruction/ecoli/dataclasses/process/two_component_system_odes_fitter.py
 ########
 *.cPickle
 *.png
-!reports/figures/*.png
+!reports/figures/**/*.png
 *.csv#
 *.pickle
 *.log

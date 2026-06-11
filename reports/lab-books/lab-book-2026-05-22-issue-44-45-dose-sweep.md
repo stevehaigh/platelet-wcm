@@ -88,7 +88,7 @@ the existing run via `--replot-only`. Findings:
 
 ### Reference sweeps
 
-Two reference sweeps committed to `reports/figures/`:
+Two reference sweeps committed to `reports/figures/v0.5/`:
 
 | Name | Range | Story |
 |---|---|---|
@@ -172,7 +172,7 @@ the censoring convention.
 - `runscripts/manual/plotDoseSweepInteractive.py` (new, ~150 LoC) —
   one-shot prototype of #46's webapp content
 - `models/platelet/tests/sim/test_dose_sweep.py` (new, ~95 LoC)
-- `reports/figures/dose-sweep-9x9-*.png/.npz/.html` (15 reference
+- `reports/figures/v0.5/dose-sweep-9x9-*.png/.npz/.html` (15 reference
   artefacts across two sweeps)
 - `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
   (dead-code purge + agonist_forced → 3 peak floats; ~270 LoC net diff)

@@ -20,7 +20,7 @@ The goal is to reproduce the Dolan & Diamond (2014) Figure 4 response curve — 
 sharp peak followed by a sustained plateau driven by store-operated calcium entry
 (SOCE) — using the ODE parameters published in that paper.
 
-![Schematic Ca²⁺ transient — expected output shape](/Users/steve/github/platelet-wcm/reports/figures/ca2-transient-reference.png)
+![Schematic Ca²⁺ transient — expected output shape](/Users/steve/github/platelet-wcm/reports/figures/v0.5/ca2-transient-reference.png)
 *Schematic showing the expected Ca²⁺ transient shape. The IP3 forcing function
 (lower panel) drives a rapid peak in cytosolic Ca²⁺, which then decays to a
 SOCE-sustained plateau before returning to baseline. This is the shape we aim
@@ -318,7 +318,7 @@ The IP3 receptor transitions between six states. Ca²⁺-dependent activation
 and inhibition produce the biphasic open probability required for oscillations.
 A Hill function cannot reproduce this behaviour.
 
-![IP3R 6-state Markov model](/Users/steve/github/platelet-wcm/reports/figures/ip3r-state-machine.png)
+![IP3R 6-state Markov model](/Users/steve/github/platelet-wcm/reports/figures/v0.5/ip3r-state-machine.png)
 *IP3R 6-state Markov model, adapted from Sneyd & Dufour (2002) type-2 kinetics
 as parameterised in Purvis & Bhatt (2008) Table 1. Green states (o, a) are
 Ca²⁺-conducting. Blue (n) is the resting neutral state. Purple states (i1, i2)
@@ -655,7 +655,7 @@ adapted for platelet Ca²⁺ signalling. The E. coli biological processes
 `CalciumDynamics` process, but the underlying framework — state containers,
 time-stepping, ATP/ADP partitioning — is carried over unchanged.
 
-![Ca²⁺ signalling process architecture](/Users/steve/github/platelet-wcm/reports/figures/calcium-process-architecture.png)
+![Ca²⁺ signalling process architecture](/Users/steve/github/platelet-wcm/reports/figures/v0.5/calcium-process-architecture.png)
 *ATP coupling shown in red. Green compartment = cytosol, blue = DTS, purple = plasma membrane.*
 
 ### 4.2 File contents

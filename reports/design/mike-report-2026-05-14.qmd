@@ -239,7 +239,7 @@ by calmodulin, gelsolin (cyt) and calreticulin, HSP90B1, BiP,
 CREC (DTS) is shown explicitly. Compartment boxes correspond
 to PM, cytosol (with nested DTS and mitochondria), and
 extracellular space. **[Figure to be replaced with hand-drawn
-BioRender version for final manuscript.]**](../figures/model-status-graphviz.png){#fig-architecture width=100%}
+BioRender version for final manuscript.]**](../figures/v0.5/model-status-graphviz.png){#fig-architecture width=100%}
 
 ## Validation against Dolan & Diamond 2014
 
@@ -262,7 +262,7 @@ within 60 s; DTS free Ca²⁺ depletes by ~60 % during the peak
 and refills via SOCE. Cytosolic and luminal buffer occupancy
 track the free pools with clear coupling. **[Caption to be
 refined: state which condition (with or without extracellular
-Ca²⁺) is plotted and add panel labels if dual condition.]**](../figures/ca-bound-free-v0.4.0.png){#fig-validation width=100%}
+Ca²⁺) is plotted and add panel labels if dual condition.]**](../figures/v0.5/ca-bound-free-v0.4.0.png){#fig-validation width=100%}
 
 ## Mechanistic findings
 

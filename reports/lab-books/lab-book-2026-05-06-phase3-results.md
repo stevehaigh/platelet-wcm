@@ -23,7 +23,7 @@ plateau response that distinguishes the two conditions cannot emerge
 without addressing the upstream Phase 2 issue.
 
 Issue #20 closed; figure committed under
-`reports/figures/phase3-dolan-fig4-2026-05-06.png`; summary JSON
+`reports/figures/v0.5/phase3-dolan-fig4-2026-05-06.png`; summary JSON
 under `reports/data/phase3-summary-2026-05-06.json`.
 
 ---
@@ -36,7 +36,7 @@ under `reports/data/phase3-summary-2026-05-06.json`.
 | Comparison plot | `models/platelet/analysis/phase3_dolan_fig4.py` | `make_phase3_plot()` builds a 3-panel figure (cyt + Dolan reference; DTS + Dolan reference; PASS/FAIL acceptance-criteria table) from two simOut directories. |
 | Driver script | `runscripts/manual/runPhase3.py` | Runs both conditions back-to-back into `out/<sim_outdir>/{with_ca,no_ca}/`, calls `make_phase3_plot`, writes `phase3_summary.json`. |
 | Regression test | `models/platelet/tests/analysis/test_phase3.py` | 4 tests locking the v0.2 baseline: figure file written + size; +Ca_ex peak in 30% band; −Ca_ex peak in 30% band; criteria pass count = 3/5. |
-| Saved figure | `reports/figures/phase3-dolan-fig4-2026-05-06.png` | Permanent dissertation artefact for this run. |
+| Saved figure | `reports/figures/v0.5/phase3-dolan-fig4-2026-05-06.png` | Permanent dissertation artefact for this run. |
 | Saved summary | `reports/data/phase3-summary-2026-05-06.json` | Numerical companion to the figure. |
 
 The pre-Phase 3 plumbing — `--ca-ex-mM` CLI flag and EDTA-aware
@@ -127,7 +127,7 @@ For the dissertation, this is a defensible limitation, not a bug:
 | `models/platelet/tests/analysis/test_phase3.py` | new (4 tests) |
 | `reports/data/dolan-2014-fig4-reference.json` | new |
 | `reports/data/phase3-summary-2026-05-06.json` | new (run output) |
-| `reports/figures/phase3-dolan-fig4-2026-05-06.png` | new (run output) |
+| `reports/figures/v0.5/phase3-dolan-fig4-2026-05-06.png` | new (run output) |
 | `reports/design/calcium-dynamics-design.md` | needs §7 update — pending |
 
 Total platelet test count: 17 → 21. mypy clean on 41 source files.

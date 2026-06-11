@@ -2,9 +2,9 @@
 
 These are layout references for the BioRender drawing, not finished art.
 Boxes/arrows/labels stand in for the platelet cartoons; embedded real
-plots (from reports/figures/dose-sweep-9x9-transition.npz) show where
+plots (from reports/figures/v0.5/dose-sweep-9x9-transition.npz) show where
 the actual heatmaps go and at what proportion. Output goes to
-`reports/figures/graphical-abstract-concept-{1..5}.png`.
+`reports/figures/v0.5/graphical-abstract-concept-{1..5}.png`.
 
 Usage:
     PYTHONPATH=$PWD python runscripts/manual/sketchGraphicalAbstracts.py

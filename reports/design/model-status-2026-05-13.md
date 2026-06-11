@@ -19,7 +19,7 @@ DTS = 250 µM, IP3 = 50 nM.
 See Platelet WCM v0.4.1 — Ca²⁺ pathway overview
 
 Portrait-oriented as a starting point for a hand-drawn BioRender redraw.
-Mermaid source: `reports/figures/model-status-2026-05-13.mmd`.
+Mermaid source: `reports/figures/v0.5/model-status-2026-05-13.mmd`.
 
 ---
 

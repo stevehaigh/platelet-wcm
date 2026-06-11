@@ -96,7 +96,7 @@ implemented** in the v0.x line.
 
 ## Notes on what's been done recently (for context when reading the issues)
 
-- **v0.5.x (May 2026)**: 2-D ADP × thrombin dose-response sweep (#45, closed). Headline finding: cascade is **graded upstream (peak IP3), binary at the IP3R→DTS-release step (peak Ca²⁺ saturates), graded again in the integrated response (Ca²⁺ AUC)**. See `reports/figures/dose-sweep-9x9*-panel.png` (one figure per range) and the live interactive surface at `reports/figures/dose-sweep-9x9-transition-interactive.html` (served via Pages).
+- **v0.5.x (May 2026)**: 2-D ADP × thrombin dose-response sweep (#45, closed). Headline finding: cascade is **graded upstream (peak IP3), binary at the IP3R→DTS-release step (peak Ca²⁺ saturates), graded again in the integrated response (Ca²⁺ AUC)**. See `reports/figures/v0.5/dose-sweep-9x9*-panel.png` (one figure per range) and the live interactive surface at `reports/figures/v0.5/dose-sweep-9x9-transition-interactive.html` (served via Pages).
 - **v0.4.x (April–May 2026)**: GPCR cascade added (PAR1 / PAR4 / P2Y1 / P2X1 → Gαq → PLCβ → PI cycle → IP3). Replaces the previous forced-IP3 curve.
 - **v0.3.x (March–April 2026)**: PMCA / SOCE / NCX / MCU / NCLX / CaM / multi-buffer DTS calibration. Phase 3 acceptance landed (5/5 against Dolan & Diamond 2014 Fig. 4).
 - **Engineering plumbing** (May 2026): byte-identical regression suite, kinetics-as-data design doc, terminal replay TUI for dissertation demo.

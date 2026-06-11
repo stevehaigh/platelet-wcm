@@ -92,6 +92,6 @@ constants touched).
 
 - `reconstruction/platelet/dataclasses/process/calcium_signalling.py` — the fix.
 - `models/platelet/tests/sim/golden/*.npz` — re-baselined.
-- `reports/figures/perturbation-{pmca,mcu}-2026-06-10.{png,md}`,
-  `reports/figures/ca-bound-free-edta-2026-06-10.{png,md}` — figures + legends.
+- `reports/figures/v0.5/perturbation-{pmca,mcu}-2026-06-10.{png,md}`,
+  `reports/figures/v0.5/ca-bound-free-edta-2026-06-10.{png,md}` — figures + legends.
 - `reports/thesis/draft-thesis.qmd` — validation-figure caption + reference.

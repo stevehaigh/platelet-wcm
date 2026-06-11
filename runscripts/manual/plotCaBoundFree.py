@@ -39,7 +39,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('simOutDir', nargs='?', default=None,
 		help='Path to simOut/ (default: most recent under out/)')
-	parser.add_argument('--out', default='reports/figures/ca-bound-free.png')
+	parser.add_argument('--out', default='reports/figures/v0.5/ca-bound-free.png')
 	parser.add_argument('--ip3-stim-onset', type=float, default=60.0,
 		help='Time of IP3 stimulus onset for annotation (s)')
 	args = parser.parse_args()
