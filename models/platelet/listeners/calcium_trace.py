@@ -19,6 +19,8 @@ Columns written:
   pmca_cam          — PMCA·CaM count (deactivating)
   pmca_free         — free PMCA count
   pmca_ca           — PMCA·Ca count (basal active)
+  atp_pump_per_s    — ATP consumed by Ca²⁺ pumps (SERCA + PMCA) this step
+                      (molecules/s; dt = 1 s)
 """
 
 import numpy as np
@@ -65,6 +67,12 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self._bulk_molecules = (
 			sim.internal_states['BulkMolecules'].container)
 
+		# CalciumDynamics exposes the per-step ATP cost of SERCA + PMCA
+		# pumping as `_atp_cost` (set in calculateRequest, applied in
+		# evolveState). Listeners update after evolveState, so by the time
+		# `update()` runs it holds the value for the step just completed.
+		self._calcium_dynamics = sim.processes['CalciumDynamics']
+
 		# Pre-compute the global indices of the species we track.
 		all_ids = list(sim_data.internal_state.bulk_molecules.bulk_data['id'])
 		self._idx_ca_cyt         = all_ids.index('CA2_CYT[c]')
@@ -95,11 +103,13 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_cam         = 0
 		self.pmca_free        = 0
 		self.pmca_ca          = 0
+		self.atp_pump_per_s   = 0.0
 
 		self.registerLoggedQuantity('Ca²⁺_cyt\n(nM)',   'ca_cyt_nM',     '.1f')
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
 		self.registerLoggedQuantity('IP₃\n(nM)',         'ip3_nM',        '.1f')
 		self.registerLoggedQuantity('SOCE\n(nM/s)',      'soce_flux_nMs', '.2f')
+		self.registerLoggedQuantity('ATP pump\n(ions/s)', 'atp_pump_per_s', '.0f')
 
 		if self._live_path is not None:
 			self._live_file = open(self._live_path, 'w', buffering=1)
@@ -128,6 +138,12 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_cam        = int(counts[self._idx_pmca_cam])
 		self.pmca_free       = int(counts[self._idx_pmca_free])
 		self.pmca_ca         = int(counts[self._idx_pmca_ca])
+
+		# Per-step ATP consumed by SERCA + PMCA pumping. `getattr` guards the
+		# initial update, which runs before the first calculateRequest sets
+		# `_atp_cost`.
+		self.atp_pump_per_s = float(
+			getattr(self._calcium_dynamics, '_atp_cost', 0))
 
 		# Instantaneous SOCE flux (nM/s into cytosol) via the same Dolan
 		# Eq. 2/3/4 chain used inside the ODE: Hill puncta entry → MWC
@@ -178,6 +194,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pmca_cam=self.pmca_cam,
 			pmca_free=self.pmca_free,
 			pmca_ca=self.pmca_ca,
+			atp_pump_per_s=self.atp_pump_per_s,
 		)
 		if self._live_file is not None:
 			self._live_file.write(

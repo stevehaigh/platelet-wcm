@@ -50,6 +50,12 @@ def _make_listener(counts):
 	bulk.counts.return_value = np.asarray(counts, dtype=np.int64)
 	lst._bulk_molecules = bulk
 
+	# CalciumDynamics reference, normally set in initialize(); the per-step
+	# ATP cost is read from its `_atp_cost` attribute.
+	cd = MagicMock()
+	cd._atp_cost = 0
+	lst._calcium_dynamics = cd
+
 	lst._idx_ca_cyt          = 0
 	lst._idx_ca_dts          = 1
 	lst._idx_ip3             = 2
@@ -111,6 +117,14 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 		self.assertEqual(lst.pmca_cam, 9)
 		self.assertEqual(lst.pmca_free, 30)
 		self.assertEqual(lst.pmca_ca, 40)
+
+	def test_atp_pump_per_s_reads_calcium_dynamics_cost(self):
+		"""atp_pump_per_s mirrors CalciumDynamics._atp_cost as a float."""
+		lst = _make_listener([0] * _NUM_SPECIES)
+		lst._calcium_dynamics._atp_cost = 137
+		lst.update()
+		self.assertEqual(lst.atp_pump_per_s, 137.0)
+		self.assertIsInstance(lst.atp_pump_per_s, float)
 
 
 class TestCalciumTraceSoceFlux(unittest.TestCase):

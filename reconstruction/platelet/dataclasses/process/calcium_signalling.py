@@ -1249,10 +1249,20 @@ class CalciumSignalling:
 		dts_gain = max(delta[_IDX['CA2_DTS[dts]']], 0)
 		serca_atp = dts_gain // 2
 		# PMCA ATP: 1 per turnover on both the basal path (step 5) and the
-		# CaM-activated path (step 10).
+		# CaM-activated path (step 10). Trapezoidal estimate of the turnover
+		# integral over the step — averages the pre- (counts_f) and post-
+		# (y_final) integration enzyme states rather than using the
+		# start-of-step value, which lags during a transient. SERCA above
+		# uses the committed CA2_DTS delta directly; PMCA can't, because its
+		# extruded Ca²⁺ goes to the untracked extracellular pool, so we
+		# integrate its catalytic rate instead.
+		pmca_ca_avg     = 0.5 * (counts_f[_IDX['PMCA_Ca[pl]']]
+			+ y_final[_IDX['PMCA_Ca[pl]']])
+		ca4_pmca_ca_avg = 0.5 * (counts_f[_IDX['Ca4_CaM_PMCA_Ca[pl]']]
+			+ y_final[_IDX['Ca4_CaM_PMCA_Ca[pl]']])
 		pmca_atp = max(int(
-			K_PMCA['k_cat'] * counts[_IDX['PMCA_Ca[pl]']] * dt
-			+ K_CAM_PMCA['k10'] * counts[_IDX['Ca4_CaM_PMCA_Ca[pl]']] * dt
+			K_PMCA['k_cat'] * pmca_ca_avg * dt
+			+ K_CAM_PMCA['k10'] * ca4_pmca_ca_avg * dt
 		), 0)
 		atp_cost = serca_atp + pmca_atp
 

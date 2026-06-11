@@ -189,7 +189,7 @@ ODE solver and rate constants in
   read the module default constant live). Passing 0 for a given peak gives
   REST level for that receptor; all three zero is a resting / un-stimulated sim.
 
-`CalciumTrace` listener records 14 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux).
+`CalciumTrace` listener records 15 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
 
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
