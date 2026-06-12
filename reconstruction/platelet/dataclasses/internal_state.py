@@ -44,7 +44,7 @@ issue #32, externalised most rate constants into TOML):
   - ``reports/params/calcium-v0.6.toml`` — source-of-truth for the
     rate constants themselves, with literature attribution and
     calibration-coupling notes inline.
-  - ``reports/design/kinetics-v0.5-review.pdf`` — clickable PDF
+  - ``reports/design/kinetics-v0.6-review.pdf`` — clickable PDF
     rendering of the above; regenerate via
     ``runscripts/manual/buildKineticsReview.py``.
   - ``reconstruction/platelet/dataclasses/process/calcium_signalling.py``

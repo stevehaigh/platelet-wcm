@@ -1,5 +1,5 @@
 """buildKineticsReview.py — render a clickable PDF review document
-from `reports/params/calcium-v0.5.toml`.
+from `reports/params/calcium-v0.6.toml`.
 
 Walks the TOML file line-by-line to recover the comment structure
 (which `tomllib` discards), groups it by section, and emits a Quarto
@@ -13,8 +13,8 @@ Usage
 
 Output
 ------
-- `reports/design/kinetics-v0.5-review.qmd`   (regenerated each run)
-- `reports/design/kinetics-v0.5-review.pdf`   (Quarto-rendered)
+- `reports/design/kinetics-v0.6-review.qmd`   (regenerated each run)
+- `reports/design/kinetics-v0.6-review.pdf`   (Quarto-rendered)
 
 The QMD is committed-friendly (deterministic from the TOML) so reviewers
 can diff against earlier renders; the PDF is the deliverable.
@@ -32,10 +32,10 @@ from typing import List, Optional, Tuple
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOML_PATH = REPO_ROOT / "reports" / "params" / "calcium-v0.5.toml"
-QMD_PATH = REPO_ROOT / "reports" / "design" / "kinetics-v0.5-review.qmd"
+TOML_PATH = REPO_ROOT / "reports" / "params" / "calcium-v0.6.toml"
+QMD_PATH = REPO_ROOT / "reports" / "design" / "kinetics-v0.6-review.qmd"
 PDF_PATH = QMD_PATH.with_suffix(".pdf")
-BIB_PATH = REPO_ROOT / "reports" / "params" / "calcium-v0.5-references.bib"
+BIB_PATH = REPO_ROOT / "reports" / "params" / "calcium-v0.6-references.bib"
 
 
 # ── Top-level namespace → chapter title mapping ──────────────────────
@@ -54,6 +54,7 @@ CHAPTER_TITLES = {
 	"agonists":  "Agonist forcing curves",
 	"gpcr":      "GPCR cascade (P2Y1 / PAR1 / PAR4 / Gαq)",
 	"pi_cycle":  "PI cycle (PLCβ / metabolism)",
+	"pkc":       "PKC negative feedback (DAG → PKC → P2Y1 desensitisation)",
 	"mito":      "Mitochondrial Ca²⁺ (MCU + NCLX)",
 	"buffers":   "Ca²⁺ buffers (cytosolic + DTS luminal)",
 	"references": "References",
@@ -318,8 +319,8 @@ def render_references(refs: dict) -> str:
 
 
 YAML_HEADER = """---
-title: "Platelet WCM — calcium kinetics review (v0.5)"
-subtitle: "Source-of-truth review document, auto-generated from `reports/params/calcium-v0.5.toml`"
+title: "Platelet WCM — calcium kinetics review (v0.6)"
+subtitle: "Source-of-truth review document, auto-generated from `reports/params/calcium-v0.6.toml`"
 author: "Steve Haigh"
 date: today
 format:
@@ -339,7 +340,7 @@ format:
 
 ::: callout-note
 This document is auto-generated from
-[`reports/params/calcium-v0.5.toml`](../params/calcium-v0.5.toml).
+[`reports/params/calcium-v0.6.toml`](../params/calcium-v0.6.toml).
 Edit the TOML, then re-run
 `runscripts/manual/buildKineticsReview.py` to regenerate.
 
@@ -395,7 +396,7 @@ def write_bibtex(refs: dict, path: Path) -> None:
 	LaTeX writeup. One `@article{key, ...}` per reference key.
 	"""
 	lines = [
-		"% Auto-generated from reports/params/calcium-v0.5.toml [references.*].",
+		"% Auto-generated from reports/params/calcium-v0.6.toml [references.*].",
 		"% Regenerate with: PYTHONPATH=$PWD python runscripts/manual/buildKineticsReview.py",
 		"",
 	]

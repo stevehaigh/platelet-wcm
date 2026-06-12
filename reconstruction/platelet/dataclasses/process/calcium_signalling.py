@@ -52,7 +52,7 @@ from reconstruction.platelet.dataclasses.process._params_loader import (
 # biology-fixed values that belong in code, not data.
 #
 # Full per-section attribution and the clickable bibliography live in
-# `reports/design/kinetics-v0.5-review.pdf` (regenerate via
+# `reports/design/kinetics-v0.6-review.pdf` (regenerate via
 # `runscripts/manual/buildKineticsReview.py`).
 _KINETICS = load_calcium_kinetics()
 
