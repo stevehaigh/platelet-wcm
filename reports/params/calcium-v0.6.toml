@@ -372,6 +372,18 @@ k_internalize = 0.02   # (s⁻¹) — τ ~50 s lumped (Hammes & Coughlin 1999 ti
 k_cleave      = 0.2    # (nM⁻¹·s⁻¹) — Kahn 1998 / Covic 2000 (slower than PAR1)
 k_internalize = 0.005  # (s⁻¹) — τ ~200 s (sustained response; model choice)
 
+[gpcr.tp]
+# Thromboxane TP receptor (TBXA2R), Gq-coupled (v0.61 Slice B). ~1000
+# copies per platelet (low-abundance GPCR; Burkhart 2012 order). Secreted /
+# synthesised TXA2 reversibly activates TP, which then contributes to the
+# shared total_active_R driving Gαq — the autocrine TXA2 → TP → Gq amplifier.
+# k_on / k_off are *model-choice* (mirroring [gpcr.p2y1]): at TXA2 ≈ 1 µM the
+# half-max k_off/k_on = 0.5 µM gives ~67% TP occupancy, a moderate amplifier
+# self-limited by TXA2 decay + the v0.6 PKC brakes. TP binding does not
+# deplete TXA2 (catalytic, like P2Y1/ADP); TXA2 is cleared only by decay.
+k_on  = 1.0   # (µM⁻¹·s⁻¹) — model choice
+k_off = 0.5   # (s⁻¹) — model choice
+
 [gpcr.gq]
 # Gαq exchange + RGS-accelerated GTPase cycle. k_act_per_R is the
 # per-receptor catalytic rate of Gq nucleotide exchange (Mazet 2020

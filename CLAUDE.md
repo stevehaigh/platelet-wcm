@@ -243,11 +243,22 @@ lumps cPLA₂ → COX-1 → TXA₂-synthase into one Ca²⁺ × PKC-gated produc
 `COX1_FACTOR` (module-level in the dataclass, read live; `0` = aspirin knockout,
 abolishes TXA₂). De-novo `TXA2[e]` decays first-order (t½ ≈ 30 s) to the stable
 ELISA metabolite `TXB2[e]`. The `ThromboxaneTrace` listener records `txa2_uM`,
-`txb2`, and the gate. **Additive — no Gq feedback yet, calcium ODE untouched,
-goldens byte-identical.** The autocrine **TXA₂ → TP → Gq** loop (Slice B —
-`+ tp_a` into the `total_active_R` sum, regen goldens + re-verify Dolan) and
-integrin (§3) remain unimplemented. Design:
-`reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
+`txb2`, and the gate. Slice A is additive (no Gq feedback).
+
+**Thromboxane Slice B — autocrine TXA₂ → TP → Gq (§2, feedback).** The TP
+receptor (`TP_inactive[pl]`/`TP_active[pl]`, ~1000 copies; `[gpcr.tp]` in the
+TOML) is added to the calcium ODE. Synthesised `TXA2[e]` is threaded into
+`_ode_rhs` (via CalciumDynamics, like the autocrine ADP) and reversibly
+activates TP (binding does not deplete TXA₂); active TP joins
+`total_active_R` (`+ tp_a`), closing the second autocrine amplifier. Effect is
+modest under strong thrombin (store-limited + PAR-dominated; IP₃ ≈ +0.6 % vs
+aspirin by 150 s) — the amplifier matters most at threshold stimuli, like the
+autocrine ADP. Aspirin (`COX1_FACTOR=0`) removes the whole loop (TP inactive).
+**Goldens regenerated** (adding 2 ODE states perturbs `at_rest` ~0.003 %;
+`default_activation` was byte-identical anyway) — **Dolan 5/5 preserved**.
+`ThromboxaneTrace` gains `tp_active_frac`. Loop gain (TP count, TXA₂ level,
+`[gpcr.tp]` affinity) is the tunable knob. Integrin (§3) remains unimplemented.
+Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
 
 ### State Partitioning
 
@@ -310,7 +321,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 74 species)
+The molecule inventory (id, mass, initial count, class for all 76 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`

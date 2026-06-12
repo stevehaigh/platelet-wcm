@@ -64,3 +64,35 @@ class TestThromboxaneSynthesis:
 				assert _tx(sim_out, 'txb2').max() == 0
 		finally:
 			tx_mod.COX1_FACTOR = 1.0
+
+	def test_txa2_drives_tp_and_amplifies_gq(self):
+		"""Slice B: synthesised TXA₂ activates TP and amplifies the Gq cascade
+		(IP₃); aspirin (no TXA₂) leaves TP inactive and the loop open."""
+		from wholecell.io.tablereader import TableReader
+
+		def ip3(sim_out):
+			return TableReader(os.path.join(sim_out, 'CalciumTrace')
+				).readColumn('ip3_nM').flatten()
+
+		with tempfile.TemporaryDirectory() as td:
+			on = _run(os.path.join(td, 'on'), 150)
+			tp_on = _tx(on, 'tp_active_frac')
+			ip3_on = ip3(on)
+		try:
+			tx_mod.COX1_FACTOR = 0.0
+			with tempfile.TemporaryDirectory() as td:
+				asp = _run(os.path.join(td, 'asp'), 150)
+				tp_asp = _tx(asp, 'tp_active_frac')
+				ip3_asp = ip3(asp)
+		finally:
+			tx_mod.COX1_FACTOR = 1.0
+
+		# TXA₂ activates TP only when COX-1 is intact.
+		assert tp_on.max() > 0.3
+		assert tp_asp.max() == 0.0
+		# Resting state is unperturbed by the loop (TP inactive at rest).
+		assert ip3_on[0] == ip3_asp[0]
+		# The closed loop adds Gq drive → IP₃ is ≥ the aspirin (open-loop) case,
+		# and strictly greater once TXA₂ has accumulated.
+		assert np.all(ip3_on >= ip3_asp - 1e-9)
+		assert ip3_on[-1] > ip3_asp[-1]

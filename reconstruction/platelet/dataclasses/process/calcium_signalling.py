@@ -164,6 +164,11 @@ MOLECULE_NAMES = (
 	# phosphorylates the inactive PLCβ pool into a state Gq cannot activate,
 	# damping the shared cascade downstream of all receptors.
 	'PLCb_phosphorylated[c]', # PKC-phosphorylated PLCβ (not Gq-activatable)
+	# Thromboxane TP receptor (v0.61 Slice B) — Gq-coupled. Secreted/synthesised
+	# TXA2[e] reversibly activates TP, which adds to total_active_R, closing the
+	# autocrine TXA2 → TP → Gq amplification loop. See [gpcr.tp] in the TOML.
+	'TP_inactive[pl]',        # resting TP (TBXA2R)
+	'TP_active[pl]',          # TXA2-bound, Gq-driving
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -588,6 +593,7 @@ K_P2Y1 = dict(_KINETICS['gpcr']['p2y1'])
 K_PAR1 = dict(_KINETICS['gpcr']['par1'])
 K_PAR4 = dict(_KINETICS['gpcr']['par4'])
 K_GQ   = dict(_KINETICS['gpcr']['gq'])
+K_TP   = dict(_KINETICS['gpcr']['tp'])   # thromboxane TP receptor (v0.61 Slice B)
 
 N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
@@ -792,7 +798,7 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 
 def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
-		secreted_adp_count=0.0):
+		secreted_adp_count=0.0, secreted_txa2_count=0.0):
 	"""Right-hand side of the calcium ODE.
 
 	`y` carries integer-equivalent counts (continuous floats during
@@ -838,6 +844,8 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	par1_a = max(y[_IDX['PAR1_active[pl]']],   0.0)
 	par4_i = max(y[_IDX['PAR4_inactive[pl]']], 0.0)
 	par4_a = max(y[_IDX['PAR4_active[pl]']],   0.0)
+	tp_i   = max(y[_IDX['TP_inactive[pl]']],   0.0)
+	tp_a   = max(y[_IDX['TP_active[pl]']],     0.0)
 	gq_a   = max(y[_IDX['Gq_active[c]']],      0.0)
 
 	# PKC feedback state reads (v0.6)
@@ -1233,10 +1241,20 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	dy[_IDX['PAR4_active[pl]']]       += +v_par4_cleave - v_par4_int
 	dy[_IDX['PAR4_internalized[pl]']] += +v_par4_int
 
-	# Gαq cycle: all active receptors share the same Gq pool.
+	# TP (thromboxane receptor): reversible TXA2 binding (v0.61 Slice B),
+	# mirroring P2Y1/ADP. Synthesised TXA2[e] is passed in as a count and read
+	# as a pericellular concentration; binding does not deplete it (catalytic).
+	# Active TP joins total_active_R below — the autocrine TXA2 → TP → Gq loop.
+	txa2_um_now = secreted_txa2_count * _UM_PER_COUNT_EX
+	v_tp_on  = K_TP['k_on']  * tp_i * txa2_um_now
+	v_tp_off = K_TP['k_off'] * tp_a
+	dy[_IDX['TP_inactive[pl]']] += -v_tp_on + v_tp_off
+	dy[_IDX['TP_active[pl]']]   += +v_tp_on - v_tp_off
+
+	# Gαq cycle: all active Gq-coupled receptors share the same Gq pool.
 	# Inactive Gq is implicit (total - active).
 	gq_i_count = max(N_GQ_TOTAL - gq_a, 0.0)
-	total_active_R = p2y1_a + par1_a + par4_a
+	total_active_R = p2y1_a + par1_a + par4_a + tp_a
 	v_gq_act = (K_GQ['k_act_per_R'] * total_active_R + K_GQ['k_basal']) * gq_i_count
 	v_gq_rgs = K_GQ['k_rgs'] * gq_a
 	dy[_IDX['Gq_active[c]']] += v_gq_act - v_gq_rgs
@@ -1286,14 +1304,15 @@ class CalciumSignalling:
 	def molecules_to_next_time_step(self, counts, dt, t_sim,
 			agonist_delay=0.0, thrombin_peak_nM=None,
 			adp_peak_uM=None, atp_ex_peak_uM=None,
-			secreted_adp_count=0.0):
+			secreted_adp_count=0.0, secreted_txa2_count=0.0):
 		"""Run one outer timestep of the calcium ODE.
 
 		Agonist forcing is controlled by the three `*_peak_*` kwargs;
 		`None` (default) uses the module-level peak constants, `0` gives
 		a resting / un-stimulated sim. See `_ode_rhs` docstring.
 		`secreted_adp_count` (ADP[e] count) adds autocrine ADP to the
-		P2Y1 drive (v0.61 Slice 2); 0 → open-loop.
+		P2Y1 drive (v0.61 Slice 2); `secreted_txa2_count` (TXA2[e] count)
+		drives the TP receptor (v0.61 Slice B). 0 → open-loop.
 
 		Returns
 		-------
@@ -1318,7 +1337,7 @@ class CalciumSignalling:
 			method='BDF',
 			args=(t_sim, agonist_delay,
 				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM,
-				secreted_adp_count),
+				secreted_adp_count, secreted_txa2_count),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,
