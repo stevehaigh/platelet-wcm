@@ -46,7 +46,7 @@ from reconstruction.platelet.dataclasses.process._params_loader import (
 # Externalised rate constants (issue #32 Phase 2). At Phase 2 completion
 # essentially every K_*, N_*, GAMMA_*, agonist forcing scalar, and
 # calibration-coupled scalar in this module is sourced from
-# `reports/params/calcium-v0.5.toml`. The remaining Python literals are
+# `reports/params/calcium-v0.6.toml`. The remaining Python literals are
 # physical constants (R, T, F, NA), structural integers (ORAI subunits
 # per channel, STIM monomers per dimer), and compartment volumes —
 # biology-fixed values that belong in code, not data.
@@ -141,6 +141,14 @@ MOLECULE_NAMES = (
 	'PAR4_active[pl]',
 	'PAR4_internalized[pl]', # v0.4.1: one-way sink
 	'Gq_active[c]',      # Gαq-GTP (active); inactive Gq implicit (total - active)
+	# PKC negative feedback (v0.6, issue #57) — DAG → PKC → P2Y1
+	# desensitisation. Closes the previously dead-end DAG branch: active
+	# PKC phosphorylates active P2Y1 into a signalling-incompetent state,
+	# throttling its own Gαq drive. See the [pkc.*] block in the TOML and
+	# reports/design/pkc-p2y1-feedback-design-2026-06-11.qmd.
+	'PKC_inactive[c]',        # resting PKC pool (lumped conventional + novel)
+	'PKC_active[c]',          # DAG + Ca²⁺-activated, membrane-translocated
+	'P2Y1_desensitised[pl]',  # PKC-phosphorylated, signalling-incompetent P2Y1
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -148,7 +156,7 @@ N_SPECIES = len(MOLECULE_NAMES)
 
 
 # ── Resting concentrations ────────────────────────────────────────────────
-# Values live in `reports/params/calcium-v0.5.toml [resting]` (issue
+# Values live in `reports/params/calcium-v0.6.toml [resting]` (issue
 # #32 Phase 2 slice 10). CA_EX_UM is runtime-overridable for the EDTA
 # condition (`cs_mod.CA_EX_UM = 0.0`); the override pattern survives
 # because module-name reassignment doesn't care about origin.
@@ -190,13 +198,13 @@ V_PM_V = -0.060          # plasma-membrane potential (V)
 #
 # Parameters from deYoung & Keizer 1992 PNAS 89:9895-9899 Table 1, via the
 # derived dissociation constants in Li & Rinzel 1994 J Theor Biol 166:461-473.
-# Values live in `reports/params/calcium-v0.5.toml [ip3r.k_dyk]` (issue #32
+# Values live in `reports/params/calcium-v0.6.toml [ip3r.k_dyk]` (issue #32
 # Phase 2). Edit there to change. `dict(...)` is a defensive copy so a
 # caller can't mutate the loader's underlying dict.
 K_DYK = dict(_KINETICS['ip3r']['k_dyk'])
 
 # IP3R channel ensemble (count + conductance). Values + full
-# calibration-coupling commentary live in `reports/params/calcium-v0.5.toml
+# calibration-coupling commentary live in `reports/params/calcium-v0.6.toml
 # [ip3r.channel]` (issue #32 Phase 2 slice 8).
 # ⚠ CALIBRATION-COUPLED with K_SERCA below — see TOML and
 # calibration-coupling-2026-05-25.qmd chains 1 + 2.
@@ -206,21 +214,21 @@ GAMMA_IP3R_S = _KINETICS['ip3r']['channel']['gamma_s']
 
 # SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics).
 # Values + ⚠ CALIBRATION-COUPLED commentary + open-biology-question
-# notes live in `reports/params/calcium-v0.5.toml [serca.cycle]`
+# notes live in `reports/params/calcium-v0.6.toml [serca.cycle]`
 # (issue #32 Phase 2 slice 8).
 K_SERCA = dict(_KINETICS['serca']['cycle'])
 
 
 # ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
 # Steps 4–5 are unchanged; the CaM-activated path (steps 8–11) is below.
-# Values live in `reports/params/calcium-v0.5.toml [pmca.basal]`
+# Values live in `reports/params/calcium-v0.6.toml [pmca.basal]`
 # (issue #32 Phase 2 slice 3).
 K_PMCA = dict(_KINETICS['pmca']['basal'])
 
 # ── CaM Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ─────────────────────
 # Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7).
 # Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
-# Values live in `reports/params/calcium-v0.5.toml [cam.binding]`
+# Values live in `reports/params/calcium-v0.6.toml [cam.binding]`
 # (issue #32 Phase 2 slice 3).
 K_CAM = dict(_KINETICS['cam']['binding'])
 
@@ -243,7 +251,7 @@ K_CAM = dict(_KINETICS['cam']['binding'])
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
 # v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
-# Values live in `reports/params/calcium-v0.5.toml [buffers.gsn]` and
+# Values live in `reports/params/calcium-v0.6.toml [buffers.gsn]` and
 # [buffers.gsn_pool] (issue #32 Phase 2 slice 7).
 K_GSN = dict(_KINETICS['buffers']['gsn'])
 
@@ -282,7 +290,7 @@ N_GSN = _KINETICS['buffers']['gsn_pool']['n_total']
 # DTS luminal buffer cluster — Phase 2/3 issues #25, #28.
 # ⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (Dolan 250 µM
 # target). Values + full literature commentary live in
-# `reports/params/calcium-v0.5.toml [buffers.*]` (issue #32 Phase 2
+# `reports/params/calcium-v0.6.toml [buffers.*]` (issue #32 Phase 2
 # slice 9). See calibration-coupling-2026-05-25.qmd chain 4.
 
 K_CALR   = dict(_KINETICS['buffers']['calr'])
@@ -360,7 +368,7 @@ N_CREC = _CREC_POOL['n_molecules'] * _CREC_POOL['sites_per']
 # 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
 # previously worked around by omitting step 11 entirely; restored
 # 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
-# Values live in `reports/params/calcium-v0.5.toml [pmca.cam_activated]`
+# Values live in `reports/params/calcium-v0.6.toml [pmca.cam_activated]`
 # (issue #32 Phase 2 slice 7). k12 in-vivo override commentary (1 s⁻¹
 # vs Caride's in-vitro 0.033 s⁻¹) lives in the TOML section header.
 K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
@@ -395,7 +403,7 @@ K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
 # This is exactly what should close the SOCE-differential gap in
 # Phase 3: the +Ca_ex peak now has a fast P2X1 contribution that −Ca_ex
 # lacks (real biology: ~100 nM differential at peak).
-# Values live in `reports/params/calcium-v0.5.toml [p2x1.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [p2x1.kinetics]`
 # (issue #32 Phase 2 slice 3).
 K_P2X1 = dict(_KINETICS['p2x1']['kinetics'])
 
@@ -416,7 +424,7 @@ GAMMA_P2X1_S = _KINETICS['p2x1']['channel']['gamma_s']
 # forming thrombus, then is cleared by ectonucleotidases (CD39) over tens of
 # seconds. CD39 keeps resting ATP_ex near zero — any small baseline leaks
 # P2X1 over hundreds of seconds and overfills the DTS.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.atp_ex]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.atp_ex]`
 # (issue #32 Phase 2 slice 2). The Python name `ATP_EX_TAU_RISE` (no
 # `_S` suffix) is preserved verbatim from the pre-refactor module; the
 # TOML uses the consistent `tau_rise_s` key.
@@ -451,7 +459,7 @@ def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
 # creates 1 dimer particle. Rate constants chosen so the Dolan 2014
 # Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at
 # detailed balance.
-# Values live in `reports/params/calcium-v0.5.toml [soce.stim]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.stim]`
 # (issue #32 Phase 2 slice 4). Detailed-balance derivation for
 # `k_release_r` and `k_dim_f` is documented in the TOML section header.
 K_STIM = dict(_KINETICS['soce']['stim'])
@@ -471,7 +479,7 @@ K_STIM = dict(_KINETICS['soce']['stim'])
 #        to 2 (the MWC shape is insensitive to ~2× perturbations once at the
 #        saturating end of the binding curve). f, a, and L are dimensionless
 #        and transfer directly.
-# Values live in `reports/params/calcium-v0.5.toml [soce.mwc]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.mwc]`
 # (issue #32 Phase 2 slice 4). Ka rescaling from Hoover a.u. → platelet
 # dimer counts is documented in the TOML section header.
 K_MWC = dict(_KINETICS['soce']['mwc'])
@@ -480,7 +488,7 @@ K_MWC = dict(_KINETICS['soce']['mwc'])
 #   qp gives the fraction of STIM2 dimers translocated into puncta where
 #   they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
 #   two free parameters Dolan scans within homeostatic constraints.
-# Values live in `reports/params/calcium-v0.5.toml [soce.puncta]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.puncta]`
 # (issue #32 Phase 2 slice 4).
 PUNCTA = dict(_KINETICS['soce']['puncta'])
 
@@ -493,7 +501,7 @@ PUNCTA = dict(_KINETICS['soce']['puncta'])
 # resting balance condition SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s,
 # which gives γ_SOC ≈ 0.3 fS at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value our
 # rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
-# Value lives in `[soce.orai] gamma_s` of calcium-v0.5.toml
+# Value lives in `[soce.orai] gamma_s` of calcium-v0.6.toml
 # (issue #32 Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal
 # outflow at rest — see TOML section header.
 GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
@@ -510,7 +518,7 @@ GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
 #   ⇒ leak ≈ 71 ions/s, rounded to 75
 # This is the (ii) addition diagnosed in lab-book 2026-05-05; before this
 # term the model had no PM-side cyt source large enough to balance PMCA.
-# Value lives in `[pm.leak] ions_s` of calcium-v0.5.toml (issue #32
+# Value lives in `[pm.leak] ions_s` of calcium-v0.6.toml (issue #32
 # Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal turnover
 # and CA_EX_UM gating — see TOML section header.
 J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
@@ -535,7 +543,7 @@ J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
 # of substrate kinetics — captures the regulatory Ca²⁺-binding site of
 # real NCX. Only forward mode modelled (reverse mode requires cyt Na⁺
 # state + membrane potential, both out of scope for v0.3).
-# Values live in `reports/params/calcium-v0.5.toml [ncx.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [ncx.kinetics]`
 # (issue #32 Phase 2 slice 4).
 K_NCX = dict(_KINETICS['ncx']['kinetics'])
 
@@ -557,7 +565,7 @@ K_NCX = dict(_KINETICS['ncx']['kinetics'])
 # P2Y12 (Gi-coupled, inhibitory — issue #10); receptor desensitisation /
 # internalisation kinetics (lumped into a slow first-order decay).
 
-# Values live in `reports/params/calcium-v0.5.toml [gpcr.*]`
+# Values live in `reports/params/calcium-v0.6.toml [gpcr.*]`
 # (issue #32 Phase 2 slice 5). Receptor/Gq calibration commentary
 # (k_basal derivation from resting Gq fraction) lives in the TOML
 # section header.
@@ -577,7 +585,7 @@ N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
 # Thrombin (PAR1/4 agonist). Standard stimulation = 1 nM peak (Dolan 2014).
 # Clotting cascade gives a fast rise, sustained plateau, slow decay.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.thrombin]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.thrombin]`
 # (issue #32 Phase 2 slice 2).
 THROMBIN_REST_NM     = _KINETICS['agonists']['thrombin']['rest_nM']
 THROMBIN_PEAK_NM     = _KINETICS['agonists']['thrombin']['peak_nM']
@@ -587,7 +595,7 @@ THROMBIN_TAU_DECAY_S = _KINETICS['agonists']['thrombin']['tau_decay_s']
 
 # ADP (P2Y1 agonist). Released from dense granules during activation,
 # cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.adp]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.adp]`
 # (issue #32 Phase 2 slice 2).
 ADP_REST_UM     = _KINETICS['agonists']['adp']['rest_uM']
 ADP_PEAK_UM     = _KINETICS['agonists']['adp']['peak_uM']
@@ -648,12 +656,25 @@ STIM_MONOMERS_PER_DIMER = 2
 # the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
 # transfer of Mazet's constants would require their full PI/PI4P chain,
 # which is out of scope for v0.3.
-# Values live in `reports/params/calcium-v0.5.toml [pi_cycle.*]`
+# Values live in `reports/params/calcium-v0.6.toml [pi_cycle.*]`
 # (issue #32 Phase 2 slice 6). Calibration commentary
 # (PIP2-rescaling k_cat 2.26e-7 → 2.26e-8 from lab-book 2026-05-15;
 # τ_IP3 ≈ 50 s anchoring to Dolan Fig. S2) lives in the TOML headers.
 K_PLCB     = dict(_KINETICS['pi_cycle']['plcb'])
 K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
+
+
+# ── PKC negative feedback (v0.6, issue #57) — DAG → PKC → P2Y1 desens ──
+# Closes the dead-end DAG branch. PKC is a DAG + Ca²⁺ coincidence detector
+# (lumped conventional PKCα/β + novel PKCδ); its active form phosphorylates
+# the active (ADP-bound) P2Y1 receptor into a signalling-incompetent
+# desensitised state that no longer drives Gαq — an activity-dependent
+# brake on the ADP arm of the cascade (Mundell 2006; Nicholas 2023).
+# Values + literature/calibration commentary live in
+# `reports/params/calcium-v0.6.toml [pkc.*]`. k_des / k_res are
+# model-choice (no platelet phospho-reaction rates); see the TOML header.
+K_PKC      = dict(_KINETICS['pkc']['kinetics'])
+K_P2Y1_DES = dict(_KINETICS['pkc']['p2y1_desens'])
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -672,7 +693,7 @@ K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 # during peak) → cyt (slow, over minutes) → DTS via SERCA → PMCA out
 # (gradually). Without MCU, all the SOCE-imported Ca²⁺ must exit via
 # the PMCA bottleneck.
-# Values live in `reports/params/calcium-v0.5.toml [mito.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [mito.kinetics]`
 # (issue #32 Phase 2 slice 6).
 K_MITO = dict(_KINETICS['mito']['kinetics'])
 
@@ -789,6 +810,11 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	par4_i = max(y[_IDX['PAR4_inactive[pl]']], 0.0)
 	par4_a = max(y[_IDX['PAR4_active[pl]']],   0.0)
 	gq_a   = max(y[_IDX['Gq_active[c]']],      0.0)
+
+	# PKC feedback state reads (v0.6)
+	pkc_i    = max(y[_IDX['PKC_inactive[c]']],       0.0)
+	pkc_a    = max(y[_IDX['PKC_active[c]']],         0.0)
+	p2y1_des = max(y[_IDX['P2Y1_desensitised[pl]']], 0.0)
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -1107,6 +1133,22 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
 
+	# ── PKC activation: DAG + Ca²⁺ coincidence detector (v0.6, #57) ──
+	# Consumes the DAG signal (read, not depleted — lumped activator) with a
+	# cytosolic-Ca²⁺ Hill cofactor. f_ca_floor captures the novel-isoform
+	# (DAG-only) contribution; 0 = pure conventional PKC. DAG and Ca²⁺ are
+	# both low at rest, so PKC_active stays < 1 % of the pool until the ADP
+	# transient drives DAG/Ca²⁺ up over the first ~10–15 s.
+	dag_uM = dag_count * _UM_PER_COUNT_CYT
+	ca_n_pkc  = ca_cyt ** K_PKC['n_Ca_PKC']
+	kca_n_pkc = K_PKC['K_Ca_PKC'] ** K_PKC['n_Ca_PKC']
+	f_ca_pkc = K_PKC['f_ca_floor'] + (1.0 - K_PKC['f_ca_floor']) * (
+		ca_n_pkc / (kca_n_pkc + ca_n_pkc))
+	v_pkc_act   = K_PKC['k_act'] * pkc_i * dag_uM * f_ca_pkc
+	v_pkc_inact = K_PKC['k_inact'] * pkc_a
+	dy[_IDX['PKC_inactive[c]']] += -v_pkc_act + v_pkc_inact
+	dy[_IDX['PKC_active[c]']]   += +v_pkc_act - v_pkc_inact
+
 	# ── GPCR cascade — receptors + Gαq cycle (issue #9) ─────────────
 	# Agonist concentrations → receptor activation → Gαq exchange →
 	# PLCβ activation (in the PI cycle block above).
@@ -1118,8 +1160,16 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# P2Y1: reversible ADP binding
 	v_p2y1_on  = K_P2Y1['k_on']  * p2y1_i * adp_um_now
 	v_p2y1_off = K_P2Y1['k_off'] * p2y1_a
-	dy[_IDX['P2Y1_inactive[pl]']] += -v_p2y1_on + v_p2y1_off
-	dy[_IDX['P2Y1_active[pl]']]   += +v_p2y1_on - v_p2y1_off
+	# PKC-mediated desensitisation of the *active* (ADP-bound) receptor and
+	# slow resensitisation (dephosphorylation) back to the ADP-free inactive
+	# pool (v0.6, #57). Desensitised P2Y1 is a distinct phospho-state that
+	# does NOT count toward total_active_R below, so the Gαq drive falls as
+	# it accumulates — closing the negative-feedback loop.
+	v_p2y1_des = K_P2Y1_DES['k_des'] * pkc_a * p2y1_a
+	v_p2y1_res = K_P2Y1_DES['k_res'] * p2y1_des
+	dy[_IDX['P2Y1_inactive[pl]']]     += -v_p2y1_on + v_p2y1_off + v_p2y1_res
+	dy[_IDX['P2Y1_active[pl]']]       += +v_p2y1_on - v_p2y1_off - v_p2y1_des
+	dy[_IDX['P2Y1_desensitised[pl]']] += +v_p2y1_des - v_p2y1_res
 
 	# PAR1: thrombin cleavage (essentially irreversible) + one-way
 	# internalization (v0.4.1 fix). Previously internalization went back

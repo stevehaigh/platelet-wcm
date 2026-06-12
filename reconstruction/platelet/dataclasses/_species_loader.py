@@ -22,7 +22,7 @@ import os
 from typing import List, Tuple
 
 
-_DEFAULT_VERSION = 'v0.5'
+_DEFAULT_VERSION = 'v0.6'
 
 # This file lives at:
 #   reconstruction/platelet/dataclasses/_species_loader.py
