@@ -513,6 +513,14 @@ Closes the previously dead-end DAG branch (DAG was produced by PLCβ and removed
 | `k_des` | `2.0e-5` | count⁻¹·s⁻¹  (per active PKC, per active P2Y1) |
 | `k_res` | `0.01` | s⁻¹          (dephosphorylation / resensitisation; τ ≈ 100 s) |
 
+## `[pkc.plcb_phos]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_plcb_phos` | `3.0e-5` | count⁻¹·s⁻¹  (per active PKC, per inactive PLCβ) |
+| `k_plcb_dephos` | `0.02` | s⁻¹          (PLCβ dephosphorylation; τ ≈ 50 s) |
+
 
 # References
 

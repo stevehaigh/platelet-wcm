@@ -34,13 +34,14 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 
 # Order: ca_cyt, ca_dts, ip3, stim1, orai, cam_free, ca2_cam, ca4_cam,
 #        ca4_cam_pmca, ca4_cam_pmca_ca, pmca_cam, pmca_free, pmca_ca,
-#        pkc_active, p2y1_inactive, p2y1_active, p2y1_desensitised (v0.6)
-_NUM_SPECIES = 17
+#        pkc_active, p2y1_inactive, p2y1_active, p2y1_desensitised (v0.6),
+#        plcb_inactive, plcb_active, plcb_phosphorylated (v0.6 Slice 3)
+_NUM_SPECIES = 20
 
 
 def _make_listener(counts):
 	"""Build a CalciumTrace whose ``_bulk_molecules.counts()`` returns
-	the supplied array, with the 17 species indices wired to slots 0–16.
+	the supplied array, with the 20 species indices wired to slots 0–19.
 	"""
 	if len(counts) != _NUM_SPECIES:
 		raise ValueError(
@@ -74,6 +75,9 @@ def _make_listener(counts):
 	lst._idx_p2y1_inactive   = 14
 	lst._idx_p2y1_active     = 15
 	lst._idx_p2y1_desens     = 16
+	lst._idx_plcb_inactive   = 17
+	lst._idx_plcb_active     = 18
+	lst._idx_plcb_phos       = 19
 	return lst
 
 
@@ -107,11 +111,13 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 
 	def test_all_cam_and_pmca_substate_fields(self):
 		# ca_c, dts, ip3, stim, orai, cam_fr, ca2cam, ca4cam, cppm, cppca,
-		# pcam, pf, pca, pkc_active, p2y1_i, p2y1_a, p2y1_des
+		# pcam, pf, pca, pkc_active, p2y1_i, p2y1_a, p2y1_des,
+		# plcb_i, plcb_a, plcb_p
 		counts = [100, 38_800, 50, 200, 400,
 			1_000, 500, 200,
 			7, 8, 9, 30, 40,
-			0, 150, 0, 0]
+			0, 150, 0, 0,
+			857, 143, 0]
 		lst = _make_listener(counts)
 		lst.update()
 
@@ -127,15 +133,19 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 
 	def test_pkc_and_p2y1_desensitised_fields(self):
 		"""v0.6: pkc_active is a count; p2y1_desensitised_frac is des/total."""
-		# ...13 calcium slots..., pkc_active=1234, p2y1: 30 inact, 20 act, 50 des
+		# 13 calcium slots, pkc_active=1234, p2y1: 30 inact/20 act/50 des,
+		# plcb: 600 inact/100 act/300 phospho
 		counts = [100, 38_800, 50, 200, 400, 0, 0, 0, 0, 0, 0, 0, 0,
-			1_234, 30, 20, 50]
+			1_234, 30, 20, 50,
+			600, 100, 300]
 		lst = _make_listener(counts)
 		lst.update()
 		self.assertEqual(lst.pkc_active, 1_234)
 		self.assertIsInstance(lst.pkc_active, int)
 		# 50 desensitised of (30 + 20 + 50) = 100 total → 0.5
 		self.assertAlmostEqual(lst.p2y1_desensitised_frac, 0.5, places=9)
+		# 300 phosphorylated of (600 + 100 + 300) = 1000 total → 0.3
+		self.assertAlmostEqual(lst.plcb_phosphorylated_frac, 0.3, places=9)
 
 	def test_p2y1_desensitised_frac_zero_when_no_receptors(self):
 		"""Guard: empty P2Y1 pool yields 0.0, not a divide-by-zero."""

@@ -180,11 +180,14 @@ ODE solver and rate constants in
 - **PI cycle** — PLCβ-catalysed PIP2 → IP3 + DAG; IP3 5-phosphatase / 3-kinase degradation;
   PIP2 resynthesis (lumped). IP3 is now an endogenous state variable, not a forced curve.
 - **PKC feedback (v0.6)** — DAG + Ca²⁺ activate PKC (lumped conventional PKCα/β + novel
-  PKCδ), whose active form desensitises the active P2Y1 receptor (`P2Y1_active[pl]` →
-  `P2Y1_desensitised[pl]`), an activity-dependent brake that closes the previously
-  dead-end DAG branch. Acts on P2Y1 only (the thrombin/PAR arm is spared), so Dolan 5/5 is
-  preserved; the Ca²⁺ response is store-limited so the receptor is the clear readout
-  (Mundell 2006; Nicholas 2023). See `[pkc.*]` in the calcium TOML.
+  PKCδ), closing the previously dead-end DAG branch, via two activity-dependent brakes:
+  (1) **P2Y1 desensitisation** (`P2Y1_active[pl]` → `P2Y1_desensitised[pl]`; ADP-arm
+  specific, Mundell 2006 / Nicholas 2023) and (2) **PLCβ phosphorylation** (`PLCb_inactive`
+  → `PLCb_phosphorylated[c]`, out of the Gq-activatable pool; shared-node brake that lowers
+  IP3 toward baseline, Purvis 2008). Both engage after the early Ca²⁺ peak (~10–15 s PKC
+  delay), so Dolan 5/5 is preserved; the Ca²⁺ response is store-limited, so the receptor
+  desensitisation fraction and IP3 are the clear readouts. See `[pkc.*]` in the calcium TOML
+  and the `pkc` / `plcb` experiments in `runPerturbation.py`.
 - **IP3R** — Li-Rinzel 1994 reduction of de Young–Keizer 1992 (quasi-steady m∞, one slow ODE for h)
 - **SERCA** — E1/E2 enzymatic cycle (Dode 2002)
 - **PMCA** — 5-state CaM-coupled (Caride 2007 Table 3): basal + Ca₄·CaM-activated paths
@@ -195,7 +198,7 @@ ODE solver and rate constants in
   read the module default constant live). Passing 0 for a given peak gives
   REST level for that receptor; all three zero is a resting / un-stimulated sim.
 
-`CalciumTrace` listener records 17 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost, PKC active + P2Y1 desensitised fraction).
+`CalciumTrace` listener records 18 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost, PKC active, P2Y1 desensitised fraction + PLCβ phosphorylated fraction).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
 
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
@@ -262,7 +265,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 66 species)
+The molecule inventory (id, mass, initial count, class for all 67 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`

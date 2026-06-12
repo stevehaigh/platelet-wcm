@@ -23,7 +23,7 @@ notes and are always more current than anything in this directory.
 
 | File | What it is |
 |---|---|
-| [`pkc-p2y1-feedback-design-2026-06-11.qmd`](pkc-p2y1-feedback-design-2026-06-11.qmd) | **v0.6 design.** DAG → PKC → P2Y1 desensitisation negative feedback; closes the dead-end DAG branch. Anchored to Purvis 2008 (PKC module) + Mundell 2006 / Nicholas 2023 (PKC→P2Y1 in platelets). **Slices 1–2 implemented** (calcium-v0.6 TOML/TSV with `[pkc.*]`, ODE + listener columns, `runPerturbation.py` pkc figure); PLCβ-phosphorylation route (Purvis) deferred. |
+| [`pkc-p2y1-feedback-design-2026-06-11.qmd`](pkc-p2y1-feedback-design-2026-06-11.qmd) | **v0.6 design.** DAG → PKC → P2Y1 desensitisation negative feedback; closes the dead-end DAG branch. Anchored to Purvis 2008 (PKC module) + Mundell 2006 / Nicholas 2023 (PKC→P2Y1 in platelets). **Implemented** on branch `PKC-P2Y1-desensitisation`: both feedback routes — P2Y1 desensitisation (Mundell/Nicholas) **and** PLCβ phosphorylation (Purvis route, added on Mike's request) — plus `runPerturbation.py` `pkc`/`plcb` figures. calcium-v0.6 TOML/TSV, ODE, listener columns, goldens regenerated, Dolan 5/5 preserved. |
 | [`pathway-diagram-review-2026-05-19.qmd`](pathway-diagram-review-2026-05-19.qmd) | Annotation list for the BioRender pathway figure used in lab-meeting slide 7. |
 | [`lab-meeting-2026-05-14.qmd`](lab-meeting-2026-05-14.qmd) | Lab-meeting presentation: methodology, results, AI-assisted validation. |
 | [`mike-report-2026-05-14.qmd`](mike-report-2026-05-14.qmd) | PNAS-style write-up on feasibility of mechanistic whole-cell platelet modelling. |

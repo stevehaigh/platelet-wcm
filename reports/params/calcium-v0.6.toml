@@ -645,6 +645,25 @@ f_ca_floor = 0.0     # Ca²⁺-independent floor (novel-isoform proxy; 0 = pure 
 k_des = 2.0e-5   # count⁻¹·s⁻¹  (per active PKC, per active P2Y1)
 k_res = 0.01     # s⁻¹          (dephosphorylation / resensitisation; τ ≈ 100 s)
 
+[pkc.plcb_phos]
+# PKC → PLCβ phosphorylation (Slice 3; the route Purvis 2008 actually used).
+# Active PKC phosphorylates the *inactive* PLCβ pool into a state Gq cannot
+# activate, removing it from the activatable pool; a phosphatase slowly
+# returns it. Unlike P2Y1 desensitisation (which is ADP-arm specific), this
+# brake sits on the *shared* PLCβ node downstream of ALL receptors, so it
+# damps the thrombin arm too — Purvis showed it is sufficient to return
+# IP3/Ca²⁺ toward baseline (Fig 2C/5E). Calibrated GENTLY here: the brake
+# engages after the early IP3R/Ca²⁺ peak (PKC needs ~10–15 s), so it shapes
+# the sustained tail without cutting the peak, preserving the Dolan 5/5
+# peak criteria. k_plcb_phos / k_plcb_dephos are model-choice (Purvis
+# Table 1 has a known 100× transcription erratum — see [references.*] /
+# purvis-2008-k3-transcription-error.md — so its rows are not transferred
+# verbatim).
+#   v_phos   = k_plcb_phos   · PKC_active · PLCb_inactive   (count·s⁻¹)
+#   v_dephos = k_plcb_dephos · PLCb_phosphorylated          (count·s⁻¹)
+k_plcb_phos   = 3.0e-5   # count⁻¹·s⁻¹  (per active PKC, per inactive PLCβ)
+k_plcb_dephos = 0.02     # s⁻¹          (PLCβ dephosphorylation; τ ≈ 50 s)
+
 
 # ── Bibliography ─────────────────────────────────────────────────────
 # Structured reference metadata. Each `[references.<key>]` sub-table is

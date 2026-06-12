@@ -73,12 +73,37 @@ class TestPerturbationSmoke:
 		assert scan.factors[0] == 0.0
 		# The desensitised-fraction aux trace was harvested, aligned with cyt.
 		assert scan.aux is not None
-		assert scan.aux.shape == scan.cyt.shape
+		frac = scan.aux['p2y1_desensitised_frac']
+		assert frac.shape == scan.cyt.shape
 		# Knockout must show no desensitisation; baseline must show some.
-		assert scan.aux[0].max() == 0.0
-		assert scan.aux[1].max() > 0.0
+		assert frac[0].max() == 0.0
+		assert frac[1].max() > 0.0
 		assert all('p2y1_desensitised_frac_max' in s for s in scan.scalars)
 
 		write_outputs(scan, out)
 		assert os.path.exists(os.path.join(out, 'pkc_traces.png'))
 		assert os.path.exists(os.path.join(out, 'pkc.npz'))
+
+	def test_plcb_runs_restores_knob_and_harvests_dual_aux(self, tmp_path):
+		"""v0.6 Slice 3: PKC→PLCβ-phosphorylation knockout + IP₃/phos aux."""
+		out = str(tmp_path / 'pert_plcb')
+		os.makedirs(out)
+		baseline = cs_mod.K_PLCB_PHOS['k_plcb_phos']
+
+		scan = run_perturbation(out, 'plcb', length_override=20,
+			log_to_shell=False)
+
+		assert cs_mod.K_PLCB_PHOS['k_plcb_phos'] == baseline
+		assert scan.factors[0] == 0.0
+		# Two aux columns harvested (IP₃ + phospho fraction), both aligned.
+		assert scan.aux is not None
+		assert set(scan.aux) == {'ip3_nM', 'plcb_phosphorylated_frac'}
+		phos = scan.aux['plcb_phosphorylated_frac']
+		assert phos.shape == scan.cyt.shape
+		# Knockout: no PLCβ phosphorylation; baseline: some.
+		assert phos[0].max() == 0.0
+		assert phos[1].max() > 0.0
+
+		write_outputs(scan, out)
+		assert os.path.exists(os.path.join(out, 'plcb_traces.png'))
+		assert os.path.exists(os.path.join(out, 'plcb.npz'))

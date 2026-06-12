@@ -149,6 +149,10 @@ MOLECULE_NAMES = (
 	'PKC_inactive[c]',        # resting PKC pool (lumped conventional + novel)
 	'PKC_active[c]',          # DAG + Ca²⁺-activated, membrane-translocated
 	'P2Y1_desensitised[pl]',  # PKC-phosphorylated, signalling-incompetent P2Y1
+	# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route). PKC
+	# phosphorylates the inactive PLCβ pool into a state Gq cannot activate,
+	# damping the shared cascade downstream of all receptors.
+	'PLCb_phosphorylated[c]', # PKC-phosphorylated PLCβ (not Gq-activatable)
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -673,8 +677,14 @@ K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 # Values + literature/calibration commentary live in
 # `reports/params/calcium-v0.6.toml [pkc.*]`. k_des / k_res are
 # model-choice (no platelet phospho-reaction rates); see the TOML header.
-K_PKC      = dict(_KINETICS['pkc']['kinetics'])
-K_P2Y1_DES = dict(_KINETICS['pkc']['p2y1_desens'])
+K_PKC       = dict(_KINETICS['pkc']['kinetics'])
+K_P2Y1_DES  = dict(_KINETICS['pkc']['p2y1_desens'])
+# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route). Brake on
+# the shared PLCβ node — phosphorylates inactive PLCβ out of the
+# Gq-activatable pool. Calibrated gently to preserve Dolan 5/5; set
+# k_plcb_phos → 0 to disable (the perturbation knockout). See the
+# `[pkc.plcb_phos]` TOML header for provenance / the Purvis-erratum caveat.
+K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -798,6 +808,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	dag_count  = max(y[_IDX['DAG[c]']],  0.0)
 	plcb_i     = max(y[_IDX['PLCb_inactive[c]']], 0.0)
 	plcb_a     = max(y[_IDX['PLCb_active[c]']],   0.0)
+	plcb_p     = max(y[_IDX['PLCb_phosphorylated[c]']], 0.0)  # PKC-phospho (v0.6)
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
@@ -1127,8 +1138,18 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# DAG kinase (DAG → PA).
 	v_dag_deg = K_PI_CYCLE['k_dag_deg'] * dag_count
 
-	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact
+	# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route): active
+	# PKC sequesters inactive PLCβ into a Gq-non-activatable phospho-state;
+	# a slow phosphatase reverses it. This brake sits on the shared PLCβ
+	# node, so it damps the cascade downstream of all receptors (cf. the
+	# ADP-arm-specific P2Y1 desensitisation). k_plcb_phos = 0 disables it.
+	v_plcb_phos   = K_PLCB_PHOS['k_plcb_phos']   * pkc_a * plcb_i
+	v_plcb_dephos = K_PLCB_PHOS['k_plcb_dephos'] * plcb_p
+
+	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact \
+		- v_plcb_phos + v_plcb_dephos
 	dy[_IDX['PLCb_active[c]']]   += +v_plcb_act - v_plcb_inact
+	dy[_IDX['PLCb_phosphorylated[c]']] += +v_plcb_phos - v_plcb_dephos
 	dy[_IDX['PIP2[c]']]          += -v_plcb_cat + v_pip2_resynth
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg

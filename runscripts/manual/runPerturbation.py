@@ -39,6 +39,16 @@ Exp C — PKC desensitises P2Y1, throttling the ADP arm (v0.6, issue #57)
         Ca²⁺ amplitude effect is modest (the response is store-limited); the
         receptor desensitisation itself is the clear, measured readout.
 
+Exp D — PKC → PLCβ phosphorylation damps IP₃ (v0.6 Slice 3, Purvis route)
+    Knob   : K_PLCB_PHOS['k_plcb_phos']  (PLCβ phosphorylation; 0 = knockout)
+    Scan   : {0 (KO), 1 (baseline feedback)}
+    Protocol: +Ca²⁺, standard thrombin + ADP. Unlike P2Y1 desensitisation,
+        this brake sits on the SHARED PLCβ node, so it damps the cascade
+        downstream of all receptors and the standard transient shows it.
+    Observable: IP₃ (aux) — the knockout plateaus high; the baseline feedback
+        peaks then returns toward baseline (Purvis 2008 Fig 2C/5E) — plus the
+        PLCβ phosphorylated fraction (aux), which rises to ~0.3 with feedback.
+
 Usage:
     PYTHONPATH=$PWD python runscripts/manual/runPerturbation.py [sim_outdir] \\
         [--experiment pmca|mcu|pkc|both] [--length N] [--keep-cell-output]
@@ -100,7 +110,21 @@ EXPERIMENTS: dict[str, dict] = {
 		factors=[0.0, 1.0],
 		ca_ex_mM=1.2, length_sec=300,
 		sim_kwargs=dict(thrombin_peak_nM=0.0),     # ADP-only: isolate P2Y1
-		aux_col='p2y1_desensitised_frac',          # mechanism readout
+		aux_cols=['p2y1_desensitised_frac'],       # mechanism readout
+	),
+	'plcb': dict(
+		# v0.6 Slice 3 — PKC → PLCβ phosphorylation (Purvis 2008 route).
+		# Knock out the phosphorylation rate (k_plcb_phos → 0) vs baseline.
+		# Unlike the P2Y1 route this brake sits on the SHARED PLCβ node, so
+		# the standard thrombin + ADP transient shows it: PKC sequesters
+		# PLCβ out of the Gq-activatable pool, lowering IP₃ — the Purvis
+		# "return toward baseline" result. IP₃ is the clear readout (the
+		# cytosolic Ca²⁺ amplitude stays store-limited).
+		title='PKC → PLCβ phosphorylation damps IP₃ (Purvis route, +Ca)',
+		dict_name='K_PLCB_PHOS', knob_key='k_plcb_phos', knob_label='PLCβ k_phos',
+		factors=[0.0, 1.0],
+		ca_ex_mM=1.2, length_sec=300,
+		aux_cols=['ip3_nM', 'plcb_phosphorylated_frac'],
 	),
 }
 
@@ -148,14 +172,16 @@ class PerturbationScan:
 	cyt: np.ndarray                              # (n_factor, n_time)
 	dts: np.ndarray                              # (n_factor, n_time)
 	scalars: list[dict] = field(default_factory=list)
-	aux: np.ndarray | None = None                # (n_factor, n_time); experiment-specific
+	# Optional experiment-specific traces, keyed by CalciumTrace column name;
+	# each value is (n_factor, n_time). Saved into the NPZ as `aux_<col>`.
+	aux: dict[str, np.ndarray] | None = None
 
 	def to_npz(self, path: str) -> None:
 		arrays: dict[str, Any] = dict(
 			factors=np.array(self.factors), cyt=self.cyt, dts=self.dts,
 			baseline_value=self.baseline_value, length_sec=self.length_sec)
-		if self.aux is not None:
-			arrays['aux'] = self.aux
+		for col, mat in (self.aux or {}).items():
+			arrays[f'aux_{col}'] = mat
 		np.savez(path, **arrays)
 
 
@@ -177,11 +203,11 @@ def run_perturbation(out_path: str, exp_key: str,
 	fp.makedirs(cells_root)
 
 	extra_kwargs = cfg.get('sim_kwargs', {})       # per-experiment agonist overrides
-	aux_col = cfg.get('aux_col')                   # optional extra trace column
+	aux_cols = cfg.get('aux_cols', [])             # optional extra trace columns
 
 	cyt_rows: list[np.ndarray] = []
 	dts_rows: list[np.ndarray] = []
-	aux_rows: list[np.ndarray] = []
+	aux_rows: dict[str, list[np.ndarray]] = {c: [] for c in aux_cols}
 	scalars: list[dict] = []
 	try:
 		for f in factors:
@@ -194,10 +220,10 @@ def run_perturbation(out_path: str, exp_key: str,
 			cyt_rows.append(cyt)
 			dts_rows.append(dts)
 			sc = {'factor': float(f), **reduce_scalars(cyt, dts)}
-			if aux_col:
-				aux = harvest_column(paths['sim_out_dir'], aux_col)
-				aux_rows.append(aux)
-				sc[f'{aux_col}_max'] = float(aux.max())
+			for col in aux_cols:
+				trace = harvest_column(paths['sim_out_dir'], col)
+				aux_rows[col].append(trace)
+				sc[f'{col}_max'] = float(trace.max())
 			scalars.append(sc)
 			if log_to_shell:
 				print(f'  {cfg["knob_label"]} ×{f:<5g} → '
@@ -213,7 +239,7 @@ def run_perturbation(out_path: str, exp_key: str,
 		exp_key=exp_key, cfg=cfg, baseline_value=baseline, length_sec=length,
 		factors=factors, cyt=np.array(cyt_rows), dts=np.array(dts_rows),
 		scalars=scalars,
-		aux=np.array(aux_rows) if aux_rows else None)
+		aux={c: np.array(rows) for c, rows in aux_rows.items()} or None)
 
 
 def _prune_cell(cell_dir: str) -> None:
@@ -304,13 +330,14 @@ def plot_pkc(scan: PerturbationScan, png_path: str) -> None:
 	colours = {0.0: '#cc0000', 1.0: '#222222'}
 	labels = {0.0: 'PKC knockout (k$_{des}$×0)', 1.0: 'baseline feedback (×1)'}
 
+	des = (scan.aux or {}).get('p2y1_desensitised_frac')
 	fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
 	for i, f in enumerate(scan.factors):
 		c = colours.get(f, None)
 		lbl = labels.get(f, f'×{f:g}')
 		ax1.plot(t, scan.cyt[i], color=c, linewidth=1.8, label=lbl)
-		if scan.aux is not None:
-			ax2.plot(t, scan.aux[i], color=c, linewidth=1.8, label=lbl)
+		if des is not None:
+			ax2.plot(t, des[i], color=c, linewidth=1.8, label=lbl)
 	ax1.set_xlabel('Time (s)')
 	ax1.set_ylabel(r'Cytosolic Ca$^{2+}$ (nM)')
 	ax1.set_title('ADP-evoked cytosolic Ca$^{2+}$ (store-limited)')
@@ -331,7 +358,45 @@ def plot_pkc(scan: PerturbationScan, png_path: str) -> None:
 	plt.close(fig)
 
 
-_PLOTTERS = {'pmca': plot_pmca, 'mcu': plot_mcu, 'pkc': plot_pkc}
+def plot_plcb(scan: PerturbationScan, png_path: str) -> None:
+	"""2-panel: IP₃ + PLCβ phosphorylated fraction, knockout vs baseline."""
+	t = np.arange(scan.cyt.shape[1])
+	colours = {0.0: '#cc0000', 1.0: '#222222'}
+	labels = {0.0: 'PLCβ-phos knockout (k$_{phos}$×0)',
+		1.0: 'baseline feedback (×1)'}
+	ip3 = (scan.aux or {}).get('ip3_nM')
+	phos = (scan.aux or {}).get('plcb_phosphorylated_frac')
+
+	fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
+	for i, f in enumerate(scan.factors):
+		c = colours.get(f, None)
+		lbl = labels.get(f, f'×{f:g}')
+		if ip3 is not None:
+			ax1.plot(t, ip3[i], color=c, linewidth=1.8, label=lbl)
+		if phos is not None:
+			ax2.plot(t, phos[i], color=c, linewidth=1.8, label=lbl)
+	ax1.set_xlabel('Time (s)')
+	ax1.set_ylabel('IP$_3$ (nM)')
+	ax1.set_title('PKC → PLCβ phosphorylation lowers IP$_3$ (Purvis route)')
+	ax1.legend(fontsize=9)
+	ax1.grid(alpha=0.3)
+
+	ax2.set_xlabel('Time (s)')
+	ax2.set_ylabel('PLCβ phosphorylated fraction')
+	ax2.set_title('PKC sequesters PLCβ out of the Gq-activatable pool')
+	ax2.set_ylim(-0.02, 1.0)
+	ax2.legend(fontsize=9)
+	ax2.grid(alpha=0.3)
+
+	fig.suptitle('PKC → PLCβ phosphorylation: knockout vs baseline '
+		f'(thrombin + ADP, +Ca$^{{2+}}$, {scan.length_sec} s)', fontsize=12)
+	fig.tight_layout()
+	fig.savefig(png_path, dpi=140, bbox_inches='tight')
+	plt.close(fig)
+
+
+_PLOTTERS = {'pmca': plot_pmca, 'mcu': plot_mcu, 'pkc': plot_pkc,
+	'plcb': plot_plcb}
 
 
 def write_outputs(scan: PerturbationScan, out_path: str) -> None:
@@ -365,10 +430,11 @@ def _build_parser() -> argparse.ArgumentParser:
 		description='PMCA / MCU single-mechanism perturbation experiments (#53).')
 	p.add_argument('sim_outdir', nargs='?', default=None,
 		help='Output dir under out/. Default = perturbation_<timestamp>.')
-	p.add_argument('--experiment', choices=['pmca', 'mcu', 'pkc', 'both'],
-		default='both',
+	p.add_argument('--experiment',
+		choices=['pmca', 'mcu', 'pkc', 'plcb', 'both'], default='both',
 		help='Which experiment(s) to run. Default = both (pmca + mcu); '
-			'pkc is the v0.6 P2Y1-desensitisation knockout.')
+			'pkc / plcb are the v0.6 PKC-feedback knockouts (P2Y1 '
+			'desensitisation / PLCβ phosphorylation).')
 	p.add_argument('--length', '--length-sec', dest='length_sec', type=int,
 		default=None, help='Override sim length (s) for all experiments.')
 	p.add_argument('--keep-cell-output', action='store_true',

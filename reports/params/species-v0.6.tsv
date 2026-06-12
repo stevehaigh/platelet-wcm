@@ -65,3 +65,4 @@ Gq_active[c]	6.97e-05	100	protein
 PKC_inactive[c]	1.276e-04	10000	protein
 PKC_active[c]	1.276e-04	0	protein
 P2Y1_desensitised[pl]	8.3e-05	0	protein
+PLCb_phosphorylated[c]	0.000229	0	protein
