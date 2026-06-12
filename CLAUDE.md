@@ -141,15 +141,15 @@ Each timestep:
 
 Processes run in **dependency-ordered groups**. Within a group, processes share a
 partition step. The current platelet model has a single group:
-`(RestingDecay, CalciumDynamics)`.
+`(RestingDecay, CalciumDynamics, GranuleSecretion)`.
 
 ### Core Abstractions
 
 | Concept | Base class | Platelet impl | Purpose |
 |---------|-----------|---------------|---------|
-| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics) | Biological submodels that modify state |
+| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
-| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace) | Observe and record data each timestep |
+| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace) | Observe and record data each timestep |
 | **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
 
 There is no platelet equivalent of E. coli variants yet; the simulation runs a single
@@ -203,6 +203,25 @@ The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
 
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
 extracellular Ca²⁺).
+
+### Downstream PKC effects — granule secretion (v0.61 Slice 1)
+
+`GranuleSecretion` (in `models/platelet/processes/granule_secretion.py`) is the
+first PKC *output* (v0.61), wiring PKC out of its v0.6 brake-only role. Each
+timestep it relocates pre-existing granule cargo — `ADP[dg]`, `5HT[dg]` (dense),
+`FGA[ag]` (α) → the extracellular space `[e]`, and `SELP[ag]` → a surface state
+`SELP_surface[pl]` (the P-selectin activation marker). Release is first-order in
+the remaining pool, scaled by a `PKC_active × Ca²⁺` coincidence gate that keys
+off PKC activation *above* a resting-tone floor, so resting secretion is exactly
+zero. Rate constants live in
+`reconstruction/platelet/dataclasses/process/granule_secretion.py` (Python, not
+TOML — the kinetics-as-data scaffold is still calcium-only). The `SecretionTrace`
+listener records secreted-cargo counts, released / surface-exposed fractions, and
+the gate value. This slice is **additive**: secreted ADP is not yet fed back onto
+P2Y1, so the calcium ODE — and the Dolan validation — is unchanged (the autocrine
+ADP loop is the next slice). Design:
+`reports/design/pkc-downstream-effects-2026-06-12.qmd` §1. Thromboxane and
+integrin (§2–3) remain unimplemented.
 
 ### State Partitioning
 
@@ -265,7 +284,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 67 species)
+The molecule inventory (id, mass, initial count, class for all 71 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`

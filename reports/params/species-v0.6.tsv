@@ -66,3 +66,7 @@ PKC_inactive[c]	1.276e-04	10000	protein
 PKC_active[c]	1.276e-04	0	protein
 P2Y1_desensitised[pl]	8.3e-05	0	protein
 PLCb_phosphorylated[c]	0.000229	0	protein
+ADP[e]	7.096e-07	0	metabolite
+5HT[e]	2.927e-07	0	metabolite
+FGA[e]	0.0005647	0	protein
+SELP_surface[pl]	0.0001493	0	protein
