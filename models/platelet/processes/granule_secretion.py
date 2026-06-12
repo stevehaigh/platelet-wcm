@@ -58,9 +58,16 @@ class GranuleSecretion(process.Process):
 		self._drivers = self.bulkMoleculesView(
 			np.array([gs.pkc_active_id, gs.ca_cyt_id], dtype='U30'))
 
+		# Ecto-NTPDase clearance: ADP[e] (a secretion destination) → AMP[e].
+		self._k_ntpdase = gs.k_ntpdase
+		self._adp_dest_idx = dest_ids.index(gs.adp_ex_id)
+		self._amp = self.bulkMoleculesView(
+			np.array([gs.amp_ex_id], dtype='U30'))
+
 		# Exposed for the SecretionTrace listener (diagnostic only).
 		self._gate = 0.0
 		self._released = np.zeros(len(gs.cargo), dtype=np.int64)
+		self._cleared = 0
 
 	def _compute_gate(self, pkc_count, ca_count):
 		"""PKC_active × Ca²⁺ coincidence gate in [0, 1); 0 at resting tone.
@@ -84,9 +91,21 @@ class GranuleSecretion(process.Process):
 		src_counts = self._sources.total_counts()
 		released_frac = 1.0 - np.exp(-self._k_sec * self._gate * dt)
 		self._released = np.floor(src_counts * released_frac).astype(np.int64)
-
 		self._sources.requestIs(self._released)
+
+		# Ecto-NTPDase clearance of the existing ADP[e] pool (first-order).
+		adp_e_count = self._dests.total_counts()[self._adp_dest_idx]
+		self._cleared = int(np.floor(
+			adp_e_count * (1.0 - np.exp(-self._k_ntpdase * dt))))
+		# Request the cleared ADP[e] (the only destination species we consume).
+		dest_request = np.zeros(len(self._released), dtype=np.int64)
+		dest_request[self._adp_dest_idx] = self._cleared
+		self._dests.requestIs(dest_request)
 
 	def evolveState(self):
 		self._sources.countsDec(self._released)
-		self._dests.countsInc(self._released)
+		# Net destination change: secretion adds cargo; clearance removes ADP[e].
+		dest_delta = self._released.copy()
+		dest_delta[self._adp_dest_idx] -= self._cleared
+		self._dests.countsInc(dest_delta)
+		self._amp.countsInc(np.array([self._cleared], dtype=np.int64))

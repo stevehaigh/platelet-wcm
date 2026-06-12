@@ -72,17 +72,38 @@ class TestGranuleSecretion:
 			assert np.all(np.diff(adp) >= -1e-12)
 
 	def test_cargo_count_conserved(self):
-		"""Secretion relocates cargo: granule + secreted totals are constant."""
+		"""Secretion relocates cargo: granule + secreted (+ cleared) totals
+		are constant. ADP additionally passes ADP[e] → AMP[e] via NTPDase."""
 		with tempfile.TemporaryDirectory() as td:
 			sim_out = _run(td, 60)
 			ids, counts = _bulk(sim_out)
 			idx = {n: i for i, n in enumerate(ids)}
-			for lumen, dest in (
-					('ADP[dg]', 'ADP[e]'),
-					('5HT[dg]', '5HT[e]'),
-					('FGA[ag]', 'FGA[e]'),
-					('SELP[ag]', 'SELP_surface[pl]')):
-				total = counts[:, idx[lumen]] + counts[:, idx[dest]]
-				assert np.all(total == total[0]), f'{lumen}+{dest} not conserved'
-				# Something was actually released by the end of activation.
-				assert counts[-1, idx[dest]] > 0
+			pools = {
+				'ADP': ('ADP[dg]', 'ADP[e]', 'AMP[e]'),   # + NTPDase product
+				'5HT': ('5HT[dg]', '5HT[e]'),
+				'FGA': ('FGA[ag]', 'FGA[e]'),
+				'SELP': ('SELP[ag]', 'SELP_surface[pl]'),
+			}
+			for name, members in pools.items():
+				total = sum(counts[:, idx[m]] for m in members)
+				assert np.all(total == total[0]), f'{name} pool not conserved'
+				# Something actually left the lumen by the end of activation.
+				assert counts[-1, idx[members[1]]] + (
+					counts[-1, idx[members[2]]] if len(members) > 2 else 0) > 0
+
+	def test_autocrine_adp_drives_p2y1(self):
+		"""Thrombin-only (no exogenous ADP): secreted ADP closes the loop —
+		it drives P2Y1 (→ desensitisation) and is self-limited by NTPDase."""
+		with tempfile.TemporaryDirectory() as td:
+			sim_out = _run(td, 150, adp_peak_uM=0.0, atp_ex_peak_uM=0.0)
+			adp_e_uM = _secretion(sim_out, 'adp_e_uM')
+			amp_e = _secretion(sim_out, 'amp_e')
+			p2y1_des = TableReader(os.path.join(sim_out, 'CalciumTrace')
+				).readColumn('p2y1_desensitised_frac').flatten()
+			# Secreted ADP reaches a P2Y1-relevant pericellular level...
+			assert adp_e_uM.max() > 1.0
+			# ...and drives P2Y1 even with zero exogenous ADP (loop closed).
+			assert p2y1_des.max() > 0.1
+			# Self-limiting: ADP[e] peaks then clears (NTPDase → AMP rises).
+			assert adp_e_uM[-1] < adp_e_uM.max()
+			assert amp_e[-1] > 0

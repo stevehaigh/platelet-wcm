@@ -67,6 +67,17 @@ N_A = 6.022e23         # Avogadro
 _UM_PER_COUNT_CYT = 1.0 / (N_A * V_CYT_L * 1e-6)
 _UM_PER_COUNT_DTS = 1.0 / (N_A * V_DTS_L * 1e-6)
 
+# Effective pericellular extracellular volume for autocrine secreted-agonist
+# signalling (v0.61 Slice 2). There is no single physical value for a single
+# platelet — the local concentration a secreted molecule reaches depends on
+# assay geometry / cell density — so this is a *calibration choice*: V_EX is
+# set so that full dense-granule ADP release (~400 000 molecules) yields a
+# pericellular [ADP] ≈ 10 µM, comparable to the standard exogenous agonist
+# dose. ~66 fL ≈ 11× cytosol. Larger V_EX → weaker autocrine; see the
+# pkc-downstream-effects design §1 and the runtime note in CLAUDE.md.
+V_EX_L = 6.64e-14
+_UM_PER_COUNT_EX = 1.0 / (N_A * V_EX_L * 1e-6)
+
 
 # ── Species ordering ──────────────────────────────────────────────────────
 # This must match reconstruction/platelet/dataclasses/internal_state.py
@@ -780,7 +791,8 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 
 
 def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
-		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None):
+		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
+		secreted_adp_count=0.0):
 	"""Right-hand side of the calcium ODE.
 
 	`y` carries integer-equivalent counts (continuous floats during
@@ -793,6 +805,12 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	(thrombin in nM, ADP and ATP_ex in µM). `None` (default) reads the
 	module-level default constant; `0` yields a resting / un-stimulated
 	sim where the receptor sees only its REST level.
+
+	`secreted_adp_count` is the current `ADP[e]` count (autocrine,
+	v0.61 Slice 2): its pericellular concentration is *added* to the
+	exogenous ADP forcing, closing the dense-granule → ADP → P2Y1 loop.
+	Held constant across the 1-s step (updated discretely by
+	GranuleSecretion). 0 → no autocrine contribution (the open-loop model).
 	"""
 	dy = np.zeros(N_SPECIES)
 
@@ -1173,8 +1191,10 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# ── GPCR cascade — receptors + Gαq cycle (issue #9) ─────────────
 	# Agonist concentrations → receptor activation → Gαq exchange →
 	# PLCβ activation (in the PI cycle block above).
+	# Exogenous (applied) ADP forcing + autocrine secreted ADP (v0.61 Slice 2).
 	adp_um_now = adp_uM(
 		t_sim_start + t, delay=agonist_delay, peak_uM=adp_peak_uM)
+	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX
 	thr_nm_now = thrombin_nM(
 		t_sim_start + t, delay=agonist_delay, peak_nM=thrombin_peak_nM)
 
@@ -1265,12 +1285,15 @@ class CalciumSignalling:
 
 	def molecules_to_next_time_step(self, counts, dt, t_sim,
 			agonist_delay=0.0, thrombin_peak_nM=None,
-			adp_peak_uM=None, atp_ex_peak_uM=None):
+			adp_peak_uM=None, atp_ex_peak_uM=None,
+			secreted_adp_count=0.0):
 		"""Run one outer timestep of the calcium ODE.
 
 		Agonist forcing is controlled by the three `*_peak_*` kwargs;
 		`None` (default) uses the module-level peak constants, `0` gives
 		a resting / un-stimulated sim. See `_ode_rhs` docstring.
+		`secreted_adp_count` (ADP[e] count) adds autocrine ADP to the
+		P2Y1 drive (v0.61 Slice 2); 0 → open-loop.
 
 		Returns
 		-------
@@ -1294,7 +1317,8 @@ class CalciumSignalling:
 			_ode_rhs, (0.0, dt), y0,
 			method='BDF',
 			args=(t_sim, agonist_delay,
-				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM),
+				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM,
+				secreted_adp_count),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,

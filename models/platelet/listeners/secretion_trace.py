@@ -11,6 +11,9 @@ lumi-aggregometry).
 Columns written:
   time                       — simulation time (s)
   adp_e                      — secreted ADP count ([e])
+  adp_e_uM                   — pericellular secreted-ADP concentration (µM);
+                               the autocrine P2Y1 drive (v0.61 Slice 2)
+  amp_e                      — ecto-NTPDase product AMP count ([e])
   serotonin_e                — secreted serotonin (5-HT) count ([e])
   fibrinogen_e               — secreted fibrinogen (FGA) count ([e])
   pselectin_surface          — surface P-selectin count ([pl])
@@ -22,6 +25,9 @@ Columns written:
 """
 
 import wholecell.listeners.listener
+from reconstruction.platelet.dataclasses.process.calcium_signalling import (
+	_UM_PER_COUNT_EX,
+)
 
 
 class SecretionTrace(wholecell.listeners.listener.Listener):
@@ -42,6 +48,7 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 		all_ids = list(sim_data.internal_state.bulk_molecules.bulk_data['id'])
 		self._idx_adp_dg   = all_ids.index('ADP[dg]')
 		self._idx_adp_e    = all_ids.index('ADP[e]')
+		self._idx_amp_e    = all_ids.index('AMP[e]')
 		self._idx_5ht_dg   = all_ids.index('5HT[dg]')
 		self._idx_5ht_e    = all_ids.index('5HT[e]')
 		self._idx_fga_ag   = all_ids.index('FGA[ag]')
@@ -50,6 +57,8 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 		self._idx_selp_sfc = all_ids.index('SELP_surface[pl]')
 
 		self.adp_e = 0
+		self.adp_e_uM = 0.0
+		self.amp_e = 0
 		self.serotonin_e = 0
 		self.fibrinogen_e = 0
 		self.pselectin_surface = 0
@@ -73,6 +82,8 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 		counts = self._bulk_molecules.counts()
 
 		self.adp_e = int(counts[self._idx_adp_e])
+		self.adp_e_uM = float(counts[self._idx_adp_e] * _UM_PER_COUNT_EX)
+		self.amp_e = int(counts[self._idx_amp_e])
 		self.serotonin_e = int(counts[self._idx_5ht_e])
 		self.fibrinogen_e = int(counts[self._idx_fga_e])
 		self.pselectin_surface = int(counts[self._idx_selp_sfc])
@@ -98,6 +109,8 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 			time=self.time(),
 			simulationStep=self.simulationStep(),
 			adp_e=self.adp_e,
+			adp_e_uM=self.adp_e_uM,
+			amp_e=self.amp_e,
 			serotonin_e=self.serotonin_e,
 			fibrinogen_e=self.fibrinogen_e,
 			pselectin_surface=self.pselectin_surface,

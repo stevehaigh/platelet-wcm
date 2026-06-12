@@ -56,3 +56,12 @@ class GranuleSecretion:
 		# Driver species the gate reads (cytosolic counts → µM in the process).
 		self.pkc_active_id = 'PKC_active[c]'
 		self.ca_cyt_id     = 'CA2_CYT[c]'
+
+		# Ecto-NTPDase (CD39) clearance of secreted ADP: ADP[e] → AMP[e],
+		# first-order (v0.61 Slice 2). Makes the autocrine ADP → P2Y1 loop
+		# self-limiting — the cell recovers as secreted ADP is hydrolysed
+		# (the loop is also limited by P2Y1 desensitisation and finite
+		# granule cargo). CD39 clears ADP over tens of seconds.
+		self.k_ntpdase = 0.05        # s⁻¹ (τ ≈ 20 s)
+		self.adp_ex_id = 'ADP[e]'    # cleared species (a secretion destination)
+		self.amp_ex_id = 'AMP[e]'    # hydrolysis product (sink)

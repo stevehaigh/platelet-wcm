@@ -204,22 +204,37 @@ The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
 extracellular Ca²⁺).
 
-### Downstream PKC effects — granule secretion (v0.61 Slice 1)
+### Downstream PKC effects — granule secretion + autocrine ADP (v0.61)
 
 `GranuleSecretion` (in `models/platelet/processes/granule_secretion.py`) is the
-first PKC *output* (v0.61), wiring PKC out of its v0.6 brake-only role. Each
-timestep it relocates pre-existing granule cargo — `ADP[dg]`, `5HT[dg]` (dense),
-`FGA[ag]` (α) → the extracellular space `[e]`, and `SELP[ag]` → a surface state
-`SELP_surface[pl]` (the P-selectin activation marker). Release is first-order in
-the remaining pool, scaled by a `PKC_active × Ca²⁺` coincidence gate that keys
-off PKC activation *above* a resting-tone floor, so resting secretion is exactly
-zero. Rate constants live in
-`reconstruction/platelet/dataclasses/process/granule_secretion.py` (Python, not
-TOML — the kinetics-as-data scaffold is still calcium-only). The `SecretionTrace`
-listener records secreted-cargo counts, released / surface-exposed fractions, and
-the gate value. This slice is **additive**: secreted ADP is not yet fed back onto
-P2Y1, so the calcium ODE — and the Dolan validation — is unchanged (the autocrine
-ADP loop is the next slice). Design:
+first PKC *output* (v0.61), wiring PKC out of its v0.6 brake-only role.
+
+**Slice 1 — secretion.** Each timestep it relocates pre-existing granule cargo —
+`ADP[dg]`, `5HT[dg]` (dense), `FGA[ag]` (α) → the extracellular space `[e]`, and
+`SELP[ag]` → a surface state `SELP_surface[pl]` (the P-selectin activation
+marker). Release is first-order in the remaining pool, scaled by a
+`PKC_active × Ca²⁺` coincidence gate that keys off PKC activation *above* a
+resting-tone floor, so resting secretion is exactly zero.
+
+**Slice 2 — autocrine ADP loop.** Secreted `ADP[e]` is fed back onto the P2Y1
+drive inside the calcium ODE: `_ode_rhs` adds its pericellular concentration
+(`secreted_adp_count × _UM_PER_COUNT_EX`, threaded via CalciumDynamics) to the
+exogenous ADP forcing, closing PKC → secretion → ADP → P2Y1. `V_EX_L` (effective
+pericellular volume, ~66 fL) is a **calibration choice** set so full dense-granule
+release ≈ 10 µM (the standard dose). The loop self-limits via ecto-NTPDase
+clearance (`ADP[e] → AMP[e]`, first-order `k_ntpdase`, in GranuleSecretion) plus
+the v0.6 P2Y1 desensitisation brake and finite cargo. Effect is sub-integer on the
+30 s Dolan goldens (P2Y1 is minor vs thrombin/PARs and the response is
+store-limited) → **goldens stay byte-identical, Dolan 5/5 preserved, no regen**;
+it shows clearly in a thrombin-only sim (zero exogenous ADP) where secreted ADP is
+the sole P2Y1 driver.
+
+Rate constants / volumes live in
+`reconstruction/platelet/dataclasses/process/granule_secretion.py` and the
+volume block of `calcium_signalling.py` (Python, not TOML — the kinetics-as-data
+scaffold is still calcium-only). The `SecretionTrace` listener records
+secreted-cargo counts, released / surface-exposed fractions, the gate, and the
+autocrine `adp_e_uM`. Design:
 `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1. Thromboxane and
 integrin (§2–3) remain unimplemented.
 
@@ -284,7 +299,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 71 species)
+The molecule inventory (id, mass, initial count, class for all 72 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`
