@@ -58,3 +58,27 @@ class TestPerturbationSmoke:
 		assert scan.factors[0] == 0.0
 		write_outputs(scan, out)
 		assert os.path.exists(os.path.join(out, 'mcu_traces.png'))
+
+	def test_pkc_runs_restores_knob_and_harvests_aux(self, tmp_path):
+		"""v0.6: PKC P2Y1-desensitisation knockout scan + aux trace + figure."""
+		out = str(tmp_path / 'pert_pkc')
+		os.makedirs(out)
+		baseline = cs_mod.K_P2Y1_DES['k_des']
+
+		scan = run_perturbation(out, 'pkc', length_override=20,
+			log_to_shell=False)
+
+		# Knob restored; knockout (k_des×0) is the first condition.
+		assert cs_mod.K_P2Y1_DES['k_des'] == baseline
+		assert scan.factors[0] == 0.0
+		# The desensitised-fraction aux trace was harvested, aligned with cyt.
+		assert scan.aux is not None
+		assert scan.aux.shape == scan.cyt.shape
+		# Knockout must show no desensitisation; baseline must show some.
+		assert scan.aux[0].max() == 0.0
+		assert scan.aux[1].max() > 0.0
+		assert all('p2y1_desensitised_frac_max' in s for s in scan.scalars)
+
+		write_outputs(scan, out)
+		assert os.path.exists(os.path.join(out, 'pkc_traces.png'))
+		assert os.path.exists(os.path.join(out, 'pkc.npz'))

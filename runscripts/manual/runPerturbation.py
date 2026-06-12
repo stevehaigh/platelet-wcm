@@ -1,10 +1,12 @@
-"""Single-mechanism perturbation experiments (PMCA V_max, MCU uptake).
+"""Single-mechanism perturbation experiments (PMCA V_max, MCU uptake, PKC).
 
-Two in-silico knockdown/knockout scans on the frozen calcium model, producing
-the mechanistic-finding figures the thesis Results section claims (issue #53).
-Each condition overrides one rate constant in `calcium_signalling`, runs a
-platelet sim, harvests the cytosolic / DTS Ca²⁺ traces, then restores the
-constant — the same live-override pattern `runDoseSweep.py` uses.
+In-silico knockdown/knockout scans on the calcium model, producing the
+mechanistic-finding figures the thesis Results section claims (issue #53;
+the PKC scan is the v0.6 #57 deliverable). Each condition overrides one
+rate constant in `calcium_signalling`, runs a platelet sim, harvests the
+cytosolic / DTS Ca²⁺ traces (plus an optional experiment-specific aux
+column), then restores the constant — the same live-override pattern
+`runDoseSweep.py` uses.
 
 Exp A — PMCA V_max rate-limits cytosolic Ca²⁺ recovery
     Knob   : K_PMCA['k_cat']  (basal PMCA turnover, baseline 5.5 s⁻¹)
@@ -25,9 +27,21 @@ Exp B — MCU buffers cytosolic Ca²⁺ without rescuing the DTS store
         (full in every case — MCU doesn't refill the store). MCU=0 reproduces
         the elevated-cytosolic-Ca²⁺ phenotype of MCU⁻/⁻ platelets (Ghatge 2026).
 
+Exp C — PKC desensitises P2Y1, throttling the ADP arm (v0.6, issue #57)
+    Knob   : K_P2Y1_DES['k_des']  (P2Y1 desensitisation rate; 0 = knockout)
+    Scan   : {0 (KO), 1 (baseline feedback)}
+    Protocol: +Ca²⁺, ADP-only (thrombin off) to isolate the P2Y1 arm — the
+        thrombin-driven PARs otherwise dominate Gαq and mask the effect.
+    Observable: P2Y1 desensitised fraction (aux column) — stays ~0 in the
+        knockout, rises to ~0.5–0.7 with feedback — plus cytosolic Ca²⁺. The
+        knockout reproduces the increased-reactivity phenotype of
+        desensitisation-resistant P2Y1 (Nicholas 2023). The single-transient
+        Ca²⁺ amplitude effect is modest (the response is store-limited); the
+        receptor desensitisation itself is the clear, measured readout.
+
 Usage:
     PYTHONPATH=$PWD python runscripts/manual/runPerturbation.py [sim_outdir] \\
-        [--experiment pmca|mcu|both] [--length N] [--keep-cell-output]
+        [--experiment pmca|mcu|pkc|both] [--length N] [--keep-cell-output]
 
 Outputs under out/<sim_outdir>/:
     <exp>_traces.png             overlaid traces, colour-graded by factor
@@ -43,6 +57,7 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 import matplotlib
 matplotlib.use('Agg')
@@ -71,6 +86,22 @@ EXPERIMENTS: dict[str, dict] = {
 		factors=[0.0, 1.0, 4.0],
 		ca_ex_mM=1.2, length_sec=400,
 	),
+	'pkc': dict(
+		# v0.6 — PKC-mediated P2Y1 desensitisation (DAG → PKC → P2Y1).
+		# Knock out the desensitisation rate (k_des → 0) vs the baseline
+		# feedback. ADP-only (thrombin off) isolates the P2Y1 arm, since
+		# the thrombin-driven PARs otherwise dominate Gαq and mask the
+		# P2Y1-specific effect. Prediction (Nicholas 2023): the knockout
+		# keeps P2Y1 active (desensitised fraction stays ~0) and gives a
+		# larger / more sustained response than the baseline feedback.
+		title='PKC desensitisation of P2Y1 throttles the ADP response '
+			'(ADP-only, +Ca)',
+		dict_name='K_P2Y1_DES', knob_key='k_des', knob_label='P2Y1 k_des',
+		factors=[0.0, 1.0],
+		ca_ex_mM=1.2, length_sec=300,
+		sim_kwargs=dict(thrombin_peak_nM=0.0),     # ADP-only: isolate P2Y1
+		aux_col='p2y1_desensitised_frac',          # mechanism readout
+	),
 }
 
 
@@ -80,6 +111,12 @@ def harvest_traces(simout_dir: str) -> tuple[np.ndarray, np.ndarray]:
 	cyt = reader.readColumn('ca_cyt_nM').flatten()
 	dts = reader.readColumn('ca_dts_uM').flatten()
 	return cyt, dts
+
+
+def harvest_column(simout_dir: str, col: str) -> np.ndarray:
+	"""Read one named CalciumTrace column (e.g. an experiment's aux readout)."""
+	reader = TableReader(os.path.join(simout_dir, 'CalciumTrace'))
+	return reader.readColumn(col).flatten()
 
 
 def reduce_scalars(cyt: np.ndarray, dts: np.ndarray) -> dict[str, float]:
@@ -111,11 +148,15 @@ class PerturbationScan:
 	cyt: np.ndarray                              # (n_factor, n_time)
 	dts: np.ndarray                              # (n_factor, n_time)
 	scalars: list[dict] = field(default_factory=list)
+	aux: np.ndarray | None = None                # (n_factor, n_time); experiment-specific
 
 	def to_npz(self, path: str) -> None:
-		np.savez(path,
+		arrays: dict[str, Any] = dict(
 			factors=np.array(self.factors), cyt=self.cyt, dts=self.dts,
 			baseline_value=self.baseline_value, length_sec=self.length_sec)
+		if self.aux is not None:
+			arrays['aux'] = self.aux
+		np.savez(path, **arrays)
 
 
 # ── Driver ────────────────────────────────────────────────────────────────
@@ -135,8 +176,12 @@ def run_perturbation(out_path: str, exp_key: str,
 	cells_root = os.path.join(out_path, f'{exp_key}_cells')
 	fp.makedirs(cells_root)
 
+	extra_kwargs = cfg.get('sim_kwargs', {})       # per-experiment agonist overrides
+	aux_col = cfg.get('aux_col')                   # optional extra trace column
+
 	cyt_rows: list[np.ndarray] = []
 	dts_rows: list[np.ndarray] = []
+	aux_rows: list[np.ndarray] = []
 	scalars: list[dict] = []
 	try:
 		for f in factors:
@@ -144,11 +189,15 @@ def run_perturbation(out_path: str, exp_key: str,
 			cell_dir = os.path.join(cells_root, f'x{f:g}')
 			fp.makedirs(cell_dir)
 			paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
-				log_to_shell=False, ca_ex_mM=cfg['ca_ex_mM'])
+				log_to_shell=False, ca_ex_mM=cfg['ca_ex_mM'], **extra_kwargs)
 			cyt, dts = harvest_traces(paths['sim_out_dir'])
 			cyt_rows.append(cyt)
 			dts_rows.append(dts)
 			sc = {'factor': float(f), **reduce_scalars(cyt, dts)}
+			if aux_col:
+				aux = harvest_column(paths['sim_out_dir'], aux_col)
+				aux_rows.append(aux)
+				sc[f'{aux_col}_max'] = float(aux.max())
 			scalars.append(sc)
 			if log_to_shell:
 				print(f'  {cfg["knob_label"]} ×{f:<5g} → '
@@ -163,7 +212,8 @@ def run_perturbation(out_path: str, exp_key: str,
 	return PerturbationScan(
 		exp_key=exp_key, cfg=cfg, baseline_value=baseline, length_sec=length,
 		factors=factors, cyt=np.array(cyt_rows), dts=np.array(dts_rows),
-		scalars=scalars)
+		scalars=scalars,
+		aux=np.array(aux_rows) if aux_rows else None)
 
 
 def _prune_cell(cell_dir: str) -> None:
@@ -247,7 +297,41 @@ def plot_mcu(scan: PerturbationScan, png_path: str) -> None:
 	plt.close(fig)
 
 
-_PLOTTERS = {'pmca': plot_pmca, 'mcu': plot_mcu}
+def plot_pkc(scan: PerturbationScan, png_path: str) -> None:
+	"""2-panel: cytosolic Ca²⁺ + P2Y1 desensitised fraction, knockout vs baseline."""
+	t = np.arange(scan.cyt.shape[1])
+	# k_des ×0 = PKC-desensitisation knockout; ×1 = baseline feedback.
+	colours = {0.0: '#cc0000', 1.0: '#222222'}
+	labels = {0.0: 'PKC knockout (k$_{des}$×0)', 1.0: 'baseline feedback (×1)'}
+
+	fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
+	for i, f in enumerate(scan.factors):
+		c = colours.get(f, None)
+		lbl = labels.get(f, f'×{f:g}')
+		ax1.plot(t, scan.cyt[i], color=c, linewidth=1.8, label=lbl)
+		if scan.aux is not None:
+			ax2.plot(t, scan.aux[i], color=c, linewidth=1.8, label=lbl)
+	ax1.set_xlabel('Time (s)')
+	ax1.set_ylabel(r'Cytosolic Ca$^{2+}$ (nM)')
+	ax1.set_title('ADP-evoked cytosolic Ca$^{2+}$ (store-limited)')
+	ax1.legend(fontsize=9)
+	ax1.grid(alpha=0.3)
+
+	ax2.set_xlabel('Time (s)')
+	ax2.set_ylabel('P2Y1 desensitised fraction')
+	ax2.set_title('PKC desensitises the active P2Y1 receptor')
+	ax2.set_ylim(-0.02, 1.0)
+	ax2.legend(fontsize=9)
+	ax2.grid(alpha=0.3)
+
+	fig.suptitle('PKC-mediated P2Y1 desensitisation: knockout vs baseline '
+		f'(ADP-only, +Ca$^{{2+}}$, {scan.length_sec} s)', fontsize=12)
+	fig.tight_layout()
+	fig.savefig(png_path, dpi=140, bbox_inches='tight')
+	plt.close(fig)
+
+
+_PLOTTERS = {'pmca': plot_pmca, 'mcu': plot_mcu, 'pkc': plot_pkc}
 
 
 def write_outputs(scan: PerturbationScan, out_path: str) -> None:
@@ -281,8 +365,10 @@ def _build_parser() -> argparse.ArgumentParser:
 		description='PMCA / MCU single-mechanism perturbation experiments (#53).')
 	p.add_argument('sim_outdir', nargs='?', default=None,
 		help='Output dir under out/. Default = perturbation_<timestamp>.')
-	p.add_argument('--experiment', choices=['pmca', 'mcu', 'both'], default='both',
-		help='Which experiment(s) to run. Default = both.')
+	p.add_argument('--experiment', choices=['pmca', 'mcu', 'pkc', 'both'],
+		default='both',
+		help='Which experiment(s) to run. Default = both (pmca + mcu); '
+			'pkc is the v0.6 P2Y1-desensitisation knockout.')
 	p.add_argument('--length', '--length-sec', dest='length_sec', type=int,
 		default=None, help='Override sim length (s) for all experiments.')
 	p.add_argument('--keep-cell-output', action='store_true',
