@@ -141,15 +141,15 @@ Each timestep:
 
 Processes run in **dependency-ordered groups**. Within a group, processes share a
 partition step. The current platelet model has a single group:
-`(RestingDecay, CalciumDynamics, GranuleSecretion)`.
+`(RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis)`.
 
 ### Core Abstractions
 
 | Concept | Base class | Platelet impl | Purpose |
 |---------|-----------|---------------|---------|
-| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion) | Biological submodels that modify state |
+| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
-| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace) | Observe and record data each timestep |
+| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace) | Observe and record data each timestep |
 | **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
 
 There is no platelet equivalent of E. coli variants yet; the simulation runs a single
@@ -234,9 +234,20 @@ Rate constants / volumes live in
 volume block of `calcium_signalling.py` (Python, not TOML — the kinetics-as-data
 scaffold is still calcium-only). The `SecretionTrace` listener records
 secreted-cargo counts, released / surface-exposed fractions, the gate, and the
-autocrine `adp_e_uM`. Design:
-`reports/design/pkc-downstream-effects-2026-06-12.qmd` §1. Thromboxane and
-integrin (§2–3) remain unimplemented.
+autocrine `adp_e_uM`.
+
+**Thromboxane Slice A — TXA₂ synthesis (§2, production only).**
+`ThromboxaneSynthesis` (in `models/platelet/processes/thromboxane_synthesis.py`)
+lumps cPLA₂ → COX-1 → TXA₂-synthase into one Ca²⁺ × PKC-gated production term
+(same resting-floor gate → zero at rest), scaled by the **aspirin knob**
+`COX1_FACTOR` (module-level in the dataclass, read live; `0` = aspirin knockout,
+abolishes TXA₂). De-novo `TXA2[e]` decays first-order (t½ ≈ 30 s) to the stable
+ELISA metabolite `TXB2[e]`. The `ThromboxaneTrace` listener records `txa2_uM`,
+`txb2`, and the gate. **Additive — no Gq feedback yet, calcium ODE untouched,
+goldens byte-identical.** The autocrine **TXA₂ → TP → Gq** loop (Slice B —
+`+ tp_a` into the `total_active_R` sum, regen goldens + re-verify Dolan) and
+integrin (§3) remain unimplemented. Design:
+`reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
 
 ### State Partitioning
 
@@ -299,7 +310,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 72 species)
+The molecule inventory (id, mass, initial count, class for all 74 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`
