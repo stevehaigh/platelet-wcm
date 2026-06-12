@@ -94,7 +94,7 @@ flowchart TB
   ITG --> FGB[fibrinogen binding]
 ```
 
-## 1. Granule secretion (dense and alpha granules) — most tractable
+## 1. Granule secretion (dense + α granules) — most tractable
 
 **Biology.** Ca²⁺ and PKC (via pleckstrin/MARCKS phosphorylation) drive
 SNARE-mediated granule–membrane fusion. Dense granules release ADP/ATP,
@@ -150,7 +150,7 @@ existing receptor→Gq cascade.
 abolishes it** — a marquee, single-parameter perturbation analogous to the
 v0.6 PKC knockouts; the secondary aggregation wave.
 
-## 3. Integrin alphaIIb-beta3 inside-out activation — hardest (inter-cellular readout)
+## 3. Integrin αIIbβ3 inside-out activation — hardest (inter-cellular readout)
 
 **Biology.** PKC, together with Rap1b / CalDAG-GEFI and talin/kindlin, switches
 αIIbβ3 from low- to high-affinity, enabling fibrinogen/VWF binding,
@@ -198,8 +198,8 @@ hub of **four** feedback loops:
 
 | Loop | Direction | Route | Status |
 |---|---|---|---|
-| P2Y1 desensitisation | − (brake) | PKC → P2Y1 | v0.6 (done) |
-| PLCβ phosphorylation | − (brake) | PKC → PLCβ | v0.6 (done) |
+| P2Y1 desensitisation | − (brake) | PKC → P2Y1 | v0.6 ✔ |
+| PLCβ phosphorylation | − (brake) | PKC → PLCβ | v0.6 ✔ |
 | ADP secretion | + (amplify) | PKC → dense granule → P2Y1 | v0.61 |
 | TXA₂ generation | + (amplify) | PKC → cPLA₂ → TP → Gq | v0.61 |
 
