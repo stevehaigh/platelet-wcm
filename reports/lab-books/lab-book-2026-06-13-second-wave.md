@@ -93,6 +93,47 @@ live in `_ode_rhs`; default 1.0, 0 = open loop) — mirrors the `CA_EX_UM` /
 `COX1_FACTOR` override pattern, so the experiment needs no monkeypatching.
 `AUTOCRINE_ADP_GAIN × 1.0` is exact, so goldens stay byte-identical.
 
+## Figures (committed, reproducible scripts)
+
+The exploratory `/tmp` plotting scripts were rebuilt as committed,
+self-contained scripts in `runscripts/manual/` (each runs its own sims via the
+supported override knobs — no monkeypatching — and applies the project figure
+conventions: mathtext for chemical formulae, detailed legends, takeaway
+captions). They write PNGs to `out/figures/` (gitignored — regenerate on
+demand; snapshot to `reports/figures/v0.61/` if a thesis-committed copy is
+wanted). `--figure <name>` selects one; `--outdir` redirects.
+
+**`runSecondWave.py`** → `second_wave_traces.png` (writes to its own run dir).
+The headline result: at a weak transient ADP pulse the closed-loop model
+sustains cytosolic Ca²⁺ ~80 % above the open-loop model. Shows the effect; the
+decomposition shows the autocrine ADP arm carries it (TXA₂ adds IP₃ only).
+
+**`plotStoreLimitedFeedbacks.py`** — three figures making the *negative* point
+(why the feedbacks are invisible on Ca²⁺ under a saturating agonist):
+- `brake_effect_on_ca.png` — v0.5 vs v0.6 cytosolic Ca²⁺ (standard + ADP-only).
+  Shows the v0.6 PKC brakes do **not** move the Ca²⁺ amplitude (difference
+  panels sub-nanomolar) — i.e. what you should *not* expect to see in Ca²⁺.
+- `why_brake_invisible.png` — timing: the store is >98 % empty by ~10 s, the
+  brake only engages after ~15 s, and the plateau is SOCE-set not IP₃-set.
+  Explains the null result above.
+- `amplifiers_saturating.png` — v0.61 amplifiers on vs off at the standard
+  saturating agonist: Ca²⁺ flat (<0.1 %), IP₃ small (~4 %), P2Y1 desensitisation
+  clear (~20 %). The amplifiers' effect under strong agonist is in the receptor
+  / messenger state, **not** Ca²⁺.
+
+**`plotDownstreamModules.py`** — three figures showing each v0.61 module
+*functioning* (the positive readouts):
+- `secretion_release.png` — dense- vs α-granule cargo release + the secretion
+  gate (zero at rest, dense leads α).
+- `autocrine_adp_loop.png` — thrombin-only: secreted ADP drives P2Y1 (purely
+  autocrine), then ecto-NTPDase clears it (self-limiting).
+- `thromboxane_loop.png` — TXA₂ → TP activation, the modest IP₃ amplification vs
+  aspirin, and the aspirin (COX-1) knockout.
+
+Together: `plotDownstreamModules` shows the mechanisms work; `runSecondWave`
+shows where they matter for Ca²⁺ (weak agonist); `plotStoreLimitedFeedbacks`
+shows where they don't (saturating agonist) and why.
+
 ## Notes / next
 
 - The TXA₂ loop gain (TP count, `[gpcr.tp]` affinity, `k_prod`) and the autocrine
