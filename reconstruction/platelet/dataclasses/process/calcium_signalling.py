@@ -78,6 +78,14 @@ _UM_PER_COUNT_DTS = 1.0 / (N_A * V_DTS_L * 1e-6)
 V_EX_L = 6.64e-14
 _UM_PER_COUNT_EX = 1.0 / (N_A * V_EX_L * 1e-6)
 
+# Gain on the autocrine secreted-ADP → P2Y1 feedback (v0.61 Slice 2), read
+# *live* by `_ode_rhs` so a runscript can disable or tune the loop without
+# touching secretion itself (mirrors the CA_EX_UM / COX1_FACTOR override
+# pattern). 1.0 = full loop; 0.0 = open-loop (the pre-v0.61 / v0.6 behaviour);
+# >1 / <1 scales the loop gain. Used by runSecondWave.py to contrast the
+# closed- and open-loop response to a weak transient agonist.
+AUTOCRINE_ADP_GAIN = 1.0
+
 
 # ── Species ordering ──────────────────────────────────────────────────────
 # This must match reconstruction/platelet/dataclasses/internal_state.py
@@ -1202,7 +1210,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# Exogenous (applied) ADP forcing + autocrine secreted ADP (v0.61 Slice 2).
 	adp_um_now = adp_uM(
 		t_sim_start + t, delay=agonist_delay, peak_uM=adp_peak_uM)
-	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX
+	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX * AUTOCRINE_ADP_GAIN
 	thr_nm_now = thrombin_nM(
 		t_sim_start + t, delay=agonist_delay, peak_nM=thrombin_peak_nM)
 

@@ -37,6 +37,14 @@ PYTHONPATH=$PWD python runscripts/manual/runPhase3.py [sim_outdir] --length 200
 # 2-D dose-response sweep over ADP × thrombin (one row per cell → heatmaps + 3-D surface)
 PYTHONPATH=$PWD python runscripts/manual/runDoseSweep.py [sim_outdir] --grid 9 --length 200
 
+# Single-mechanism perturbation knockouts (PMCA / MCU / PKC P2Y1 / PLCβ)
+PYTHONPATH=$PWD python runscripts/manual/runPerturbation.py [sim_outdir] --experiment pkc
+
+# Second-wave experiment — autocrine amplification at a weak transient agonist
+# (v0.6 open-loop vs v0.61 aspirin vs v0.61 full). Shows the v0.61 loops' effect
+# on cytosolic Ca²⁺, which is invisible under a saturating agonist (store-limited).
+PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 0.5 --length 300
+
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it
@@ -259,6 +267,15 @@ autocrine ADP. Aspirin (`COX1_FACTOR=0`) removes the whole loop (TP inactive).
 `ThromboxaneTrace` gains `tp_active_frac`. Loop gain (TP count, TXA₂ level,
 `[gpcr.tp]` affinity) is the tunable knob. Integrin (§3) remains unimplemented.
 Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
+
+**Toggling the loops / the second wave.** Two module-level knobs disable the
+amplifiers without monkeypatching (same live-override pattern as `CA_EX_UM`):
+`calcium_signalling.AUTOCRINE_ADP_GAIN` (1.0 → full; 0.0 → open loop) and
+`thromboxane_synthesis.COX1_FACTOR` (aspirin = 0). `runSecondWave.py` uses both
+to contrast v0.6 / aspirin / full-v0.61 at a weak transient agonist — the
+regime where the loops visibly change cytosolic Ca²⁺ (the "second wave"); under
+a saturating agonist the response is store-limited and the loops barely move it.
+See `reports/lab-books/lab-book-2026-06-13-second-wave.md`.
 
 ### State Partitioning
 
