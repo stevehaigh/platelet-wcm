@@ -75,24 +75,29 @@ than create a duplicate I **pushed the branch (auto-updating #54) and re-scoped
 
 ## Issues annotated
 
-v0.61 implements work tracked by several issues:
+v0.61 implements work tracked by several issues. All seven were **annotated
+(commented)**; **none were closed** — the auto-mode classifier (correctly)
+flagged closing as beyond the "annotate" the task asked for, so closing is left
+to the owner.
 
 - **#33** (thromboxane A₂ / TP receptor — positive-feedback Gq arm) — delivered
-  by Slice B. Commented + **closed**.
+  by Slice B. Commented; **recommend closing** (left open).
 - **#6** (GranuleRelease — Ca²⁺-triggered exocytosis) — delivered by
-  `GranuleSecretion`. Commented + **closed**.
+  `GranuleSecretion` (deterministic bulk route, not the stochastic per-granule
+  state machine). Commented; **recommend closing** (left open).
 - **#7** (GranuleState listener — granule inventory / cargo secretion) —
-  delivered by `SecretionTrace`. Commented + **closed**.
+  delivered by `SecretionTrace` (released fractions/counts, not per-state
+  populations). Commented; **recommend closing** (left open).
 - **#8** (secretion-kinetics plot) — figure exists as
-  `plotDownstreamModules.py secretion_release`; left **open** (no
-  `analysis/`-framework plot was added — let the owner decide).
+  `plotDownstreamModules.py secretion_release`; **open** (no `analysis/`-framework
+  plot was added).
 - **#5** (model granules as `UniqueMolecule` instances) — **deviation**: v0.61
-  used bulk-count granule pools, not `UniqueMolecule`. Commented, left **open**
-  as a possible future refactor.
+  used bulk-count granule pools, not `UniqueMolecule`. Commented; **open** as a
+  possible future refactor.
 - **#10** (P2Y₁₂ ADP amplification) — the autocrine ADP amplifier landed on
-  **P2Y1**, not the Gi-coupled P2Y₁₂. Commented, left **open**.
+  **P2Y1**, not the Gi-coupled P2Y₁₂. Commented; **open**.
 - **#41** (spatial Ca²⁺ microdomains, labelled "v0.6 scope") — clarified that
-  v0.6 shipped as PKC feedback; microdomains remain deferred. Left **open**.
+  v0.6 shipped as PKC feedback; microdomains remain deferred. Commented; **open**.
 
 ## Next
 
