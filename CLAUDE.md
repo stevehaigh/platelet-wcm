@@ -158,15 +158,15 @@ Each timestep:
 
 Processes run in **dependency-ordered groups**. Within a group, processes share a
 partition step. The current platelet model has a single group:
-`(RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis)`.
+`(RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis, IntegrinActivation)`.
 
 ### Core Abstractions
 
 | Concept | Base class | Platelet impl | Purpose |
 |---------|-----------|---------------|---------|
-| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis) | Biological submodels that modify state |
+| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis, IntegrinActivation) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
-| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace) | Observe and record data each timestep |
+| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace, IntegrinTrace) | Observe and record data each timestep |
 | **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
 
 There is no platelet equivalent of E. coli variants yet; the simulation runs a single
@@ -274,8 +274,36 @@ autocrine ADP. Aspirin (`RunConfig.cox1_factor=0`) removes the whole loop (TP in
 **Goldens regenerated** (adding 2 ODE states perturbs `at_rest` ~0.003 %;
 `default_activation` was byte-identical anyway) — **Dolan 5/5 preserved**.
 `ThromboxaneTrace` gains `tp_active_frac`. Loop gain (TP count, TXA₂ level,
-`[gpcr.tp]` affinity) is the tunable knob. Integrin (§3) remains unimplemented.
+`[gpcr.tp]` affinity) is the tunable knob.
 Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
+
+**Integrin αIIbβ3 inside-out activation (§3) — the terminal PKC output.**
+`IntegrinActivation` (in `models/platelet/processes/integrin_activation.py`)
+implements the design's 2-state minimal model: a resting ⇌ active conformational
+switch on the assembled αIIbβ3 surface heterodimer (`aIIbb3_resting[pl]` 80 000 /
+`aIIbb3_active[pl]`). PKC + CalDAG-GEFI/Ca²⁺ → Rap1b → talin/kindlin inside-out
+signalling is lumped into the **shared `pkc_ca_gate`** (same coincidence detector
+as GranuleSecretion / ThromboxaneSynthesis → resting activation exactly zero);
+the forward rate is first-order in the resting pool × gate, with a slow
+gate-independent reversion. The **active fraction is the per-cell PAC-1 readout**
+(the activation-specific antibody; flow cytometry) — under a standard +Ca²⁺
+transient it reaches ~0.77 over ~3 min, graded lower for weaker agonists. The
+activation rate is scaled by `RunConfig.integrin_act_scale` (1 = intact;
+0 = αIIbβ3 antagonist / **Glanzmann thrombasthenia** → no high-affinity integrin),
+read by the process in `initialize`. αIIbβ3 is a **terminal output, not a Gq loop**,
+so the calcium ODE is untouched — **goldens byte-identical, Dolan 5/5 preserved,
+no regen** (same as secretion Slice 1 / thromboxane Slice A). The `IntegrinTrace`
+listener records `aIIbb3_active`/`aIIbb3_resting`, `active_frac`, and the gate.
+Mass: the conformational states carry the β3 (~90 kDa) partner mass only — αIIb is
+already in the inventory as `ITGA2B[c]` (~129 kDa), so the receptor is
+mass-counted once (dry-mass baseline 247.72 → 261.70 fg). **Scope: per-cell
+affinity state + PAC-1 only — aggregation is inter-cellular and out of single-cell
+reach** (design §3). Constants live in
+`reconstruction/platelet/dataclasses/process/integrin_activation.py`. With §3,
+PKC is the hub of 4 feedback loops **plus** 3 terminal outputs (secretion,
+thromboxane, integrin). *Not yet added: fibrinogen-bound occupancy (the design's
+second readout) — pending a ligand-source decision (plasma bath vs autocrine
+secreted FGA[e]).* Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §3.
 
 **Toggling the loops / the second wave.** Two `RunConfig` fields disable the
 amplifiers: `autocrine_adp_gain` (1.0 → full; 0.0 → open loop) and `cox1_factor`
@@ -346,7 +374,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 76 species)
+The molecule inventory (id, mass, initial count, class for all 78 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`

@@ -6,8 +6,9 @@ proteins decay with a characteristic half-life (~7 days, Burkhart 2012).
 
 Molecules managed by the CalciumDynamics ODE are excluded — their counts
 evolve under the ODE each timestep and must not be independently decayed.
-Species relocated by GranuleSecretion (its cargo sources + destinations) are
-excluded for the same reason; the non-protein members are harmless no-ops here.
+Species relocated by GranuleSecretion (its cargo sources + destinations) and
+the αIIbβ3 conformational states managed by IntegrinActivation are excluded for
+the same reason; the non-protein members are harmless no-ops here.
 """
 
 import numpy as np
@@ -18,12 +19,16 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 from reconstruction.platelet.dataclasses.process.granule_secretion import (
 	SECRETION_MANAGED_SPECIES as _SECRETION_SPECIES,
 )
+from reconstruction.platelet.dataclasses.process.integrin_activation import (
+	INTEGRIN_MANAGED_SPECIES as _INTEGRIN_SPECIES,
+)
 
 # Protein half-life in seconds (7 days).
 # Source: Burkhart 2012 (platelet proteome turnover study).
 _PROTEIN_HALF_LIFE_SEC = 7 * 24 * 3600  # 604800 s
 
-_EXCLUDED_SET = frozenset(_CALCIUM_MOLECULE_NAMES) | frozenset(_SECRETION_SPECIES)
+_EXCLUDED_SET = (frozenset(_CALCIUM_MOLECULE_NAMES) | frozenset(_SECRETION_SPECIES)
+	| frozenset(_INTEGRIN_SPECIES))
 
 
 class RestingDecay:
