@@ -20,8 +20,7 @@ import tempfile
 import numpy as np
 import pytest
 
-import reconstruction.platelet.dataclasses.process.calcium_signalling as cs_mod
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
+from reconstruction.platelet.run_config import RunConfig
 from runscripts.manual.runPlateletSim import run_platelet_sim
 from runscripts.manual.runSecondWave import run_second_wave
 from wholecell.io.tablereader import TableReader
@@ -33,12 +32,15 @@ _DOLAN_REF = os.path.join(_REPO_ROOT, 'reports', 'data',
 	'dolan-2014-fig4-reference.json')
 
 
-def _run(length, **sim_kwargs):
-	"""Run one platelet sim into a temp dir; return its simOut path."""
+def _run(length, **config_kwargs):
+	"""Run one platelet sim into a temp dir; return its simOut path.
+
+	``config_kwargs`` are RunConfig fields (agonist peaks, perturbation scales).
+	"""
+	config_kwargs.setdefault('ca_ex_mM', 1.2)
 	td = tempfile.mkdtemp()
-	ca_ex = sim_kwargs.pop('ca_ex_mM', 1.2)
 	paths = run_platelet_sim(td, length_sec=length, seed=0,
-		log_to_shell=False, ca_ex_mM=ca_ex, **sim_kwargs)
+		log_to_shell=False, run_config=RunConfig(**config_kwargs))
 	return paths['sim_out_dir']
 
 
@@ -76,12 +78,7 @@ class TestPKCFeedbackMagnitude:
 		>= 15% below the unbraked plateau (model ~25%); resting IP3 unchanged.
 		"""
 		base = _cal(_run(150), 'ip3_nM')
-		k0 = cs_mod.K_PLCB_PHOS['k_plcb_phos']
-		try:
-			cs_mod.K_PLCB_PHOS['k_plcb_phos'] = 0.0
-			ko = _cal(_run(150), 'ip3_nM')
-		finally:
-			cs_mod.K_PLCB_PHOS['k_plcb_phos'] = k0
+		ko = _cal(_run(150, k_plcb_phos_scale=0.0), 'ip3_nM')  # PLCβ brake off
 		assert abs(base[0] - ko[0]) < 1.0          # same resting IP3
 		assert ko[-1] > base[-1]                    # brake lowers IP3
 		assert base[-1] <= 0.85 * ko[-1]           # by >= 15%
@@ -118,12 +115,8 @@ class TestSecondWaveMagnitude:
 	def test_sustained_gap_and_decomposition(self, tmp_path):
 		out = str(tmp_path / 'sw')
 		os.makedirs(out)
-		adp0, cox0 = cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR
 		_results, scalars = run_second_wave(out, adp_uM=0.5, length=300,
 			log_to_shell=False)
-		# Loop knobs restored.
-		assert cs_mod.AUTOCRINE_ADP_GAIN == adp0
-		assert tx_mod.COX1_FACTOR == cox0
 
 		# The sustained second wave: closed loop vs open loop at 300 s
 		# (model ~+93 nM).

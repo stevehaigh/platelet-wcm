@@ -78,15 +78,6 @@ _UM_PER_COUNT_DTS = 1.0 / (N_A * V_DTS_L * 1e-6)
 V_EX_L = 6.64e-14
 _UM_PER_COUNT_EX = 1.0 / (N_A * V_EX_L * 1e-6)
 
-# Gain on the autocrine secreted-ADP → P2Y1 feedback (v0.61 Slice 2), read
-# *live* by `_ode_rhs` so a runscript can disable or tune the loop without
-# touching secretion itself (mirrors the CA_EX_UM / COX1_FACTOR override
-# pattern). 1.0 = full loop; 0.0 = open-loop (the pre-v0.61 / v0.6 behaviour);
-# >1 / <1 scales the loop gain. Used by runSecondWave.py to contrast the
-# closed- and open-loop response to a weak transient agonist.
-AUTOCRINE_ADP_GAIN = 1.0
-
-
 def pkc_ca_gate(pkc_count, ca_count, floor_uM, k_pkc_uM, k_ca_uM, n_ca):
 	"""PKC_active × Ca²⁺ coincidence gate in [0, 1); exactly 0 at/below the floor.
 
@@ -203,11 +194,9 @@ N_SPECIES = len(MOLECULE_NAMES)
 
 
 # ── Resting concentrations ────────────────────────────────────────────────
-# Values live in `reports/params/calcium-v0.6.toml [resting]` (issue
-# #32 Phase 2 slice 10). CA_EX_UM is runtime-overridable for the EDTA
-# condition (`cs_mod.CA_EX_UM = 0.0`); the override pattern survives
-# because module-name reassignment doesn't care about origin.
-CA_EX_UM    = _KINETICS['resting']['ca_ex_uM']
+# Values live in `reports/params/calcium-v0.6.toml [resting]` (issue #32 Phase 2
+# slice 10). Extracellular Ca²⁺ is now a per-run RunConfig field (ca_ex_mM),
+# read into `_ode_rhs` as a local — no longer a mutable module global.
 IP3_REST_UM = _KINETICS['resting']['ip3_rest_uM']
 
 
@@ -826,28 +815,32 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 	return po, sf
 
 
-def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
-		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
-		secreted_adp_count=0.0, secreted_txa2_count=0.0):
-	"""Right-hand side of the calcium ODE.
+def _ode_rhs(t, y, t_sim_start, config, step_inputs):
+	"""Right-hand side of the calcium ODE — a pure function of its inputs.
 
 	`y` carries integer-equivalent counts (continuous floats during
 	integration). `t` is the sub-step time *within* this 1-second outer
-	step; `t_sim_start` is the wall-clock time at which the outer step
-	began.
+	step; `t_sim_start` is the wall-clock time at which the outer step began.
 
-	Agonist forcing is controlled by the three `*_peak_*` kwargs. Each is
-	the peak concentration of its species during the activation transient
-	(thrombin in nM, ADP and ATP_ex in µM). `None` (default) reads the
-	module-level default constant; `0` yields a resting / un-stimulated
-	sim where the receptor sees only its REST level.
-
-	`secreted_adp_count` is the current `ADP[e]` count (autocrine,
-	v0.61 Slice 2): its pericellular concentration is *added* to the
-	exogenous ADP forcing, closing the dense-granule → ADP → P2Y1 loop.
-	Held constant across the 1-s step (updated discretely by
-	GranuleSecretion). 0 → no autocrine contribution (the open-loop model).
+	`config` is the per-run `RunConfig` (extracellular Ca²⁺, agonist peaks,
+	feedback gains, single-constant perturbation scales) — replacing the old
+	in-place module-global overrides. `step_inputs` is the per-step pericellular
+	autocrine state: a dict of `[e]` species counts (e.g.
+	`{'ADP[e]': …, 'TXA2[e]': …}`), held constant across the 1-s step (updated
+	discretely by GranuleSecretion / ThromboxaneSynthesis); absent keys default
+	to 0 → the open-loop model.
 	"""
+	# Resolve the per-run config into the local names the body uses. Agonist
+	# peaks keep the None → module-default sentinel; the secreted-agonist
+	# counts come from step_inputs by name (review #6 — by-name, not positional).
+	agonist_delay = config.agonist_delay_s
+	thrombin_peak_nM = config.thrombin_peak_nM
+	adp_peak_uM = config.adp_peak_uM
+	atp_ex_peak_uM = config.atp_ex_peak_uM
+	ca_ex_uM = config.ca_ex_mM * 1000.0
+	secreted_adp_count = step_inputs.get('ADP[e]', 0.0)
+	secreted_txa2_count = step_inputs.get('TXA2[e]', 0.0)
+
 	dy = np.zeros(N_SPECIES)
 
 	# Concentrations (µM) for Ca²⁺ and IP3. IP3 is produced endogenously by
@@ -1039,7 +1032,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 
 	# ── PMCA basal path (Caride 2007 steps 4–5) ──────────────────────
 	v_pmca_bind = K_PMCA['k_on'] * pmca * ca_cyt - K_PMCA['k_off'] * pmcaca
-	v_pmca_cat  = K_PMCA['k_cat'] * pmcaca
+	v_pmca_cat  = K_PMCA['k_cat'] * config.pmca_kcat_scale * pmcaca
 
 	dy[_IDX['PMCA[pl]']]    += -v_pmca_bind + v_pmca_cat
 	dy[_IDX['PMCA_Ca[pl]']] += +v_pmca_bind - v_pmca_cat
@@ -1126,8 +1119,8 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# Dolan Fig. 4 EDTA / no-extracellular-Ca condition (CA_EX_UM = 0) both
 	# the SOCE current and the basal PM leak are physically zero — both are
 	# Ca²⁺ inflows from outside, and there is no outside Ca²⁺ to source.
-	if CA_EX_UM > 0.0 and ca_cyt > 0.0:
-		e_ca_pm_v = RT_OVER_zF_V * math.log(CA_EX_UM / ca_cyt)
+	if ca_ex_uM > 0.0 and ca_cyt > 0.0:
+		e_ca_pm_v = RT_OVER_zF_V * math.log(ca_ex_uM / ca_cyt)
 		driving_pm_v = V_PM_V - e_ca_pm_v
 		soce_ions_s = (
 			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
@@ -1199,7 +1192,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# a slow phosphatase reverses it. This brake sits on the shared PLCβ
 	# node, so it damps the cascade downstream of all receptors (cf. the
 	# ADP-arm-specific P2Y1 desensitisation). k_plcb_phos = 0 disables it.
-	v_plcb_phos   = K_PLCB_PHOS['k_plcb_phos']   * pkc_a * plcb_i
+	v_plcb_phos   = K_PLCB_PHOS['k_plcb_phos']   * config.k_plcb_phos_scale * pkc_a * plcb_i
 	v_plcb_dephos = K_PLCB_PHOS['k_plcb_dephos'] * plcb_p
 
 	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact \
@@ -1231,7 +1224,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# Exogenous (applied) ADP forcing + autocrine secreted ADP (v0.61 Slice 2).
 	adp_um_now = adp_uM(
 		t_sim_start + t, delay=agonist_delay, peak_uM=adp_peak_uM)
-	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX * AUTOCRINE_ADP_GAIN
+	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX * config.autocrine_adp_gain
 	thr_nm_now = thrombin_nM(
 		t_sim_start + t, delay=agonist_delay, peak_nM=thrombin_peak_nM)
 
@@ -1243,7 +1236,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# pool (v0.6, #57). Desensitised P2Y1 is a distinct phospho-state that
 	# does NOT count toward total_active_R below, so the Gαq drive falls as
 	# it accumulates — closing the negative-feedback loop.
-	v_p2y1_des = K_P2Y1_DES['k_des'] * pkc_a * p2y1_a
+	v_p2y1_des = K_P2Y1_DES['k_des'] * config.k_des_scale * pkc_a * p2y1_a
 	v_p2y1_res = K_P2Y1_DES['k_res'] * p2y1_des
 	dy[_IDX['P2Y1_inactive[pl]']]     += -v_p2y1_on + v_p2y1_off + v_p2y1_res
 	dy[_IDX['P2Y1_active[pl]']]       += +v_p2y1_on - v_p2y1_off - v_p2y1_des
@@ -1274,7 +1267,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# mirroring P2Y1/ADP. Synthesised TXA2[e] is passed in as a count and read
 	# as a pericellular concentration; binding does not deplete it (catalytic).
 	# Active TP joins total_active_R below — the autocrine TXA2 → TP → Gq loop.
-	txa2_um_now = secreted_txa2_count * _UM_PER_COUNT_EX
+	txa2_um_now = secreted_txa2_count * _UM_PER_COUNT_EX * config.autocrine_txa2_gain
 	v_tp_on  = K_TP['k_on']  * tp_i * txa2_um_now
 	v_tp_off = K_TP['k_off'] * tp_a
 	dy[_IDX['TP_inactive[pl]']] += -v_tp_on + v_tp_off
@@ -1293,7 +1286,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# NCLX efflux: linear in mito Ca²⁺ (slow release).
 	cyt_n = ca_cyt ** K_MITO['n_MCU']
 	km_n  = K_MITO['K_MCU'] ** K_MITO['n_MCU']
-	v_mcu  = K_MITO['V_max_MCU'] * cyt_n / (km_n + cyt_n)
+	v_mcu  = K_MITO['V_max_MCU'] * config.mcu_vmax_scale * cyt_n / (km_n + cyt_n)
 	v_nclx = K_MITO['k_NCLX'] * ca_mito_count
 	dy[_IDX['CA2_CYT[c]']]  += -v_mcu + v_nclx
 	dy[_IDX['CA2_MITO[m]']] += +v_mcu - v_nclx
@@ -1330,18 +1323,14 @@ class CalciumSignalling:
 		# lab-book-2026-05-12-pi-cycle-design.md §"IP3 stuck-at-205".
 		self._residual = np.zeros(N_SPECIES)
 
-	def molecules_to_next_time_step(self, counts, dt, t_sim,
-			agonist_delay=0.0, thrombin_peak_nM=None,
-			adp_peak_uM=None, atp_ex_peak_uM=None,
-			secreted_adp_count=0.0, secreted_txa2_count=0.0):
+	def molecules_to_next_time_step(self, counts, dt, t_sim, config, step_inputs):
 		"""Run one outer timestep of the calcium ODE.
 
-		Agonist forcing is controlled by the three `*_peak_*` kwargs;
-		`None` (default) uses the module-level peak constants, `0` gives
-		a resting / un-stimulated sim. See `_ode_rhs` docstring.
-		`secreted_adp_count` (ADP[e] count) adds autocrine ADP to the
-		P2Y1 drive (v0.61 Slice 2); `secreted_txa2_count` (TXA2[e] count)
-		drives the TP receptor (v0.61 Slice B). 0 → open-loop.
+		`config` is the per-run `RunConfig` (extracellular Ca²⁺, agonist peaks,
+		feedback gains, perturbation scales). `step_inputs` is the per-step
+		pericellular autocrine state — a dict of `[e]` species counts
+		(`{'ADP[e]': …, 'TXA2[e]': …}`) closing the autocrine loops; absent
+		keys default to 0 (open loop). See the `_ode_rhs` docstring.
 
 		Returns
 		-------
@@ -1364,9 +1353,7 @@ class CalciumSignalling:
 		sol = solve_ivp(
 			_ode_rhs, (0.0, dt), y0,
 			method='BDF',
-			args=(t_sim, agonist_delay,
-				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM,
-				secreted_adp_count, secreted_txa2_count),
+			args=(t_sim, config, step_inputs),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,
@@ -1404,7 +1391,7 @@ class CalciumSignalling:
 		ca4_pmca_ca_avg = 0.5 * (counts_f[_IDX['Ca4_CaM_PMCA_Ca[pl]']]
 			+ y_final[_IDX['Ca4_CaM_PMCA_Ca[pl]']])
 		pmca_atp = max(int(
-			K_PMCA['k_cat'] * pmca_ca_avg * dt
+			K_PMCA['k_cat'] * config.pmca_kcat_scale * pmca_ca_avg * dt
 			+ K_CAM_PMCA['k10'] * ca4_pmca_ca_avg * dt
 		), 0)
 		atp_cost = serca_atp + pmca_atp

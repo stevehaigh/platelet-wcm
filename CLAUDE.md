@@ -70,20 +70,29 @@ simulated, beyond simulation length and seed:
 
 Where each behaviour is defined in code:
 
-- **Extracellular Ca²⁺** is the module-level constant `CA_EX_UM` in
-  `reconstruction/platelet/dataclasses/process/calcium_signalling.py`. The
-  runscript overrides it via `cs_mod.CA_EX_UM = ca_ex_mM * 1000.0` before
-  the sim is constructed; `_ode_rhs` reads it on every ODE step. Both the
-  SOCE current and the basal PM Ca²⁺ leak are gated on `CA_EX_UM > 0`.
-- **Agonist stimulation** is three optional class attributes on
-  `CalciumDynamics` in `models/platelet/processes/calcium_dynamics.py`:
-  `_thrombin_peak_nM`, `_adp_peak_uM`, `_atp_ex_peak_uM`. `None` (default)
-  → the module-level peak constants are read live at call time
-  (`THROMBIN_PEAK_NM`, `ADP_PEAK_UM`, `ATP_EX_PEAK_UM`). `0` → that
-  receptor sees only its REST level (a "resting" sim has all three set to
-  0). The agonist functions (`thrombin_nM`, `adp_uM`, `atp_ex_forcing_uM`)
-  use the `peak_X=None` sentinel pattern so module-constant reassignment
-  takes effect immediately — required for dose-sweep work (issue #45).
+- **Run conditions are a per-sim `RunConfig`** (frozen dataclass in
+  `reconstruction/platelet/run_config.py`), built by `run_platelet_sim` from its
+  kwargs (or passed in directly via `run_config=`) and attached to the sim as
+  `sim.run_config`. Processes/listeners read it in `initialize()`; the ODE
+  receives it as `_ode_rhs(y, t, config, step_inputs)` (pure function).
+  **This replaced (v0.62) the old pattern of mutating module globals in place**
+  (`cs_mod.CA_EX_UM`, `CalciumDynamics._adp_peak_uM`, `tx_mod.COX1_FACTOR`,
+  `K_*['…']`), which was process-global and correct only by save/restore
+  discipline.
+- **Extracellular Ca²⁺** → `RunConfig.ca_ex_mM`. `_ode_rhs` reads it as a local
+  (`ca_ex_uM = ca_ex_mM × 1000`); the SOCE current and basal PM Ca²⁺ leak are
+  gated on it being `> 0` (so `0` = the Dolan EDTA condition).
+- **Agonist stimulation** → `RunConfig.thrombin_peak_nM` / `adp_peak_uM` /
+  `atp_ex_peak_uM` / `agonist_delay_s`. `None` (default) → the agonist functions
+  (`thrombin_nM`, `adp_uM`, `atp_ex_forcing_uM`) read the module default
+  constants (`THROMBIN_PEAK_NM`, `ADP_PEAK_UM`, `ATP_EX_PEAK_UM`); `0` → that
+  receptor sees only its REST level (a "resting" sim has all three at 0).
+- **Feedback loops & perturbations** → `RunConfig.autocrine_adp_gain`,
+  `autocrine_txa2_gain`, `cox1_factor` (aspirin knob), and the single-constant
+  scales `k_des_scale` / `k_plcb_phos_scale` / `pmca_kcat_scale` /
+  `mcu_vmax_scale` (each `1.0` = baseline, `0.0` = knockout). `runSecondWave.py`
+  / `runPerturbation.py` / the plot scripts build `RunConfig`s — no monkeypatching.
+  Autocrine `[e]` species (ADP, TXA₂) reach the ODE by name via `step_inputs`.
 
 The same conditions are exposed on the **webapp** Configure tab as form
 fields (Extracellular Ca²⁺ mM, "Run at rest" checkbox). The four webapp
@@ -248,8 +257,8 @@ autocrine `adp_e_uM`.
 `ThromboxaneSynthesis` (in `models/platelet/processes/thromboxane_synthesis.py`)
 lumps cPLA₂ → COX-1 → TXA₂-synthase into one Ca²⁺ × PKC-gated production term
 (same resting-floor gate → zero at rest), scaled by the **aspirin knob**
-`COX1_FACTOR` (module-level in the dataclass, read live; `0` = aspirin knockout,
-abolishes TXA₂). De-novo `TXA2[e]` decays first-order (t½ ≈ 30 s) to the stable
+`RunConfig.cox1_factor` (`0` = aspirin knockout, abolishes TXA₂; read by the
+process in `initialize`). De-novo `TXA2[e]` decays first-order (t½ ≈ 30 s) to the stable
 ELISA metabolite `TXB2[e]`. The `ThromboxaneTrace` listener records `txa2_uM`,
 `txb2`, and the gate. Slice A is additive (no Gq feedback).
 
@@ -261,17 +270,16 @@ activates TP (binding does not deplete TXA₂); active TP joins
 `total_active_R` (`+ tp_a`), closing the second autocrine amplifier. Effect is
 modest under strong thrombin (store-limited + PAR-dominated; IP₃ ≈ +0.6 % vs
 aspirin by 150 s) — the amplifier matters most at threshold stimuli, like the
-autocrine ADP. Aspirin (`COX1_FACTOR=0`) removes the whole loop (TP inactive).
+autocrine ADP. Aspirin (`RunConfig.cox1_factor=0`) removes the whole loop (TP inactive).
 **Goldens regenerated** (adding 2 ODE states perturbs `at_rest` ~0.003 %;
 `default_activation` was byte-identical anyway) — **Dolan 5/5 preserved**.
 `ThromboxaneTrace` gains `tp_active_frac`. Loop gain (TP count, TXA₂ level,
 `[gpcr.tp]` affinity) is the tunable knob. Integrin (§3) remains unimplemented.
 Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
 
-**Toggling the loops / the second wave.** Two module-level knobs disable the
-amplifiers without monkeypatching (same live-override pattern as `CA_EX_UM`):
-`calcium_signalling.AUTOCRINE_ADP_GAIN` (1.0 → full; 0.0 → open loop) and
-`thromboxane_synthesis.COX1_FACTOR` (aspirin = 0). `runSecondWave.py` uses both
+**Toggling the loops / the second wave.** Two `RunConfig` fields disable the
+amplifiers: `autocrine_adp_gain` (1.0 → full; 0.0 → open loop) and `cox1_factor`
+(aspirin = 0). `runSecondWave.py` builds a `RunConfig` per condition
 to contrast v0.6 / aspirin / full-v0.61 at a weak transient agonist — the
 regime where the loops visibly change cytosolic Ca²⁺ (the "second wave"); under
 a saturating agonist the response is store-limited and the loops barely move it.

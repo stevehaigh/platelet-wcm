@@ -32,8 +32,9 @@ import numpy as np
 
 import math
 
+import os
+
 import wholecell.listeners.listener
-from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_IDX,
 	_UM_PER_COUNT_CYT,
@@ -46,9 +47,8 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	RT_OVER_zF_V,
 	V_PM_V,
 )
-# CA_EX_UM is read via cs_mod.CA_EX_UM rather than imported by value,
-# so a runscript that overrides it (e.g. for the Phase 3 EDTA condition)
-# is reflected in the listener's SOCE trace.
+# Extracellular Ca²⁺ comes from the per-run RunConfig (sim.run_config); the
+# SOCE current is physically zero under the EDTA condition (ca_ex = 0).
 
 
 class CalciumTrace(wholecell.listeners.listener.Listener):
@@ -56,18 +56,19 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 
 	_name = 'CalciumTrace'
 
-	# If set by a runscript, a lightweight CSV is written here each timestep
-	# with an immediate flush so a live-plot viewer can tail it in real time.
-	# Format: time,ca_cyt_nM,ca_dts_uM,ip3_nM,soce_flux_nMs
-	_live_path = None
-
 	def __init__(self, *args, **kwargs):
 		self._bulk_molecules = None
 		self._live_file = None
+		self._live_path = None
 		super().__init__(*args, **kwargs)
 
 	def initialize(self, sim, sim_data):
 		super().initialize(sim, sim_data)
+
+		# Per-run conditions from RunConfig (not mutated globals): extracellular
+		# Ca²⁺ for the SOCE trace, and the live-CSV toggle.
+		self._config = sim.run_config
+		self._ca_ex_uM = self._config.ca_ex_mM * 1000.0
 
 		self._bulk_molecules = (
 			sim.internal_states['BulkMolecules'].container)
@@ -131,7 +132,9 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.registerLoggedQuantity('P2Y1 des\n(frac)',  'p2y1_desensitised_frac', '.3f')
 		self.registerLoggedQuantity('PLCβ-P\n(frac)',    'plcb_phosphorylated_frac', '.3f')
 
-		if self._live_path is not None:
+		# Live CSV (for the live-plot viewer): written into simOut when enabled.
+		if self._config.live:
+			self._live_path = os.path.join(sim._outputDir, 'live.csv')
 			self._live_file = open(self._live_path, 'w', buffering=1)
 			self._live_file.write('time,ca_cyt_nM,ca_dts_uM,ip3_nM,soce_flux_nMs\n')
 
@@ -196,8 +199,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		po_orai, _sf = _mwc_open_fraction(stim2_p, n_orai_channels)
 		# SOCE current — physically zero when there is no extracellular Ca²⁺
 		# (Dolan Fig. 4 EDTA condition); see calcium_signalling._ode_rhs.
-		if cs_mod.CA_EX_UM > 0.0 and ca_cyt_uM > 0.0:
-			e_ca_pm_v = RT_OVER_zF_V * math.log(cs_mod.CA_EX_UM / ca_cyt_uM)
+		if self._ca_ex_uM > 0.0 and ca_cyt_uM > 0.0:
+			e_ca_pm_v = RT_OVER_zF_V * math.log(self._ca_ex_uM / ca_cyt_uM)
 			driving_pm_v = V_PM_V - e_ca_pm_v
 			soce_ions_s = (
 				-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF

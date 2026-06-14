@@ -10,8 +10,6 @@ import os
 
 import pytest
 
-import reconstruction.platelet.dataclasses.process.calcium_signalling as cs_mod
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
 from runscripts.manual.runSecondWave import run_second_wave
 
 
@@ -20,17 +18,12 @@ class TestSecondWave:
 	def test_runs_restores_knobs_and_shows_second_wave(self, tmp_path):
 		out = str(tmp_path / 'sw')
 		os.makedirs(out)
-		adp0, cox0 = cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR
 
 		# The recovery-phase divergence establishes over ~200-300 s (the open
 		# loop decays while the closed loop stays activated), so the test needs
 		# a long enough window to see the second wave.
 		results, scalars = run_second_wave(out, adp_uM=0.5, length=250,
 			log_to_shell=False)
-
-		# Both loop knobs restored to their defaults.
-		assert cs_mod.AUTOCRINE_ADP_GAIN == adp0
-		assert tx_mod.COX1_FACTOR == cox0
 
 		# Same store-limited peak; the loops act in the recovery phase.
 		assert abs(scalars['full']['peak_cyt_nM']

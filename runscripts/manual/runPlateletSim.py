@@ -10,10 +10,9 @@ import os
 import pickle
 import sys
 
-from models.platelet.listeners.calcium_trace import CalciumTrace
-from models.platelet.processes.calcium_dynamics import CalciumDynamics
 from models.platelet.sim.simulation import PlateletSimulation
 from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
+from reconstruction.platelet.run_config import RunConfig
 from reconstruction.platelet.simulation_data import SimulationDataPlatelet
 from wholecell.utils import constants
 import wholecell.utils.filepath as fp
@@ -74,7 +73,7 @@ def write_sim_data(sim_path, sim_data):
 def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 		ca_ex_mM=DEFAULT_CA_EX_MM,
 		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
-		agonist_delay=DEFAULT_AGONIST_DELAY, live=False):
+		agonist_delay=DEFAULT_AGONIST_DELAY, live=False, run_config=None):
 	"""Create sim_data, write it to disk, and run a platelet simulation.
 
 	Output is written to the E. coli-compatible nested structure so the
@@ -94,26 +93,18 @@ def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 			model settles at its fixed point during [0, agonist_delay)
 			before the time courses kick in. Default 0 = immediate.
 	"""
-	# Override the module-level CA_EX_UM (in µM) before constructing the
-	# CalciumSignalling solver. Phase 3 path A: this is how the
-	# Dolan Fig. 4 with-vs-without extracellular Ca²⁺ comparison is run.
-	cs_mod.CA_EX_UM = float(ca_ex_mM) * 1000.0
-
-	# Plumb the agonist peaks and delay onto the process class before the
-	# sim is constructed. Mirrors the cs_mod.CA_EX_UM override pattern.
-	CalciumDynamics._thrombin_peak_nM = thrombin_peak_nM
-	CalciumDynamics._adp_peak_uM = adp_peak_uM
-	CalciumDynamics._atp_ex_peak_uM = atp_ex_peak_uM
-	CalciumDynamics._agonist_delay = float(agonist_delay)
-
-	# Optionally write a live CSV alongside the binary output so a viewer
-	# script can tail it in real time.
-	live_path = None
-	if live:
-		live_path = os.path.join(sim_path, 'live.csv')
-		CalciumTrace._live_path = live_path
-	else:
-		CalciumTrace._live_path = None
+	# Build the per-run config (or use one supplied by the caller). All run
+	# conditions live here — extracellular Ca²⁺, agonist peaks/delay, the live
+	# toggle — replacing the old module-global / class-attr monkeypatching.
+	if run_config is None:
+		run_config = RunConfig(
+			ca_ex_mM=float(ca_ex_mM),
+			thrombin_peak_nM=thrombin_peak_nM,
+			adp_peak_uM=adp_peak_uM,
+			atp_ex_peak_uM=atp_ex_peak_uM,
+			agonist_delay_s=float(agonist_delay),
+			live=live,
+		)
 
 	sim_data = SimulationDataPlatelet()
 	write_sim_data(sim_path, sim_data)
@@ -127,6 +118,7 @@ def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 	)
 	sim_out_dir = fp.makedirs(cell_dir, 'simOut')
 	sim = PlateletSimulation(
+		run_config=run_config,
 		simData=sim_data,
 		outputDir=sim_out_dir,
 		lengthSec=length_sec,
@@ -135,6 +127,11 @@ def run_platelet_sim(sim_path, length_sec, seed, log_to_shell=True,
 		logToDisk=True,
 		)
 	sim.run()
+
+	# The live CSV (if enabled) is written into simOut by the CalciumTrace
+	# listener; surface its path for the viewer.
+	live_path = (os.path.join(sim_out_dir, 'live.csv')
+		if run_config.live else None)
 
 	return {
 		'sim_path': sim_path,

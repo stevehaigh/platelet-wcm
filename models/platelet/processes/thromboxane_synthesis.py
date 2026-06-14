@@ -19,7 +19,6 @@ goldens are preserved. Rate constants live in
 import numpy as np
 
 import wholecell.processes.process as process
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	pkc_ca_gate,
 )
@@ -35,6 +34,9 @@ class ThromboxaneSynthesis(process.Process):
 
 	def initialize(self, sim, sim_data):
 		super(ThromboxaneSynthesis, self).initialize(sim, sim_data)
+
+		# COX-1 availability (aspirin knob) — per-run, read once from RunConfig.
+		self._cox1_factor = sim.run_config.cox1_factor
 
 		tx = sim_data.process.thromboxane_synthesis
 		self._k_prod = tx.k_prod
@@ -70,10 +72,10 @@ class ThromboxaneSynthesis(process.Process):
 		pkc_count, ca_count = self._drivers.total_counts()
 		self._gate = self._compute_gate(pkc_count, ca_count)
 
-		# De-novo TXA₂ production (COX-1-gated; cox1_factor read live so the
-		# aspirin knockout can be toggled); first-order decay → TXB₂.
+		# De-novo TXA₂ production (COX-1-gated by the per-run aspirin knob);
+		# first-order decay → TXB₂.
 		self._produced = int(round(
-			self._k_prod * tx_mod.COX1_FACTOR * self._gate * dt))
+			self._k_prod * self._cox1_factor * self._gate * dt))
 		txa2_count = self._txa2.total_counts()[0]
 		self._decayed = int(np.floor(
 			txa2_count * (1.0 - np.exp(-self._k_decay * dt))))

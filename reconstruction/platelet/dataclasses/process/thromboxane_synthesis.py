@@ -17,22 +17,13 @@ autocrine TP → Gq loop is Slice B), so the calcium ODE is untouched. Design:
 ``reports/design/pkc-downstream-effects-2026-06-12.qmd`` §2.
 """
 
-# COX-1 availability factor — the aspirin knob (1.0 = intact COX-1, 0.0 =
-# irreversibly acetylated / aspirinised). Module-level and read *live* by the
-# ThromboxaneSynthesis process each step, so a runscript or the perturbation
-# runner can override it before / within a run — mirrors the agonist-peak
-# constants in calcium_signalling. The aspirin (COX-1 knockout) experiment
-# sets this to 0.
-COX1_FACTOR = 1.0
-
-
 class ThromboxaneSynthesis:
 	"""Parameters for the ThromboxaneSynthesis process."""
 
 	def __init__(self, sim_data):
 		# Maximum TXA₂ production rate at full gate (molecules·s⁻¹). The COX-1
-		# availability factor (aspirin knob) is the module-level COX1_FACTOR,
-		# read live by the process.
+		# availability factor (aspirin knob) is the per-run RunConfig field
+		# cox1_factor, read by the process in initialize().
 		self.k_prod = 2500.0
 
 		# TXA₂ → TXB₂ first-order decay (t½ ≈ 30 s).

@@ -1,5 +1,6 @@
 from wholecell.sim.simulation import Simulation
 
+from reconstruction.platelet.run_config import RunConfig
 from wholecell.states.bulk_molecules import BulkMolecules
 from wholecell.states.unique_molecules import UniqueMolecules
 from wholecell.states.local_environment import LocalEnvironment
@@ -43,6 +44,14 @@ class PlateletSimulation(Simulation):
 	_shellColumnHeaders = (
 		'Time (s)',
 		)
+
+	def __init__(self, run_config=None, **kwargs):
+		# Per-run conditions (extracellular Ca²⁺, agonist peaks, feedback gains,
+		# perturbation scales). Stored before super().__init__() runs
+		# _initialize(), so processes/listeners can read sim.run_config in
+		# their own initialize(). Replaces the old module-global monkeypatching.
+		self.run_config = run_config if run_config is not None else RunConfig()
+		super().__init__(**kwargs)
 
 
 def platelet_simulation(**options):
