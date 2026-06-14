@@ -192,7 +192,7 @@ def fig_thromboxane(outdir: str) -> str:
 		tx_mod.COX1_FACTOR = cox0
 	t = np.arange(len(txa2))
 
-	fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4.7))
+	fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(15, 4.7))
 	a1.plot(t, txa2, lw=2.4, color='#c0392b', label=r'TXA$_2$ ($\mu$M)')
 	a1.plot(t, tp, lw=2.4, color='#8e44ad', label='TP receptor active fraction')
 	a1.set_xlabel('time (s)')
@@ -211,11 +211,15 @@ def fig_thromboxane(outdir: str) -> str:
 		fontsize=10)
 	a2.legend(frameon=False, fontsize=9, loc='lower right')
 	a2.grid(alpha=0.3)
-	axins = a2.inset_axes([0.13, 0.55, 0.4, 0.38])
-	axins.plot(t, ip3_on - ip3_asp, lw=1.4, color='#16a085')
-	axins.set_title(r'$\Delta\mathrm{IP_3}$ (loop $-$ aspirin)', fontsize=7.5)
-	axins.tick_params(labelsize=7)
-	axins.grid(alpha=0.3)
+
+	a3.plot(t, ip3_on - ip3_asp, lw=2.4, color='#16a085')
+	a3.fill_between(t, ip3_on - ip3_asp, 0, color='#16a085', alpha=0.12)
+	a3.axhline(0, color='#999', lw=0.8, ls=':')
+	a3.set_xlabel('time (s)')
+	a3.set_ylabel(r'$\Delta\mathrm{IP_3}$ (nM)')
+	a3.set_title(r'$\Delta\mathrm{IP_3}$ from the loop (intact $-$ aspirin)',
+		fontsize=10)
+	a3.grid(alpha=0.3)
 
 	fig.suptitle(r'v0.61 thromboxane loop: TXA$_2$ $\rightarrow$ TP '
 		r'$\rightarrow$ G$_q$ (+ aspirin knockout)', fontsize=12)
@@ -223,8 +227,10 @@ def fig_thromboxane(outdir: str) -> str:
 		'TXA2 reaches ~1 uM and activates TP, which joins the shared Gq drive — '
 		'closing the second autocrine amplifier. The effect on IP3 is modest '
 		'(store-limited response, PAR-dominated under strong thrombin) and on '
-		'cytosolic Ca2+ negligible; aspirin (COX-1 = 0) removes the loop entirely. '
-		'The amplifier bites harder at a weak agonist (see runSecondWave.py).',
+		'cytosolic Ca2+ negligible; the third panel isolates the loop\'s IP3 '
+		'contribution as the difference vs aspirin. Aspirin (COX-1 = 0) removes '
+		'the loop entirely. The amplifier bites harder at a weak agonist (see '
+		'runSecondWave.py).',
 		ha='center', va='top', fontsize=8, wrap=True)
 	fig.tight_layout(rect=[0, 0.02, 1, 0.95])
 	out = os.path.join(outdir, 'thromboxane_loop.png')

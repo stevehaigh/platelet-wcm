@@ -252,7 +252,7 @@ encodes.
 
 ![**v0.61 autocrine ADP loop (thrombin-only — zero exogenous ADP).** With no exogenous ADP, PKC-triggered dense-granule secretion is the *only* P2Y1 ligand, so any P2Y1 engagement here is purely autocrine. *Left:* secreted pericellular ADP rises into the P2Y1 range, then ecto-NTPDase hydrolyses it to AMP — the loop self-limits without exhausting the granule pool. *Right:* the resulting P2Y1 desensitisation, driven entirely by autocrine ADP. This is the loop that carries the second wave.](../figures/v0.61/autocrine_adp_loop.png){#fig-v061-adp width=100%}
 
-![**v0.61 thromboxane loop — TXA₂ → TP → Gq (+ aspirin knockout).** *Left:* synthesised TXA₂ reaches ~1 µM and reversibly activates the TP receptor. *Right:* TP joins the shared Gq drive and modestly amplifies IP₃ versus aspirin (COX-1 = 0, loop off); the inset shows ΔIP₃. The effect on IP₃ is modest under strong thrombin (store-limited, PAR-dominated) and negligible on cytosolic Ca²⁺ — the amplifier bites harder at a weak agonist.](../figures/v0.61/thromboxane_loop.png){#fig-v061-tx width=100%}
+![**v0.61 thromboxane loop — TXA₂ → TP → Gq (+ aspirin knockout).** *Left:* synthesised TXA₂ reaches ~1 µM and reversibly activates the TP receptor. *Middle:* TP joins the shared Gq drive and modestly amplifies IP₃ versus aspirin (COX-1 = 0, loop off). *Right:* the loop's IP₃ contribution isolated as the difference (intact − aspirin). The effect on IP₃ is modest under strong thrombin (store-limited, PAR-dominated) and negligible on cytosolic Ca²⁺ — the amplifier bites harder at a weak agonist.](../figures/v0.61/thromboxane_loop.png){#fig-v061-tx width=100%}
 
 ## Results — 2. Under a saturating agonist the amplifiers don't move Ca²⁺
 
@@ -294,18 +294,46 @@ aspirin-sensitive second wave matter for *weak* agonists, not saturating ones.
 
 ## Dolan 5/5 across versions
 
-The Dolan & Diamond 2014 Fig. 4 criteria (resting cytosol, resting DTS, resting
-IP₃, peak height, SOCE differential) are met by **all three** versions: v0.5
+The Dolan & Diamond 2014 Fig. 4 criteria are met by **all three** versions: v0.5
 defines the baseline; v0.6's brakes act late / on the P2Y1 arm; v0.61's
 amplifiers are additive (Slices 1/2/A) or a tiny perturbation regenerated once
 (Slice B). Goldens were regenerated for the genuine biology changes (v0.6 PKC
 feedback; v0.61 Slice B) and re-verified.
 
+## What the "5/5" criteria cover — and what they don't
+
+The five implemented criteria (`phase3_dolan_fig4.py`) all probe the **cytosolic
+Ca²⁺ peak** and the **SOCE differential** over a 30 s window: peak > 200 nM in
+each condition, |peak(+Ca) − peak(−Ca)| ≥ 100 nM, and each peak within ±30% of
+the Dolan band. They are a strong **regression guardrail for the calcium core**,
+but they are *not* sufficient to validate the v0.6/v0.61 biology, for two
+reasons:
+
+1. **The peak is store-limited and occurs before the feedbacks engage** (~10–30 s
+   vs the ~15 s PKC delay), so "5/5 preserved" is nearly automatic and is weak
+   evidence that the new mechanisms are *correct*.
+2. **The recovery phase — where the brakes and the second wave act — is not
+   scored.** The reference JSON defines a +Ca sustained-plateau band (200–275 nM)
+   that is plotted but not asserted, and the model's plateau under the saturating
+   default agonist sits *above* it (~430 nM) — a documented limitation (elevated
+   sustained tail; the recovery phase is not yet calibrated to Dolan).
+
+To close the gap, `models/platelet/tests/sim/test_validation_targets.py` adds
+**magnitude-band** validations the smoke tests lack: P2Y1 desensitisation reaches
+a substantial fraction (≥ 0.5), the PLCβ brake holds IP₃ ≥ 15% below the
+unbraked case (Purvis), dense-granule release leads α-granule release and is
+substantial, and the second-wave gap lands in a ~+93 nM band with the autocrine
+ADP / TXA₂ decomposition intact. The unmet Dolan plateau band is encoded as a
+**strict `xfail`** so a future recovery-phase recalibration is flagged
+automatically.
+
 ## Verification done this session (2026-06-14)
 
 Re-run on the pinned 3.11.5 toolchain (`OPENBLAS_NUM_THREADS=1`):
 
-- **Test suite: 68 passed** (`models/platelet/tests/`).
+- **Test suite passes** (`models/platelet/tests/`), including the new
+  `test_validation_targets.py` (6 passed + 1 strict `xfail` for the Dolan
+  plateau gap).
 - **mypy: clean** — "no issues found in 57 source files."
 - **Second-wave numbers reproduced exactly** from `runSecondWave.py`: peak ~314 nM
   (all conditions), open-loop end 117.3 nM, closed-loop end 210.1 nM, gap

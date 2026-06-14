@@ -99,8 +99,37 @@ to the owner.
 - **#41** (spatial Ca²⁺ microdomains, labelled "v0.6 scope") — clarified that
   v0.6 shipped as PKC feedback; microdomains remain deferred. Commented; **open**.
 
+## Follow-up — validation tests + Fig 8 fix (same session)
+
+Prompted by the question "is Dolan 5/5 still valid and sufficient?". Finding:
+the five implemented criteria are all **peak / SOCE-differential** over a 30 s
+window — a fine regression guardrail for the calcium core, but they barely touch
+the v0.6/v0.61 biology (the peak is store-limited and precedes the ~15 s PKC
+delay) and they don't score the recovery phase.
+
+Probed the model to calibrate bands (no failing/flaky assertions):
+P2Y1 desens ~0.69 @120 s (ADP-only); PLCβ IP₃ base/ko end = 224/298 nM
+(~25% damping); secretion serotonin 0.97 > fibrinogen 0.84 (dense leads α — but
+**ADP released-frac 0.67 < fibrinogen** because ecto-NTPDase clears ADP[e], so
+serotonin is the clean dense readout); +Ca plateau ~430 nM (**above** Dolan's
+200–275 nM band — recovery phase not calibrated); EDTA stays ~240–280 nM (also
+above Dolan's return-to-baseline).
+
+New tests `models/platelet/tests/sim/test_validation_targets.py` (6 pass +
+1 strict xfail): PKC desens ≥ 0.5; PLCβ brake holds IP₃ ≥ 15% below unbraked;
+dense (serotonin) leads α (fibrinogen) + substantial + P-selectin exposed;
+second-wave gap in [40,160] nM with ADP-carries-Ca / TXA₂-adds-IP₃
+decomposition; +Ca plateau sustained-active (>200 nM) and SOCE-dependent
+(plus ≫ EDTA). The unmet Dolan plateau band is a **strict xfail** so a future
+recovery-phase fix is flagged.
+
+Fig 8 (`thromboxane_loop.png`) had an inset axes (graph-within-a-graph) for
+ΔIP₃ — promoted to a clean third panel; figure regenerated, doc caption updated.
+
 ## Next
 
+- Recovery-phase calibration to the Dolan plateau band is now an explicit
+  (xfailed) target — the clearest validation gap surfaced this session.
 - Consider a v0.61 tag/checkpoint once PR #54 merges (mirror the v0.5 snapshot).
 - Deferred from v0.61: a `runPerturbation.py` aspirin experiment (needs the
   runner generalised to override the scalar `COX1_FACTOR`); integrin §3
