@@ -1144,15 +1144,21 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 		# NB: P2X1 *state* transitions run unconditionally below, since the
 		# channel can still cycle C → O → D in response to ATP regardless
 		# of whether external Ca²⁺ is available to flow through it.
+	# The extracellular reservoir is treated as infinite (no debit).
 
-		# NCX (Na⁺/Ca²⁺ exchanger) — Ca²⁺ extrusion gated on extracellular
-		# Ca²⁺ availability (needs Na⁺ gradient + somewhere for Ca²⁺ to go).
-		# See K_NCX block above for biology and the Hill formulation.
+	# NCX (Na⁺/Ca²⁺ exchanger) — Ca²⁺ *extrusion* to the (infinite)
+	# extracellular sink. Driven by the Na⁺ gradient, NOT by external Ca²⁺, so
+	# it runs in BOTH conditions — unlike SOCE / PM leak / P2X1, which are Ca²⁺
+	# *inflows* and are correctly gated off under EDTA. Running NCX under EDTA is
+	# what lets the cytosolic transient return toward baseline (Dolan Fig. 4C
+	# red trace); its allosteric gate keeps it silent at rest (cyt ≈ 100 nM), so
+	# the resting fixed point is unchanged. The +Ca goldens are unaffected (NCX
+	# already ran there). See K_NCX block above for biology and the Hill form.
+	if ca_cyt > 0.0:
 		g_act = (ca_cyt / K_NCX['K_a']) ** K_NCX['h']
 		g_act /= (1.0 + g_act)
 		v_ncx = K_NCX['V_max'] * g_act * ca_cyt / (K_NCX['K_m'] + ca_cyt)
 		dy[_IDX['CA2_CYT[c]']] -= v_ncx
-	# The extracellular reservoir is treated as infinite (no debit).
 
 	# ── P2X1 state transitions (always run, even when CA_EX = 0) ────
 	# Vial & Evans 2002: P2X1 desensitises whether Ca²⁺ is present or not.
