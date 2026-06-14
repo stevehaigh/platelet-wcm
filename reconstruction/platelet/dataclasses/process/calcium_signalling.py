@@ -87,10 +87,29 @@ _UM_PER_COUNT_EX = 1.0 / (N_A * V_EX_L * 1e-6)
 AUTOCRINE_ADP_GAIN = 1.0
 
 
+def pkc_ca_gate(pkc_count, ca_count, floor_uM, k_pkc_uM, k_ca_uM, n_ca):
+	"""PKC_active × Ca²⁺ coincidence gate in [0, 1); exactly 0 at/below the floor.
+
+	Shared by the v0.61 downstream-effect processes (GranuleSecretion,
+	ThromboxaneSynthesis): both gate their output on the coincidence of active
+	PKC *above* a resting-tone floor and cytosolic Ca²⁺. One definition keeps
+	the two gates from silently drifting. `pkc_count` / `ca_count` are
+	cytosolic molecule counts (converted to µM here).
+	"""
+	pkc_uM = pkc_count * _UM_PER_COUNT_CYT
+	ca_uM = ca_count * _UM_PER_COUNT_CYT
+	pkc_drive = max(pkc_uM - floor_uM, 0.0)
+	pkc_term = pkc_drive / (pkc_drive + k_pkc_uM)
+	ca_n = ca_uM ** n_ca
+	ca_term = ca_n / (ca_n + k_ca_uM ** n_ca)
+	return pkc_term * ca_term
+
+
 # ── Species ordering ──────────────────────────────────────────────────────
-# This must match reconstruction/platelet/dataclasses/internal_state.py
-# for the calcium-pathway subset. Listed in the order used inside the ODE
-# state vector y[].
+# This tuple defines the ODE state-vector order (via `_IDX` below). Counts are
+# mapped by NAME (bulkMoleculesView), so each name must exist in the species
+# inventory (internal_state.py / species-v0.6.tsv); the order here is otherwise
+# independent of the inventory's order.
 MOLECULE_NAMES = (
 	'CA2_CYT[c]',
 	'CA2_DTS[dts]',
@@ -703,6 +722,9 @@ K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 # `reports/params/calcium-v0.6.toml [pkc.*]`. k_des / k_res are
 # model-choice (no platelet phospho-reaction rates); see the TOML header.
 K_PKC       = dict(_KINETICS['pkc']['kinetics'])
+# Constant Ca²⁺ Hill denominator term for PKC activation (K_Ca_PKC**n_Ca_PKC,
+# both fixed) — precomputed once to keep the `**` out of the `_ode_rhs` hot path.
+_KCA_N_PKC = K_PKC['K_Ca_PKC'] ** K_PKC['n_Ca_PKC']
 K_P2Y1_DES  = dict(_KINETICS['pkc']['p2y1_desens'])
 # PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route). Brake on
 # the shared PLCβ node — phosphorylates inactive PLCβ out of the
@@ -1195,10 +1217,9 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# both low at rest, so PKC_active stays < 1 % of the pool until the ADP
 	# transient drives DAG/Ca²⁺ up over the first ~10–15 s.
 	dag_uM = dag_count * _UM_PER_COUNT_CYT
-	ca_n_pkc  = ca_cyt ** K_PKC['n_Ca_PKC']
-	kca_n_pkc = K_PKC['K_Ca_PKC'] ** K_PKC['n_Ca_PKC']
+	ca_n_pkc = ca_cyt ** K_PKC['n_Ca_PKC']
 	f_ca_pkc = K_PKC['f_ca_floor'] + (1.0 - K_PKC['f_ca_floor']) * (
-		ca_n_pkc / (kca_n_pkc + ca_n_pkc))
+		ca_n_pkc / (_KCA_N_PKC + ca_n_pkc))
 	v_pkc_act   = K_PKC['k_act'] * pkc_i * dag_uM * f_ca_pkc
 	v_pkc_inact = K_PKC['k_inact'] * pkc_a
 	dy[_IDX['PKC_inactive[c]']] += -v_pkc_act + v_pkc_inact

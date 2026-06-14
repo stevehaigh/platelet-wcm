@@ -25,7 +25,7 @@ import numpy as np
 
 import wholecell.processes.process as process
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
-	_UM_PER_COUNT_CYT,
+	pkc_ca_gate,
 )
 
 
@@ -74,14 +74,11 @@ class GranuleSecretion(process.Process):
 
 		Keys off PKC activation *above* the resting floor, so the small tonic
 		resting PKC_active does not drive secretion (gate exactly 0 at rest).
+		Shared definition: ``calcium_signalling.pkc_ca_gate`` (same gate used by
+		ThromboxaneSynthesis).
 		"""
-		pkc_uM = pkc_count * _UM_PER_COUNT_CYT
-		ca_uM = ca_count * _UM_PER_COUNT_CYT
-		pkc_drive = max(pkc_uM - self._PKC_floor_uM, 0.0)
-		pkc_term = pkc_drive / (pkc_drive + self._K_pkc_uM)
-		ca_n = ca_uM ** self._n_ca
-		ca_term = ca_n / (ca_n + self._K_ca_uM ** self._n_ca)
-		return pkc_term * ca_term
+		return pkc_ca_gate(pkc_count, ca_count, self._PKC_floor_uM,
+			self._K_pkc_uM, self._K_ca_uM, self._n_ca)
 
 	def calculateRequest(self):
 		dt = self.timeStepSec()

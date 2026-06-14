@@ -21,7 +21,7 @@ import numpy as np
 import wholecell.processes.process as process
 import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
-	_UM_PER_COUNT_CYT,
+	pkc_ca_gate,
 )
 
 
@@ -57,14 +57,13 @@ class ThromboxaneSynthesis(process.Process):
 		self._decayed = 0
 
 	def _compute_gate(self, pkc_count, ca_count):
-		"""PKC_active × Ca²⁺ coincidence gate in [0, 1); 0 at resting tone."""
-		pkc_uM = pkc_count * _UM_PER_COUNT_CYT
-		ca_uM = ca_count * _UM_PER_COUNT_CYT
-		pkc_drive = max(pkc_uM - self._PKC_floor_uM, 0.0)
-		pkc_term = pkc_drive / (pkc_drive + self._K_pkc_uM)
-		ca_n = ca_uM ** self._n_ca
-		ca_term = ca_n / (ca_n + self._K_ca_uM ** self._n_ca)
-		return pkc_term * ca_term
+		"""PKC_active × Ca²⁺ coincidence gate in [0, 1); 0 at resting tone.
+
+		Shared definition: ``calcium_signalling.pkc_ca_gate`` (same gate used by
+		GranuleSecretion).
+		"""
+		return pkc_ca_gate(pkc_count, ca_count, self._PKC_floor_uM,
+			self._K_pkc_uM, self._K_ca_uM, self._n_ca)
 
 	def calculateRequest(self):
 		dt = self.timeStepSec()

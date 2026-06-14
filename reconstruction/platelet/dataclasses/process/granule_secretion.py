@@ -15,26 +15,31 @@ in the remaining granule pool, scaled by that gate.
 Design: ``reports/design/pkc-downstream-effects-2026-06-12.qmd`` §1.
 """
 
-# Proteins relocated by GranuleSecretion. Excluded from RestingDecay so the
-# two processes don't both lay claim to the same counts in one timestep.
-SECRETION_MANAGED_PROTEINS = (
-	'FGA[ag]', 'SELP[ag]', 'FGA[e]', 'SELP_surface[pl]',
+# Cargo relocation map: (source_id, destination_id, granule_type). Single
+# source of truth — both the GranuleSecretion process and RestingDecay's
+# exclusion set derive from this, so the two cannot drift.
+#   Dense granules → [e]; α-granule fibrinogen → [e]; P-selectin → the
+#   plasmalemma surface state (the canonical flow-cytometry marker).
+CARGO = (
+	('ADP[dg]',  'ADP[e]',            'dense'),
+	('5HT[dg]',  '5HT[e]',            'dense'),
+	('FGA[ag]',  'FGA[e]',            'alpha'),
+	('SELP[ag]', 'SELP_surface[pl]',  'alpha'),
 )
+
+# Every species GranuleSecretion relocates (sources + destinations), derived
+# from CARGO. RestingDecay excludes these so the two processes never both claim
+# the same counts in one timestep. Derived (not hand-listed) to prevent drift;
+# the non-protein members (ADP / 5-HT) are harmless no-ops for protein decay.
+SECRETION_MANAGED_SPECIES = tuple(
+	dict.fromkeys([c[0] for c in CARGO] + [c[1] for c in CARGO]))
 
 
 class GranuleSecretion:
 	"""Parameters for the GranuleSecretion process."""
 
 	def __init__(self, sim_data):
-		# Cargo relocation map: (source_id, destination_id, granule_type).
-		# Dense granules → [e]; α-granule fibrinogen → [e]; P-selectin → the
-		# plasmalemma surface state (the canonical flow-cytometry marker).
-		self.cargo = (
-			('ADP[dg]',  'ADP[e]',            'dense'),
-			('5HT[dg]',  '5HT[e]',            'dense'),
-			('FGA[ag]',  'FGA[e]',            'alpha'),
-			('SELP[ag]', 'SELP_surface[pl]',  'alpha'),
-		)
+		self.cargo = CARGO
 
 		# First-order fusion rate per granule pool (s⁻¹), scaled by the gate.
 		# α-granule release is slower than dense-granule release.

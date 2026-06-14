@@ -18,6 +18,7 @@ Columns written:
   fibrinogen_e               — secreted fibrinogen (FGA) count ([e])
   pselectin_surface          — surface P-selectin count ([pl])
   adp_released_frac          — fraction of the dense-granule ADP pool released
+                               (counts ADP[e] + NTPDase-cleared AMP[e])
   serotonin_released_frac    — fraction of the dense-granule 5-HT pool released
   fibrinogen_released_frac   — fraction of the α-granule FGA pool released
   pselectin_surface_frac     — fraction of the P-selectin pool on the surface
@@ -88,8 +89,12 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 		self.fibrinogen_e = int(counts[self._idx_fga_e])
 		self.pselectin_surface = int(counts[self._idx_selp_sfc])
 
+		# Released ADP = what is currently in [e] PLUS what ecto-NTPDase has
+		# already cleared to AMP[e]; using ADP[e] alone understates release as
+		# CD39 hydrolyses it (denominator is the conserved original pool).
 		self.adp_released_frac = self._frac(
-			counts[self._idx_adp_e], counts[self._idx_adp_dg])
+			counts[self._idx_adp_e] + counts[self._idx_amp_e],
+			counts[self._idx_adp_dg])
 		self.serotonin_released_frac = self._frac(
 			counts[self._idx_5ht_e], counts[self._idx_5ht_dg])
 		self.fibrinogen_released_frac = self._frac(

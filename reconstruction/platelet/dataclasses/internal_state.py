@@ -6,7 +6,7 @@ BulkMolecules and UniqueMolecules states read during initialize().
 
 Species inventory
 -----------------
-The molecule inventory (id, mass, initial count, class for all 66 species)
+The molecule inventory (id, mass, initial count, class for all 76 species)
 lives in ``reports/params/species-v0.6.tsv`` (issue #32 Phase 2, species
 side). It is loaded at import time via ``_species_loader.load_species()``
 and exposed below as ``_MOLECULES`` — bit-equal to the pre-refactor
