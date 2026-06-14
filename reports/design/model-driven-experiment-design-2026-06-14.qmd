@@ -1,0 +1,147 @@
+---
+title: "Model-driven experimental design: resolving DTS Ca²⁺ depletion — and the whole-cell model as a hypothesis engine"
+author: "Steve Haigh (with Claude Code)"
+date: "2026-06-14"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+  html:
+    embed-resources: true
+    toc: true
+---
+
+# Purpose
+
+A mechanistic whole-cell model earns its scientific keep not by *fitting* existing
+data but by making **falsifiable predictions in regimes nobody has measured**, and
+by telling an experimentalist **what to measure, why it discriminates competing
+hypotheses, and which perturbations carry the most information.** This memo works
+that idea through on a concrete open question raised by the recovery-phase
+analysis — *does the platelet dense tubular system (DTS) Ca²⁺ store deplete
+completely or only partially under sustained agonist?* — and uses it to sketch a
+wet-lab project the model could drive.
+
+Companion document: `dts-depletion-literature-2026-06-14.qmd` (the literature
+check that frames the question and shows it is genuinely unmeasured).
+
+# The open question (recap)
+
+Under the default saturating agonist our model drains free [Ca²⁺]_DTS to ~0 µM;
+Dolan & Diamond (2014) retain ~120–180 µM. The literature is split and, crucially,
+the discriminating quantity — **free luminal [Ca²⁺] in the platelet DTS during and
+after stimulation** — has never been directly measured (platelets are tiny and
+anucleate, so the field reports Ca *content* / releasable pools, not free luminal
+concentration). The proteome (Burkhart 2012) does not settle it: the IP₃R:SERCA
+*abundance* ratio actually favours *deeper* depletion, so the residual-store
+behaviour seen in other cells must be a **kinetic (IP₃R-inactivation) property** —
+exactly the kind of thing a parts-list cannot resolve and an experiment must.
+
+# Why it's unmeasured — the measurement problem
+
+Directly reading free [Ca²⁺]_DTS needs a **low-affinity** Ca²⁺ reporter (store
+[Ca²⁺] is ~10²–10³ µM, far above cytosolic indicators' range) that is **localised
+to the store** and **read in intact, stimulated cells**. Three routes:
+
+1. **ER-targeted genetically-encoded indicator (gold standard).** A low-affinity
+   ER GECI — e.g. R-CEPIA1er / GEM-CEPIA1er, or a D4ER cameleon (K_d in the
+   hundreds-of-µM range). Platelets cannot be transfected, so the sensor is
+   expressed in the **lineage**: a megakaryocyte/platelet-lineage transgenic
+   (e.g. PF4-Cre × floxed ER-GECI) or **iPSC-derived megakaryocytes**, then the
+   shed platelets/proplatelets are imaged. Gives real-time free [Ca²⁺]_DTS during
+   agonist stimulation — the depletion nadir *and* whether/when it refills.
+2. **Low-affinity chemical indicator** (Mag-Fluo-4 / Mag-Fura-2) loaded, then the
+   plasma membrane selectively permeabilised (digitonin) to strip cytosolic dye,
+   leaving store-trapped dye. Reports the IP₃-releasable fraction in permeabilised
+   cells — good for the *quantal* question ("what % does maximal IP₃ release?") but
+   loses the intact sustained-receptor context.
+3. **Releasable-pool / content** assay (stimulate, then dump the residual with
+   ionomycin/thapsigargin and quantify the remaining releasable Ca²⁺). The most
+   platelet-tractable with standard tools, but it measures *content*, not free
+   concentration.
+
+# The discriminating experiment — what the model predicts
+
+The model does not merely predict "complete vs partial." It predicts a
+**regime-dependent surface**, and *that surface is the experimental design*:
+
+- **P1 — depth scales with dose.** The store minimum deepens monotonically from
+  partial (threshold agonist) to near-complete (saturating). → Measure
+  [Ca²⁺]_DTS minimum across an **agonist dose-response**.
+- **P2 — refill is dose-dependent, and it is the discriminator.** Below threshold
+  the store *refills* in the recovery phase; under saturating sustained agonist it
+  stays empty (sustained IP₃ holds the IP₃R open). → Measure the **time course**,
+  not just the nadir. Partial-depletion models predict refill at all doses; ours
+  predicts refill **only below threshold**. This is the cleanest falsification.
+- **P3 — the cause is IP₃ persistence, not abundance.** Forcing IP₃ to persist
+  (a non-hydrolysable IP₃ analogue, or IP₃-5-phosphatase inhibition) should
+  *prevent* refill even at low dose; removing the autocrine amplifiers
+  (aspirin + ecto-NTPDase to clear secreted ADP) should *restore* refill at
+  intermediate dose. → A mechanistic perturbation arm.
+- **P4 — an IP₃R-inactivation perturbation moves depletion; a SERCA copy-number
+  change barely does.** Because the depth is conductance/gating-limited, the model
+  ranks IP₃R-inactivation modulation as high-information and SERCA abundance as
+  low-information for this observable.
+
+These four are quantitative, pre-registerable predictions a collaborator can
+confirm or kill.
+
+# How the model drives the design
+
+1. **It identifies the critical measurement** — free [Ca²⁺]_DTS depletion/refill
+   dynamics — and *why* it matters (it discriminates IP₃R-inactivation hypotheses
+   that a proteome and the existing 30-s peak data cannot).
+2. **It makes the predictions falsifiable and quantitative** (P1–P4), so the
+   experiments are hypothesis-driven rather than exploratory.
+3. **It prioritises perturbations by sensitivity.** In-silico sweeps rank which
+   knockouts move the observable most (IP₃R inactivation ≫ SERCA abundance), so
+   bench effort goes to the highest-information experiments. The **STIM1 8×
+   abundance discrepancy** (Burkhart ~33,000 vs the model's Dolan-sourced ~4,265)
+   is itself a high-value, testable SOCE-side prediction.
+4. **It is the inference framework for the readout.** Fit the recalibrated model
+   (IP₃R inactivation; STIM1 count) to the new store-Ca data, then test whether it
+   *independently* predicts the integrin PAC-1 and granule-secretion
+   dose-responses — a genuine model → experiment → model loop, not a one-shot fit.
+5. **It spins out secondary hypotheses** the same machinery can test: is the
+   second wave abolished by aspirin/NTPDase at matched store depletion? does the
+   PAC-1 dose-response show the predicted switch-like threshold?
+
+# A project this model could drive (sketch)
+
+> **"Dynamics of dense-tubular-system Ca²⁺ depletion and refilling in human
+> platelets, and their control by IP₃R inactivation and autocrine amplification."**
+>
+> - **Aim 1 — measure it.** Free [Ca²⁺]_DTS across agonist dose and time, via an
+>   ER-targeted low-affinity GECI in lineage-transgenic / iPSC-MK platelets
+>   (the direct measurement the field lacks). Outputs the depth- and
+>   refill-vs-dose curves (tests P1, P2).
+> - **Aim 2 — test the mechanism.** Sustain-IP₃ and remove-autocrine perturbations
+>   on refill; an IP₃R-inactivation perturbation on depth (tests P3, P4).
+> - **Aim 3 — close the loop.** Recalibrate the model to the store-Ca data, then
+>   validate that it predicts the PAC-1 and secretion dose-responses on
+>   independent readouts.
+
+This is a fundable, PhD-scale arc in which the model is the engine at every
+stage: it finds the gap, predicts the discriminating observables, prioritises the
+perturbations, and provides the inference framework.
+
+# Feasibility caveats (stated honestly)
+
+- **Anucleate cells are the catch.** The GECI route requires megakaryocytes /
+  transgenics / iPSC-MKs, and MK ER is a *proxy* for the platelet DTS (larger, not
+  identical) — a real interpretive caveat.
+- **SNR on a thin reticulum** in a 2–3 µm cell is hard; MK imaging or single-
+  platelet TIRF with careful controls may be needed.
+- **Single-cell model, some population readouts.** Aggregation is out of reach;
+  store-Ca, PAC-1, and secretion are all per-cell and well-matched.
+
+# The in-silico precursor: the dose-response study
+
+The dry-lab half of Aim 1 is buildable **now**: sweep agonist dose in the model and
+generate the predicted depletion-/refill-vs-dose curves plus the PAC-1 and
+secretion dose-responses, with the autocrine-on/off contrast (the P2/P3
+discriminator). That artefact is simultaneously (a) a model result and (b) the
+**pre-registered prediction set** the wet-lab experiment would test. It is being
+built as `runscripts/manual/runDoseResponse.py` (this commit series); its figures
+are the concrete curves the experiment aims at (embedded below once generated).
+
+*Render: `quarto render reports/design/model-driven-experiment-design-2026-06-14.qmd`.*

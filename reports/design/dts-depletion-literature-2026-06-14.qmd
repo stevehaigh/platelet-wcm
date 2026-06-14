@@ -1,0 +1,296 @@
+---
+title: "Is the model's complete DTS Ca²⁺ depletion a real discrepancy? — a literature check"
+author: "Steve Haigh (with Claude Code)"
+date: "2026-06-14"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+  html:
+    embed-resources: true
+    toc: true
+---
+
+# TL;DR — the verdict
+
+**Partly a real discrepancy, and regime-specific.** Our model drains the dense
+tubular system (DTS) to ~0 µM under the standard *saturating, sustained* agonist;
+Dolan & Diamond 2014 retain ~120–180 µM. The literature is genuinely *split* on
+whether a store empties completely under maximal IP₃, but the weight of evidence
+— and Dolan's own setup — says real stores **retain a substantial fraction
+(~30–50%)** because IP₃ receptors *inactivate* before the store empties. So our
+near-complete depletion sits at the aggressive end and most likely **over-depletes**.
+
+Three things make this not a crisis, and point to what to do:
+
+1. **It is regime-dependent.** The complete depletion is specific to the
+   saturating-sustained regime. We already saw the model's store *partially*
+   refill (to ~66 µM) under a transient/threshold stimulus — i.e. it behaves
+   Dolan-like when stimulated Dolan-style.
+2. **It doesn't break the validated result.** Complete depletion *maximises* SOCE,
+   which is exactly the SOCE differential the Dolan 5/5 criteria reward. This is a
+   recovery-phase *fidelity* issue, not a core failure.
+3. **The mechanistic cause is identifiable** (see §5): our IP₃R's cytosolic-Ca²⁺
+   inactivation is too weak to close the channel at the plateau, and we model no
+   store-retention mechanism — so the (Nernst) channel equilibrates the store to
+   ~0 whenever IP₃ is held high.
+
+**Recommendation:** make this a *dose-response* result rather than a calibration
+fight — characterise store depletion vs agonist dose, show it deepens from
+partial (threshold) to near-complete (saturating), and check the intermediate
+doses land in Dolan's band. Treat a stronger IP₃R-inactivation / store-retention
+term as an optional, *defensible-range* modelling choice, not a forced fix.
+
+---
+
+# 1. What the model does, and why (recap)
+
+Under the default saturating agonist (1 nM thrombin + 10 µM ADP + 10 µM ATP):
+
+- IP₃ rises and **stays elevated** (~220 nM) because the irreversibly-cleaved
+  PAR1 and the v0.61 autocrine loops (TXA₂→TP→Gq, secreted ADP→P2Y1) sustain Gq.
+- The IP₃R is modelled as a **Nernst-driven channel** (de Young–Keizer / Li–Rinzel
+  open probability $\times$ a GHK driving force). Whenever it is appreciably open
+  it tends to *equilibrate* the two compartments, so it cannot hold a DTS↔cytosol
+  gradient.
+- Its only closing mechanism is cytosolic-Ca²⁺ inactivation (the slow `h` gate).
+  At our plateau (cyt ≈ 430 nM) that inactivation is only partial
+  ($h_\infty \approx 0.7$ for a ~1 µM inactivation constant), so the channel
+  stays substantially open → the store drains to ~cytosolic levels (~0 µM on the
+  µM scale) and SOCE pins wide open.
+
+There is **no luminal-Ca²⁺ regulation of the IP₃R and no other store-retention
+term** in the model.
+
+# 2. What Dolan actually assumes (from the 2014 supplement)
+
+This is the crux of why Dolan retains 120–180 µM and we don't. Dolan's IP₃ is an
+explicit **transient**: from the supporting material, *"IP₃ rises to about 5-fold
+higher than its resting value within 5 s of stimulation, and returns to a new
+steady level within 200 s."* A transient IP₃ lets the IP₃R *close* in the
+recovery phase, so SERCA partially refills the store → partial depletion.
+
+Two further points from Dolan's text:
+
+- Dolan's "best" model configurations deliberately favour a **high IP₃R/SERCA
+  ratio** and *slow* refilling so that SOCE contributes meaningfully to cytosolic
+  Ca²⁺ — i.e. Dolan *wants* substantial depletion, just not total.
+- The 120–180 µM `dts_min` is a **model output** (Fig. 4A) of an *estimate*, not a
+  direct measurement (see §4 on why direct platelet measurements are scarce).
+
+So a large part of the difference is **stimulus protocol** (his transient IP₃ vs
+our sustained drive), not a different store model — exactly the framing of the
+recovery-phase work this session.
+
+# 3. The general ER picture: does a store empty completely?
+
+The literature is **split**, and the split is mechanistically informative.
+
+**View A — partial release / quantal, IP₃Rs inactivate (store stays ~half full).**
+Mataragka & Taylor 2021 (*Cell Reports*; "Quantal Ca²⁺ release mediated by very
+few IP₃ receptors that rapidly inactivate allows graded responses to IP₃",
+PMID 34731613) found that **even a *maximal* agonist concentration released only
+52% ± 3% of the stores** — i.e. **~48% stays trapped** — because IP₃Rs activate
+then *rapidly inactivate*; "only a tiny fraction of a cell's IP₃Rs mediate
+incremental Ca²⁺ release." Notably they concluded **luminal Ca²⁺ is *not* the
+mechanism** of quantal release in their system — it is kinetic IP₃R inactivation.
+
+**View B — sustained maximal IP₃ keeps the store nearly empty.** The opposing
+argument (e.g. discussion around IP₃R–STIM1 coupling, Nat. Sci. Rep. 2018,
+s41598-018-31621-0): because a single open IP₃R conducts ~5×10⁵ Ca²⁺·s⁻¹ while a
+SERCA pumps <40 Ca²⁺·s⁻¹, *"very little residual IP₃R activity"* can overwhelm
+SERCA and **keep the ER depleted** under maintained stimulation. IP₃R–STIM1
+association is even reported to create a *reduced intraluminal Ca²⁺
+microenvironment* to enhance SOCE.
+
+**Reconciliation.** The two are not contradictory once you separate *transient/
+graded* from *sustained-maximal* stimulation: graded IP₃ → quantal, partial
+emptying (View A); strongly sustained IP₃ → near-complete emptying (View B). Our
+model lives in View B by construction (sustained IP₃, weak inactivation); Dolan's
+transient lives nearer View A. **The empirically supported "default", however, is
+that physiological agonist stimulation leaves a substantial residual store** —
+because in real cells IP₃Rs inactivate harder/faster than ours do.
+
+Resting ER free [Ca²⁺] is ~few hundred µM (≈300–700 µM; ER-depletion review,
+PMC3098671), consistent with our ~250 µM resting DTS.
+
+# 4. Platelet-specific evidence (sparse — handle with care)
+
+Direct measurement of **free luminal [Ca²⁺] in the platelet DTS is genuinely
+hard** (platelets are tiny, anucleate, and the DTS is a thin reticulum), so most
+platelet store work reports *Ca content* / Mn²⁺-quench / thapsigargin-releasable
+pools rather than free luminal concentration. Key qualitative points:
+
+- Platelets have (at least) **two functional Ca²⁺ stores** — the DTS (SERCA3-rich,
+  TBHQ/thapsigargin-sensitive) and **acidic/lysosome-like granules** (SERCA2b);
+  thrombin releases from both (PMC1698687). Our model lumps only the DTS, so a
+  single "store" already simplifies the biology.
+- The DTS undergoes **rapid ultrastructural collapse** (thin→vesicular) within
+  ~10 s of thrombin (*Blood* 1992, 80:718) — consistent with strong, fast
+  depletion, but ultrastructure is not a free-[Ca²⁺] readout.
+- **"Supramaximal" Ca²⁺ signals** drive procoagulant (phosphatidylserine⁺)
+  platelet formation (*Blood Advances* 2020, 4:154) — i.e. the strongest
+  physiological responses involve very deep, sustained Ca²⁺ mobilisation. So a
+  near-empty DTS is *not* unphysiological at the extreme end of activation.
+- **Acidic-store depletion is required for aggregation** (PMID 19587585) —
+  reinforcing that deep store depletion accompanies full activation.
+
+Net: platelet data are consistent with *deep* depletion under strong thrombin but
+do **not** pin a free-[Ca²⁺] residual, and there is no platelet measurement that
+clearly says "the DTS goes to zero" or "it holds 150 µM." Dolan's band is the
+best available *estimate*, not ground truth.
+
+## Does the proteome (Burkhart 2012) help? — abundance vs kinetics
+
+Burkhart 2012 (*Blood* 120:e73, the platelet proteome the model leans on) is a
+*parts list* — copy numbers, not kinetics — so it constrains the store
+*machinery's capacity* but is the wrong instrument for the depletion-*extent*
+question. Two concrete things come out of it, and both **reinforce the verdict**.
+
+**1. The abundance ratio points to *deeper*, not shallower, depletion — so the
+lever must be kinetics.** Burkhart's store-machinery counts (per reviews quoting
+its supplemental Table 3; *verify against the primary table before thesis use*):
+
+| protein | Burkhart 2012 | model (via Dolan Table S1) |
+|---|---|---|
+| IP₃R (ITPR1 / 2 / 3) | ~2,400 / 1,700 / 750 → **~4,850** | **1,328** |
+| SERCA (2 + 3) | ~9,000 / 16,300 → **~25,300** | **11,892** |
+| STIM1 | **~33,000** | ~4,265 |
+| Orai1 | ~1,700 | ~1,447 |
+
+The IP₃R:SERCA *ratio* is ~1:5 in Burkhart vs ~1:9 in the model. By Dolan's own
+logic (higher IP₃R/SERCA → deeper depletion, slower refill), Burkhart's ratio
+would, if anything, drive the store *more* completely empty, not less. So **the
+proteome does not rescue partial depletion** — confirming that the residual-store
+behaviour seen in real cells is an **IP₃R-inactivation (kinetic)** property, which
+a proteome cannot see, not an abundance one.
+
+**2. Useful side-findings + citation flags.**
+
+- **ITPR1 is the most abundant platelet IP₃R isoform** (~2,400), not ITPR2 — so
+  the model's generic de Young–Keizer (ITPR1-type, biphasic-Ca) gating is a
+  defensible isoform choice.
+- The model's store counts trace to **Dolan Table S1, not Burkhart**, and they
+  differ materially (IP₃R ~3.6×, SERCA ~2×, STIM1 ~8× higher in Burkhart). The
+  **STIM1 8× gap** is the most striking (Burkhart ~33,000 vs model ~4,265); STIM1
+  is the depletion *sensor*, so it is worth reconciling on the SOCE side. The
+  code comment attributing `N_IP3R = 1328` to "Burkhart 2012" is inaccurate —
+  that is Dolan's number; Burkhart's total IP₃R is ~4,850.
+- **No direct free-[Ca²⁺]_DTS measurement in platelets** turned up — the field
+  measures Ca *content* / releasable pools, not free luminal concentration
+  (Mag-Fura/Mag-Fluo ER methods exist generally; ER free [Ca²⁺] ~100 µM–1 mM,
+  consistent with the ~250 µM resting DTS). This confirms Dolan's band is an
+  *estimate*, and is itself a genuine gap in the field — not something more
+  searching will fill.
+
+# 5. Verdict and mechanistic root
+
+**Is complete depletion a real discrepancy? Yes, mildly — and specifically in the
+saturating-sustained regime.** Three defensible statements:
+
+1. Near-complete depletion under a *saturating, sustained* agonist is *not*
+   physically impossible (View B), and the procoagulant/"supramaximal" literature
+   shows the extreme of platelet activation does deplete very deeply.
+2. But the better-supported expectation for *ordinary* agonist stimulation is a
+   **substantial residual store (~30–50%)**, because IP₃Rs inactivate (View A,
+   quantal release) — and Dolan's 120–180 µM is consistent with that. Our ~0 µM
+   therefore **over-depletes** for the typical case.
+3. The cause is specific and fixable: **our IP₃R inactivation is too weak to close
+   the channel at the plateau, and we model no store-retention mechanism.** With a
+   Nernst flux and a channel that stays ~30% available at cyt ≈ 430 nM, sustained
+   IP₃ inevitably equilibrates the store to ~0.
+4. **The proteome backs this up.** Burkhart's IP₃R:SERCA abundance ratio (~1:5) is
+   *higher* than the model's (~1:9), so by Dolan's logic it favours *deeper*
+   depletion — the residual-store behaviour is a kinetics (inactivation) property,
+   not an abundance one (see the Burkhart subsection in §4).
+
+# 6. What it would take to move the model (if we choose to)
+
+Options, in increasing intervention:
+
+- **(a) Reframe, don't change** — present complete depletion as the saturating-
+  sustained limit, validated by the dose-response showing partial depletion at
+  lower doses (this is the cheapest, and it's already half-done by the
+  recovery-phase work).
+- **(b) Strengthen IP₃R inactivation** — make the `h`-gate (de Young–Keizer
+  inactivation constant / rate) close the channel harder at elevated cyt Ca²⁺, so
+  that even under sustained IP₃ a residual store survives. This is the
+  most literature-aligned lever (quantal release = strong kinetic inactivation).
+  Caveat: it touches the core Ca²⁺ ODE → regenerate goldens, re-verify Dolan 5/5,
+  and check it doesn't blunt the peak.
+- **(c) Add a store-retention mechanism** — a luminal-Ca²⁺-dependent IP₃R term or
+  an explicit lumenal buffer floor. More biology, more parameters; note that the
+  *quantal-release* work argues luminal Ca²⁺ is **not** the mechanism, so (b) is
+  better motivated than (c).
+
+All of (b)/(c) are **defensible-range modelling choices, not a forced fix** — the
+literature does not mandate a single residual value, so this is calibration with
+honest uncertainty, not error-correction.
+
+# 7. Recommendation
+
+1. **Make it a dose-response result.** Sweep agonist dose and record DTS minimum
+   vs dose. Predicted/expected shape: partial depletion at threshold deepening to
+   near-complete at saturation. If intermediate doses land in Dolan's 120–180 µM
+   band, that simultaneously (i) validates the store dynamics across regimes and
+   (ii) recasts the complete depletion as the saturating limit, not a defect.
+   Pair with the integrin PAC-1 and secretion readouts already in place — this is
+   the natural next chapter and ties the v0.61 mechanisms together.
+2. **Keep complete depletion for now**; only adopt option (b) if a reviewer/the
+   thesis narrative needs the *typical*-stimulus store to hold a residual. If so,
+   strengthen IP₃R inactivation (option b), regenerate goldens, re-verify Dolan
+   5/5, and snapshot a before/after store-depletion figure.
+3. **Flag the measurement-uncertainty caveat** in the thesis: free luminal DTS
+   [Ca²⁺] is not directly measured in platelets, so Dolan's band is an estimate —
+   don't over-fit to 120–180 µM.
+
+---
+
+# References
+
+*Citation hygiene: verify every journal/volume/DOI in Zotero before thesis use
+(only the [VERIFIED] item below was confirmed against the library this session).*
+
+- **[VERIFIED]** Dolan AT, Diamond SL (2014). *Systems Modeling of Ca²⁺
+  Homeostasis and Mobilization in Platelets Mediated by IP₃ and Store-Operated
+  Ca²⁺ Entry.* Biophysical Journal 106(9):2049–2060. DOI
+  10.1016/j.bpj.2014.03.028. (Confirmed via Zotero, incl. supporting material:
+  transient IP₃ forcing, IP₃R/SERCA-ratio discussion, `dts_min` as a model
+  output.)
+- **[VERIFIED]** Burkhart JM, Vaudel M, Gambaryan S, et al. (2012). *The first
+  comprehensive and quantitative analysis of human platelet protein composition…*
+  Blood 120(15):e73–82. DOI 10.1182/blood-2012-04-416594. (Confirmed via Zotero.
+  Main-text Table 1 gives αIIb ~83,300 / β3 ~64,200 / gelsolin ~52,900 / PKCβ
+  ~9,700. **The store-machinery counts — IP₃R ~4,850, SERCA ~25,300, STIM1
+  ~33,000, Orai1 ~1,700 — are quoted here via secondary reviews of Burkhart's
+  supplemental Table 3 and must be checked against the primary supplement before
+  thesis use.**)
+- Purvis JE, Chatterjee MS, Brass LF, Diamond SL (2008). *A molecular signaling
+  model of platelet phosphoinositide and calcium regulation during homeostasis
+  and P2Y1 activation.* Blood 112:4069–4079. (Already in the model; Dolan's IP₃
+  shape is "loosely based" on this.)
+- Mataragka S?, Taylor CW (2021). *Quantal Ca²⁺ release mediated by very few IP₃
+  receptors that rapidly inactivate allows graded responses to IP₃.* Cell Reports.
+  PMID 34731613. — **~52% released at maximal agonist (~48% retained); IP₃R rapid
+  inactivation; luminal Ca²⁺ ruled out as the quantal mechanism.** *(First author
+  to confirm.)*
+- *Endoplasmic-Reticulum Calcium Depletion and Disease.* Review, PMC3098671. —
+  resting ER free [Ca²⁺] ~hundreds of µM; SERCA-uptake/leak balance.
+- *Reliable measurement of free Ca²⁺ concentrations in the ER lumen using
+  Mag-Fluo-4.* PMC7181174. — low-affinity ER indicators; ER free [Ca²⁺]
+  ~100 µM–1 mM (method context; no platelet-specific value).
+- *Association of the IP₃R to STIM1 provides a reduced intraluminal calcium
+  microenvironment…* Sci. Rep. 2018, s41598-018-31621-0. — residual-IP₃R /
+  SERCA-conductance argument for sustained depletion; IP₃R–STIM1 coupling.
+- *Differential involvement of thrombin receptors in Ca²⁺ release from two
+  different intracellular stores in human platelets.* PMC1698687. — DTS +
+  acidic/lysosomal stores.
+- *Rapid ultrastructural changes in the dense tubular system following platelet
+  activation.* Blood 1992, 80(3):718. — DTS thin→vesicular within ~10 s of
+  thrombin.
+- *Supramaximal calcium signaling triggers procoagulant platelet formation.*
+  Blood Advances 2020, 4(1):154. — deepest activation = very deep, sustained Ca²⁺.
+- *Acidic-store depletion is required for human platelet aggregation.* PMID
+  19587585.
+
+*Render: `quarto render reports/design/dts-depletion-literature-2026-06-14.qmd`
+(or `make quarto-pdfs`).*
