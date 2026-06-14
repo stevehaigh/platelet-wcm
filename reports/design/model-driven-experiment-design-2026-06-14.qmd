@@ -141,7 +141,28 @@ generate the predicted depletion-/refill-vs-dose curves plus the PAC-1 and
 secretion dose-responses, with the autocrine-on/off contrast (the P2/P3
 discriminator). That artefact is simultaneously (a) a model result and (b) the
 **pre-registered prediction set** the wet-lab experiment would test. It is being
-built as `runscripts/manual/runDoseResponse.py` (this commit series); its figures
-are the concrete curves the experiment aims at (embedded below once generated).
+built as `runscripts/manual/runDoseResponse.py` (this commit series); its figure
+(@fig-doseresponse) is the concrete prediction set the experiment aims at.
+
+Running it (ADP, the reversible/graded agonist — thrombin is all-or-none because
+irreversible PAR1 fully cleaves at any dose) sharpened the predictions into a more
+interesting form than the original sketch:
+
+- The store **always transiently empties** at the peak (nadir ≈ 0 at every dose),
+  so the *nadir* is not the dose readout — the **sustained, recovery-phase store
+  level is** (@fig-doseresponse, top-left).
+- With the autocrine loops **off**, that sustained level grades cleanly with dose
+  and crosses Dolan's 120–180 µM band at ~0.5 µM ADP — a graded, reversible
+  dose-response.
+- With the loops **on** (full v0.61) the store stays empty at *every* dose: **the
+  autocrine loops are a commitment switch that converts the graded response into
+  an all-or-none one** even at threshold agonist. This is the platelet "second
+  wave"/commitment made quantitative across dose — and it is the sharpest,
+  most testable prediction to come out of this analysis: the wet-lab readout is
+  *recovery-phase store [Ca²⁺] vs dose, ± autocrine block (aspirin + NTPDase)*.
+- PAC-1 (integrin) is dose-graded; peak cytosolic Ca²⁺ is store-limited and
+  dose-insensitive — independent per-cell readouts for closing the loop.
+
+![**ADP dose-response — in-silico predictions for the DTS-depletion experiment.** Each point is one simulated platelet (ADP-only, +Ca²⁺ 1.2 mM, 350 s); red = full v0.61 (autocrine loops on), blue dashed = autocrine loops off. *Top-left (headline):* the sustained, recovery-phase store [Ca²⁺]_DTS is the measurable discriminator — loops-off it grades with dose and crosses Dolan's residual band (grey) at ~0.5 µM ADP (graded, reversible), whereas the full model stays empty at every dose (the autocrine loops are a commitment switch, graded → all-or-none). *Top-right:* the transient store nadir is ≈0 at all doses (the store always empties at the peak), so the nadir is not the readout. *Bottom-left:* PAC-1 (integrin activation) is dose-graded; the loops add drive. *Bottom-right:* peak cytosolic Ca²⁺ is store-limited and dose-insensitive. Reproducible via `runscripts/manual/runDoseResponse.py --agonist adp`.](../figures/v0.63/dose-response-adp-2026-06-14.png){#fig-doseresponse width=100%}
 
 *Render: `quarto render reports/design/model-driven-experiment-design-2026-06-14.qmd`.*

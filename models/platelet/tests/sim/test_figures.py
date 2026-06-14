@@ -11,6 +11,7 @@ import pytest
 
 from runscripts.manual.plotIntegrin import run_integrin_figure
 from runscripts.manual.plotRecoveryPhase import run_recovery_phase
+from runscripts.manual.runDoseResponse import run_dose_response, write_outputs
 
 
 @pytest.mark.slow
@@ -52,3 +53,27 @@ class TestRecoveryPhaseFigure:
 		dolan_ip3_end = results['dolan_ca']['ip3_nM'][-1]
 		assert full_ip3_end > 150.0
 		assert dolan_ip3_end < full_ip3_end - 50.0
+
+
+@pytest.mark.slow
+class TestDoseResponse:
+	def test_runs_and_shows_graded_refill_vs_commitment(self, tmp_path):
+		out = str(tmp_path / 'dr')
+		os.makedirs(out)
+		payload = run_dose_response(out, agonist='adp', grid=3, length=300,
+			log_to_shell=False)
+		write_outputs(payload, out)
+
+		# Artefacts written.
+		for name in ('dose_response_adp.png', 'dose_response_adp.npz',
+				'dose_response_adp.json'):
+			assert os.path.exists(os.path.join(out, name)), name
+
+		off = payload['results']['loops_off']['dts_end']
+		full = payload['results']['full']['dts_end']
+		# Loops off: the sustained store level grades with dose — it refills far
+		# more at the lowest dose than the highest (graded, reversible).
+		assert off[0] > off[-1] + 20.0
+		# Full v0.61: the autocrine loops keep the store empty (committed) even at
+		# the highest dose — the commitment switch.
+		assert full[-1] < 30.0
