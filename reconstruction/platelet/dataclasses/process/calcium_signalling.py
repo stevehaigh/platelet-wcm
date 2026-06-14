@@ -46,13 +46,13 @@ from reconstruction.platelet.dataclasses.process._params_loader import (
 # Externalised rate constants (issue #32 Phase 2). At Phase 2 completion
 # essentially every K_*, N_*, GAMMA_*, agonist forcing scalar, and
 # calibration-coupled scalar in this module is sourced from
-# `reports/params/calcium-v0.5.toml`. The remaining Python literals are
+# `reports/params/calcium-v0.6.toml`. The remaining Python literals are
 # physical constants (R, T, F, NA), structural integers (ORAI subunits
 # per channel, STIM monomers per dimer), and compartment volumes —
 # biology-fixed values that belong in code, not data.
 #
 # Full per-section attribution and the clickable bibliography live in
-# `reports/design/kinetics-v0.5-review.pdf` (regenerate via
+# `reports/design/kinetics-v0.6-review.pdf` (regenerate via
 # `runscripts/manual/buildKineticsReview.py`).
 _KINETICS = load_calcium_kinetics()
 
@@ -67,11 +67,49 @@ N_A = 6.022e23         # Avogadro
 _UM_PER_COUNT_CYT = 1.0 / (N_A * V_CYT_L * 1e-6)
 _UM_PER_COUNT_DTS = 1.0 / (N_A * V_DTS_L * 1e-6)
 
+# Effective pericellular extracellular volume for autocrine secreted-agonist
+# signalling (v0.61 Slice 2). There is no single physical value for a single
+# platelet — the local concentration a secreted molecule reaches depends on
+# assay geometry / cell density — so this is a *calibration choice*: V_EX is
+# set so that full dense-granule ADP release (~400 000 molecules) yields a
+# pericellular [ADP] ≈ 10 µM, comparable to the standard exogenous agonist
+# dose. ~66 fL ≈ 11× cytosol. Larger V_EX → weaker autocrine; see the
+# pkc-downstream-effects design §1 and the runtime note in CLAUDE.md.
+V_EX_L = 6.64e-14
+_UM_PER_COUNT_EX = 1.0 / (N_A * V_EX_L * 1e-6)
+
+# Gain on the autocrine secreted-ADP → P2Y1 feedback (v0.61 Slice 2), read
+# *live* by `_ode_rhs` so a runscript can disable or tune the loop without
+# touching secretion itself (mirrors the CA_EX_UM / COX1_FACTOR override
+# pattern). 1.0 = full loop; 0.0 = open-loop (the pre-v0.61 / v0.6 behaviour);
+# >1 / <1 scales the loop gain. Used by runSecondWave.py to contrast the
+# closed- and open-loop response to a weak transient agonist.
+AUTOCRINE_ADP_GAIN = 1.0
+
+
+def pkc_ca_gate(pkc_count, ca_count, floor_uM, k_pkc_uM, k_ca_uM, n_ca):
+	"""PKC_active × Ca²⁺ coincidence gate in [0, 1); exactly 0 at/below the floor.
+
+	Shared by the v0.61 downstream-effect processes (GranuleSecretion,
+	ThromboxaneSynthesis): both gate their output on the coincidence of active
+	PKC *above* a resting-tone floor and cytosolic Ca²⁺. One definition keeps
+	the two gates from silently drifting. `pkc_count` / `ca_count` are
+	cytosolic molecule counts (converted to µM here).
+	"""
+	pkc_uM = pkc_count * _UM_PER_COUNT_CYT
+	ca_uM = ca_count * _UM_PER_COUNT_CYT
+	pkc_drive = max(pkc_uM - floor_uM, 0.0)
+	pkc_term = pkc_drive / (pkc_drive + k_pkc_uM)
+	ca_n = ca_uM ** n_ca
+	ca_term = ca_n / (ca_n + k_ca_uM ** n_ca)
+	return pkc_term * ca_term
+
 
 # ── Species ordering ──────────────────────────────────────────────────────
-# This must match reconstruction/platelet/dataclasses/internal_state.py
-# for the calcium-pathway subset. Listed in the order used inside the ODE
-# state vector y[].
+# This tuple defines the ODE state-vector order (via `_IDX` below). Counts are
+# mapped by NAME (bulkMoleculesView), so each name must exist in the species
+# inventory (internal_state.py / species-v0.6.tsv); the order here is otherwise
+# independent of the inventory's order.
 MOLECULE_NAMES = (
 	'CA2_CYT[c]',
 	'CA2_DTS[dts]',
@@ -141,6 +179,23 @@ MOLECULE_NAMES = (
 	'PAR4_active[pl]',
 	'PAR4_internalized[pl]', # v0.4.1: one-way sink
 	'Gq_active[c]',      # Gαq-GTP (active); inactive Gq implicit (total - active)
+	# PKC negative feedback (v0.6, issue #57) — DAG → PKC → P2Y1
+	# desensitisation. Closes the previously dead-end DAG branch: active
+	# PKC phosphorylates active P2Y1 into a signalling-incompetent state,
+	# throttling its own Gαq drive. See the [pkc.*] block in the TOML and
+	# reports/design/pkc-p2y1-feedback-design-2026-06-11.qmd.
+	'PKC_inactive[c]',        # resting PKC pool (lumped conventional + novel)
+	'PKC_active[c]',          # DAG + Ca²⁺-activated, membrane-translocated
+	'P2Y1_desensitised[pl]',  # PKC-phosphorylated, signalling-incompetent P2Y1
+	# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route). PKC
+	# phosphorylates the inactive PLCβ pool into a state Gq cannot activate,
+	# damping the shared cascade downstream of all receptors.
+	'PLCb_phosphorylated[c]', # PKC-phosphorylated PLCβ (not Gq-activatable)
+	# Thromboxane TP receptor (v0.61 Slice B) — Gq-coupled. Secreted/synthesised
+	# TXA2[e] reversibly activates TP, which adds to total_active_R, closing the
+	# autocrine TXA2 → TP → Gq amplification loop. See [gpcr.tp] in the TOML.
+	'TP_inactive[pl]',        # resting TP (TBXA2R)
+	'TP_active[pl]',          # TXA2-bound, Gq-driving
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -148,7 +203,7 @@ N_SPECIES = len(MOLECULE_NAMES)
 
 
 # ── Resting concentrations ────────────────────────────────────────────────
-# Values live in `reports/params/calcium-v0.5.toml [resting]` (issue
+# Values live in `reports/params/calcium-v0.6.toml [resting]` (issue
 # #32 Phase 2 slice 10). CA_EX_UM is runtime-overridable for the EDTA
 # condition (`cs_mod.CA_EX_UM = 0.0`); the override pattern survives
 # because module-name reassignment doesn't care about origin.
@@ -190,13 +245,13 @@ V_PM_V = -0.060          # plasma-membrane potential (V)
 #
 # Parameters from deYoung & Keizer 1992 PNAS 89:9895-9899 Table 1, via the
 # derived dissociation constants in Li & Rinzel 1994 J Theor Biol 166:461-473.
-# Values live in `reports/params/calcium-v0.5.toml [ip3r.k_dyk]` (issue #32
+# Values live in `reports/params/calcium-v0.6.toml [ip3r.k_dyk]` (issue #32
 # Phase 2). Edit there to change. `dict(...)` is a defensive copy so a
 # caller can't mutate the loader's underlying dict.
 K_DYK = dict(_KINETICS['ip3r']['k_dyk'])
 
 # IP3R channel ensemble (count + conductance). Values + full
-# calibration-coupling commentary live in `reports/params/calcium-v0.5.toml
+# calibration-coupling commentary live in `reports/params/calcium-v0.6.toml
 # [ip3r.channel]` (issue #32 Phase 2 slice 8).
 # ⚠ CALIBRATION-COUPLED with K_SERCA below — see TOML and
 # calibration-coupling-2026-05-25.qmd chains 1 + 2.
@@ -206,21 +261,21 @@ GAMMA_IP3R_S = _KINETICS['ip3r']['channel']['gamma_s']
 
 # SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b kinetics).
 # Values + ⚠ CALIBRATION-COUPLED commentary + open-biology-question
-# notes live in `reports/params/calcium-v0.5.toml [serca.cycle]`
+# notes live in `reports/params/calcium-v0.6.toml [serca.cycle]`
 # (issue #32 Phase 2 slice 8).
 K_SERCA = dict(_KINETICS['serca']['cycle'])
 
 
 # ── PMCA4b basal path (Caride 2007 Table 3 steps 4–5) ────────────────────
 # Steps 4–5 are unchanged; the CaM-activated path (steps 8–11) is below.
-# Values live in `reports/params/calcium-v0.5.toml [pmca.basal]`
+# Values live in `reports/params/calcium-v0.6.toml [pmca.basal]`
 # (issue #32 Phase 2 slice 3).
 K_PMCA = dict(_KINETICS['pmca']['basal'])
 
 # ── CaM Ca²⁺ binding (Caride 2007 Table 3 steps 6–7) ─────────────────────
 # Two-lobe cooperative scheme: slow N-lobe (step 6) then fast C-lobe (step 7).
 # Ca²⁺ concentrations in µM; rates in µM⁻²·s⁻¹ (forward) or s⁻¹ (reverse).
-# Values live in `reports/params/calcium-v0.5.toml [cam.binding]`
+# Values live in `reports/params/calcium-v0.6.toml [cam.binding]`
 # (issue #32 Phase 2 slice 3).
 K_CAM = dict(_KINETICS['cam']['binding'])
 
@@ -243,7 +298,7 @@ K_CAM = dict(_KINETICS['cam']['binding'])
 #
 # See `reports/dissertation-notes.md §1.1` for the literature gap and
 # v0.3+ plan to split this into explicit gelsolin / annexin / Ca-ATP.
-# Values live in `reports/params/calcium-v0.5.toml [buffers.gsn]` and
+# Values live in `reports/params/calcium-v0.6.toml [buffers.gsn]` and
 # [buffers.gsn_pool] (issue #32 Phase 2 slice 7).
 K_GSN = dict(_KINETICS['buffers']['gsn'])
 
@@ -282,7 +337,7 @@ N_GSN = _KINETICS['buffers']['gsn_pool']['n_total']
 # DTS luminal buffer cluster — Phase 2/3 issues #25, #28.
 # ⚠ CALIBRATION-COUPLED with resting DTS Ca²⁺ level (Dolan 250 µM
 # target). Values + full literature commentary live in
-# `reports/params/calcium-v0.5.toml [buffers.*]` (issue #32 Phase 2
+# `reports/params/calcium-v0.6.toml [buffers.*]` (issue #32 Phase 2
 # slice 9). See calibration-coupling-2026-05-25.qmd chain 4.
 
 K_CALR   = dict(_KINETICS['buffers']['calr'])
@@ -360,7 +415,7 @@ N_CREC = _CREC_POOL['n_molecules'] * _CREC_POOL['sites_per']
 # 11 active but 12 absent, PMCA accumulates dead-end in PMCA·CaM (the bug
 # previously worked around by omitting step 11 entirely; restored
 # 2026-05-07 after Phase 0 audit found Caride k₁₂ missing).
-# Values live in `reports/params/calcium-v0.5.toml [pmca.cam_activated]`
+# Values live in `reports/params/calcium-v0.6.toml [pmca.cam_activated]`
 # (issue #32 Phase 2 slice 7). k12 in-vivo override commentary (1 s⁻¹
 # vs Caride's in-vitro 0.033 s⁻¹) lives in the TOML section header.
 K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
@@ -395,7 +450,7 @@ K_CAM_PMCA = dict(_KINETICS['pmca']['cam_activated'])
 # This is exactly what should close the SOCE-differential gap in
 # Phase 3: the +Ca_ex peak now has a fast P2X1 contribution that −Ca_ex
 # lacks (real biology: ~100 nM differential at peak).
-# Values live in `reports/params/calcium-v0.5.toml [p2x1.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [p2x1.kinetics]`
 # (issue #32 Phase 2 slice 3).
 K_P2X1 = dict(_KINETICS['p2x1']['kinetics'])
 
@@ -416,7 +471,7 @@ GAMMA_P2X1_S = _KINETICS['p2x1']['channel']['gamma_s']
 # forming thrombus, then is cleared by ectonucleotidases (CD39) over tens of
 # seconds. CD39 keeps resting ATP_ex near zero — any small baseline leaks
 # P2X1 over hundreds of seconds and overfills the DTS.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.atp_ex]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.atp_ex]`
 # (issue #32 Phase 2 slice 2). The Python name `ATP_EX_TAU_RISE` (no
 # `_S` suffix) is preserved verbatim from the pre-refactor module; the
 # TOML uses the consistent `tau_rise_s` key.
@@ -451,7 +506,7 @@ def atp_ex_forcing_uM(t, delay=0.0, peak_uM=None):
 # creates 1 dimer particle. Rate constants chosen so the Dolan 2014
 # Table S1 resting IC (st_Ca=3805, st_free=438, st_dim=11) is at
 # detailed balance.
-# Values live in `reports/params/calcium-v0.5.toml [soce.stim]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.stim]`
 # (issue #32 Phase 2 slice 4). Detailed-balance derivation for
 # `k_release_r` and `k_dim_f` is documented in the TOML section header.
 K_STIM = dict(_KINETICS['soce']['stim'])
@@ -471,7 +526,7 @@ K_STIM = dict(_KINETICS['soce']['stim'])
 #        to 2 (the MWC shape is insensitive to ~2× perturbations once at the
 #        saturating end of the binding curve). f, a, and L are dimensionless
 #        and transfer directly.
-# Values live in `reports/params/calcium-v0.5.toml [soce.mwc]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.mwc]`
 # (issue #32 Phase 2 slice 4). Ka rescaling from Hoover a.u. → platelet
 # dimer counts is documented in the TOML section header.
 K_MWC = dict(_KINETICS['soce']['mwc'])
@@ -480,7 +535,7 @@ K_MWC = dict(_KINETICS['soce']['mwc'])
 #   qp gives the fraction of STIM2 dimers translocated into puncta where
 #   they can engage Orai. α = 0.2 is the Dolan default. KM and n are the
 #   two free parameters Dolan scans within homeostatic constraints.
-# Values live in `reports/params/calcium-v0.5.toml [soce.puncta]`
+# Values live in `reports/params/calcium-v0.6.toml [soce.puncta]`
 # (issue #32 Phase 2 slice 4).
 PUNCTA = dict(_KINETICS['soce']['puncta'])
 
@@ -493,7 +548,7 @@ PUNCTA = dict(_KINETICS['soce']['puncta'])
 # resting balance condition SOCE_rest ≈ PMCA_steady_rest ≈ 76 ions/s,
 # which gives γ_SOC ≈ 0.3 fS at the Po(MWC, Sf_rest) ≈ 1.2×10⁻³ value our
 # rescaled Ka produces. (Issue #46 — full single-channel current calibration.)
-# Value lives in `[soce.orai] gamma_s` of calcium-v0.5.toml
+# Value lives in `[soce.orai] gamma_s` of calcium-v0.6.toml
 # (issue #32 Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal
 # outflow at rest — see TOML section header.
 GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
@@ -510,7 +565,7 @@ GAMMA_SOC_S = _KINETICS['soce']['orai']['gamma_s']
 #   ⇒ leak ≈ 71 ions/s, rounded to 75
 # This is the (ii) addition diagnosed in lab-book 2026-05-05; before this
 # term the model had no PM-side cyt source large enough to balance PMCA.
-# Value lives in `[pm.leak] ions_s` of calcium-v0.5.toml (issue #32
+# Value lives in `[pm.leak] ions_s` of calcium-v0.6.toml (issue #32
 # Phase 2 slice 10). ⚠ CALIBRATION-COUPLED with PMCA basal turnover
 # and CA_EX_UM gating — see TOML section header.
 J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
@@ -535,7 +590,7 @@ J_PM_LEAK_IONS_S = _KINETICS['pm']['leak']['ions_s']
 # of substrate kinetics — captures the regulatory Ca²⁺-binding site of
 # real NCX. Only forward mode modelled (reverse mode requires cyt Na⁺
 # state + membrane potential, both out of scope for v0.3).
-# Values live in `reports/params/calcium-v0.5.toml [ncx.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [ncx.kinetics]`
 # (issue #32 Phase 2 slice 4).
 K_NCX = dict(_KINETICS['ncx']['kinetics'])
 
@@ -557,7 +612,7 @@ K_NCX = dict(_KINETICS['ncx']['kinetics'])
 # P2Y12 (Gi-coupled, inhibitory — issue #10); receptor desensitisation /
 # internalisation kinetics (lumped into a slow first-order decay).
 
-# Values live in `reports/params/calcium-v0.5.toml [gpcr.*]`
+# Values live in `reports/params/calcium-v0.6.toml [gpcr.*]`
 # (issue #32 Phase 2 slice 5). Receptor/Gq calibration commentary
 # (k_basal derivation from resting Gq fraction) lives in the TOML
 # section header.
@@ -565,6 +620,7 @@ K_P2Y1 = dict(_KINETICS['gpcr']['p2y1'])
 K_PAR1 = dict(_KINETICS['gpcr']['par1'])
 K_PAR4 = dict(_KINETICS['gpcr']['par4'])
 K_GQ   = dict(_KINETICS['gpcr']['gq'])
+K_TP   = dict(_KINETICS['gpcr']['tp'])   # thromboxane TP receptor (v0.61 Slice B)
 
 N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
@@ -577,7 +633,7 @@ N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
 # Thrombin (PAR1/4 agonist). Standard stimulation = 1 nM peak (Dolan 2014).
 # Clotting cascade gives a fast rise, sustained plateau, slow decay.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.thrombin]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.thrombin]`
 # (issue #32 Phase 2 slice 2).
 THROMBIN_REST_NM     = _KINETICS['agonists']['thrombin']['rest_nM']
 THROMBIN_PEAK_NM     = _KINETICS['agonists']['thrombin']['peak_nM']
@@ -587,7 +643,7 @@ THROMBIN_TAU_DECAY_S = _KINETICS['agonists']['thrombin']['tau_decay_s']
 
 # ADP (P2Y1 agonist). Released from dense granules during activation,
 # cleared by ectoNTPDases. Standard stimulation = 10 µM peak.
-# Values live in `reports/params/calcium-v0.5.toml [agonists.adp]`
+# Values live in `reports/params/calcium-v0.6.toml [agonists.adp]`
 # (issue #32 Phase 2 slice 2).
 ADP_REST_UM     = _KINETICS['agonists']['adp']['rest_uM']
 ADP_PEAK_UM     = _KINETICS['agonists']['adp']['peak_uM']
@@ -648,12 +704,34 @@ STIM_MONOMERS_PER_DIMER = 2
 # the Dolan Fig. S2 IP3 timecourse under standard Gq forcing. Direct
 # transfer of Mazet's constants would require their full PI/PI4P chain,
 # which is out of scope for v0.3.
-# Values live in `reports/params/calcium-v0.5.toml [pi_cycle.*]`
+# Values live in `reports/params/calcium-v0.6.toml [pi_cycle.*]`
 # (issue #32 Phase 2 slice 6). Calibration commentary
 # (PIP2-rescaling k_cat 2.26e-7 → 2.26e-8 from lab-book 2026-05-15;
 # τ_IP3 ≈ 50 s anchoring to Dolan Fig. S2) lives in the TOML headers.
 K_PLCB     = dict(_KINETICS['pi_cycle']['plcb'])
 K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
+
+
+# ── PKC negative feedback (v0.6, issue #57) — DAG → PKC → P2Y1 desens ──
+# Closes the dead-end DAG branch. PKC is a DAG + Ca²⁺ coincidence detector
+# (lumped conventional PKCα/β + novel PKCδ); its active form phosphorylates
+# the active (ADP-bound) P2Y1 receptor into a signalling-incompetent
+# desensitised state that no longer drives Gαq — an activity-dependent
+# brake on the ADP arm of the cascade (Mundell 2006; Nicholas 2023).
+# Values + literature/calibration commentary live in
+# `reports/params/calcium-v0.6.toml [pkc.*]`. k_des / k_res are
+# model-choice (no platelet phospho-reaction rates); see the TOML header.
+K_PKC       = dict(_KINETICS['pkc']['kinetics'])
+# Constant Ca²⁺ Hill denominator term for PKC activation (K_Ca_PKC**n_Ca_PKC,
+# both fixed) — precomputed once to keep the `**` out of the `_ode_rhs` hot path.
+_KCA_N_PKC = K_PKC['K_Ca_PKC'] ** K_PKC['n_Ca_PKC']
+K_P2Y1_DES  = dict(_KINETICS['pkc']['p2y1_desens'])
+# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route). Brake on
+# the shared PLCβ node — phosphorylates inactive PLCβ out of the
+# Gq-activatable pool. Calibrated gently to preserve Dolan 5/5; set
+# k_plcb_phos → 0 to disable (the perturbation knockout). See the
+# `[pkc.plcb_phos]` TOML header for provenance / the Purvis-erratum caveat.
+K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 
 
 # ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────────────
@@ -672,7 +750,7 @@ K_PI_CYCLE = dict(_KINETICS['pi_cycle']['metabolism'])
 # during peak) → cyt (slow, over minutes) → DTS via SERCA → PMCA out
 # (gradually). Without MCU, all the SOCE-imported Ca²⁺ must exit via
 # the PMCA bottleneck.
-# Values live in `reports/params/calcium-v0.5.toml [mito.kinetics]`
+# Values live in `reports/params/calcium-v0.6.toml [mito.kinetics]`
 # (issue #32 Phase 2 slice 6).
 K_MITO = dict(_KINETICS['mito']['kinetics'])
 
@@ -749,7 +827,8 @@ def _mwc_open_fraction(stim2_p, n_orai, max_iter=20, tol=1e-6):
 
 
 def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
-		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None):
+		thrombin_peak_nM=None, adp_peak_uM=None, atp_ex_peak_uM=None,
+		secreted_adp_count=0.0, secreted_txa2_count=0.0):
 	"""Right-hand side of the calcium ODE.
 
 	`y` carries integer-equivalent counts (continuous floats during
@@ -762,6 +841,12 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	(thrombin in nM, ADP and ATP_ex in µM). `None` (default) reads the
 	module-level default constant; `0` yields a resting / un-stimulated
 	sim where the receptor sees only its REST level.
+
+	`secreted_adp_count` is the current `ADP[e]` count (autocrine,
+	v0.61 Slice 2): its pericellular concentration is *added* to the
+	exogenous ADP forcing, closing the dense-granule → ADP → P2Y1 loop.
+	Held constant across the 1-s step (updated discretely by
+	GranuleSecretion). 0 → no autocrine contribution (the open-loop model).
 	"""
 	dy = np.zeros(N_SPECIES)
 
@@ -777,6 +862,7 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	dag_count  = max(y[_IDX['DAG[c]']],  0.0)
 	plcb_i     = max(y[_IDX['PLCb_inactive[c]']], 0.0)
 	plcb_a     = max(y[_IDX['PLCb_active[c]']],   0.0)
+	plcb_p     = max(y[_IDX['PLCb_phosphorylated[c]']], 0.0)  # PKC-phospho (v0.6)
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
@@ -788,7 +874,14 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	par1_a = max(y[_IDX['PAR1_active[pl]']],   0.0)
 	par4_i = max(y[_IDX['PAR4_inactive[pl]']], 0.0)
 	par4_a = max(y[_IDX['PAR4_active[pl]']],   0.0)
+	tp_i   = max(y[_IDX['TP_inactive[pl]']],   0.0)
+	tp_a   = max(y[_IDX['TP_active[pl]']],     0.0)
 	gq_a   = max(y[_IDX['Gq_active[c]']],      0.0)
+
+	# PKC feedback state reads (v0.6)
+	pkc_i    = max(y[_IDX['PKC_inactive[c]']],       0.0)
+	pkc_a    = max(y[_IDX['PKC_active[c]']],         0.0)
+	p2y1_des = max(y[_IDX['P2Y1_desensitised[pl]']], 0.0)
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -1101,25 +1194,60 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	# DAG kinase (DAG → PA).
 	v_dag_deg = K_PI_CYCLE['k_dag_deg'] * dag_count
 
-	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact
+	# PKC → PLCβ phosphorylation (v0.6 Slice 3; Purvis 2008 route): active
+	# PKC sequesters inactive PLCβ into a Gq-non-activatable phospho-state;
+	# a slow phosphatase reverses it. This brake sits on the shared PLCβ
+	# node, so it damps the cascade downstream of all receptors (cf. the
+	# ADP-arm-specific P2Y1 desensitisation). k_plcb_phos = 0 disables it.
+	v_plcb_phos   = K_PLCB_PHOS['k_plcb_phos']   * pkc_a * plcb_i
+	v_plcb_dephos = K_PLCB_PHOS['k_plcb_dephos'] * plcb_p
+
+	dy[_IDX['PLCb_inactive[c]']] += -v_plcb_act + v_plcb_inact \
+		- v_plcb_phos + v_plcb_dephos
 	dy[_IDX['PLCb_active[c]']]   += +v_plcb_act - v_plcb_inact
+	dy[_IDX['PLCb_phosphorylated[c]']] += +v_plcb_phos - v_plcb_dephos
 	dy[_IDX['PIP2[c]']]          += -v_plcb_cat + v_pip2_resynth
 	dy[_IDX['IP3[c]']]           += +v_plcb_cat - v_ip3_deg
 	dy[_IDX['DAG[c]']]           += +v_plcb_cat - v_dag_deg
 
+	# ── PKC activation: DAG + Ca²⁺ coincidence detector (v0.6, #57) ──
+	# Consumes the DAG signal (read, not depleted — lumped activator) with a
+	# cytosolic-Ca²⁺ Hill cofactor. f_ca_floor captures the novel-isoform
+	# (DAG-only) contribution; 0 = pure conventional PKC. DAG and Ca²⁺ are
+	# both low at rest, so PKC_active stays < 1 % of the pool until the ADP
+	# transient drives DAG/Ca²⁺ up over the first ~10–15 s.
+	dag_uM = dag_count * _UM_PER_COUNT_CYT
+	ca_n_pkc = ca_cyt ** K_PKC['n_Ca_PKC']
+	f_ca_pkc = K_PKC['f_ca_floor'] + (1.0 - K_PKC['f_ca_floor']) * (
+		ca_n_pkc / (_KCA_N_PKC + ca_n_pkc))
+	v_pkc_act   = K_PKC['k_act'] * pkc_i * dag_uM * f_ca_pkc
+	v_pkc_inact = K_PKC['k_inact'] * pkc_a
+	dy[_IDX['PKC_inactive[c]']] += -v_pkc_act + v_pkc_inact
+	dy[_IDX['PKC_active[c]']]   += +v_pkc_act - v_pkc_inact
+
 	# ── GPCR cascade — receptors + Gαq cycle (issue #9) ─────────────
 	# Agonist concentrations → receptor activation → Gαq exchange →
 	# PLCβ activation (in the PI cycle block above).
+	# Exogenous (applied) ADP forcing + autocrine secreted ADP (v0.61 Slice 2).
 	adp_um_now = adp_uM(
 		t_sim_start + t, delay=agonist_delay, peak_uM=adp_peak_uM)
+	adp_um_now += secreted_adp_count * _UM_PER_COUNT_EX * AUTOCRINE_ADP_GAIN
 	thr_nm_now = thrombin_nM(
 		t_sim_start + t, delay=agonist_delay, peak_nM=thrombin_peak_nM)
 
 	# P2Y1: reversible ADP binding
 	v_p2y1_on  = K_P2Y1['k_on']  * p2y1_i * adp_um_now
 	v_p2y1_off = K_P2Y1['k_off'] * p2y1_a
-	dy[_IDX['P2Y1_inactive[pl]']] += -v_p2y1_on + v_p2y1_off
-	dy[_IDX['P2Y1_active[pl]']]   += +v_p2y1_on - v_p2y1_off
+	# PKC-mediated desensitisation of the *active* (ADP-bound) receptor and
+	# slow resensitisation (dephosphorylation) back to the ADP-free inactive
+	# pool (v0.6, #57). Desensitised P2Y1 is a distinct phospho-state that
+	# does NOT count toward total_active_R below, so the Gαq drive falls as
+	# it accumulates — closing the negative-feedback loop.
+	v_p2y1_des = K_P2Y1_DES['k_des'] * pkc_a * p2y1_a
+	v_p2y1_res = K_P2Y1_DES['k_res'] * p2y1_des
+	dy[_IDX['P2Y1_inactive[pl]']]     += -v_p2y1_on + v_p2y1_off + v_p2y1_res
+	dy[_IDX['P2Y1_active[pl]']]       += +v_p2y1_on - v_p2y1_off - v_p2y1_des
+	dy[_IDX['P2Y1_desensitised[pl]']] += +v_p2y1_des - v_p2y1_res
 
 	# PAR1: thrombin cleavage (essentially irreversible) + one-way
 	# internalization (v0.4.1 fix). Previously internalization went back
@@ -1142,10 +1270,20 @@ def _ode_rhs(t, y, t_sim_start, agonist_delay=0.0,
 	dy[_IDX['PAR4_active[pl]']]       += +v_par4_cleave - v_par4_int
 	dy[_IDX['PAR4_internalized[pl]']] += +v_par4_int
 
-	# Gαq cycle: all active receptors share the same Gq pool.
+	# TP (thromboxane receptor): reversible TXA2 binding (v0.61 Slice B),
+	# mirroring P2Y1/ADP. Synthesised TXA2[e] is passed in as a count and read
+	# as a pericellular concentration; binding does not deplete it (catalytic).
+	# Active TP joins total_active_R below — the autocrine TXA2 → TP → Gq loop.
+	txa2_um_now = secreted_txa2_count * _UM_PER_COUNT_EX
+	v_tp_on  = K_TP['k_on']  * tp_i * txa2_um_now
+	v_tp_off = K_TP['k_off'] * tp_a
+	dy[_IDX['TP_inactive[pl]']] += -v_tp_on + v_tp_off
+	dy[_IDX['TP_active[pl]']]   += +v_tp_on - v_tp_off
+
+	# Gαq cycle: all active Gq-coupled receptors share the same Gq pool.
 	# Inactive Gq is implicit (total - active).
 	gq_i_count = max(N_GQ_TOTAL - gq_a, 0.0)
-	total_active_R = p2y1_a + par1_a + par4_a
+	total_active_R = p2y1_a + par1_a + par4_a + tp_a
 	v_gq_act = (K_GQ['k_act_per_R'] * total_active_R + K_GQ['k_basal']) * gq_i_count
 	v_gq_rgs = K_GQ['k_rgs'] * gq_a
 	dy[_IDX['Gq_active[c]']] += v_gq_act - v_gq_rgs
@@ -1194,12 +1332,16 @@ class CalciumSignalling:
 
 	def molecules_to_next_time_step(self, counts, dt, t_sim,
 			agonist_delay=0.0, thrombin_peak_nM=None,
-			adp_peak_uM=None, atp_ex_peak_uM=None):
+			adp_peak_uM=None, atp_ex_peak_uM=None,
+			secreted_adp_count=0.0, secreted_txa2_count=0.0):
 		"""Run one outer timestep of the calcium ODE.
 
 		Agonist forcing is controlled by the three `*_peak_*` kwargs;
 		`None` (default) uses the module-level peak constants, `0` gives
 		a resting / un-stimulated sim. See `_ode_rhs` docstring.
+		`secreted_adp_count` (ADP[e] count) adds autocrine ADP to the
+		P2Y1 drive (v0.61 Slice 2); `secreted_txa2_count` (TXA2[e] count)
+		drives the TP receptor (v0.61 Slice B). 0 → open-loop.
 
 		Returns
 		-------
@@ -1223,7 +1365,8 @@ class CalciumSignalling:
 			_ode_rhs, (0.0, dt), y0,
 			method='BDF',
 			args=(t_sim, agonist_delay,
-				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM),
+				thrombin_peak_nM, adp_peak_uM, atp_ex_peak_uM,
+				secreted_adp_count, secreted_txa2_count),
 			atol=1e-3,    # counts; ~0.001 molecule precision
 			rtol=1e-6,
 			max_step=dt,

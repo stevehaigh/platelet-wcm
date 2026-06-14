@@ -1,0 +1,257 @@
+---
+title: "Platelet WCM — v0.61 design: downstream PKC effects (secretion · thromboxane · integrin)"
+author: "Steve Haigh"
+date: "2026-06-12"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 3
+    include-in-header: ../pandoc-header.tex
+---
+
+# Summary
+
+v0.6 added **protein kinase C** and wired its *Ca²⁺-pathway-internal* feedback:
+the two brakes **P2Y1 desensitisation** and **PLCβ phosphorylation**. That
+closes the DAG dead-end and makes the ADP arm self-limiting — but PKC's real
+job in a platelet is to drive **activation outputs**. This document scopes the
+three downstream effects deferred from v0.6:
+
+1. **Granule secretion** (dense + α) — release of ADP, serotonin, fibrinogen,
+   P-selectin.
+2. **Thromboxane A₂ generation** (cPLA₂ → COX-1 → TXA₂) — the autocrine
+   amplifier and aspirin's target.
+3. **Integrin αIIbβ3 inside-out activation** — the switch to fibrinogen
+   binding and aggregation.
+
+The headline finding for the project: once secretion and thromboxane exist,
+**PKC sits at the hub of two autocrine *amplification* loops (ADP, TXA₂) that
+oppose the two *braking* loops it already drives.** That push–pull is the
+mechanistic basis of the platelet "second wave" — the emergent behaviour a
+whole-cell model is uniquely placed to show, and the strongest thesis argument
+for the mechanistic approach.
+
+**This is a design only — no code is written here.** It also assesses
+feasibility honestly: one of the three (integrin → aggregation) runs into the
+single-cell limit of the model.
+
+# Where PKC's outputs currently go (v0.6): nowhere downstream
+
+In v0.6, `PKC_active[c]` feeds back onto P2Y1 and PLCβ and nothing else. In a
+real platelet, active PKC phosphorylates a long substrate list — pleckstrin
+and MARCKS (secretion), the SNARE regulator, cPLA₂ (eicosanoids), and
+components of the integrin-activation machinery.
+
+The model already carries **inert scaffolding** for the outputs — species that
+exist as mass / decay terms but are functionally unconnected:
+
+| Species (compartment) | Count | Role once wired |
+|---|---|---|
+| `ADP[dg]` (dense granule) | 400 000 | dense-granule cargo → autocrine P2Y1 |
+| `5HT[dg]` (dense granule) | 3 500 000 | serotonin; dense-granule release marker |
+| `FGA[ag]` (α-granule) | 30 000 | fibrinogen; integrin ligand |
+| `SELP[ag]` (α-granule) | 30 000 | P-selectin → surface activation marker |
+| `ITGA2B[c]` (cytosol) | 80 000 | integrin αIIb subunit |
+| `GP1BA[c]` (cytosol) | 25 000 | GPIbα (adhesion; not PKC-driven) |
+
+Compartments `dg`, `ag`, and `e` (extracellular / open canalicular system)
+already exist, so **secretion is a matter of moving existing cargo between
+existing compartments** — the lowest-friction of the three additions.
+
+# The three downstream effects
+
+```{mermaid}
+%%| fig-width: 5.2
+%%| fig-cap: "PKC at the hub of v0.6 brakes (done) and v0.61 outputs (proposed). Secreted ADP and TXA₂ form autocrine amplification loops back onto Gq-coupled receptors, opposing the P2Y1 / PLCβ brakes."
+---
+config:
+  flowchart:
+    rankSpacing: 38
+    nodeSpacing: 34
+    curve: basis
+---
+flowchart TB
+  DAG[DAG] --> PKC[PKC active]
+  Ca[Ca2+_cyt] --> PKC
+  PKC -. brake .-> P2Y1d[P2Y1 desensitised]
+  PKC -. brake .-> PLCbp[PLCb phosphorylated]
+  PKC --> SEC[Granule secretion]
+  PKC --> CPLA[cPLA2 -> TXA2]
+  PKC --> ITG[integrin aIIbb3 active]
+  SEC --> ADPe[ADP_ex]
+  SEC --> SELPs[P-selectin surface]
+  ADPe -. autocrine .-> P2Y1[P2Y1]
+  CPLA --> TXA2[TXA2]
+  TXA2 -. autocrine .-> TP[TP receptor -> Gq]
+  ITG --> FGB[fibrinogen binding]
+```
+
+## 1. Granule secretion (dense + α granules) — most tractable
+
+**Biology.** Ca²⁺ and PKC (via pleckstrin/MARCKS phosphorylation) drive
+SNARE-mediated granule–membrane fusion. Dense granules release ADP/ATP,
+serotonin, Ca²⁺, and polyphosphate; α-granules release fibrinogen, VWF, and
+expose **P-selectin** on the surface. Dense-granule release in particular
+sustains the **secondary wave** of aggregation via autocrine ADP.
+
+**Hook.** The cargo species already exist (`ADP[dg]`, `5HT[dg]`, `FGA[ag]`,
+`SELP[ag]`). A single secretion process moves them granule → `[e]`
+(P-selectin → a surface state), gated on a `PKC_active × Ca²⁺` term with a
+hard resting floor of zero.
+
+**The autocrine ADP loop.** P2Y1 currently reads a *forced* `adp_uM` curve.
+Wiring secreted `ADP[e]` into the P2Y1 drive (replacing or augmenting the
+forcing) closes a **positive-feedback amplification loop**: activation →
+secretion → ADP → more P2Y1 → more activation — self-limited by ecto-NTPDase
+clearance and the v0.6 P2Y1 desensitisation brake. This is the single most
+valuable wiring in v0.61: it ties a new output back into machinery we already
+validated.
+
+**Minimal model.** One `GranuleSecretion` process: first-order fusion rate per
+granule pool, `k_sec · f(PKC_active, Ca²⁺)`, moving counts to `[e]`; a
+`P-selectin surface` state for the α-granule marker.
+
+**Validation.** P-selectin surface exposure (flow cytometry — the canonical
+activation marker); serotonin / ATP release (lumi-aggregometry); the ADP
+secondary wave. All are standard, per-cell, single-platelet readouts — a clean
+fit for the model.
+
+**Risk.** Resting leak must be negligible. Replacing the forced ADP curve with
+secreted ADP changes the P2Y1 drive → **re-verify Dolan 5/5**.
+
+## 2. Thromboxane A₂ generation — the autocrine amplifier
+
+**Biology.** PKC + Ca²⁺ activate cytosolic phospholipase A₂ (cPLA₂ / PLA2G4A),
+which liberates arachidonic acid; COX-1 (PTGS1) → PGG₂/PGH₂; thromboxane
+synthase (TBXAS1) → **TXA₂**. TXA₂ diffuses out and binds the **TP receptor**
+(Gq/G12-coupled) on the same and neighbouring platelets, driving more
+PLCβ/Ca²⁺. TXA₂ is short-lived (t½ ≈ 30 s). **COX-1 is aspirin's target**, so
+this module unlocks the most famous platelet pharmacology experiment.
+
+**Hook.** None — this is a genuinely new module (cPLA₂, AA, COX-1/TXA₂-synthase
+lumped, TXA₂, TP receptor; ~3–4 new species + an autocrine TP→Gq term).
+
+**The autocrine TXA₂ loop.** TXA₂ → TP → Gq → Ca²⁺/DAG → more cPLA₂ → more
+TXA₂: a second positive-feedback amplifier, self-limited by TXA₂ decay.
+
+**Minimal model.** Lump cPLA₂ activity as a `Ca²⁺ × PKC` Hill term driving TXA₂
+production; first-order TXA₂ decay; a TP→Gq activation term mirroring the
+existing receptor→Gq cascade.
+
+**Validation.** TXA₂/TXB₂ production (ELISA); **aspirin (COX-1 knockout)
+abolishes it** — a marquee, single-parameter perturbation analogous to the
+v0.6 PKC knockouts; the secondary aggregation wave.
+
+## 3. Integrin αIIbβ3 inside-out activation — hardest (inter-cellular readout)
+
+**Biology.** PKC, together with Rap1b / CalDAG-GEFI and talin/kindlin, switches
+αIIbβ3 from low- to high-affinity, enabling fibrinogen/VWF binding,
+aggregation, and outside-in signalling.
+
+**Hook.** `ITGA2B[c]` (αIIb) exists; β3 (ITGB3), the Rap1/talin machinery, and
+any activation-state species do not.
+
+**The hard part — the single-cell limit.** The *functional* readout of integrin
+activation is **aggregation**, an inherently **inter-cellular** event. A
+single-platelet model can represent the integrin's affinity **state**
+(resting ↔ active) and fibrinogen-binding **occupancy**, but not aggregation
+itself — that needs a population / multi-cell model or an explicit binding
+proxy. This is a real boundary of the current WCM, and the doc should say so
+plainly rather than over-claim.
+
+**Minimal model.** A 2-state αIIbβ3 (resting ↔ active) driven by a lumped
+`PKC + Rap1-proxy` term; bound-fibrinogen occupancy as the per-cell readout.
+
+**Validation.** **PAC-1 binding** (an antibody specific to active αIIbβ3, flow
+cytometry) — a *per-cell* readout that *is* tractable and avoids the
+aggregation problem. Aggregometry proper stays out of scope.
+
+# Recommended sequencing
+
+1. **Granule secretion first.** Uses existing species, closes the ADP autocrine
+   loop into already-validated P2Y1 machinery, and has the cleanest
+   single-cell validation (P-selectin / serotonin release). Highest
+   value-to-effort ratio.
+2. **Thromboxane second.** A modest new module that adds the second autocrine
+   loop and the aspirin perturbation — a high-impact, low-ambiguity validation.
+3. **Integrin last.** Implement only the per-cell affinity state + PAC-1-binding
+   readout; explicitly exclude aggregation. Lowest priority for a single-cell
+   WCM.
+
+A minor PKC effect worth noting: **PKC-accelerated IP₃ 5-phosphatase activity**
+(Purvis 2008's alternative shut-off) is a one-line addition to the existing
+`k_ip3_deg` term if the secretion/TXA₂ amplification loops need extra damping
+to stay stable.
+
+# The unifying argument: PKC closes the loops
+
+With v0.6 (brakes) and v0.61 (amplifiers) in place, PKC becomes the integrating
+hub of **four** feedback loops:
+
+| Loop | Direction | Route | Status |
+|---|---|---|---|
+| P2Y1 desensitisation | − (brake) | PKC → P2Y1 | v0.6 ✔ |
+| PLCβ phosphorylation | − (brake) | PKC → PLCβ | v0.6 ✔ |
+| ADP secretion | + (amplify) | PKC → dense granule → P2Y1 | v0.61 |
+| TXA₂ generation | + (amplify) | PKC → cPLA₂ → TP → Gq | v0.61 |
+
+The competition between amplification and braking — and the resulting threshold
+/ all-or-none "second wave" — is an **emergent** property no single rate
+constant encodes. Demonstrating it end-to-end is the clearest payoff of the
+mechanistic whole-cell approach and the natural capstone result for the thesis.
+
+# Scope boundaries
+
+- **In (v0.61 candidates):** dense/α-granule secretion + autocrine ADP;
+  thromboxane synthesis + autocrine TP→Gq; integrin αIIbβ3 affinity state +
+  PAC-1-binding readout.
+- **Out:** aggregation / multi-cell behaviour; paracrine signalling to
+  neighbours; clot mechanics; outside-in integrin signalling; full SNARE,
+  Rap1/talin/kindlin, and eicosanoid enzymatic detail (lumped proxies only).
+
+# Open questions / risks
+
+- **Resting quiescence (gate 1).** Every new secretory / synthetic process must
+  be ≈0 at rest. Same discipline as v0.6.
+- **Loop stability.** ADP and TXA₂ positive feedback can run away; each needs an
+  explicit self-limiting term (ecto-NTPDase ADP clearance, TXA₂ decay, and the
+  P2Y1 desensitisation we already have).
+- **Calibration coupling.** Secreted ADP replacing the forced `adp_uM` curve
+  changes the P2Y1 drive — regenerate goldens and re-verify the Dolan 5/5.
+- **Single-cell limit.** Aggregation and paracrine release are out of reach;
+  model autocrine-only and say so.
+- **Citation hygiene.** Verify every journal/volume/DOI in Zotero before thesis
+  use ([[feedback_citation_verification]]); the references below are
+  first-author + approximate-year anchors only.
+
+# References
+
+*Verify in Zotero before citing in the thesis — titles + first authors + years
+below are the safe-to-recall anchors.*
+
+- **Golebiewska EM, Poole AW.** Platelet secretion: from haemostasis to wound
+  healing and beyond. *Blood Rev.* ~2015. *(Granule-secretion review.)*
+- **Rendu F, Brohard-Bohn B.** The platelet release reaction: granules'
+  constituents, secretion and functions. *Platelets* ~2001. *(Dense/α-granule
+  cargo.)*
+- **Brass LF.** Thrombin and platelet activation. *Chest* ~2003; and PKC /
+  pleckstrin signalling reviews. *(PKC substrates in secretion.)*
+- **FitzGerald GA.** Mechanisms of platelet activation: thromboxane A₂ as an
+  amplifying signal. *Am. J. Cardiol.* ~1991. *(TXA₂ autocrine amplification.)*
+- **Shattil SJ, Bennett JS / Shattil & Newman.** Integrins: dynamic scaffolds
+  for adhesion and signaling in platelets. *Blood* ~2004. *(αIIbβ3 inside-out
+  activation.)*
+- **Stefanini L, Bergmeier W.** CalDAG-GEFI and platelet activation (Rap1).
+  *Platelets / J. Thromb. Haemost.* ~2010s. *(Rap1 inside-out pathway.)*
+- **Purvis JE, Chatterjee MS, Brass LF, Diamond SL.** *Blood.* 2008;112:4069.
+  *(Already a repo reference; lists PKC-accelerated IP₃ dephosphorylation as an
+  alternative shut-off — see [[feedback_citation_verification]] and the v0.6
+  design doc.)*

@@ -6,8 +6,12 @@ from wholecell.states.local_environment import LocalEnvironment
 
 from models.platelet.listeners.calcium_trace import CalciumTrace
 from models.platelet.listeners.mass import Mass
+from models.platelet.listeners.secretion_trace import SecretionTrace
+from models.platelet.listeners.thromboxane_trace import ThromboxaneTrace
 from models.platelet.processes.calcium_dynamics import CalciumDynamics
+from models.platelet.processes.granule_secretion import GranuleSecretion
 from models.platelet.processes.resting_decay import RestingDecay
+from models.platelet.processes.thromboxane_synthesis import ThromboxaneSynthesis
 from models.platelet.sim.initial_conditions import calcInitialConditions
 
 
@@ -25,10 +29,12 @@ class PlateletSimulation(Simulation):
 		(
 			RestingDecay,
 			CalciumDynamics,
+			GranuleSecretion,
+			ThromboxaneSynthesis,
 		),
 	)
 
-	_listenerClasses = (Mass, CalciumTrace)
+	_listenerClasses = (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace)
 
 	_hookClasses = ()
 

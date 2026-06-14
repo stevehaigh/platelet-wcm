@@ -6,8 +6,8 @@ BulkMolecules and UniqueMolecules states read during initialize().
 
 Species inventory
 -----------------
-The molecule inventory (id, mass, initial count, class for all 63 species)
-lives in ``reports/params/species-v0.5.tsv`` (issue #32 Phase 2, species
+The molecule inventory (id, mass, initial count, class for all 76 species)
+lives in ``reports/params/species-v0.6.tsv`` (issue #32 Phase 2, species
 side). It is loaded at import time via ``_species_loader.load_species()``
 and exposed below as ``_MOLECULES`` — bit-equal to the pre-refactor
 in-source list.
@@ -41,10 +41,10 @@ Derivations for the rate constants that pin those equilibria are
 documented in two complementary places (the kinetics-as-data refactor,
 issue #32, externalised most rate constants into TOML):
 
-  - ``reports/params/calcium-v0.5.toml`` — source-of-truth for the
+  - ``reports/params/calcium-v0.6.toml`` — source-of-truth for the
     rate constants themselves, with literature attribution and
     calibration-coupling notes inline.
-  - ``reports/design/kinetics-v0.5-review.pdf`` — clickable PDF
+  - ``reports/design/kinetics-v0.6-review.pdf`` — clickable PDF
     rendering of the above; regenerate via
     ``runscripts/manual/buildKineticsReview.py``.
   - ``reconstruction/platelet/dataclasses/process/calcium_signalling.py``
@@ -70,7 +70,7 @@ from reconstruction.platelet.dataclasses._species_loader import load_species
 
 
 # Externalised species inventory — see module docstring above and the
-# v0.5 TSV for the source-of-truth values. `_MOLECULES` retains the
+# v0.6 TSV for the source-of-truth values. `_MOLECULES` retains the
 # legacy 4-tuple shape so all downstream call sites (initial_counts
 # array, mass matrix, PROTEIN_MOLECULE_IDS) are unchanged.
 _MOLECULES = load_species()

@@ -1,0 +1,374 @@
+---
+title: "Platelet WCM — v0.6 design: PKC negative feedback (DAG → PKC → P2Y1 desensitisation)"
+author: "Steve Haigh"
+date: "2026-06-11"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 3
+    include-in-header: ../pandoc-header.tex
+---
+
+# Summary
+
+The v0.5 calcium pathway runs the GPCR cascade from agonist to the second
+messengers **IP₃ and DAG**, then stops: IP₃ drives the IP₃R, but **DAG is a
+dead-end product** — it is produced by PLCβ and removed by DAG kinase, and
+feeds into nothing. The code already anticipates the gap (`DAG[c]` is tagged
+"PKC substrate" in `MOLECULE_NAMES`).
+
+This design closes the loop for **v0.6**: add **protein kinase C (PKC)**,
+activated by DAG (with Ca²⁺ co-activation), as a **negative-feedback node**.
+The headline effect, per the user's request and the platelet literature, is
+**PKC-mediated desensitisation of the P2Y1 receptor** — active (ADP-bound)
+P2Y1 is phosphorylated by PKC into a signalling-incompetent state, throttling
+its own Gαq drive. A second, model-validated feedback target (PKC →
+PLCβ phosphorylation, the mechanism Purvis 2008 actually used) is offered as a
+complementary slice.
+
+**Scope discipline.** PKC has many downstream effects in platelets (granule
+secretion, integrin αIIbβ3 inside-out activation, thromboxane generation).
+Those sit downstream of modules this model does not yet have, so v0.6 adds
+**only the Ca²⁺-pathway-relevant feedback** (receptor + optional PLCβ). The
+rest is documented as out of scope below.
+
+**This is a design only — no code is written here.**
+
+# Where the current pathway ends (v0.5)
+
+All of the following lives in
+`reconstruction/platelet/dataclasses/process/calcium_signalling.py`
+(`_ode_rhs`) with constants in `reports/params/calcium-v0.5.toml`.
+
+- **P2Y1** is a two-state reversible binder: `P2Y1_inactive[pl] ⇌
+  P2Y1_active[pl]` with `k_on·[ADP]` / `k_off`. Active P2Y1 (with PAR1/PAR4)
+  drives the shared **Gαq** pool, which activates **PLCβ**.
+- **PLCβ** (`PLCb_inactive ⇌ PLCb_active`, Gq-driven) hydrolyses PIP₂:
+  `PLCb_active + PIP2 → PLCb_active + IP3 + DAG`.
+- **DAG[c]** accumulates from PLCβ catalysis and is removed only by lumped
+  **DAG kinase** (`DAG → PA`, `k_dag_deg`, τ ≈ 20 s). **It has no downstream
+  consumer.**
+- Receptor "shut-off" today is implicit and non-mechanistic: ADP unbinding
+  (`k_off`), PAR internalisation as a lumped first-order sink, and lumped IP₃
+  degradation (`k_ip3_deg`). The v0.5 GPCR comment explicitly lists
+  "receptor desensitisation / internalisation kinetics" as **out of scope,
+  lumped into a slow first-order decay**.
+
+So the negative feedback the user describes — DAG → PKC → receptor
+down-regulation — is genuinely absent. There is no activity-dependent,
+mechanistic brake on the cascade.
+
+# The biology
+
+## DAG + Ca²⁺ → PKC
+
+Classical (conventional) PKC isoforms (in platelets, **PKCα/β**) are activated
+by the **coincidence** of DAG and a rise in cytosolic Ca²⁺; novel isoforms
+(**PKCδ/θ**) are DAG-dependent but Ca²⁺-independent. On activation, PKC
+translocates to the plasma membrane and phosphorylates serine/threonine
+residues on nearby substrates. Purvis 2008 models exactly this as a
+multi-step activation: free PKC → Ca²⁺-bound → Ca²⁺+DAG-bound → membrane-active
+(their Fig. 2G), and notes that the **gradual accumulation of Ca²⁺ and DAG
+over the first ~10–15 s supplies the time delay** before feedback engages —
+which is what shapes the shut-off of the transient rather than just blunting
+the peak.
+
+## PKC → P2Y1 desensitisation (the user's mechanism)
+
+This is well established and platelet-specific:
+
+- **Mundell et al. 2006** (*Mol. Pharmacol.*; PMID 16804093) — ADP drives
+  **rapid PKC-dependent desensitisation of P2Y1 in human platelets**, mediated
+  by **both conventional (PKCα) and novel (PKCδ)** isoforms, and **largely
+  GRK-independent**. (Of note for later: P2Y12 is regulated by novel isoforms
+  only.)
+- **Nicholas et al. 2023** (PMID 36958516 / PMC10809801) — phosphorylation of
+  the **P2Y1 C-terminus is critical for desensitisation**; a
+  desensitisation-resistant P2Y1 raises **platelet reactivity in vitro**. This
+  gives us a concrete, falsifiable validation target (see §Validation).
+- Mechanism, generically: PKC phosphorylates the activated receptor's
+  C-terminus / third intracellular loop, **uncoupling it from Gαq** and
+  preventing downstream signalling until it is dephosphorylated.
+
+The functional logic is a closed negative-feedback loop:
+
+```{mermaid}
+%%| fig-width: 4.2
+%%| fig-cap: "DAG → PKC → P2Y1 desensitisation negative-feedback loop (v0.6). Active P2Y1 drives Gαq → PLCβ → DAG/IP₃; DAG plus cytosolic Ca²⁺ activates PKC, which phosphorylates active P2Y1 into a signalling-incompetent desensitised state — throttling its own Gαq drive."
+---
+config:
+  flowchart:
+    rankSpacing: 32
+    nodeSpacing: 36
+    curve: basis
+---
+flowchart TB
+  ADP --> P2Y1a[P2Y1 active]
+  P2Y1a --> Gq[Gaq-GTP]
+  Gq --> PLCb[PLCb active]
+  PLCb --> DAG
+  PLCb --> IP3
+  DAG --> PKC[PKC active]
+  Ca[Ca2+_cyt] --> PKC
+  PKC -. phosphorylate / desensitise .-> P2Y1d[P2Y1 desensitised]
+  P2Y1a --> P2Y1d
+  P2Y1d -. resensitise .-> P2Y1i[P2Y1 inactive]
+```
+
+## "Other effects" of PKC (documented, mostly out of scope)
+
+PKC is a hub, not a single-output kinase. The major platelet effects:
+
+| PKC effect | In v0.6 scope? | Why |
+|---|---|---|
+| **P2Y1 desensitisation** | **Yes (headline)** | User request; Ca²⁺-pathway feedback; grounded (Mundell 2006). |
+| **PLCβ phosphorylation** (dampens Gq-driven hydrolysis) | **Optional slice** | Purvis 2008's *actual* feedback choice; PLCβ states already exist; cheap. |
+| Accelerated IP₃ dephosphorylation | Maybe (future) | Purvis lists it as an alternative shut-off they did not implement. |
+| Dense / α-granule secretion | **No** | Needs a granule module (issues #5–8) — does not exist. |
+| Integrin αIIbβ3 inside-out activation | **No** | No integrin / aggregation module. |
+| Thromboxane A₂ generation (cPLA2/COX) | **No** | No eicosanoid module. |
+
+The two in-scope effects are precisely the ones that feed back onto the
+Ca²⁺ transient; the rest attach naturally **once the modules they act on
+exist** — this is the "mechanistic, end-to-end" property the thesis already
+claims.
+
+# Design fork: where does the feedback act?
+
+This is the one real design decision, and it is worth stating plainly because
+**the canonical platelet model and the user disagree**:
+
+- **Purvis 2008** put the PKC brake on **PLCβ** (phosphorylating the inactive
+  PLCβ pool so Gq cannot activate it) and showed it was *sufficient* to make
+  IP₃/Ca²⁺ return to near-baseline within 30–60 s (their Fig. 2C, 5E).
+  Purvis did **not** model receptor desensitisation, listing it as one of
+  several mechanisms they omitted.
+- **The user (and Mundell 2006)** want the brake on the **P2Y1 receptor**
+  itself — which is biologically real, platelet-specific, and the *measured*
+  route for P2Y1.
+
+These are **not mutually exclusive** — real PKC does both, plus more.
+Recommended resolution:
+
+1. **Slice 1 (headline): implement P2Y1 desensitisation.** Matches the user's
+   biology and the platelet-specific evidence; gives a clean, falsifiable
+   perturbation figure against Nicholas 2023.
+2. **Slice 2 (optional): add PLCβ phosphorylation** as the Purvis-validated,
+   low-cost complementary brake (the PLCβ states already exist). Useful as a
+   sensitivity comparison: "receptor-level vs enzyme-level feedback."
+
+Implementing P2Y1 desensitisation first is the right call — but we should be
+honest in the thesis that Purvis achieved transient shut-off with the PLCβ
+route, so our receptor route is a *deliberate, better-grounded* choice rather
+than the only option.
+
+# Proposed model structure (Slice 1)
+
+Minimal new state — three species — following the existing mass-action,
+count-based module style. Keep PKC as a single lumped pool (conventional +
+novel) for v0.6; an isoform split is a documented fidelity option (§Open
+questions).
+
+## New state variables (add to `MOLECULE_NAMES` / `species-v0.6.tsv`)
+
+| Species | Compartment | Meaning |
+|---|---|---|
+| `PKC_inactive[c]` | cytosol | resting PKC pool |
+| `PKC_active[c]` | cytosol | DAG+Ca²⁺-activated, membrane-translocated (lumped) |
+| `P2Y1_desensitised[pl]` | plasmalemma | phosphorylated, signalling-incompetent P2Y1 |
+
+(Slice 2 would add `PLCb_phosphorylated[c]`.)
+
+## Reactions and rate laws
+
+All rates are in count·s⁻¹ to match `_ode_rhs`. DAG and Ca²⁺ act as
+**activators that are read, not consumed** (lumped simplification vs Purvis,
+where PKC·Ca·DAG is an explicit DAG-sequestering complex — see §Risks).
+
+**PKC activation** (coincidence detector; conventional-PKC-like):
+
+```
+v_pkc_act   = k_pkc_act   · PKC_inactive · dag_uM · f_Ca(ca_cyt)
+v_pkc_inact = k_pkc_inact · PKC_active
+d(PKC_inactive) += −v_pkc_act + v_pkc_inact
+d(PKC_active)   += +v_pkc_act − v_pkc_inact
+```
+
+with `f_Ca` a Hill (or linear) term in cytosolic Ca²⁺,
+`f_Ca = ca_cyt^n / (K_Ca_PKC^n + ca_cyt^n)`. A small Ca²⁺-independent floor on
+`f_Ca` (i.e. `floor + (1−floor)·Hill`) captures the **novel-isoform (DAG-only)**
+contribution Mundell attributes to PKCδ, without a second pool.
+
+**P2Y1 desensitisation** (PKC phosphorylates the *active* receptor):
+
+```
+v_p2y1_des = k_des · PKC_active · P2Y1_active
+v_p2y1_res = k_res · P2Y1_desensitised          # dephosphorylation
+d(P2Y1_active)       += −v_p2y1_des
+d(P2Y1_desensitised) += +v_p2y1_des − v_p2y1_res
+d(P2Y1_inactive)     += +v_p2y1_res
+```
+
+Only **active** (ADP-bound) P2Y1 is the substrate — matching the biology
+(phosphorylation of the agonist-occupied receptor). Desensitised receptor is a
+distinct phospho-state that does **not** count toward `total_active_R`, so the
+Gαq drive falls, closing the loop. Resensitisation returns it to the
+ADP-free `inactive` pool.
+
+**Loop closure (no new term, just the consequence):** the existing
+`total_active_R = p2y1_a + par1_a + par4_a` automatically shrinks as P2Y1
+desensitises → less Gq → less PLCβ → less DAG/IP₃ → less PKC → activity-
+dependent, self-limiting ADP signalling. Thrombin (PAR1/PAR4) is unaffected
+except indirectly via shared Gq/PKC, consistent with PKC acting on P2Y1.
+
+**Slice 2 (optional) — PLCβ phosphorylation (Purvis route):**
+
+```
+v_plcb_phos   = k_plcb_phos   · PKC_active · PLCb_inactive
+v_plcb_dephos = k_plcb_dephos · PLCb_phosphorylated
+# phosphorylated PLCβ is removed from the Gq-activatable pool
+```
+
+## Parameters (new `[pkc]` block in `calcium-v0.6.toml`)
+
+Per the kinetics-as-data convention (issue #32), all constants externalise to
+TOML with provenance in the section header. PKC is part of the calcium
+pathway, so this **extends the existing calcium TOML** — no new pathway loader
+is needed (cf. the CLAUDE.md scope note).
+
+| Param | Role | Source / status |
+|---|---|---|
+| `n_total_pkc` | total PKC copy number | Burkhart 2012 proteome (PKCα+δ) — **verify** |
+| `k_pkc_act`, `k_pkc_inact` | activation / deactivation | **lift from Purvis 2008 Table 1** PKC rows — **cross-check** (see Risks) |
+| `K_Ca_PKC`, `n_Ca_PKC` | Ca²⁺ co-activation Hill | Purvis PKC Ca²⁺-binding rows; Hill n model-choice |
+| `f_ca_floor` | novel-isoform DAG-only floor | model-choice; 0 ⇒ pure conventional PKC |
+| `k_des` | P2Y1 desensitisation rate | **model-choice** — no Purvis value (he used PLCβ). Calibrate to Mundell's "rapid" (seconds) desensitisation |
+| `k_res` | P2Y1 resensitisation | model-choice; minutes-scale (dephosphorylation), calibrate to ADP re-stimulation recovery |
+| `k_plcb_phos`, `k_plcb_dephos` | Slice 2 only | Purvis 2008 Table 1 PLCβ-phosphorylation rows |
+
+# Integration points (no code here — just where it lands)
+
+- `reconstruction/.../calcium_signalling.py`: add species to `MOLECULE_NAMES`;
+  add the PKC + desensitisation terms in the PI-cycle / GPCR block of
+  `_ode_rhs`; `K_PKC = dict(_KINETICS['pkc'])`.
+- `reconstruction/.../internal_state.py` + `species-v0.6.tsv`: register the
+  three new species (id, mass, initial count, class). Keep ordering in sync
+  (the file's own warning).
+- `reports/params/calcium-v0.6.toml`: new `[pkc]` block + P2Y1 desensitisation
+  rates; bump the loader default to v0.6.
+- `models/platelet/listeners/calcium_trace.py`: add `pkc_active` and
+  `p2y1_desensitised_frac` columns (energetics-column pattern from v0.5).
+- `runscripts/manual/runPerturbation.py`: add a `pkc` experiment (knockout
+  `k_des → 0` vs baseline) for the v0.6 figure.
+
+# Validation & calibration plan
+
+**This is a biology change, not a no-op.** Unlike the v0.5 ATP column (which
+nothing read back), PKC feeds back into Ca²⁺ — so trajectories *will* change,
+**golden baselines must be regenerated, and the Dolan 5/5 must be re-verified.**
+
+1. **Resting state must be unchanged.** At rest, DAG and Ca²⁺ are low, so
+   `PKC_active` must be negligible (target < 1 % of the pool) and **no resting
+   P2Y1 desensitisation**. Set `K_Ca_PKC` / `k_pkc_act` so resting cyt
+   (100 ± 10 nM), DTS, and IP₃ (~50 nM) are untouched. This is the first
+   calibration gate.
+2. **Preserve Phase-3 Dolan 5/5** (resting cyt, resting DTS, peak height,
+   transient duration, SOCE differential). The feedback reduces sustained
+   P2Y1 drive, so expect a **faster return to baseline** in the ADP arm.
+   **Calibration-coupling warning:** the model *already* shuts IP₃ off via
+   `k_ip3_deg` + PLCβ `k_inact`. Adding a mechanistic brake risks
+   **double-counting** the shut-off → the lumped terms may need to be relaxed.
+   Skim `calibration-coupling-2026-05-25.qmd` before touching rates.
+3. **New, literature-anchored perturbation figure** (the v0.6 headline result,
+   analogous to the v0.5 PMCA/MCU figures): ADP-evoked transient with **PKC
+   feedback on vs PKC knockout** (`k_des = 0`). Prediction, matching
+   **Nicholas 2023**: knockout → larger / more sustained `P2Y1_active` and a
+   higher / longer Ca²⁺ response (loss of desensitisation ⇒ increased
+   reactivity). This is falsifiable against a real experiment.
+4. **New trace columns** for the validation panels: `pkc_active`,
+   `p2y1_desensitised_frac`.
+
+# Scope boundaries (explicit)
+
+- **In:** PKC activation (DAG + Ca²⁺), P2Y1 desensitisation/resensitisation,
+  optional PLCβ phosphorylation.
+- **Out:** granule secretion, integrin/aggregation, thromboxane, PKC isoform
+  split, GRK/arrestin machinery (Mundell shows P2Y1 desensitisation is largely
+  GRK-independent, so omitting GRK is well-justified), spatial/membrane
+  compartmentalisation of PKC.
+
+# Open questions / risks
+
+- **Goldens + 5/5 re-verification** are mandatory (biology change). Budget for
+  recalibration, not just a code add.
+- **Calibration coupling** with existing lumped shut-off (`k_ip3_deg`, PLCβ
+  `k_inact`) — likely the hardest part. May need to *reduce* lumped shut-off as
+  the mechanistic one comes in.
+- **`k_des` / `k_res` are model-choice** (Purvis gives no receptor-feedback
+  value). Anchor `k_des` to "rapid" desensitisation (seconds, Mundell) and
+  `k_res` to minutes-scale recovery; both are calibration knobs.
+- **DAG not depleted by PKC** (activator-only simplification vs Purvis's
+  explicit PKC·Ca·DAG complex). Reasonable for a lumped model; revisit if DAG
+  mass balance matters.
+- **Single lumped PKC** conflates conventional (Ca²⁺+DAG) and novel (DAG-only)
+  isoforms; Mundell shows *both* regulate P2Y1. The `f_ca_floor` term is a
+  one-parameter proxy; a two-pool split is the fidelity upgrade.
+- **Citation hygiene (do before thesis use):**
+  - Purvis 2008 Table 1 has a **known 100× transcription error** elsewhere
+    (IP₃R k₃ — see `purvis-2008-k3-transcription-error.md`). **Cross-check every
+    PKC constant lifted from Table 1** against the cited primary sources.
+  - The repo cites Mazet 2020 as "*Sci. Rep.* 10:**13889**" (in
+    `calcium_signalling.py` and the TOML), but the PDF first page reads
+    "*Scientific Reports* (2020) 10:**13244**" (DOI 10.1038/s41598-020-70215-7).
+    **Reconcile this** when touching the citations.
+
+# Phased implementation plan
+
+1. **Slice 1 — PKC + P2Y1 desensitisation.** Add three species + rate laws;
+   calibrate resting state (gate 1); recalibrate to Dolan 5/5 (gate 2);
+   regenerate goldens; add trace columns. *Deliverable: working feedback,
+   5/5 preserved.*
+2. **Slice 2 — PKC knockout perturbation figure.** `runPerturbation.py` pkc
+   experiment; figure vs Nicholas 2023 increased-reactivity result. *Deliverable:
+   v0.6 headline figure + legend.*
+3. **Slice 3 (optional) — PLCβ phosphorylation (Purvis route).** Add as a
+   comparison; sensitivity panel "receptor- vs enzyme-level feedback."
+4. **Future (out of v0.6) — isoform split; PKC → granule/integrin coupling**
+   when those modules land.
+
+# References
+
+*Verify journal/volume/DOI in Zotero before citing in the thesis*
+([[feedback_citation_verification]]); titles + first authors + years below are
+the safe-to-recall anchors.
+
+- **Purvis JE, Chatterjee MS, Brass LF, Diamond SL.** A molecular signaling
+  model of platelet phosphoinositide and calcium regulation during homeostasis
+  and P2Y1 activation. *Blood.* 2008;112(10):4069–4079.
+  doi:10.1182/blood-2008-05-157883. *(In `source-info/calcium-papers/`; already
+  a repo reference. PKC module = Fig. 2C/2G, Table 1.)*
+- **Mazet F, Tindall MJ, Gibbins JM, Fry MJ.** A model of the PI cycle…
+  *Sci. Rep.* 2020;10:13244. doi:10.1038/s41598-020-70215-7. *(Repo PI-cycle
+  framework; cites Ryu et al. for PLCβ–PKC feedback. Note the 13889/13244
+  discrepancy above.)*
+- **Mundell et al.** Distinct Roles for Protein Kinase C Isoforms in Regulating
+  Platelet Purinergic Receptor Function. *Mol. Pharmacol.* 2006; PMID 16804093.
+  *(Primary evidence for PKC-mediated P2Y1 desensitisation in human platelets;
+  confirm first author in Zotero.)*
+- **Nicholas et al.** Loss of P2Y1 receptor desensitization does not impact
+  hemostasis or thrombosis despite increased platelet reactivity in vitro.
+  2023; PMID 36958516 / PMC10809801. *(Validation target; confirm journal +
+  first author.)*
+- **Ryu SH et al.** Feedback regulation of phospholipase C-β by protein kinase
+  C. *J. Biol. Chem.* ~1990. *(Mazet ref. 22; classical PLCβ–PKC feedback.)*
+- **Rodríguez-Rodríguez et al.** Desensitization of endothelial P2Y1 receptors
+  by PKC-dependent mechanisms… *Br. J. Pharmacol.* 2009. *(Supporting,
+  non-platelet.)*

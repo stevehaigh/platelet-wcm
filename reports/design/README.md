@@ -14,7 +14,8 @@ notes and are always more current than anything in this directory.
 
 | File | What it is |
 |---|---|
-| [`model-status-2026-05-13.qmd`](model-status-2026-05-13.qmd) | v0.4.1 model status. Twelve coupled mechanisms agonist → cytosolic Ca²⁺; Phase 3 Dolan validation 5/5. The single best summary of the model as it stands today. |
+| [`version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd`](version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd) | **Model evolution v0.5 → v0.6 → v0.61.** Biology added, model changes, and results per release, with regenerated figures + legends. The current cross-version summary (and the PR #54 description). Start here for "what changed across the PKC arc". |
+| [`model-status-2026-05-13.qmd`](model-status-2026-05-13.qmd) | v0.4.1 model status. Twelve coupled mechanisms agonist → cytosolic Ca²⁺; Phase 3 Dolan validation 5/5. The best summary of the *calcium core* (pre-PKC). |
 | [`kinetics-as-data-2026-05-22.qmd`](kinetics-as-data-2026-05-22.qmd) | Issue #32 audit and implementation plan. Move ~150 numerical constants out of Python into TOML/TSV. Four-level spectrum from "Python-with-TOML-constants" to "fully data-driven biology". |
 | [`codebase-review-2026-05-23.qmd`](codebase-review-2026-05-23.qmd) | Dev-readiness audit (max-effort review of `main`). Priority-ordered punch list, calibration-coupling map, test-coverage gap analysis, "not to do" list. |
 | [`calibration-coupling-2026-05-25.qmd`](calibration-coupling-2026-05-25.qmd) | One-page matrix of "if you change X you must re-derive Y" chains in `calcium_signalling.py`. Skim before touching any rate constant. |
@@ -23,6 +24,8 @@ notes and are always more current than anything in this directory.
 
 | File | What it is |
 |---|---|
+| [`pkc-p2y1-feedback-design-2026-06-11.qmd`](pkc-p2y1-feedback-design-2026-06-11.qmd) | **v0.6 design.** DAG → PKC → P2Y1 desensitisation negative feedback; closes the dead-end DAG branch. Anchored to Purvis 2008 (PKC module) + Mundell 2006 / Nicholas 2023 (PKC→P2Y1 in platelets). **Implemented** on branch `PKC-P2Y1-desensitisation`: both feedback routes — P2Y1 desensitisation (Mundell/Nicholas) **and** PLCβ phosphorylation (Purvis route, added on Mike's request) — plus `runPerturbation.py` `pkc`/`plcb` figures. calcium-v0.6 TOML/TSV, ODE, listener columns, goldens regenerated, Dolan 5/5 preserved. |
+| [`pkc-downstream-effects-2026-06-12.qmd`](pkc-downstream-effects-2026-06-12.qmd) | **v0.61 design.** Scopes the downstream PKC effects deferred from v0.6: granule secretion (autocrine ADP), thromboxane A₂ (autocrine TP→Gq, aspirin target), integrin αIIbβ3 affinity state. Recommends sequencing (secretion → thromboxane → integrin); flags the single-cell limit (aggregation out of reach). Frames PKC as the hub of four feedback loops (2 brakes + 2 amplifiers). Design only — no code. |
 | [`pathway-diagram-review-2026-05-19.qmd`](pathway-diagram-review-2026-05-19.qmd) | Annotation list for the BioRender pathway figure used in lab-meeting slide 7. |
 | [`lab-meeting-2026-05-14.qmd`](lab-meeting-2026-05-14.qmd) | Lab-meeting presentation: methodology, results, AI-assisted validation. |
 | [`mike-report-2026-05-14.qmd`](mike-report-2026-05-14.qmd) | PNAS-style write-up on feasibility of mechanistic whole-cell platelet modelling. |

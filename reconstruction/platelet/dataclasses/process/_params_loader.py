@@ -26,7 +26,7 @@ import tomllib
 from typing import Any
 
 
-_DEFAULT_VERSION = 'v0.5'
+_DEFAULT_VERSION = 'v0.6'
 
 # `_params_loader.py` lives at
 #   reconstruction/platelet/dataclasses/process/_params_loader.py

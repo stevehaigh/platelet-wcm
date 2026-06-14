@@ -31,6 +31,7 @@
 \newunicodechar{∼}{\ensuremath{\sim}}
 \newunicodechar{✅}{\ensuremath{\checkmark}}
 \newunicodechar{✓}{\ensuremath{\checkmark}}
+\newunicodechar{✔}{\ensuremath{\checkmark}}
 \newunicodechar{✗}{\ensuremath{\times}}
 \newunicodechar{★}{\ensuremath{\bigstar}}
 \newunicodechar{∈}{\ensuremath{\in}}
@@ -38,3 +39,15 @@
 \newunicodechar{≠}{\ensuremath{\neq}}
 \newunicodechar{◐}{\LEFTcircle}
 \newunicodechar{⚠}{\faExclamationTriangle}
+
+% Heading font fix (Quarto / KOMA-script docs). KOMA's `scrartcl` sets all
+% sectioning headings in sans-serif by default, and no `sansfont` with Greek
+% coverage is configured — so Greek letters (α, β, …) and similar glyphs drop
+% out of *headings* even though the serif main font (STIX Two Text) renders
+% them fine in body text. Route headings back to the serif main font, which
+% has full Greek. Guarded with \@ifundefined so the pandoc/`article` path
+% (make pdfs, which never loads KOMA) is unaffected — \addtokomafont only
+% exists when KOMA is loaded.
+\makeatletter
+\@ifundefined{addtokomafont}{}{\addtokomafont{disposition}{\rmfamily}}
+\makeatother

@@ -37,6 +37,14 @@ PYTHONPATH=$PWD python runscripts/manual/runPhase3.py [sim_outdir] --length 200
 # 2-D dose-response sweep over ADP × thrombin (one row per cell → heatmaps + 3-D surface)
 PYTHONPATH=$PWD python runscripts/manual/runDoseSweep.py [sim_outdir] --grid 9 --length 200
 
+# Single-mechanism perturbation knockouts (PMCA / MCU / PKC P2Y1 / PLCβ)
+PYTHONPATH=$PWD python runscripts/manual/runPerturbation.py [sim_outdir] --experiment pkc
+
+# Second-wave experiment — autocrine amplification at a weak transient agonist
+# (v0.6 open-loop vs v0.61 aspirin vs v0.61 full). Shows the v0.61 loops' effect
+# on cytosolic Ca²⁺, which is invisible under a saturating agonist (store-limited).
+PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 0.5 --length 300
+
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it
@@ -141,15 +149,15 @@ Each timestep:
 
 Processes run in **dependency-ordered groups**. Within a group, processes share a
 partition step. The current platelet model has a single group:
-`(RestingDecay, CalciumDynamics)`.
+`(RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis)`.
 
 ### Core Abstractions
 
 | Concept | Base class | Platelet impl | Purpose |
 |---------|-----------|---------------|---------|
-| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics) | Biological submodels that modify state |
+| **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
-| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace) | Observe and record data each timestep |
+| **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace) | Observe and record data each timestep |
 | **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
 
 There is no platelet equivalent of E. coli variants yet; the simulation runs a single
@@ -179,6 +187,15 @@ ODE solver and rate constants in
   Gαq exchange/GTPase cycle which activates PLCβ.
 - **PI cycle** — PLCβ-catalysed PIP2 → IP3 + DAG; IP3 5-phosphatase / 3-kinase degradation;
   PIP2 resynthesis (lumped). IP3 is now an endogenous state variable, not a forced curve.
+- **PKC feedback (v0.6)** — DAG + Ca²⁺ activate PKC (lumped conventional PKCα/β + novel
+  PKCδ), closing the previously dead-end DAG branch, via two activity-dependent brakes:
+  (1) **P2Y1 desensitisation** (`P2Y1_active[pl]` → `P2Y1_desensitised[pl]`; ADP-arm
+  specific, Mundell 2006 / Nicholas 2023) and (2) **PLCβ phosphorylation** (`PLCb_inactive`
+  → `PLCb_phosphorylated[c]`, out of the Gq-activatable pool; shared-node brake that lowers
+  IP3 toward baseline, Purvis 2008). Both engage after the early Ca²⁺ peak (~10–15 s PKC
+  delay), so Dolan 5/5 is preserved; the Ca²⁺ response is store-limited, so the receptor
+  desensitisation fraction and IP3 are the clear readouts. See `[pkc.*]` in the calcium TOML
+  and the `pkc` / `plcb` experiments in `runPerturbation.py`.
 - **IP3R** — Li-Rinzel 1994 reduction of de Young–Keizer 1992 (quasi-steady m∞, one slow ODE for h)
 - **SERCA** — E1/E2 enzymatic cycle (Dode 2002)
 - **PMCA** — 5-state CaM-coupled (Caride 2007 Table 3): basal + Ca₄·CaM-activated paths
@@ -189,11 +206,76 @@ ODE solver and rate constants in
   read the module default constant live). Passing 0 for a given peak gives
   REST level for that receptor; all three zero is a resting / un-stimulated sim.
 
-`CalciumTrace` listener records 15 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost).
+`CalciumTrace` listener records 18 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost, PKC active, P2Y1 desensitised fraction + PLCβ phosphorylated fraction).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
 
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
 extracellular Ca²⁺).
+
+### Downstream PKC effects — granule secretion + autocrine ADP (v0.61)
+
+`GranuleSecretion` (in `models/platelet/processes/granule_secretion.py`) is the
+first PKC *output* (v0.61), wiring PKC out of its v0.6 brake-only role.
+
+**Slice 1 — secretion.** Each timestep it relocates pre-existing granule cargo —
+`ADP[dg]`, `5HT[dg]` (dense), `FGA[ag]` (α) → the extracellular space `[e]`, and
+`SELP[ag]` → a surface state `SELP_surface[pl]` (the P-selectin activation
+marker). Release is first-order in the remaining pool, scaled by a
+`PKC_active × Ca²⁺` coincidence gate that keys off PKC activation *above* a
+resting-tone floor, so resting secretion is exactly zero.
+
+**Slice 2 — autocrine ADP loop.** Secreted `ADP[e]` is fed back onto the P2Y1
+drive inside the calcium ODE: `_ode_rhs` adds its pericellular concentration
+(`secreted_adp_count × _UM_PER_COUNT_EX`, threaded via CalciumDynamics) to the
+exogenous ADP forcing, closing PKC → secretion → ADP → P2Y1. `V_EX_L` (effective
+pericellular volume, ~66 fL) is a **calibration choice** set so full dense-granule
+release ≈ 10 µM (the standard dose). The loop self-limits via ecto-NTPDase
+clearance (`ADP[e] → AMP[e]`, first-order `k_ntpdase`, in GranuleSecretion) plus
+the v0.6 P2Y1 desensitisation brake and finite cargo. Effect is sub-integer on the
+30 s Dolan goldens (P2Y1 is minor vs thrombin/PARs and the response is
+store-limited) → **goldens stay byte-identical, Dolan 5/5 preserved, no regen**;
+it shows clearly in a thrombin-only sim (zero exogenous ADP) where secreted ADP is
+the sole P2Y1 driver.
+
+Rate constants / volumes live in
+`reconstruction/platelet/dataclasses/process/granule_secretion.py` and the
+volume block of `calcium_signalling.py` (Python, not TOML — the kinetics-as-data
+scaffold is still calcium-only). The `SecretionTrace` listener records
+secreted-cargo counts, released / surface-exposed fractions, the gate, and the
+autocrine `adp_e_uM`.
+
+**Thromboxane Slice A — TXA₂ synthesis (§2, production only).**
+`ThromboxaneSynthesis` (in `models/platelet/processes/thromboxane_synthesis.py`)
+lumps cPLA₂ → COX-1 → TXA₂-synthase into one Ca²⁺ × PKC-gated production term
+(same resting-floor gate → zero at rest), scaled by the **aspirin knob**
+`COX1_FACTOR` (module-level in the dataclass, read live; `0` = aspirin knockout,
+abolishes TXA₂). De-novo `TXA2[e]` decays first-order (t½ ≈ 30 s) to the stable
+ELISA metabolite `TXB2[e]`. The `ThromboxaneTrace` listener records `txa2_uM`,
+`txb2`, and the gate. Slice A is additive (no Gq feedback).
+
+**Thromboxane Slice B — autocrine TXA₂ → TP → Gq (§2, feedback).** The TP
+receptor (`TP_inactive[pl]`/`TP_active[pl]`, ~1000 copies; `[gpcr.tp]` in the
+TOML) is added to the calcium ODE. Synthesised `TXA2[e]` is threaded into
+`_ode_rhs` (via CalciumDynamics, like the autocrine ADP) and reversibly
+activates TP (binding does not deplete TXA₂); active TP joins
+`total_active_R` (`+ tp_a`), closing the second autocrine amplifier. Effect is
+modest under strong thrombin (store-limited + PAR-dominated; IP₃ ≈ +0.6 % vs
+aspirin by 150 s) — the amplifier matters most at threshold stimuli, like the
+autocrine ADP. Aspirin (`COX1_FACTOR=0`) removes the whole loop (TP inactive).
+**Goldens regenerated** (adding 2 ODE states perturbs `at_rest` ~0.003 %;
+`default_activation` was byte-identical anyway) — **Dolan 5/5 preserved**.
+`ThromboxaneTrace` gains `tp_active_frac`. Loop gain (TP count, TXA₂ level,
+`[gpcr.tp]` affinity) is the tunable knob. Integrin (§3) remains unimplemented.
+Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §1–2.
+
+**Toggling the loops / the second wave.** Two module-level knobs disable the
+amplifiers without monkeypatching (same live-override pattern as `CA_EX_UM`):
+`calcium_signalling.AUTOCRINE_ADP_GAIN` (1.0 → full; 0.0 → open loop) and
+`thromboxane_synthesis.COX1_FACTOR` (aspirin = 0). `runSecondWave.py` uses both
+to contrast v0.6 / aspirin / full-v0.61 at a weak transient agonist — the
+regime where the loops visibly change cytosolic Ca²⁺ (the "second wave"); under
+a saturating agonist the response is store-limited and the loops barely move it.
+See `reports/lab-books/lab-book-2026-06-13-second-wave.md`.
 
 ### State Partitioning
 
@@ -249,15 +331,15 @@ Compartments specific to platelets:
 Note `pl` (not `pm`) to avoid clashing with `m` (mitochondria).
 
 Rate constants for calcium signalling are externalised to
-`reports/params/calcium-v0.5.toml` (issue #32 Phase 2) and loaded at import
-time by
+`reports/params/calcium-v0.6.toml` (issue #32 Phase 2; v0.6 adds `[pkc.*]`)
+and loaded at import time by
 `reconstruction/platelet/dataclasses/process/_params_loader.py:load_calcium_kinetics()`.
 `calcium_signalling.py` consumes the loaded dict as `_KINETICS = load_calcium_kinetics()`
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 63 species)
-lives in `reports/params/species-v0.5.tsv` and is loaded by
+The molecule inventory (id, mass, initial count, class for all 76 species)
+lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`
 directory in this repo.
