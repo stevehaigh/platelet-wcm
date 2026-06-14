@@ -19,11 +19,10 @@ The numeric ODE solver and rate constants live in:
 This process is a thin wrapper: it feeds the current molecule counts to
 the solver and applies the returned integer count deltas.
 
-Agonist stimulation is controlled by the three `_*_peak_*` class attrs.
-Each is the peak concentration of an agonist during the activation
-transient; `None` (default) uses the module-level peak constants, and
-`0` yields a resting / un-stimulated sim. Override on the *class* before
-constructing the simulation — mirrors the `cs_mod.CA_EX_UM` pattern.
+Run conditions (extracellular Ca²⁺, agonist peaks, feedback gains,
+perturbation scales) come from the per-run ``RunConfig`` on the simulation
+(``sim.run_config``), read once in ``initialize`` — not from mutated module
+globals.
 """
 
 import numpy as np
@@ -37,21 +36,13 @@ class CalciumDynamics(process.Process):
 
 	_name = 'CalciumDynamics'
 
-	# Agonist peak concentrations during the activation transient. `None`
-	# uses the module-level defaults (THROMBIN_PEAK_NM, ADP_PEAK_UM,
-	# ATP_EX_PEAK_UM in calcium_signalling); `0` yields a resting sim.
-	_thrombin_peak_nM: float | None = None
-	_adp_peak_uM:      float | None = None
-	_atp_ex_peak_uM:   float | None = None
-	# Seconds of settling time before the agonist stimulus begins.
-	_agonist_delay = 0.0
-
 	def __init__(self):
 		super(CalciumDynamics, self).__init__()
 
 	def initialize(self, sim, sim_data):
 		super(CalciumDynamics, self).initialize(sim, sim_data)
 
+		self._config = sim.run_config
 		self._solver = sim_data.process.calcium_signalling
 		self._molecules = self.bulkMoleculesView(
 			self._solver.molecule_names)
@@ -76,18 +67,16 @@ class CalciumDynamics(process.Process):
 		dt = self.timeStepSec()
 		t_sim = self.time()
 
-		secreted_adp_count = float(self._adp_ex.total_counts()[0])
-		secreted_txa2_count = float(self._txa2.total_counts()[0])
+		# Per-step pericellular autocrine state, keyed by species (review #6):
+		# secreted ADP[e] → P2Y1, synthesised TXA2[e] → TP. Updated discretely
+		# by GranuleSecretion / ThromboxaneSynthesis.
+		step_inputs = {
+			'ADP[e]': float(self._adp_ex.total_counts()[0]),
+			'TXA2[e]': float(self._txa2.total_counts()[0]),
+		}
 
 		self._delta, self._atp_cost = self._solver.molecules_to_next_time_step(
-			counts, dt, t_sim,
-			agonist_delay=self._agonist_delay,
-			thrombin_peak_nM=self._thrombin_peak_nM,
-			adp_peak_uM=self._adp_peak_uM,
-			atp_ex_peak_uM=self._atp_ex_peak_uM,
-			secreted_adp_count=secreted_adp_count,
-			secreted_txa2_count=secreted_txa2_count,
-		)
+			counts, dt, t_sim, self._config, step_inputs)
 
 		# Request molecules we need to take away (negative deltas).
 		requests = np.maximum(-self._delta, 0)

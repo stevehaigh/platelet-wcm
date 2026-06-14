@@ -11,6 +11,7 @@ import unittest
 import numpy as np
 
 from reconstruction.platelet.dataclasses.process import calcium_signalling as cs
+from reconstruction.platelet.run_config import RunConfig
 
 
 class TestAgonistForcingPeaks(unittest.TestCase):
@@ -80,8 +81,11 @@ class TestOdeRhsResting(unittest.TestCase):
 
 		# t_sim_start = 100 (past the agonist t_peak); with peaks = 0 the
 		# forcing functions still return REST (0), so PAR1/4 cleavage rates
-		# from extracellular thrombin must be exactly zero.
-		dy_rest = cs._ode_rhs(0.0, y0, 100.0, 0.0, 0.0, 0.0, 0.0)
+		# from extracellular thrombin must be exactly zero. Empty step_inputs →
+		# no autocrine contribution.
+		config = RunConfig(
+			thrombin_peak_nM=0.0, adp_peak_uM=0.0, atp_ex_peak_uM=0.0)
+		dy_rest = cs._ode_rhs(0.0, y0, 100.0, config, {})
 		par1_idx = list(cs.MOLECULE_NAMES).index('PAR1_active[pl]')
 		par4_idx = list(cs.MOLECULE_NAMES).index('PAR4_active[pl]')
 

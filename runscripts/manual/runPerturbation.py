@@ -75,24 +75,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from runscripts.manual.runPlateletSim import resolve_sim_path, run_platelet_sim
+from reconstruction.platelet.run_config import RunConfig
 from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
 import wholecell.utils.filepath as fp
 from wholecell.io.tablereader import TableReader
 
 
 # ── Experiment registry ─────────────────────────────────────────────────────
-# Each experiment overrides ONE constant: cs_mod.<dict_name>[<knob_key>] is
-# multiplied by each factor in turn. ca_ex_mM and length_sec set the protocol.
+# Each experiment scales ONE constant via a RunConfig field (config_field): the
+# baseline of cs_mod.<dict_name>[<knob_key>] is multiplied by each factor in turn
+# inside the ODE (no global mutation). ca_ex_mM and length_sec set the protocol.
 EXPERIMENTS: dict[str, dict] = {
 	'pmca': dict(
 		title='PMCA V_max rate-limits cytosolic Ca recovery (EDTA transient)',
-		dict_name='K_PMCA', knob_key='k_cat', knob_label='PMCA V_max',
+		dict_name='K_PMCA', knob_key='k_cat', config_field='pmca_kcat_scale',
+		knob_label='PMCA V_max',
 		factors=[0.25, 0.5, 1.0, 2.0, 4.0],
 		ca_ex_mM=0.0, length_sec=300,
 	),
 	'mcu': dict(
 		title='MCU buffers cytosolic Ca without rescuing the DTS store (+Ca)',
-		dict_name='K_MITO', knob_key='V_max_MCU', knob_label='MCU V_max',
+		dict_name='K_MITO', knob_key='V_max_MCU', config_field='mcu_vmax_scale',
+		knob_label='MCU V_max',
 		factors=[0.0, 1.0, 4.0],
 		ca_ex_mM=1.2, length_sec=400,
 	),
@@ -106,7 +110,8 @@ EXPERIMENTS: dict[str, dict] = {
 		# larger / more sustained response than the baseline feedback.
 		title='PKC desensitisation of P2Y1 throttles the ADP response '
 			'(ADP-only, +Ca)',
-		dict_name='K_P2Y1_DES', knob_key='k_des', knob_label='P2Y1 k_des',
+		dict_name='K_P2Y1_DES', knob_key='k_des', config_field='k_des_scale',
+		knob_label='P2Y1 k_des',
 		factors=[0.0, 1.0],
 		ca_ex_mM=1.2, length_sec=300,
 		sim_kwargs=dict(thrombin_peak_nM=0.0),     # ADP-only: isolate P2Y1
@@ -121,7 +126,8 @@ EXPERIMENTS: dict[str, dict] = {
 		# "return toward baseline" result. IP₃ is the clear readout (the
 		# cytosolic Ca²⁺ amplitude stays store-limited).
 		title='PKC → PLCβ phosphorylation damps IP₃ (Purvis route, +Ca)',
-		dict_name='K_PLCB_PHOS', knob_key='k_plcb_phos', knob_label='PLCβ k_phos',
+		dict_name='K_PLCB_PHOS', knob_key='k_plcb_phos',
+		config_field='k_plcb_phos_scale', knob_label='PLCβ k_phos',
 		factors=[0.0, 1.0],
 		ca_ex_mM=1.2, length_sec=300,
 		aux_cols=['ip3_nM', 'plcb_phosphorylated_frac'],
@@ -193,9 +199,11 @@ def run_perturbation(out_path: str, exp_key: str,
 		log_to_shell: bool = True) -> PerturbationScan:
 	"""Run one experiment's factor scan; always restore the knob afterwards."""
 	cfg = EXPERIMENTS[exp_key]
-	knob = getattr(cs_mod, cfg['dict_name'])
-	key = cfg['knob_key']
-	baseline = float(knob[key])
+	# Baseline value of the perturbed constant — read-only, for axis labels;
+	# the perturbation itself is applied through the RunConfig scale field (the
+	# factor multiplies the baseline inside the ODE), not by mutating the dict.
+	baseline = float(getattr(cs_mod, cfg['dict_name'])[cfg['knob_key']])
+	config_field = cfg['config_field']
 	length = length_override or cfg['length_sec']
 	factors = list(cfg['factors'])
 
@@ -209,31 +217,29 @@ def run_perturbation(out_path: str, exp_key: str,
 	dts_rows: list[np.ndarray] = []
 	aux_rows: dict[str, list[np.ndarray]] = {c: [] for c in aux_cols}
 	scalars: list[dict] = []
-	try:
-		for f in factors:
-			knob[key] = baseline * f
-			cell_dir = os.path.join(cells_root, f'x{f:g}')
-			fp.makedirs(cell_dir)
-			paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
-				log_to_shell=False, ca_ex_mM=cfg['ca_ex_mM'], **extra_kwargs)
-			cyt, dts = harvest_traces(paths['sim_out_dir'])
-			cyt_rows.append(cyt)
-			dts_rows.append(dts)
-			sc = {'factor': float(f), **reduce_scalars(cyt, dts)}
-			for col in aux_cols:
-				trace = harvest_column(paths['sim_out_dir'], col)
-				aux_rows[col].append(trace)
-				sc[f'{col}_max'] = float(trace.max())
-			scalars.append(sc)
-			if log_to_shell:
-				print(f'  {cfg["knob_label"]} ×{f:<5g} → '
-					f'peak cyt {sc["peak_cyt_nM"]:>6.1f} nM, '
-					f'recovery-AUC {sc["recovery_tail_auc_nMs"]:>9.0f} nM·s, '
-					f'DTS min {sc["dts_min_uM"]:>6.1f} µM')
-			if not keep_cell_output:
-				_prune_cell(cell_dir)
-	finally:
-		knob[key] = baseline   # restore no matter what
+	for f in factors:
+		run_config = RunConfig(
+			ca_ex_mM=cfg['ca_ex_mM'], **extra_kwargs, **{config_field: float(f)})
+		cell_dir = os.path.join(cells_root, f'x{f:g}')
+		fp.makedirs(cell_dir)
+		paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
+			log_to_shell=False, run_config=run_config)
+		cyt, dts = harvest_traces(paths['sim_out_dir'])
+		cyt_rows.append(cyt)
+		dts_rows.append(dts)
+		sc = {'factor': float(f), **reduce_scalars(cyt, dts)}
+		for col in aux_cols:
+			trace = harvest_column(paths['sim_out_dir'], col)
+			aux_rows[col].append(trace)
+			sc[f'{col}_max'] = float(trace.max())
+		scalars.append(sc)
+		if log_to_shell:
+			print(f'  {cfg["knob_label"]} ×{f:<5g} → '
+				f'peak cyt {sc["peak_cyt_nM"]:>6.1f} nM, '
+				f'recovery-AUC {sc["recovery_tail_auc_nMs"]:>9.0f} nM·s, '
+				f'DTS min {sc["dts_min_uM"]:>6.1f} µM')
+		if not keep_cell_output:
+			_prune_cell(cell_dir)
 
 	return PerturbationScan(
 		exp_key=exp_key, cfg=cfg, baseline_value=baseline, length_sec=length,

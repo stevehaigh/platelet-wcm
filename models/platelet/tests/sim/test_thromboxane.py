@@ -15,12 +15,14 @@ import pytest
 
 from wholecell.io.tablereader import TableReader
 from runscripts.manual.runPlateletSim import run_platelet_sim
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
+from reconstruction.platelet.run_config import RunConfig
 
 
-def _run(out_dir, length, **sim_kwargs):
+def _run(out_dir, length, **config_kwargs):
+	"""Run one sim; config_kwargs are RunConfig fields (peaks, cox1_factor, …)."""
+	run_config = RunConfig(ca_ex_mM=1.2, **config_kwargs)
 	paths = run_platelet_sim(out_dir, length_sec=length, seed=0,
-		log_to_shell=False, ca_ex_mM=1.2, **sim_kwargs)
+		log_to_shell=False, run_config=run_config)
 	return paths['sim_out_dir']
 
 
@@ -56,14 +58,10 @@ class TestThromboxaneSynthesis:
 
 	def test_aspirin_abolishes_thromboxane(self):
 		"""COX-1 knockout (cox1_factor = 0) → no TXA₂ / TXB₂ at all."""
-		try:
-			tx_mod.COX1_FACTOR = 0.0
-			with tempfile.TemporaryDirectory() as td:
-				sim_out = _run(td, 100)
-				assert _tx(sim_out, 'txa2_uM').max() == 0.0
-				assert _tx(sim_out, 'txb2').max() == 0
-		finally:
-			tx_mod.COX1_FACTOR = 1.0
+		with tempfile.TemporaryDirectory() as td:
+			sim_out = _run(td, 100, cox1_factor=0.0)
+			assert _tx(sim_out, 'txa2_uM').max() == 0.0
+			assert _tx(sim_out, 'txb2').max() == 0
 
 	def test_txa2_drives_tp_and_amplifies_gq(self):
 		"""Slice B: synthesised TXA₂ activates TP and amplifies the Gq cascade
@@ -78,14 +76,10 @@ class TestThromboxaneSynthesis:
 			on = _run(os.path.join(td, 'on'), 150)
 			tp_on = _tx(on, 'tp_active_frac')
 			ip3_on = ip3(on)
-		try:
-			tx_mod.COX1_FACTOR = 0.0
-			with tempfile.TemporaryDirectory() as td:
-				asp = _run(os.path.join(td, 'asp'), 150)
-				tp_asp = _tx(asp, 'tp_active_frac')
-				ip3_asp = ip3(asp)
-		finally:
-			tx_mod.COX1_FACTOR = 1.0
+		with tempfile.TemporaryDirectory() as td:
+			asp = _run(os.path.join(td, 'asp'), 150, cox1_factor=0.0)
+			tp_asp = _tx(asp, 'tp_active_frac')
+			ip3_asp = ip3(asp)
 
 		# TXA₂ activates TP only when COX-1 is intact.
 		assert tp_on.max() > 0.3

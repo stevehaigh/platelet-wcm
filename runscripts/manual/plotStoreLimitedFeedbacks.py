@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import os
 import tempfile
-from contextlib import contextmanager
 
 import matplotlib
 matplotlib.use('Agg')
@@ -39,40 +38,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from runscripts.manual.runPlateletSim import run_platelet_sim
-import reconstruction.platelet.dataclasses.process.calcium_signalling as cs_mod
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
+from reconstruction.platelet.run_config import RunConfig
 from wholecell.io.tablereader import TableReader
-
-# Baseline (on) values captured at import; restored after every run.
-_KDES = cs_mod.K_P2Y1_DES['k_des']
-_KPHOS = cs_mod.K_PLCB_PHOS['k_plcb_phos']
-
-
-@contextmanager
-def model_config(brakes: bool, amplifiers: bool):
-	"""Toggle the v0.6 PKC brakes and the v0.61 autocrine amplifiers as a unit.
-
-	brakes:     P2Y1 desensitisation + PLCb phosphorylation (k_des / k_plcb_phos)
-	amplifiers: autocrine ADP loop + thromboxane (AUTOCRINE_ADP_GAIN / COX1_FACTOR)
-	"""
-	save = (cs_mod.K_P2Y1_DES['k_des'], cs_mod.K_PLCB_PHOS['k_plcb_phos'],
-		cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR)
-	try:
-		cs_mod.K_P2Y1_DES['k_des'] = _KDES if brakes else 0.0
-		cs_mod.K_PLCB_PHOS['k_plcb_phos'] = _KPHOS if brakes else 0.0
-		cs_mod.AUTOCRINE_ADP_GAIN = 1.0 if amplifiers else 0.0
-		tx_mod.COX1_FACTOR = 1.0 if amplifiers else 0.0
-		yield
-	finally:
-		(cs_mod.K_P2Y1_DES['k_des'], cs_mod.K_PLCB_PHOS['k_plcb_phos'],
-			cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR) = save
 
 
 def _run(brakes, amplifiers, length, **agonist):
-	with model_config(brakes=brakes, amplifiers=amplifiers):
-		td = tempfile.mkdtemp()
-		paths = run_platelet_sim(td, length_sec=length, seed=0,
-			log_to_shell=False, ca_ex_mM=1.2, **agonist)
+	"""Run one sim with the v0.6 brakes and v0.61 amplifiers toggled via RunConfig.
+
+	brakes:     P2Y1 desensitisation + PLCβ phosphorylation (k_des / k_plcb_phos
+	            scales). amplifiers: autocrine ADP + thromboxane loops (autocrine
+	            ADP gain / cox1_factor). Each is 1.0 (on) or 0.0 (off).
+	"""
+	run_config = RunConfig(
+		ca_ex_mM=1.2,
+		k_des_scale=1.0 if brakes else 0.0,
+		k_plcb_phos_scale=1.0 if brakes else 0.0,
+		autocrine_adp_gain=1.0 if amplifiers else 0.0,
+		cox1_factor=1.0 if amplifiers else 0.0,
+		**agonist)
+	td = tempfile.mkdtemp()
+	paths = run_platelet_sim(td, length_sec=length, seed=0,
+		log_to_shell=False, run_config=run_config)
 	return paths['sim_out_dir']
 
 

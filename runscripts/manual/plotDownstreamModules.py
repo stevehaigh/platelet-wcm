@@ -34,15 +34,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from runscripts.manual.runPlateletSim import run_platelet_sim
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
+from reconstruction.platelet.run_config import RunConfig
 from wholecell.io.tablereader import TableReader
 
 
-def _run(length, **agonist):
-	"""Run one platelet sim into a temp dir; return its simOut path."""
+def _run(length, **config_kwargs):
+	"""Run one platelet sim into a temp dir; return its simOut path.
+
+	``config_kwargs`` are RunConfig fields (agonist peaks, cox1_factor, …).
+	"""
+	run_config = RunConfig(ca_ex_mM=1.2, **config_kwargs)
 	td = tempfile.mkdtemp()
-	paths = run_platelet_sim(td, length_sec=length, seed=0, log_to_shell=False,
-		ca_ex_mM=1.2, **agonist)
+	paths = run_platelet_sim(td, length_sec=length, seed=0,
+		log_to_shell=False, run_config=run_config)
 	return paths['sim_out_dir']
 
 
@@ -178,18 +182,12 @@ def fig_thromboxane(outdir: str) -> str:
 	activating TP (left), and the loop's modest amplification of IP3 vs aspirin
 	(right) — modest because the response is store-limited and PAR-dominated.
 	"""
-	cox0 = tx_mod.COX1_FACTOR
-	try:
-		tx_mod.COX1_FACTOR = 1.0
-		on = _run(200)
-		txa2 = _col(on, 'ThromboxaneTrace', 'txa2_uM')
-		tp = _col(on, 'ThromboxaneTrace', 'tp_active_frac')
-		ip3_on = _col(on, 'CalciumTrace', 'ip3_nM')
-		tx_mod.COX1_FACTOR = 0.0
-		asp = _run(200)
-		ip3_asp = _col(asp, 'CalciumTrace', 'ip3_nM')
-	finally:
-		tx_mod.COX1_FACTOR = cox0
+	on = _run(200)                          # COX-1 intact (cox1_factor=1.0 default)
+	txa2 = _col(on, 'ThromboxaneTrace', 'txa2_uM')
+	tp = _col(on, 'ThromboxaneTrace', 'tp_active_frac')
+	ip3_on = _col(on, 'CalciumTrace', 'ip3_nM')
+	asp = _run(200, cox1_factor=0.0)        # aspirin: COX-1 knockout
+	ip3_asp = _col(asp, 'CalciumTrace', 'ip3_nM')
 	t = np.arange(len(txa2))
 
 	fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(15, 4.7))

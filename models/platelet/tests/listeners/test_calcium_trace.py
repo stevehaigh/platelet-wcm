@@ -18,7 +18,6 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from models.platelet.listeners.calcium_trace import CalciumTrace
-from reconstruction.platelet.dataclasses.process import calcium_signalling as cs_mod
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_UM_PER_COUNT_CYT,
 	_UM_PER_COUNT_DTS,
@@ -39,9 +38,12 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 _NUM_SPECIES = 20
 
 
-def _make_listener(counts):
+def _make_listener(counts, ca_ex_uM=1200.0):
 	"""Build a CalciumTrace whose ``_bulk_molecules.counts()`` returns
 	the supplied array, with the 20 species indices wired to slots 0–19.
+
+	``ca_ex_uM`` sets the extracellular Ca²⁺ the listener would normally read
+	from ``sim.run_config`` in initialize() (bypassed in these unit tests).
 	"""
 	if len(counts) != _NUM_SPECIES:
 		raise ValueError(
@@ -51,6 +53,7 @@ def _make_listener(counts):
 	bulk = MagicMock()
 	bulk.counts.return_value = np.asarray(counts, dtype=np.int64)
 	lst._bulk_molecules = bulk
+	lst._ca_ex_uM = ca_ex_uM
 
 	# CalciumDynamics reference, normally set in initialize(); the per-step
 	# ATP cost is read from its `_atp_cost` attribute.
@@ -165,33 +168,24 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 class TestCalciumTraceSoceFlux(unittest.TestCase):
 	"""SOCE flux follows Dolan Eq. 2–4; zero under EDTA."""
 
-	def setUp(self):
-		self._saved_ca_ex_uM = cs_mod.CA_EX_UM
-
-	def tearDown(self):
-		cs_mod.CA_EX_UM = self._saved_ca_ex_uM
-
 	def test_soce_flux_zero_when_ca_ex_zero(self):
-		"""EDTA condition (``CA_EX_UM = 0``) ⇒ SOCE current = 0 nM/s."""
-		cs_mod.CA_EX_UM = 0.0
-
+		"""EDTA condition (ca_ex = 0) ⇒ SOCE current = 0 nM/s."""
 		counts = [361, 38_800, 180, 200, 400] + [0] * (_NUM_SPECIES - 5)
-		lst = _make_listener(counts)
+		lst = _make_listener(counts, ca_ex_uM=0.0)
 		lst.update()
 
 		self.assertEqual(lst.soce_flux_nMs, 0.0)
 
 	def test_soce_flux_zero_when_ca_cyt_zero(self):
 		"""ca_cyt = 0 short-circuits the Nernst E_Ca,PM (log(C_ex/0))."""
-		cs_mod.CA_EX_UM = 1200.0
 		counts = [0, 38_800, 180, 200, 400] + [0] * (_NUM_SPECIES - 5)
-		lst = _make_listener(counts)
+		lst = _make_listener(counts, ca_ex_uM=1200.0)
 		lst.update()
 		self.assertEqual(lst.soce_flux_nMs, 0.0)
 
 	def test_soce_flux_matches_manual_hill_mwc_nernst_chain(self):
 		"""Listener result agrees with a hand-replayed Dolan Eq. 2–4 chain."""
-		cs_mod.CA_EX_UM = 1200.0
+		ca_ex_uM = 1200.0
 		ca_cyt_count = 361
 		ca_dts_count = 38_800
 		ip3_count = 180
@@ -200,7 +194,7 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 		counts = [ca_cyt_count, ca_dts_count, ip3_count,
 			stim1_count, orai_count] + [0] * (_NUM_SPECIES - 5)
 
-		lst = _make_listener(counts)
+		lst = _make_listener(counts, ca_ex_uM=ca_ex_uM)
 		lst.update()
 
 		# Manual replay (kept independent of listener internals).
@@ -211,7 +205,7 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 		stim2_p = qp * stim1_count
 		n_orai_channels = orai_count / ORAI_SUBUNITS_PER_CHANNEL
 		po_orai, _ = _mwc_open_fraction(stim2_p, n_orai_channels)
-		e_ca_pm_v = RT_OVER_zF_V * math.log(cs_mod.CA_EX_UM / ca_cyt_uM)
+		e_ca_pm_v = RT_OVER_zF_V * math.log(ca_ex_uM / ca_cyt_uM)
 		driving_pm_v = V_PM_V - e_ca_pm_v
 		soce_ions_s = (
 			-GAMMA_SOC_S * n_orai_channels * po_orai
@@ -222,10 +216,9 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 
 	def test_soce_flux_non_negative_at_resting_state(self):
 		"""At resting cyt with extracellular > intracellular, SOCE ≥ 0."""
-		cs_mod.CA_EX_UM = 1200.0
 		# Resting-ish counts: cyt ~100 nM, basal STIM1, full Orai.
 		counts = [361, 38_800, 180, 50, 400] + [0] * (_NUM_SPECIES - 5)
-		lst = _make_listener(counts)
+		lst = _make_listener(counts, ca_ex_uM=1200.0)
 		lst.update()
 		self.assertGreaterEqual(
 			lst.soce_flux_nMs, 0.0,

@@ -46,16 +46,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from runscripts.manual.runPlateletSim import resolve_sim_path, run_platelet_sim
-import reconstruction.platelet.dataclasses.process.calcium_signalling as cs_mod
-import reconstruction.platelet.dataclasses.process.thromboxane_synthesis as tx_mod
+from reconstruction.platelet.run_config import RunConfig
 import wholecell.utils.filepath as fp
 from wholecell.io.tablereader import TableReader
 
 @dataclass(frozen=True)
 class Condition:
 	"""Loop toggles + plot style/legend for one open/closed-loop condition."""
-	adp_gain: float   # cs_mod.AUTOCRINE_ADP_GAIN
-	cox1: float       # tx_mod.COX1_FACTOR
+	adp_gain: float   # RunConfig.autocrine_adp_gain
+	cox1: float       # RunConfig.cox1_factor
 	label: str        # detailed legend entry
 	color: str
 	ls: str
@@ -82,17 +81,13 @@ def run_condition(out_path: str, key: str, adp_uM: float, length: int,
 		log_to_shell: bool = True) -> dict[str, np.ndarray]:
 	"""Run one open/closed-loop condition; always restore the loop knobs."""
 	cfg = CONDITIONS[key]
-	adp0, cox0 = cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR
 	cell_dir = os.path.join(out_path, f'{key}_cell')
 	fp.makedirs(cell_dir)
-	try:
-		cs_mod.AUTOCRINE_ADP_GAIN = cfg.adp_gain
-		tx_mod.COX1_FACTOR = cfg.cox1
-		paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
-			log_to_shell=False, ca_ex_mM=1.2,
-			thrombin_peak_nM=0.0, adp_peak_uM=adp_uM, atp_ex_peak_uM=0.0)
-	finally:
-		cs_mod.AUTOCRINE_ADP_GAIN, tx_mod.COX1_FACTOR = adp0, cox0
+	run_config = RunConfig(
+		ca_ex_mM=1.2, thrombin_peak_nM=0.0, adp_peak_uM=adp_uM, atp_ex_peak_uM=0.0,
+		autocrine_adp_gain=cfg.adp_gain, cox1_factor=cfg.cox1)
+	paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
+		log_to_shell=False, run_config=run_config)
 
 	reader = TableReader(os.path.join(paths['sim_out_dir'], 'CalciumTrace'))
 	traces = {c: reader.readColumn(c).flatten() for c in TRACE_COLS}
