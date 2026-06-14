@@ -2,7 +2,8 @@
 
 Mechanics + the core directional result: at a weak transient ADP stimulus the
 closed-loop (v0.61) model sustains cytosolic Ca2+ above the open-loop (v0.6)
-model — the autocrine second wave. Both loop knobs must be restored afterwards.
+model — the autocrine second wave. Loop toggles are per-run RunConfig fields, so
+there is no global state to restore between conditions.
 """
 
 import json
@@ -15,7 +16,7 @@ from runscripts.manual.runSecondWave import run_second_wave
 
 @pytest.mark.slow
 class TestSecondWave:
-	def test_runs_restores_knobs_and_shows_second_wave(self, tmp_path):
+	def test_runs_and_shows_second_wave(self, tmp_path):
 		out = str(tmp_path / 'sw')
 		os.makedirs(out)
 
