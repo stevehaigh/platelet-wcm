@@ -1,0 +1,345 @@
+---
+title: "Platelet WCM — model evolution: v0.5 → v0.6 → v0.61"
+subtitle: "Biology added, model changes, and results across three releases"
+author: "Steve Haigh"
+date: "2026-06-14"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 3
+    include-in-header: ../pandoc-header.tex
+---
+
+# Summary
+
+Three releases take the model from a validated calcium pathway to a
+self-amplifying activation cascade, all driven by one new node — **protein
+kinase C (PKC)**.
+
+- **v0.5** completed the **intracellular Ca²⁺ pathway**: a fully mechanistic
+  cascade from physiological agonist (thrombin / ADP / ATP) to the cytosolic
+  Ca²⁺ transient, validated against Dolan & Diamond 2014 Fig. 4. The
+  second messenger **DAG was a dead-end** — produced by PLCβ, removed by DAG
+  kinase, feeding nothing.
+- **v0.6** added **PKC** as a DAG + Ca²⁺ coincidence detector and wired its two
+  *Ca²⁺-pathway-internal* feedbacks — the **brakes**: **P2Y1 desensitisation**
+  and **PLCβ phosphorylation**. This closes the DAG branch and makes the ADP arm
+  self-limiting.
+- **v0.61** added PKC's downstream **outputs** — **granule secretion + an
+  autocrine ADP loop**, and **thromboxane synthesis + an autocrine TXA₂ → TP →
+  Gq loop** — the **amplifiers**. PKC now sits at the hub of **four** feedback
+  loops (two brakes, two amplifiers), and that push–pull produces the platelet
+  **"second wave"**: a sustained Ca²⁺ response to a *weak* agonist that does not
+  exist without the loops.
+
+| | v0.5 | v0.6 | v0.61 |
+|---|---|---|---|
+| **Status** | `v0.5` tag (checkpoint) | PR #54 (open) | PR #54 (this update) |
+| **New node** | — | PKC | PKC outputs |
+| **Biology added** | Ca²⁺ pathway complete; DAG dead-end | P2Y1 desensitisation; PLCβ phosphorylation | granule secretion; autocrine ADP; TXA₂ synthesis; autocrine TXA₂→TP→Gq |
+| **Feedback loops** | 0 | 2 brakes | 2 brakes + 2 amplifiers |
+| **Processes** | RestingDecay, CalciumDynamics | (same) | + GranuleSecretion, + ThromboxaneSynthesis |
+| **Headline result** | Dolan 5/5 reproduced | P2Y1 desensitisation / IP₃ damping (store-limited Ca²⁺) | the second wave (+93 nM, ~80%, at weak ADP) |
+| **Dolan 5/5** | ✔ (defines it) | ✔ preserved | ✔ preserved |
+| **Tests / mypy** | 55 / clean | 59 / clean | **68 / clean** |
+
+A recurring theme runs through v0.6 and v0.61: the cytosolic Ca²⁺ transient is
+**store-limited** — the dense tubular system (DTS) empties on essentially every
+supra-threshold stimulus, so the *amplitude* is pinned by the SOCE/pump balance
+regardless of the upstream drive. The feedbacks therefore show up in the
+**receptor / messenger states** (IP₃, P2Y1 desensitisation) and in the **new
+outputs** (P-selectin, secreted ADP, TXA₂) — and, crucially, in the **Ca²⁺
+recovery phase under a weak agonist**, which is exactly where the second wave
+lives.
+
+---
+
+# v0.5 — the calcium pathway (baseline)
+
+## Biology
+
+v0.5 is the end of the "calcium core" arc: an end-to-end mechanistic cascade
+with **no hand-fitted forcing** left in the pathway. Twelve coupled mechanisms,
+in dependency order:
+
+1. **Receptors** — P2Y1 (ADP, reversible), PAR1 (thrombin, fast irreversible
+   cleavage), PAR4 (thrombin, ~10× slower), P2X1 (ATP-gated ionotropic).
+2. **Gαq cycle** — receptor-catalysed GDP→GTP exchange + RGS-accelerated GTPase.
+3. **PLCβ** — Gαq-activated; hydrolyses PIP₂.
+4. **PI cycle** — PIP₂ → IP₃ + DAG; lumped IP₃ degradation; PIP₂ resynthesis.
+   **IP₃ is an endogenous state variable, not a forced curve.**
+5. **IP3R** — Li–Rinzel reduction of de Young–Keizer, Nernst flux.
+6. **SERCA** — Purvis/Dode E1/E2 enzymatic cycle.
+7. **PMCA** — Caride 5-state, CaM-coupled (basal + Ca₄·CaM-activated paths).
+8. **Cytosolic buffering** — CaM ladder (free → Ca₂·CaM → Ca₄·CaM) + gelsolin proxy.
+9. **DTS buffering** — CALR / HSP90B1 / BiP / CREC multibuffer.
+10. **SOCE** — STIM1 dimerisation + Orai1 MWC, gated on extracellular Ca²⁺.
+11. **P2X1 + NCX** — plasma-membrane entry/exit.
+12. **Mitochondrial Ca²⁺** — MCU uptake + NCLX release.
+
+**The gap that motivates v0.6:** PLCβ produces both IP₃ *and* DAG. IP₃ drives
+the IP3R; **DAG feeds nothing** — it accumulates and is removed only by lumped
+DAG kinase. There is no activity-dependent, mechanistic brake on the cascade;
+"shut-off" is implicit (ADP unbinding, lumped PAR internalisation, lumped IP₃
+degradation).
+
+## Model changes (relative to the earlier v0.4.x core)
+
+- **Kinetics-as-data** (issue #32, phase 2): all calcium rate constants
+  externalised to `reports/params/calcium-v0.6.toml` and the 76-species
+  inventory to `species-v0.6.tsv`, loaded at import time. (v0.5 used the v0.5
+  TOML; v0.6 bumped the default.)
+- **Energetics columns**: trapezoidal PMCA ATP cost + an `atp_pump_per_s`
+  trace column (SERCA + PMCA ATP consumption). This was a *read-only*
+  diagnostic — nothing consumes it back, so it did **not** change trajectories
+  (contrast v0.6, which does).
+
+## Results
+
+Validation target — **Dolan & Diamond 2014 Fig. 4**: paired Ca²⁺ transients
+with and without extracellular Ca²⁺ (the EDTA/SOCE condition). The model meets
+**5/5** criteria — resting cytosol ≈ 100 nM, resting DTS ≈ 250 µM, resting
+IP₃ ≈ 50 nM, peak height, and the SOCE differential between the two conditions.
+Supporting analyses: a 2-D ADP × thrombin dose sweep (→ Ca²⁺ peak/AUC/rise-time
+surfaces) and single-mechanism perturbation knockouts (PMCA V_max rate-limits
+cytosolic recovery; MCU buffers cytosolic Ca²⁺ without rescuing the DTS store).
+
+![**v0.5 validation — Dolan & Diamond 2014 Fig. 4.** Cytosolic Ca²⁺ transients under the agonist stimulus with extracellular Ca²⁺ present (SOCE active) versus absent (EDTA condition, SOCE and plasma-membrane leak disabled). The paired traces reproduce the Dolan 5/5 criteria: the resting baseline (~100 nM), the peak height, and the larger sustained plateau when extracellular Ca²⁺ is available for store-operated entry. This is the headline result the calcium core was built to reach, and the baseline that v0.6/v0.61 must preserve.](../figures/v0.5/phase3-dolan-fig4-2026-05-12.png){#fig-v05-dolan width=85%}
+
+![**v0.5 mechanistic perturbation — PMCA V_max rate-limits Ca²⁺ recovery (EDTA transient).** Scaling the PMCA turnover rate (0.25× → 4× baseline) under the no-extracellular-Ca²⁺ condition. Lower PMCA capacity slows the return of cytosolic Ca²⁺ to baseline; higher capacity speeds it. The figure is the template the v0.6 PKC knockouts follow — a single rate constant scanned to expose its functional role.](../figures/v0.5/perturbation-pmca-2026-06-10.png){#fig-v05-pmca width=85%}
+
+---
+
+# v0.6 — PKC negative feedback (closing the DAG branch)
+
+Design: `reports/design/pkc-p2y1-feedback-design-2026-06-11.qmd`.
+
+## Biology
+
+v0.6 adds **PKC** (a single lumped pool standing in for conventional PKCα/β plus
+novel PKCδ), activated by the **coincidence of DAG and a rise in cytosolic
+Ca²⁺** (Hill cofactor, with a small Ca²⁺-independent floor for the novel,
+DAG-only isoform). The gradual accumulation of DAG and Ca²⁺ over the first
+~10–15 s supplies a **delay** before the feedback engages, so the brakes shape
+the *sustained* phase rather than blunting the peak.
+
+Active PKC drives **two braking feedbacks**:
+
+1. **P2Y1 desensitisation** (the headline; the user's mechanism). PKC
+   phosphorylates the *active*, ADP-bound P2Y1 into a signalling-incompetent
+   `P2Y1_desensitised[pl]` state that no longer counts toward the Gαq drive.
+   ADP-arm specific; grounded in **Mundell 2006** (rapid PKC-dependent P2Y1
+   desensitisation in human platelets) and **Nicholas 2023** (a
+   desensitisation-resistant P2Y1 raises platelet reactivity).
+2. **PLCβ phosphorylation** (the Purvis 2008 route, added on supervisor
+   request). PKC moves PLCβ out of the Gq-activatable pool
+   (`PLCb_phosphorylated[c]`) — a shared-node brake that pulls IP₃ back toward
+   baseline.
+
+These are not mutually exclusive: real PKC does both. Implementing the receptor
+route as the headline is a deliberate, better-grounded choice than Purvis's
+enzyme-only route, while keeping his route as a validated comparison.
+
+## Model changes
+
+- **State**: 3 new species — `PKC_inactive[c]`, `PKC_active[c]`,
+  `P2Y1_desensitised[pl]` (Slice 1); `PLCb_phosphorylated[c]` (Slice 3).
+- **Parameters**: new `[pkc.*]` blocks in `calcium-v0.6.toml`; loader default
+  bumped v0.5 → v0.6 (v0.5 kept as snapshot).
+- **ODE**: PKC activation + the two feedback rate laws added in
+  `calcium_signalling.py`'s GPCR/PI-cycle block.
+- **Listener**: 3 new `CalciumTrace` columns — `pkc_active`,
+  `p2y1_desensitised_frac`, `plcb_phosphorylated_frac`.
+- **Experiments**: `runPerturbation.py` `pkc` (knock out `k_des`) and `plcb`
+  (knock out `k_plcb_phos`) figures.
+- **This is a real biology change, not a no-op**: PKC feeds back into the Ca²⁺
+  ODE, so **golden baselines were regenerated and Dolan 5/5 re-verified**
+  (preserved — the brakes act late and on the P2Y1 arm / a gently-calibrated
+  shared node).
+
+## Results
+
+Because the response is **store-limited**, neither brake changes the cytosolic
+Ca²⁺ *amplitude* much in a single transient. The clear, falsifiable readouts are
+the mechanism states:
+
+- **P2Y1 desensitised fraction**: PKC knockout (`k_des = 0`) holds it at ~0;
+  the baseline feedback drives it to **~0.8** — the loss-of-desensitisation =
+  increased-reactivity prediction of Nicholas 2023.
+- **IP₃ under the PLCβ brake**: knockout plateaus high; the baseline pulls IP₃
+  back toward baseline — the Purvis 2008 "return to baseline" result.
+
+![**v0.6 brake 1 — PKC-mediated P2Y1 desensitisation (ADP-only, +Ca²⁺, 200 s).** ADP-only isolates the P2Y1 arm (thrombin off, so PARs don't mask it). *Left:* cytosolic Ca²⁺ is essentially identical with and without the brake — the response is store-limited, so the receptor brake doesn't move the amplitude. *Right:* the mechanism is unmistakable in receptor state — the baseline feedback desensitises ~80% of active P2Y1 by ~100 s, while the knockout (`k_des → 0`) stays at zero. This is the falsifiable readout against Nicholas 2023.](../figures/v0.6/pkc_traces.png){#fig-v06-pkc width=100%}
+
+![**v0.6 brake 2 — PKC → PLCβ phosphorylation damps IP₃ (Purvis route, standard transient, +Ca²⁺, 300 s).** The PLCβ brake sits on the *shared* node, so the standard thrombin + ADP transient shows it. Knocking out the phosphorylation (`k_plcb_phos → 0`) lets IP₃ plateau high; the baseline feedback sequesters PLCβ out of the Gq-activatable pool and pulls IP₃ back toward baseline — reproducing Purvis 2008. Cytosolic Ca²⁺ stays store-limited.](../figures/v0.6/plcb_traces.png){#fig-v06-plcb width=100%}
+
+![**v0.6 — why the brakes are (almost) invisible on cytosolic Ca²⁺.** *Top:* with brakes on vs off, the two Ca²⁺ traces are essentially superimposed. *Middle:* the DTS store is >98% empty by ~10 s — before the PKC brake engages (~15 s). *Bottom:* the brake then cuts IP₃, but the plateau is set by SOCE (store-depletion gated), not by IP₃ — so cytosolic Ca²⁺ doesn't follow. This timing argument is why the v0.6 readouts are receptor/messenger states, not the Ca²⁺ amplitude, and it sets up the v0.61 second-wave experiment.](../figures/v0.6/why_brake_invisible.png){#fig-v06-why width=72%}
+
+---
+
+# v0.61 — downstream PKC outputs (the amplifiers + the second wave)
+
+Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd`.
+
+## Biology
+
+v0.6 left PKC braking-only. In a real platelet PKC's main job is to drive
+**activation outputs**. v0.61 wires the two that feed back into the Ca²⁺ pathway:
+
+- **Granule secretion (Slice 1).** A `GranuleSecretion` process relocates
+  pre-existing cargo — dense-granule `ADP[dg]` and `5HT[dg]`, α-granule
+  `FGA[ag]` (fibrinogen) → the extracellular space `[e]`, and `SELP[ag]` →
+  `SELP_surface[pl]` (the P-selectin activation marker) — first-order in the
+  remaining pool, gated by a `PKC_active × Ca²⁺` coincidence term with a
+  resting-tone floor, so **resting secretion is exactly zero**.
+- **Autocrine ADP loop (Slice 2).** Secreted `ADP[e]` is fed back onto the P2Y1
+  drive inside the Ca²⁺ ODE, closing **PKC → secretion → ADP → P2Y1**. The
+  pericellular volume `V_EX_L` (~66 fL) is a calibration choice set so full
+  dense-granule release ≈ 10 µM. Self-limited by ecto-NTPDase clearance
+  (`ADP[e] → AMP[e]`), the v0.6 P2Y1 brake, and finite cargo.
+- **Thromboxane synthesis (Slice A).** A `ThromboxaneSynthesis` process lumps
+  cPLA₂ → COX-1 → TXA₂-synthase into one Ca²⁺ × PKC-gated production term,
+  scaled by the **aspirin knob** `COX1_FACTOR` (0 = aspirin knockout). De-novo
+  `TXA2[e]` decays (t½ ≈ 30 s) to the stable ELISA metabolite `TXB2[e]`.
+- **Autocrine TXA₂ → TP → Gq (Slice B).** A TP receptor
+  (`TP_inactive/active[pl]`) is added to the Ca²⁺ ODE; synthesised TXA₂
+  reversibly activates it, and active TP joins the shared `total_active_R` Gq
+  drive — the second autocrine amplifier. Aspirin removes the whole loop.
+
+**The unifying picture — PKC closes four loops:**
+
+| Loop | Direction | Route | Added |
+|---|---|---|---|
+| P2Y1 desensitisation | − brake | PKC → P2Y1 | v0.6 |
+| PLCβ phosphorylation | − brake | PKC → PLCβ | v0.6 |
+| ADP secretion | + amplify | PKC → dense granule → P2Y1 | v0.61 |
+| TXA₂ generation | + amplify | PKC → cPLA₂ → TP → Gq | v0.61 |
+
+The competition between amplification and braking is the mechanistic basis of
+the platelet **second wave** — an emergent property no single rate constant
+encodes.
+
+## Model changes
+
+- **Processes**: `GranuleSecretion`, `ThromboxaneSynthesis` (the simulation
+  group is now RestingDecay, CalciumDynamics, GranuleSecretion,
+  ThromboxaneSynthesis).
+- **Listeners**: `SecretionTrace` (secreted cargo, released/surface fractions,
+  the gate, autocrine `adp_e_uM`) and `ThromboxaneTrace` (`txa2_uM`, `txb2`,
+  gate, `tp_active_frac`).
+- **State / params**: new species for granule cargo flux, AMP, TXA₂/TXB₂, the TP
+  receptor; `[gpcr.tp]` block in the TOML; secretion/thromboxane rate constants.
+- **ODE threading**: autocrine `ADP[e]` and `TXA2[e]` threaded into `_ode_rhs`
+  via `CalciumDynamics`.
+- **Clean toggles** (same live-override pattern as `CA_EX_UM`):
+  `calcium_signalling.AUTOCRINE_ADP_GAIN` (1.0 full / 0.0 open-loop) and
+  `thromboxane_synthesis.COX1_FACTOR` (aspirin = 0). Used by `runSecondWave.py`.
+- **Goldens**: Slice 1/2/A are additive (Ca²⁺ ODE untouched → byte-identical);
+  Slice B adds 2 ODE states → goldens regenerated once (`at_rest` perturbed
+  ~0.003%, benign solver jitter). **Dolan 5/5 preserved throughout.**
+
+## Results — 1. The modules function
+
+![**v0.61 granule secretion (standard activation).** *Left:* dense-granule cargo (ADP, serotonin) and α-granule cargo (fibrinogen, P-selectin surface exposure) released as a percentage of pool. Release is exactly zero at rest, ramps on activation, and dense-granule release leads α-granule release. *Right:* the `PKC_active × Ca²⁺` secretion gate — zero at rest (PKC below the resting-tone floor), ramping on as the cell activates.](../figures/v0.61/secretion_release.png){#fig-v061-sec width=100%}
+
+![**v0.61 autocrine ADP loop (thrombin-only — zero exogenous ADP).** With no exogenous ADP, PKC-triggered dense-granule secretion is the *only* P2Y1 ligand, so any P2Y1 engagement here is purely autocrine. *Left:* secreted pericellular ADP rises into the P2Y1 range, then ecto-NTPDase hydrolyses it to AMP — the loop self-limits without exhausting the granule pool. *Right:* the resulting P2Y1 desensitisation, driven entirely by autocrine ADP. This is the loop that carries the second wave.](../figures/v0.61/autocrine_adp_loop.png){#fig-v061-adp width=100%}
+
+![**v0.61 thromboxane loop — TXA₂ → TP → Gq (+ aspirin knockout).** *Left:* synthesised TXA₂ reaches ~1 µM and reversibly activates the TP receptor. *Right:* TP joins the shared Gq drive and modestly amplifies IP₃ versus aspirin (COX-1 = 0, loop off); the inset shows ΔIP₃. The effect on IP₃ is modest under strong thrombin (store-limited, PAR-dominated) and negligible on cytosolic Ca²⁺ — the amplifier bites harder at a weak agonist.](../figures/v0.61/thromboxane_loop.png){#fig-v061-tx width=100%}
+
+## Results — 2. Under a saturating agonist the amplifiers don't move Ca²⁺
+
+![**v0.61 amplifiers on vs off, standard saturating agonist, 300 s.** Full v0.61 (autocrine ADP + TXA₂ loops) versus v0.6 (amplifiers off). *Left:* cytosolic Ca²⁺ is unchanged (<0.1%) — store-limited. *Middle:* IP₃ differs a little (~4%) as the amplifiers add Gq drive. *Right:* P2Y1 desensitisation differs clearly (~20%), driven by the autocrine ADP. The amplifiers' effect under a strong agonist lives in the receptor/messenger state and in the new outputs, **not** in cytosolic Ca²⁺.](../figures/v0.61/amplifiers_saturating.png){#fig-v061-sat width=100%}
+
+## Results — 3. The second wave (the capstone result)
+
+The amplifiers bite when the primary stimulus is **weak and transient**, leaving
+a recovery phase for them to act on. Thrombin always empties the store
+(irreversible PAR cleavage is cumulative → no submaximal regime), so the test
+uses **ADP at 0.5 µM, ADP-only, 300 s** (P2Y1 is reversible → graded). Three
+conditions: **v0.6** (open loop), **aspirin** (autocrine ADP on, TXA₂ off), and
+**full** v0.61.
+
+| Condition | peak Ca²⁺ | Ca²⁺ at 300 s | IP₃ at 300 s | P2Y1 desens. (max) |
+|---|---|---|---|---|
+| v0.6 (open loop) | 313.8 nM | **117.3 nM** | 51.8 nM | 0.19 |
+| aspirin (ADP loop on) | 314.1 nM | **210.1 nM** | 189.6 nM | 0.66 |
+| full v0.61 | 314.1 nM | **210.1 nM** | 254.9 nM | 0.67 |
+
+- All three reach the **same store-limited peak** (~314 nM).
+- In recovery they split: the open loop decays toward baseline (**117 nM**); the
+  closed loop stays activated (**210 nM**) — a **+93 nM (~80%) sustained second
+  wave** that does not exist in v0.6.
+- **Decomposition:** "aspirin" sits exactly on "full" in the Ca²⁺ panel (both
+  210.1 nM), so the sustained Ca²⁺ is carried by the **autocrine ADP loop**
+  (secreted dense-granule ADP sustains P2Y1 → store stays depleted → SOCE holds
+  Ca²⁺ up). TXA₂ adds Gq drive visible in **IP₃** (full 254.9 > aspirin
+  189.6 nM) but not in Ca²⁺ (store/SOCE-limited).
+
+This is the classic biology: dense-granule/autocrine amplification and the
+aspirin-sensitive second wave matter for *weak* agonists, not saturating ones.
+
+![**v0.61 the second wave — weak transient ADP (0.5 µM, ADP-only, +Ca²⁺ 1.2 mM, 300 s).** Three panels, three conditions. *Left:* all reach the same store-limited peak, then split in recovery — the open-loop model (v0.6) decays toward baseline (117 nM) while the closed-loop model holds ~210 nM (+93 nM sustained second wave). *Middle:* IP₃ — the full model exceeds aspirin, the TXA₂ loop's contribution. *Right:* P2Y1 engagement — the closed loop sustains receptor activity via autocrine ADP. The aspirin and full traces coincide in the Ca²⁺ panel, showing the sustained Ca²⁺ is carried by the autocrine ADP arm, not thromboxane.](../figures/v0.61/second_wave_traces.png){#fig-v061-sw width=100%}
+
+---
+
+# Validation & verification
+
+## Dolan 5/5 across versions
+
+The Dolan & Diamond 2014 Fig. 4 criteria (resting cytosol, resting DTS, resting
+IP₃, peak height, SOCE differential) are met by **all three** versions: v0.5
+defines the baseline; v0.6's brakes act late / on the P2Y1 arm; v0.61's
+amplifiers are additive (Slices 1/2/A) or a tiny perturbation regenerated once
+(Slice B). Goldens were regenerated for the genuine biology changes (v0.6 PKC
+feedback; v0.61 Slice B) and re-verified.
+
+## Verification done this session (2026-06-14)
+
+Re-run on the pinned 3.11.5 toolchain (`OPENBLAS_NUM_THREADS=1`):
+
+- **Test suite: 68 passed** (`models/platelet/tests/`).
+- **mypy: clean** — "no issues found in 57 source files."
+- **Second-wave numbers reproduced exactly** from `runSecondWave.py`: peak ~314 nM
+  (all conditions), open-loop end 117.3 nM, closed-loop end 210.1 nM, gap
+  +92.7 nM, aspirin Ca²⁺ identical to full, full IP₃ > aspirin IP₃ — matching
+  the 2026-06-13 lab book.
+- All figures in this document were regenerated from the current model via the
+  committed scripts (`plotDownstreamModules.py`, `plotStoreLimitedFeedbacks.py`,
+  `runPerturbation.py`, `runSecondWave.py`).
+
+---
+
+# References
+
+*Verify journal / volume / DOI in Zotero before thesis use; the entries below
+are safe-to-recall anchors (title + first author + approximate year).*
+
+- **Dolan AT, Diamond SL.** Systems modeling of Ca²⁺ homeostasis and mobilization
+  in platelets… *Biophys. J.* ~2014. *(The validation target — Fig. 4.)*
+- **Purvis JE, Chatterjee MS, Brass LF, Diamond SL.** A molecular signaling model
+  of platelet phosphoinositide and calcium regulation… *Blood.* 2008;112:4069.
+  *(PLCβ-phosphorylation brake; SERCA/PMCA kinetics.)*
+- **Mazet F, Tindall MJ, Gibbins JM, Fry MJ.** A model of the PI cycle… *Sci.
+  Rep.* 2020;10. *(PI-cycle framework; note the 13889/13244 volume discrepancy
+  flagged in the v0.6 design doc.)*
+- **Mundell et al.** Distinct roles for protein kinase C isoforms in regulating
+  platelet purinergic receptor function. *Mol. Pharmacol.* 2006. *(Primary
+  evidence for PKC-mediated P2Y1 desensitisation.)*
+- **Nicholas et al.** Loss of P2Y1 receptor desensitization… increased platelet
+  reactivity in vitro. 2023. *(Falsifiable validation target for the v0.6 brake.)*
+- **Golebiewska EM, Poole AW.** Platelet secretion: from haemostasis to wound
+  healing… *Blood Rev.* ~2015. *(Granule-secretion review.)*
+- **FitzGerald GA.** Mechanisms of platelet activation: thromboxane A₂ as an
+  amplifying signal. *Am. J. Cardiol.* ~1991. *(TXA₂ autocrine amplification.)*
+
+*Design docs:* `pkc-p2y1-feedback-design-2026-06-11.qmd` (v0.6),
+`pkc-downstream-effects-2026-06-12.qmd` (v0.61). *Lab book:*
+`lab-book-2026-06-13-second-wave.md`.
