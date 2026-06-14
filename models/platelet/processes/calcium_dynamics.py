@@ -60,10 +60,24 @@ class CalciumDynamics(process.Process):
 		self._atp = self.bulkMoleculesView(
 			np.array(['ATP[c]'], dtype='U30'))
 
+		# Secreted extracellular ADP (autocrine P2Y1 drive, v0.61 Slice 2).
+		# Read-only: its pericellular concentration augments the ADP forcing
+		# inside the ODE. Updated discretely by GranuleSecretion.
+		self._adp_ex = self.bulkMoleculesView(
+			np.array(['ADP[e]'], dtype='U30'))
+
+		# Synthesised TXA2 (autocrine TP → Gq drive, v0.61 Slice B). Read-only;
+		# drives the TP receptor inside the ODE. Updated by ThromboxaneSynthesis.
+		self._txa2 = self.bulkMoleculesView(
+			np.array(['TXA2[e]'], dtype='U30'))
+
 	def calculateRequest(self):
 		counts = self._molecules.total_counts()
 		dt = self.timeStepSec()
 		t_sim = self.time()
+
+		secreted_adp_count = float(self._adp_ex.total_counts()[0])
+		secreted_txa2_count = float(self._txa2.total_counts()[0])
 
 		self._delta, self._atp_cost = self._solver.molecules_to_next_time_step(
 			counts, dt, t_sim,
@@ -71,6 +85,8 @@ class CalciumDynamics(process.Process):
 			thrombin_peak_nM=self._thrombin_peak_nM,
 			adp_peak_uM=self._adp_peak_uM,
 			atp_ex_peak_uM=self._atp_ex_peak_uM,
+			secreted_adp_count=secreted_adp_count,
+			secreted_txa2_count=secreted_txa2_count,
 		)
 
 		# Request molecules we need to take away (negative deltas).

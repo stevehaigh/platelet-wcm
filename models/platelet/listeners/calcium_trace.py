@@ -21,6 +21,11 @@ Columns written:
   pmca_ca           — PMCA·Ca count (basal active)
   atp_pump_per_s    — ATP consumed by Ca²⁺ pumps (SERCA + PMCA) this step
                       (molecules/s; dt = 1 s)
+  pkc_active        — active (DAG + Ca²⁺-bound) PKC count (v0.6 feedback)
+  p2y1_desensitised_frac — fraction of the P2Y1 pool in the PKC-phosphorylated
+                      desensitised state (0–1; v0.6 feedback)
+  plcb_phosphorylated_frac — fraction of the PLCβ pool phosphorylated out of the
+                      Gq-activatable pool by PKC (0–1; v0.6 Slice 3, Purvis route)
 """
 
 import numpy as np
@@ -88,6 +93,15 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self._idx_pmca_cam       = all_ids.index('PMCA_CaM[pl]')
 		self._idx_pmca_free      = all_ids.index('PMCA[pl]')
 		self._idx_pmca_ca        = all_ids.index('PMCA_Ca[pl]')
+		# PKC negative-feedback states (v0.6).
+		self._idx_pkc_active     = all_ids.index('PKC_active[c]')
+		self._idx_p2y1_inactive  = all_ids.index('P2Y1_inactive[pl]')
+		self._idx_p2y1_active    = all_ids.index('P2Y1_active[pl]')
+		self._idx_p2y1_desens    = all_ids.index('P2Y1_desensitised[pl]')
+		# PKC → PLCβ phosphorylation (v0.6 Slice 3).
+		self._idx_plcb_inactive  = all_ids.index('PLCb_inactive[c]')
+		self._idx_plcb_active    = all_ids.index('PLCb_active[c]')
+		self._idx_plcb_phos      = all_ids.index('PLCb_phosphorylated[c]')
 
 		# Initialise logged quantities.
 		self.ca_cyt_nM        = 0.0
@@ -104,12 +118,18 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_free        = 0
 		self.pmca_ca          = 0
 		self.atp_pump_per_s   = 0.0
+		self.pkc_active             = 0
+		self.p2y1_desensitised_frac = 0.0
+		self.plcb_phosphorylated_frac = 0.0
 
 		self.registerLoggedQuantity('Ca²⁺_cyt\n(nM)',   'ca_cyt_nM',     '.1f')
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
 		self.registerLoggedQuantity('IP₃\n(nM)',         'ip3_nM',        '.1f')
 		self.registerLoggedQuantity('SOCE\n(nM/s)',      'soce_flux_nMs', '.2f')
 		self.registerLoggedQuantity('ATP pump\n(ions/s)', 'atp_pump_per_s', '.0f')
+		self.registerLoggedQuantity('PKC*\n(count)',     'pkc_active',     '.0f')
+		self.registerLoggedQuantity('P2Y1 des\n(frac)',  'p2y1_desensitised_frac', '.3f')
+		self.registerLoggedQuantity('PLCβ-P\n(frac)',    'plcb_phosphorylated_frac', '.3f')
 
 		if self._live_path is not None:
 			self._live_file = open(self._live_path, 'w', buffering=1)
@@ -138,6 +158,22 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_cam        = int(counts[self._idx_pmca_cam])
 		self.pmca_free       = int(counts[self._idx_pmca_free])
 		self.pmca_ca         = int(counts[self._idx_pmca_ca])
+
+		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
+		# in the desensitised phospho-state.
+		self.pkc_active = int(counts[self._idx_pkc_active])
+		p2y1_total = (counts[self._idx_p2y1_inactive]
+			+ counts[self._idx_p2y1_active]
+			+ counts[self._idx_p2y1_desens])
+		self.p2y1_desensitised_frac = float(
+			counts[self._idx_p2y1_desens] / p2y1_total) if p2y1_total > 0 else 0.0
+		# Fraction of the PLCβ pool phosphorylated out of the Gq-activatable
+		# pool by PKC (v0.6 Slice 3, Purvis route).
+		plcb_total = (counts[self._idx_plcb_inactive]
+			+ counts[self._idx_plcb_active]
+			+ counts[self._idx_plcb_phos])
+		self.plcb_phosphorylated_frac = float(
+			counts[self._idx_plcb_phos] / plcb_total) if plcb_total > 0 else 0.0
 
 		# Per-step ATP consumed by SERCA + PMCA pumping. `getattr` guards the
 		# initial update, which runs before the first calculateRequest sets
@@ -195,6 +231,9 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pmca_free=self.pmca_free,
 			pmca_ca=self.pmca_ca,
 			atp_pump_per_s=self.atp_pump_per_s,
+			pkc_active=self.pkc_active,
+			p2y1_desensitised_frac=self.p2y1_desensitised_frac,
+			plcb_phosphorylated_frac=self.plcb_phosphorylated_frac,
 		)
 		if self._live_file is not None:
 			self._live_file.write(
