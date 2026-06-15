@@ -449,7 +449,6 @@ def _pct(frac: float) -> str:
 # to a single number any more.
 _CELL_INNER_MIN    = 96    # floor — always wide enough for the densest line
 _CELL_INNER_TARGET = 112   # preferred interior width when the terminal allows
-_RX_TAG_W          = 28    # width of one "[ LABEL bar pct% ]" block
 
 
 def _fit_inner_w(avail_cols: int) -> int:
@@ -508,14 +507,6 @@ def _membrane_line(corner_left: str, corner_right: str, fill: str,
 		parts.append(fill * (gap + (1 if i < extra else 0)))
 	body = ''.join(parts)
 	return f'{corner_left}{body}{corner_right}'
-
-
-def _inside_line(content_markup: str) -> str:
-	"""Wrap a line in the cell's side walls, padding to inner width."""
-	# Note: this measures the *visible* width of `content_markup` only if
-	# the markup has no bracketed tags. For our use-case we pre-pad the
-	# content ourselves before calling this, so we just append ║ on each side.
-	return f'║{content_markup}║'
 
 
 def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float,
