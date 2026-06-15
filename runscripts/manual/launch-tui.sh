@@ -28,10 +28,11 @@ if [[ ! -d "$SIMOUT" ]]; then
 	exit 1
 fi
 
-# Ensure textual is importable. One-shot; doesn't touch other deps.
-if ! pyenv exec python -c "import textual" 2>/dev/null; then
-	echo "textual not installed; installing now ..." >&2
-	pyenv exec pip install textual==8.2.7 >/dev/null
+# Ensure the viz extras (rich + textual) are importable. One-shot; installs
+# the pinned set from requirements-viz.txt so versions match CI.
+if ! pyenv exec python -c "import textual, rich" 2>/dev/null; then
+	echo "viz extras (rich/textual) not installed; installing now ..." >&2
+	pyenv exec pip install -r requirements-viz.txt >/dev/null
 fi
 
 echo "Launching replay TUI in your terminal..."

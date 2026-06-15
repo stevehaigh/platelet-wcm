@@ -77,6 +77,9 @@ SPEED_MAX             = 100.0     # 100× real-time ceiling
 
 # Sparkline window — how many recent samples we show in the history strip.
 SPARKLINE_WIDTH       = 70
+# Visible width of the row labels in the history panel (keeps both sparklines
+# column-aligned regardless of the label's colour-markup length).
+_LABEL_W              = 22
 
 
 # ── Snapshot type ─────────────────────────────────────────────────────────
@@ -462,11 +465,9 @@ def _fit_inner_w(avail_cols: int) -> int:
 
 
 def _receptor_tag(label: str, frac: float) -> str:
-	"""Fixed-width receptor tag for embedding in a membrane line.
-
-	Natural width = 22 chars: "[ LABEL ▰..▱ XX% ]". No internal padding
-	— spacing between tags is handled by `_membrane_line` distributing
-	fill characters.
+	"""Receptor tag for embedding in a membrane line (natural width 23 chars:
+	"[ LABEL ▰..▱ XX% ]"). Tags need not be equal width — `_membrane_line`
+	measures each one and distributes the fill between them.
 	"""
 	bar = _bar(frac, width=10)
 	pct = max(0, min(99, int(round(frac * 100))))
@@ -474,14 +475,14 @@ def _receptor_tag(label: str, frac: float) -> str:
 
 
 def _p2x1_tag(s: Snapshot) -> str:
-	"""P2X1 is ionotropic — show open/desens counts not a fraction bar.
-	22 chars to match `_receptor_tag` width."""
+	"""P2X1 is ionotropic — show open/desens counts not a fraction bar
+	(roughly receptor-tag width; `_membrane_line` measures it)."""
 	return f'[ P2X1  O {s.p2x1_open:>3} D {s.p2x1_desens:>3}  ]'
 
 
 def _flux_tag(label: str, value_str: str) -> str:
-	"""A non-receptor membrane-edge tag (SOCE flux, PM leak, etc.).
-	22 chars to match `_receptor_tag` width."""
+	"""A non-receptor membrane-edge tag (SOCE flux, PM leak, etc.;
+	roughly receptor-tag width; `_membrane_line` measures it)."""
 	return f'[ {label:<6} {value_str:<10} ]'
 
 
@@ -729,19 +730,22 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float,
 
 
 def _sparkline_panel(history_ca: np.ndarray, history_ip3: np.ndarray) -> Panel:
-	width = 70
-	ca_spark = _sparkline(history_ca, width=width)
-	ip3_spark = _sparkline(history_ip3, width=width)
+	ca_spark = _sparkline(history_ca, width=SPARKLINE_WIDTH)
+	ip3_spark = _sparkline(history_ip3, width=SPARKLINE_WIDTH)
 	current_ca = history_ca[-1] if len(history_ca) else 0.0
-	ca_label = (
-		f'[{_ca_colour(current_ca)}]cyt Ca²⁺[/{_ca_colour(current_ca)}]'
-	)
+	ca_label = f'[{_ca_colour(current_ca)}]cyt Ca²⁺[/{_ca_colour(current_ca)}]'
+	ip3_label = '[magenta]IP3[/magenta]'
+
+	# Pad each label by its *visible* width so both sparklines start in the
+	# same column and don't shift when the Ca²⁺ colour (hence markup length)
+	# changes — same reason `inside()` uses `_visible_len`.
+	def labelled(label: str, spark: str, lo: float, hi: float) -> str:
+		pad = ' ' * max(0, _LABEL_W - _visible_len(label))
+		return f'{label}{pad} {spark}   {lo:>6.0f}…{hi:>6.0f} nM'
+
 	lines = [
-		f'{ca_label:<22} {ca_spark}   '
-		f'{history_ca.min():>6.0f}…{history_ca.max():>6.0f} nM',
-		f'[magenta]IP3[/magenta]               '
-		f'   {ip3_spark}   '
-		f'{history_ip3.min():>6.0f}…{history_ip3.max():>6.0f} nM',
+		labelled(ca_label, ca_spark, history_ca.min(), history_ca.max()),
+		labelled(ip3_label, ip3_spark, history_ip3.min(), history_ip3.max()),
 	]
 	return Panel(Text.from_markup('\n'.join(lines)),
 		title='[b]History (last 70 s)[/b]', border_style='dim')
