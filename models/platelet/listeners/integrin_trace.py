@@ -1,0 +1,69 @@
+"""
+IntegrinTrace listener for the platelet whole-cell model (v0.61 §3).
+
+Records αIIbβ3 (GPIIb-IIIa) inside-out activation each timestep — the
+high-affinity conformational fraction that flow cytometry reports via the
+activation-specific antibody PAC-1, and the αIIbβ3-antagonist / Glanzmann
+perturbation target.
+
+Columns written:
+  time             — simulation time (s)
+  aIIbb3_active    — high-affinity (PAC-1⁺) αIIbβ3 count ([pl])
+  aIIbb3_resting   — low-affinity αIIbβ3 count ([pl])
+  active_frac      — active / (active + resting) — the per-cell PAC-1 readout
+  integrin_gate    — PKC* × Ca²⁺ inside-out activation gate value (0–1)
+"""
+
+import wholecell.listeners.listener
+
+
+class IntegrinTrace(wholecell.listeners.listener.Listener):
+	"""Record αIIbβ3 inside-out activation state each timestep."""
+
+	_name = 'IntegrinTrace'
+
+	def __init__(self, *args, **kwargs):
+		self._bulk_molecules = None
+		super().__init__(*args, **kwargs)
+
+	def initialize(self, sim, sim_data):
+		super().initialize(sim, sim_data)
+
+		self._bulk_molecules = sim.internal_states['BulkMolecules'].container
+		self._activation = sim.processes['IntegrinActivation']
+
+		all_ids = list(sim_data.internal_state.bulk_molecules.bulk_data['id'])
+		self._idx_active = all_ids.index('aIIbb3_active[pl]')
+		self._idx_resting = all_ids.index('aIIbb3_resting[pl]')
+
+		self.aIIbb3_active = 0
+		self.aIIbb3_resting = 0
+		self.active_frac = 0.0
+		self.integrin_gate = 0.0
+
+		self.registerLoggedQuantity('αIIbβ3 act\n(frac)', 'active_frac', '.3f')
+
+	def update(self):
+		counts = self._bulk_molecules.counts()
+		active = int(counts[self._idx_active])
+		resting = int(counts[self._idx_resting])
+		self.aIIbb3_active = active
+		self.aIIbb3_resting = resting
+		total = active + resting
+		self.active_frac = float(active / total) if total > 0 else 0.0
+		self.integrin_gate = float(getattr(self._activation, '_gate', 0.0))
+
+	def tableCreate(self, tableWriter):
+		tableWriter.writeAttributes(
+			units='count for active/resting; active_frac and gate dimensionless',
+		)
+
+	def tableAppend(self, tableWriter):
+		tableWriter.append(
+			time=self.time(),
+			simulationStep=self.simulationStep(),
+			aIIbb3_active=self.aIIbb3_active,
+			aIIbb3_resting=self.aIIbb3_resting,
+			active_frac=self.active_frac,
+			integrin_gate=self.integrin_gate,
+		)

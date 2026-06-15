@@ -75,3 +75,5 @@ TXA2[e]	5.85e-07	0	metabolite
 TXB2[e]	6.15e-07	0	metabolite
 TP_inactive[pl]	6.21e-05	1000	protein
 TP_active[pl]	6.21e-05	0	protein
+aIIbb3_resting[pl]	0.0001494	80000	protein
+aIIbb3_active[pl]	0.0001494	0	protein
