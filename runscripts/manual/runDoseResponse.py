@@ -94,7 +94,7 @@ def _harvest(simout_dir: str) -> dict[str, float]:
 	}
 
 
-def run_dose_response(out_path: str, agonist: str = 'thrombin', grid: int = 7,
+def run_dose_response(out_path: str, agonist: str = 'adp', grid: int = 7,
 		length: int = 350, log_to_shell: bool = True) -> dict:
 	"""Sweep `agonist` over a log dose range in both conditions; harvest readouts."""
 	spec = AGONISTS[agonist]
@@ -217,8 +217,9 @@ def _build_parser() -> argparse.ArgumentParser:
 			'DTS-depletion experiment (depth, refill, PAC-1, peak Ca²⁺).')
 	p.add_argument('sim_outdir', nargs='?', default=None,
 		help='Output dir under out/. Default = dose_response_<timestamp>.')
-	p.add_argument('--agonist', choices=sorted(AGONISTS), default='thrombin',
-		help='Agonist to sweep (default thrombin — the canonical sustained activator).')
+	p.add_argument('--agonist', choices=sorted(AGONISTS), default='adp',
+		help='Agonist to sweep (default adp — the graded, reversible agonist; '
+			'thrombin is all-or-none via irreversible PAR1, see module docstring).')
 	p.add_argument('--grid', type=int, default=7,
 		help='Number of log-spaced doses (default 7).')
 	p.add_argument('--length', '--length-sec', dest='length_sec', type=int,

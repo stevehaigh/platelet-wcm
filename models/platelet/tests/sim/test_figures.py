@@ -74,6 +74,7 @@ class TestDoseResponse:
 		# Loops off: the sustained store level grades with dose — it refills far
 		# more at the lowest dose than the highest (graded, reversible).
 		assert off[0] > off[-1] + 20.0
-		# Full v0.61: the autocrine loops keep the store empty (committed) even at
-		# the highest dose — the commitment switch.
-		assert full[-1] < 30.0
+		# Full v0.61: the autocrine loops keep the store empty (committed) at
+		# EVERY dose — the commitment switch (not just the highest dose), so the
+		# whole curve, including the lowest dose, must stay near-empty.
+		assert max(full) < 30.0
