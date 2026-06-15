@@ -50,7 +50,7 @@ PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 
 # thromboxane, integrin PAC-1) with a scrolling sparkline. Needs the optional
 # viz extras: pip install -r requirements-viz.txt
 PYTHONPATH=$PWD python runscripts/manual/replayTui.py <run_or_simOut_dir> --speed 0.2
-#   q quit · space pause · +/- speed · ←/→ step · r restart
+#   q quit · space pause · +/- speed · ←/→ step · r restart · ? field-reference
 #   --dump-frame N  renders frame N once to stdout (no TTY needed; CI/triage)
 #   The cell box auto-sizes to the terminal (grows to ~114 cols when there's
 #   room, clamps down so it never crops); a ≥114-col window reads best.

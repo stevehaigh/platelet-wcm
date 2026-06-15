@@ -25,6 +25,7 @@ Controls (any time):
     +  /  -   speed up / slow down by 1.5×
     ←  /  →   step backward / forward 1 s (works any time; pauses if running)
     r         restart from t = 0
+    ?         field-reference overlay (what every label means)
 
 Issue #47. Replayer (option B) — reads finished simOut data; doesn't
 attach to a live process.
@@ -52,12 +53,14 @@ import numpy as np
 from rich.box import SIMPLE
 from rich.console import Console, Group
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 from textual.timer import Timer
 from textual.widgets import Footer, Static
 
@@ -753,6 +756,81 @@ def _sparkline_panel(history_ca: np.ndarray, history_ip3: np.ndarray) -> Panel:
 		title='[b]History (last 70 s)[/b]', border_style='dim')
 
 
+# ── Help / field reference ────────────────────────────────────────────────
+
+# (section title, [(field, one-line meaning, source), ...]). Square brackets in
+# a field/meaning must be escaped (\\[) — rich treats them as markup. Sources
+# are short keys to the literature behind each number (see CLAUDE.md).
+_HELP_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
+	('Inputs — extracellular agonists', [
+		('Ca²⁺ (mM)', 'Bath calcium; 0 = EDTA / no-Ca²⁺ condition', 'Dolan 2014'),
+		('thrombin (nM)', 'PAR1/PAR4 agonist (a protease that cleaves them)', ''),
+		('ADP (µM)', 'P2Y1 agonist (also released from dense granules)', ''),
+		('ATP (µM)', 'P2X1 ionotropic agonist', ''),
+	]),
+	('Receptors & membrane fluxes', [
+		('PAR1 / PAR4', 'Thrombin receptors, % cleaved (PAR4 ~10× slower)', ''),
+		('P2Y1', 'ADP GPCR, % active (binding is reversible)', ''),
+		('P2X1 O/D', 'ATP-gated channel: Open / Desensitised counts', ''),
+		('SOCE', 'Store-operated Ca²⁺ entry flux (STIM1 → Orai1)', 'Dolan 2014'),
+		('PMleak', 'Basal plasma-membrane Ca²⁺ leak (balances PMCA at rest)', ''),
+	]),
+	('Cytosolic cascade', [
+		('Ca²⁺ (nM)', 'Free cytosolic Ca²⁺ (rest ~100 nM); peak + AUC tracked', 'Dolan 2014'),
+		('IP3 (nM)', 'PLCβ product; opens the IP3R on the DTS store', 'Li-Rinzel 1994'),
+		('PIP2 / DAG', 'PLCβ substrate / co-product (DAG helps activate PKC)', ''),
+		('Gαq', 'Shared Gq pool driven by all Gq receptors → PLCβ', 'Mazet 2020'),
+		('PLCβ', 'Hydrolyses PIP2 into IP3 + DAG', ''),
+	]),
+	('PKC feedback hub', [
+		('PKC active', 'DAG+Ca²⁺ coincidence; drives both brakes + all outputs', ''),
+		('P2Y1-desens', '% P2Y1 phosphorylated off — the ADP-arm brake', 'Mundell 2006'),
+		('PLCβ-phos', '% PLCβ phosphorylated out of the Gq pool (shared brake)', 'Purvis 2008'),
+	]),
+	('Stores', [
+		('DTS Ca²⁺ (µM)', 'ER-equivalent store (~250 µM rest); IP3R out, SERCA in', 'Dolan 2014'),
+		('CALR-bound', 'Calreticulin luminal Ca²⁺ buffer occupancy', 'Burkhart 2012'),
+		('IP3R / SERCA', 'DTS release channel / re-uptake pump', 'Li-Rinzel; Dode 2002'),
+		('Mito Ca²⁺', 'Matrix Ca²⁺ (ion count); MCU uptake + NCLX efflux', ''),
+	]),
+	('Plasma-membrane pump (PMCA, 5-state)', [
+		('basal', 'Slow extrusion path at low cytosolic Ca²⁺', 'Caride 2007'),
+		('CaM-active', 'Ca₄·CaM-activated path (~5× faster)', 'Caride 2007'),
+		('deact', 'PMCA·CaM slowly shedding CaM (τ ~30 s)', 'Caride 2007'),
+		('free', 'Inactive pump awaiting Ca²⁺', ''),
+	]),
+	('Downstream PKC outputs (v0.61 / §3)', [
+		('Secretion %', 'Dense ADP/5-HT, α-FGA, surface P-selectin released', ''),
+		('→ ADP\\[e]', 'Autocrine pericellular ADP fed back onto P2Y1', ''),
+		('TXA₂ / TP', 'Thromboxane made → TP receptor → Gq (autocrine amp)', ''),
+		('PAC-1', 'Active αIIbβ3 fraction — the integrin inside-out readout', ''),
+	]),
+]
+
+
+def _help_renderable() -> Group:
+	"""Field reference for the schematic — the body of the ? help overlay.
+
+	Pure rich (no Textual), so it renders headlessly in tests too. One small
+	table per region keeps the long list scannable.
+	"""
+	items: list = [
+		Text.from_markup('[b]Platelet WCM — field reference[/b]   '
+			'[dim](↑/↓ or PgUp/PgDn scroll · ? or Esc closes)[/dim]'),
+		Text(''),
+	]
+	for title, rows in _HELP_SECTIONS:
+		tbl = Table(box=None, show_header=False, padding=(0, 2, 0, 0), expand=False)
+		tbl.add_column(style='b cyan', no_wrap=True)   # field
+		tbl.add_column()                               # meaning
+		tbl.add_column(style='dim', no_wrap=True)       # source
+		for field, meaning, source in rows:
+			tbl.add_row(field, meaning, source)
+		items.append(Text.from_markup(f'[b yellow]{title}[/b yellow]'))
+		items.append(tbl)
+		items.append(Text(''))
+	return Group(*items)
+
 
 def _header(snap: Snapshot, frame: int, n_snapshots: int,
 		speed: float, paused: bool, extra: str) -> Panel:
@@ -775,6 +853,40 @@ def _header(snap: Snapshot, frame: int, n_snapshots: int,
 
 
 # ── Textual app ───────────────────────────────────────────────────────────
+
+class HelpScreen(ModalScreen):
+	"""Scrollable field-reference overlay (the ? key).
+
+	A modal drawn over the schematic and dismissed with ? / Esc / q. The app
+	pauses playback when this opens, so the user returns to the same frame.
+	The body (`_help_renderable`) is plain rich, so it renders headlessly in
+	tests without a TTY.
+	"""
+
+	CSS = """
+	HelpScreen { align: center middle; }
+	#help-box {
+		width: 90%;
+		max-width: 104;
+		height: 90%;
+		border: round $accent;
+		background: $surface;
+		padding: 1 2;
+	}
+	"""
+
+	BINDINGS = [
+		Binding('question_mark', 'dismiss_help', 'Close'),
+		Binding('escape',        'dismiss_help', 'Close'),
+		Binding('q',             'dismiss_help', 'Close'),
+	]
+
+	def compose(self) -> ComposeResult:
+		yield VerticalScroll(Static(_help_renderable()), id='help-box')
+
+	def action_dismiss_help(self) -> None:
+		self.dismiss()
+
 
 class PlateletReplayApp(App):
 	"""Textual app — replay a finished platelet sim as an animated schematic.
@@ -807,6 +919,7 @@ class PlateletReplayApp(App):
 		Binding('right',        'step_forward',   'Step +1 s'),
 		Binding('left',         'step_back',      'Step −1 s'),
 		Binding('r',            'restart',        'Restart'),
+		Binding('question_mark', 'help',          'Help'),
 	]
 
 	frame  = reactive(0)
@@ -920,6 +1033,12 @@ class PlateletReplayApp(App):
 	def action_restart(self) -> None:
 		self.frame = 0
 		self.paused = False
+
+	def action_help(self) -> None:
+		# Pause so the schematic is frozen behind the overlay; the user
+		# resumes with space after closing.
+		self.paused = True
+		self.push_screen(HelpScreen())
 
 
 def replay(simout: Path, initial_speed: float, start_t: int) -> int:

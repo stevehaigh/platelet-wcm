@@ -302,6 +302,56 @@ class TestTextualApp(unittest.TestCase):
 		# Snapshot count round-trips through the app.
 		self.assertEqual(app._n, len(snaps))
 
+	def test_help_screen_constructs_binds_and_documents_fields(self):
+		"""The ? help overlay: every binding has a handler, CSS parses, and
+		the field-reference body renders headlessly with the key labels."""
+		from rich.console import Console
+		from runscripts.manual.replayTui import HelpScreen, _help_renderable
+		screen = HelpScreen()
+		for action in {b.action for b in screen.BINDINGS}:
+			self.assertTrue(hasattr(screen, f'action_{action}'),
+				f'HelpScreen binding {action!r} has no handler')
+		self.assertGreater(len(screen.CSS), 0)
+		# Body renders without a TTY and documents fields from every region.
+		console = Console(width=100, record=True, force_terminal=False,
+			color_system=None)
+		console.print(_help_renderable())
+		body = console.export_text()
+		for token in ('SOCE', 'IP3R', 'SERCA', 'PKC', 'PAC-1', 'ADP[e]'):
+			self.assertIn(token, body, f'{token} missing from help reference')
+
+	def test_help_overlay_opens_and_closes(self):
+		"""Drive the app headlessly (Textual pilot): ? opens the overlay and
+		pauses; Esc and q both close it back to the schematic without quitting
+		the app."""
+		import asyncio
+		from runscripts.manual.replayTui import (
+			HelpScreen, PlateletReplayApp, _resolve_simout, load_snapshots)
+		snaps, totals, meta = load_snapshots(
+			_resolve_simout(self.paths['sim_out_dir']))
+
+		async def drive():
+			app = PlateletReplayApp(snaps, totals, meta,
+				initial_speed=1.0, start_frame=0)
+			async with app.run_test(size=(120, 30)) as pilot:
+				await pilot.press('question_mark')
+				await pilot.pause()
+				self.assertIsInstance(app.screen, HelpScreen)
+				self.assertTrue(app.paused, 'help should pause playback')
+				await pilot.press('escape')
+				await pilot.pause()
+				self.assertNotIsInstance(app.screen, HelpScreen)
+				# q closes the overlay (does not quit the app) while it's open.
+				await pilot.press('question_mark')
+				await pilot.pause()
+				self.assertIsInstance(app.screen, HelpScreen)
+				await pilot.press('q')
+				await pilot.pause()
+				self.assertNotIsInstance(app.screen, HelpScreen)
+				self.assertTrue(app.is_running)
+
+		asyncio.run(drive())
+
 
 if __name__ == '__main__':
 	unittest.main()
