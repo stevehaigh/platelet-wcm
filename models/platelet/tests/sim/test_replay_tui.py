@@ -27,8 +27,12 @@ pytest.importorskip('textual', reason='TUI viz extra — see requirements-viz.tx
 from runscripts.manual.replayTui import (
 	Snapshot,
 	Totals,
+	_CELL_INNER_MIN,
+	_CELL_INNER_TARGET,
 	_bar,
 	_ca_colour,
+	_cell_schematic,
+	_fit_inner_w,
 	_resolve_simout,
 	_sparkline,
 	load_snapshots,
@@ -79,6 +83,19 @@ class TestReplayTuiHelpers(unittest.TestCase):
 		self.assertEqual(len(spark), 10)
 		self.assertTrue(spark.startswith(' '), 'expected left padding')
 		self.assertNotEqual(spark[-1], ' ', 'expected glyph at right edge')
+
+	def test_fit_inner_w_grows_clamps_and_floors(self):
+		"""The cell interior grows toward the target on a wide terminal,
+		never exceeds it, and never drops below the content floor."""
+		# Roomy terminal → grows to the comfortable target (but no further).
+		self.assertEqual(_fit_inner_w(200), _CELL_INNER_TARGET)
+		self.assertEqual(_fit_inner_w(_CELL_INNER_TARGET + 2), _CELL_INNER_TARGET)
+		# Mid-width terminal → tracks (width − 2 for the two ║ walls).
+		mid = _CELL_INNER_MIN + 8
+		self.assertEqual(_fit_inner_w(mid + 2), mid)
+		# Narrow / unset terminal → clamps up to the floor, never below.
+		self.assertEqual(_fit_inner_w(40), _CELL_INNER_MIN)
+		self.assertEqual(_fit_inner_w(0), _CELL_INNER_MIN)
 
 	def test_ca_colour_thresholds(self):
 		self.assertEqual(_ca_colour(100), 'green')
@@ -209,6 +226,25 @@ class TestReplayTuiLoad(unittest.TestCase):
 			'expected two ┌ corners (DTS top + Mito top)')
 		self.assertGreaterEqual(body.count('└'), 2,
 			'expected two └ corners (DTS bottom + Mito bottom)')
+
+	def test_cell_schematic_widens_without_overflow(self):
+		"""At the comfortable target width the box is wider than the floor,
+		yet no rendered line exceeds the drawn width (inner_w + 2 walls) —
+		so it never crops on a terminal that fits the target."""
+		from rich.console import Group
+		snaps, totals, _ = load_snapshots(_resolve_simout(self.simout))
+		mid = snaps[len(snaps) // 2]
+		inner_w = _CELL_INNER_TARGET
+		panel = _cell_schematic(mid, totals, ca_ex_uM=1200.0, inner_w=inner_w)
+		group = panel.renderable
+		self.assertIsInstance(group, Group)
+		from runscripts.manual.replayTui import _visible_len
+		widths = [_visible_len(t.plain) for t in group.renderables]
+		# Every line fits within the box (interior + the two ║ walls)…
+		self.assertLessEqual(max(widths), inner_w + 2)
+		# …and the box genuinely grew past the floor (the membrane + padded
+		# cytosol lines reach the full width).
+		self.assertGreater(max(widths), _CELL_INNER_MIN + 2)
 
 	def test_running_peak_and_auc_monotonic(self):
 		"""peak_ca_so_far must be non-decreasing; AUC must be non-decreasing."""

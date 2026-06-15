@@ -437,8 +437,26 @@ def _pct(frac: float) -> str:
 # Cell-schematic dimensions. Each top/bottom membrane carries three
 # fixed-width receptor tags. Inner DTS box sits on the cytosolic left,
 # Mito box on the right. The whole thing is one big rich.Text block.
-_CELL_INNER_W = 96   # interior of the cell, excluding the side ║ walls
-_RX_TAG_W     = 28   # width of one "[ LABEL bar pct% ]" block on the membrane
+# The cell interior auto-sizes to the terminal. It grows from a content
+# floor up to a comfortable target when the window has room, and clamps back
+# down so the box never overflows a narrow terminal. `_membrane_line` and
+# `_cell_schematic` take the resolved width as a parameter; `_fit_inner_w`
+# turns an available column count into the width to use. The DTS/Mito box
+# arithmetic derives from the resolved width, so nothing is hand-calibrated
+# to a single number any more.
+_CELL_INNER_MIN    = 96    # floor — always wide enough for the densest line
+_CELL_INNER_TARGET = 112   # preferred interior width when the terminal allows
+_RX_TAG_W          = 28    # width of one "[ LABEL bar pct% ]" block
+
+
+def _fit_inner_w(avail_cols: int) -> int:
+	"""Resolve the cell interior width for a terminal `avail_cols` wide.
+
+	The drawn box spans `inner_w + 2` columns (the two ║ walls), so cap at
+	`avail_cols - 2` to avoid cropping, grow no further than the comfortable
+	target, and never fall below the content floor.
+	"""
+	return max(_CELL_INNER_MIN, min(_CELL_INNER_TARGET, avail_cols - 2))
 
 
 def _receptor_tag(label: str, frac: float) -> str:
@@ -466,16 +484,16 @@ def _flux_tag(label: str, value_str: str) -> str:
 
 
 def _membrane_line(corner_left: str, corner_right: str, fill: str,
-		segments: list[str]) -> str:
+		segments: list[str], inner_w: int) -> str:
 	"""Build a membrane line by joining segments with fill chars.
 
-	The total width is _CELL_INNER_W + 2 (for the two corner glyphs).
+	The total width is `inner_w + 2` (for the two corner glyphs).
 	Spreads any leftover fill space evenly between segments.
 	"""
 	n = len(segments)
 	used = sum(len(s) for s in segments)
-	# Leftover fill chars to distribute: cell_inner_width − sum(segments)
-	leftover = _CELL_INNER_W - used
+	# Leftover fill chars to distribute: inner_w − sum(segments)
+	leftover = inner_w - used
 	# n+1 gaps (before first segment, between each pair, after last segment).
 	if leftover < 0:
 		leftover = 0
@@ -497,7 +515,8 @@ def _inside_line(content_markup: str) -> str:
 	return f'║{content_markup}║'
 
 
-def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
+def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float,
+		inner_w: int = _CELL_INNER_MIN) -> Panel:
 	"""The headline view: a stylised ASCII platelet cross-section.
 
 	Cell outer border = plasma membrane (double-line box). Receptors
@@ -512,10 +531,13 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 	with a minimal box style keeps the schematic visible without
 	adding redundant border weight on top of the cell's own ╔═╗ chars.
 
-	All width arithmetic is hand-calibrated for `_CELL_INNER_W = 96`.
-	If you change that constant, walk through each line below and
-	confirm widths still add up.
+	`inner_w` is the interior width (excluding the two ║ walls); callers
+	pass `_fit_inner_w(terminal_cols)` so the box uses the room available.
+	Every width below derives from it — the membrane fill spreads, the
+	cytosol lines pad, and the DTS box absorbs the slack — so there is no
+	single hand-calibrated number to keep in sync.
 	"""
+	inner_w = max(_CELL_INNER_MIN, inner_w)
 	# ── Convenience metrics ───────────────────────────────────────
 	par1_frac = s.par1_active / max(totals.par1, 1)
 	par4_frac = s.par4_active / max(totals.par4, 1)
@@ -532,19 +554,19 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 		_receptor_tag('PAR1', par1_frac),
 		_p2x1_tag(s),
 		_receptor_tag('P2Y1', p2y1_frac),
-	])
+	], inner_w)
 	bottom_membrane = _membrane_line('╚', '╝', '═', [
 		_receptor_tag('PAR4', par4_frac),
 		_flux_tag('SOCE', f'{s.soce_flux_nMs:>+6.2f} nM/s'),
 		_flux_tag('PMleak', f'{cs.J_PM_LEAK_IONS_S:.0f} ions/s'),
-	])
+	], inner_w)
 
 	# ── Inside the cell ───────────────────────────────────────────
 	# Right-pad a markup line to the inner cell width. The visible width is
 	# measured from the rendered text (`_visible_len`), so padding can't drift
 	# out of sync with the markup — no hand-counted "visible length" literals.
 	def inside(line_markup: str) -> str:
-		pad = max(0, _CELL_INNER_W - _visible_len(line_markup))
+		pad = max(0, inner_w - _visible_len(line_markup))
 		return f'║{line_markup}{" " * pad}║'
 
 	inside_lines: list[str] = []
@@ -577,12 +599,15 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 
 	# ── DTS box (left) and Mito box (right), drawn side by side ──
 	#
-	# DTS is 52 cols wide; Mito is 28 cols wide; gap between = 6 cols;
-	# leading indent inside the cell = 4 cols; trailing pad = 6 cols.
-	# 4 + 52 + 6 + 28 + 6 = 96 = _CELL_INNER_W. ✓
-	DTS_W, GAP_W, MITO_W = 52, 6, 28
-	INDENT_W = 4
-	TRAIL_W = _CELL_INNER_W - INDENT_W - DTS_W - GAP_W - MITO_W
+	# Mito holds fixed-width content (ion counts), so it keeps a fixed
+	# width; the indent, gap and trailing pad are fixed too. The DTS box
+	# (the big cytosolic Ca²⁺ store) absorbs all the extra width when the
+	# cell grows, so it stays the visual centrepiece:
+	#   INDENT(4) + DTS_W + GAP(6) + MITO(28) + TRAIL(6) = inner_w
+	GAP_W, MITO_W = 6, 28
+	INDENT_W, TRAIL_W = 4, 6
+	DTS_W = inner_w - INDENT_W - GAP_W - MITO_W - TRAIL_W
+	dts_interior = DTS_W - 2   # drawable width between the box's │ │ walls
 	indent = ' ' * INDENT_W
 	gap_str = ' ' * GAP_W
 	trail = ' ' * TRAIL_W
@@ -590,7 +615,7 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 	def organelle_row(dts_text: str, mito_text: str = '') -> str:
 		# dts_text and mito_text are the *content* lines (no borders); their
 		# visible widths are measured, not hand-counted.
-		dts_pad = max(0, DTS_W - 2 - _visible_len(dts_text))   # -2 for │ │
+		dts_pad = max(0, dts_interior - _visible_len(dts_text))
 		mito_pad = max(0, MITO_W - 2 - _visible_len(mito_text))
 		dts_box = f'│{dts_text}{" " * dts_pad}│'
 		if mito_text:
@@ -599,8 +624,9 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 			mito_box = ' ' * MITO_W
 		return f'║{indent}{dts_box}{gap_str}{mito_box}{trail}║'
 
-	# Top borders of DTS + Mito
-	dts_top = '┌' + '─' * (DTS_W - 2) + '┐'
+	# Top borders of DTS + Mito (blank row first — group separator)
+	inside_lines.append(inside(''))
+	dts_top = '┌' + '─' * dts_interior + '┐'
 	mito_top = '┌' + '─' * (MITO_W - 2) + '┐'
 	inside_lines.append(f'║{indent}{dts_top}{gap_str}{mito_top}{trail}║')
 
@@ -622,20 +648,31 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 	# Mito bottom border on the same row as DTS-only IP3R/SERCA label,
 	# then DTS continues solo for two more rows + its own bottom border.
 	mito_bottom = '└' + '─' * (MITO_W - 2) + '┘'
-	dts_ip3r = ' [b yellow]IP3R[/b yellow]                       [b green]SERCA[/b green]'
-	dts_ip3r_pad = max(0, DTS_W - 2 - _visible_len(dts_ip3r))
+	# IP3R (Ca²⁺ release) labels the left face of the store, SERCA (uptake) the
+	# right, each 1 col in from the border. The ▲/▼ flux arrows below reuse the
+	# same column positions, so the two rows stay aligned at any box width — no
+	# hand-tuned gap constants.
+	ip3r_col = 1
+	serca_col = max(ip3r_col + len('IP3R') + 1, dts_interior - 1 - len('SERCA'))
+	label_gap = serca_col - (ip3r_col + len('IP3R'))
+	dts_ip3r = (f' [b yellow]IP3R[/b yellow]{" " * label_gap}'
+		f'[b green]SERCA[/b green]')
+	dts_ip3r_pad = max(0, dts_interior - _visible_len(dts_ip3r))
 	inside_lines.append(
 		f'║{indent}│{dts_ip3r}{" " * dts_ip3r_pad}│{gap_str}{mito_bottom}{trail}║')
 
-	# DTS row 5 — flux arrows (DTS box only now)
-	dts_arrows = '  [yellow]▲[/yellow]                          [green]▼[/green]'
-	dts_arrows_pad = max(0, DTS_W - 2 - _visible_len(dts_arrows))
+	# DTS row 5 — flux arrows: ▲ under IP3R's first char, ▼ under SERCA's centre.
+	serca_centre = serca_col + len('SERCA') // 2
+	dts_arrows = (f'{" " * ip3r_col}[yellow]▲[/yellow]'
+		f'{" " * (serca_centre - ip3r_col - 1)}[green]▼[/green]')
+	dts_arrows_pad = max(0, dts_interior - _visible_len(dts_arrows))
 	inside_lines.append(
 		f'║{indent}│{dts_arrows}{" " * dts_arrows_pad}│{gap_str}{" " * MITO_W}{trail}║')
 
 	# DTS bottom border (Mito already closed; trail with empty space)
-	dts_bottom = '└' + '─' * (DTS_W - 2) + '┘'
+	dts_bottom = '└' + '─' * dts_interior + '┘'
 	inside_lines.append(f'║{indent}{dts_bottom}{gap_str}{" " * MITO_W}{trail}║')
+	inside_lines.append(inside(''))   # group separator before the pumps
 
 	# PMCA / SOCE pump details — bottom of cytosol space.
 	# "CaM-active" is the sum of the two Ca₄·CaM-loaded states
@@ -649,6 +686,7 @@ def _cell_schematic(s: Snapshot, totals: Totals, ca_ex_uM: float) -> Panel:
 
 	# ── Downstream PKC outputs (v0.61 / §3) — only if the run has them ──
 	if s.has_downstream:
+		inside_lines.append(inside(''))   # group separator before the outputs
 		inside_lines.append(inside(
 			f'  [b]Secretion[/b]  dense-ADP [cyan]{_pct(s.adp_released_frac)}[/cyan]'
 			f'  5-HT {_pct(s.serotonin_released_frac)}'
@@ -832,6 +870,10 @@ class PlateletReplayApp(App):
 		self._schedule_tick()
 		self._render_frame()
 
+	def on_resize(self, _event) -> None:
+		# Re-render so the cell box re-fits the new terminal width.
+		self._render_frame()
+
 	def _render_frame(self) -> None:
 		if not self.is_running:
 			return
@@ -846,8 +888,9 @@ class PlateletReplayApp(App):
 
 		self.query_one('#header', Static).update(
 			_header(snap, self.frame, self._n, self.speed, self.paused, extra))
+		inner_w = _fit_inner_w(self.size.width)
 		self.query_one('#cell', Static).update(
-			_cell_schematic(snap, self.totals, ca_ex_uM))
+			_cell_schematic(snap, self.totals, ca_ex_uM, inner_w))
 		w_start = max(0, self.frame - (SPARKLINE_WIDTH - 1))
 		self.query_one('#spark', Static).update(_sparkline_panel(
 			self._ca_hist[w_start:self.frame + 1],
@@ -949,7 +992,8 @@ def _dump_one_frame(simout: Path, frame_idx: int) -> int:
 	print(f'simout       : {simout}')
 	print(f'frame        : {idx} of {len(snapshots) - 1}  (t = {snap.t:.1f} s)')
 	print(f'terminal size: {console.size.width} cols x {console.size.height} rows')
-	schematic = _cell_schematic(snap, totals, ca_ex_uM)
+	inner_w = _fit_inner_w(console.size.width)
+	schematic = _cell_schematic(snap, totals, ca_ex_uM, inner_w)
 	# `schematic` is a Panel wrapping a Group of Texts (one per line).
 	inner = schematic.renderable
 	if isinstance(inner, Group):

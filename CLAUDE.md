@@ -52,6 +52,8 @@ PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 
 PYTHONPATH=$PWD python runscripts/manual/replayTui.py <run_or_simOut_dir> --speed 0.2
 #   q quit · space pause · +/- speed · ←/→ step · r restart
 #   --dump-frame N  renders frame N once to stdout (no TTY needed; CI/triage)
+#   The cell box auto-sizes to the terminal (grows to ~114 cols when there's
+#   room, clamps down so it never crops); a ≥114-col window reads best.
 
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
