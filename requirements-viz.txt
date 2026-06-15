@@ -1,0 +1,5 @@
+# Optional visualisation extras — the terminal replay TUI (replayTui.py).
+# Not needed to run or test the model; install only if you want the animated
+# replayer:  pip install -r requirements-viz.txt
+rich==15.0.0
+textual==8.2.7

@@ -20,3 +20,9 @@ mypy==1.3.0
 types-mock==5.0.0.6
 types-PyYAML==6.0.12.9
 types-requests==2.30.0.0
+
+# ── Terminal replay TUI (optional extra; here so CI covers its smoke tests) ─────
+# Users install these via requirements-viz.txt; the model itself doesn't need
+# them. test_replay_tui.py importorskips, so CI without these would skip cleanly.
+rich==15.0.0
+textual==8.2.7
