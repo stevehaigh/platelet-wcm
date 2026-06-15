@@ -35,3 +35,7 @@ plotly==5.24.1
 ipython==8.13.2
 ipdb==0.13.13
 line-profiler==4.0.3
+
+# ── Terminal replay TUI (optional) ─────────────────────────────────────────────
+# The animated replayer (runscripts/manual/replayTui.py) needs rich + textual.
+# Kept out of the core install — see requirements-viz.txt.
