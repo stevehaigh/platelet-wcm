@@ -86,13 +86,21 @@ class Doc:
 # ── Discovery ─────────────────────────────────────────────────────────────
 
 def find_docs(only: list[str] | None = None) -> list[tuple[str, Path]]:
-	"""Return (category, source_path) pairs for every doc to render."""
+	"""Return (category, source_path) pairs for every doc to render.
+
+	`README.*` files are skipped: Quarto excludes them from project renders
+	(so a `--output-dir` render is rejected with "can only be used when
+	rendering projects"), and they are directory navigators — redundant with
+	the generated index.
+	"""
+	def _included(p: Path) -> bool:
+		return p.is_file() and p.stem.lower() != 'readme'
 	pairs: list[tuple[str, Path]] = []
 	cats_to_scan = only or [ROOT_LABEL] + CATEGORIES
 	# Top-level reports/*.md and *.qmd (e.g. dissertation-notes.md).
 	if ROOT_LABEL in cats_to_scan:
 		for p in sorted(REPORTS.glob('*.md')) + sorted(REPORTS.glob('*.qmd')):
-			if p.is_file():
+			if _included(p):
 				pairs.append((ROOT_LABEL, p))
 	# Categorised subdirs.
 	for cat in CATEGORIES:
@@ -102,7 +110,7 @@ def find_docs(only: list[str] | None = None) -> list[tuple[str, Path]]:
 		if not cat_dir.is_dir():
 			continue
 		for p in sorted(cat_dir.glob('*.md')) + sorted(cat_dir.glob('*.qmd')):
-			if p.is_file():
+			if _included(p):
 				pairs.append((cat, p))
 	return pairs
 
@@ -324,6 +332,17 @@ def main(argv: list[str] | None = None) -> int:
 		print('No docs found.', file=sys.stderr)
 		return 1
 	print(f'Rendering {len(pairs)} doc(s) into {out_dir.relative_to(REPO_ROOT)}/ …\n')
+
+	# Start every run from a clean output dir + Quarto cache. Quarto creates
+	# arbitrary nested asset dirs (`figures/`, `*_files/`) that otherwise
+	# collide with `_flatten_quarto_output`'s shutil.move on a rebuild, and a
+	# stale `.quarto` project cache causes spurious "Unexpected … after JSON"
+	# render failures. Wiping both makes the build reproducible. (Consequence:
+	# `--only` renders a fresh site containing just the selected category — the
+	# index always reflects exactly what was rendered this run.)
+	shutil.rmtree(out_dir, ignore_errors=True)
+	shutil.rmtree(REPO_ROOT / '.quarto', ignore_errors=True)
+	out_dir.mkdir(parents=True, exist_ok=True)
 
 	results: list[Doc] = []
 	log_lines: list[str] = []
