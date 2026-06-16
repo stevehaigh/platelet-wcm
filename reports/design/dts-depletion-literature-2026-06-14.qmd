@@ -296,10 +296,58 @@ byte-identical goldens regenerated, and a regression guard added
 V_IM can't silently reintroduce sub-cytosolic draining. `V_PM` stays −60 mV — the
 plasma membrane *does* hold a resting potential; only the ER/DTS membrane was wrong.
 
-**Still open (unchanged by this):** whether to also hold a *typical-stimulus*
-residual store (~30–50 %) via stronger IP₃R inactivation (§6 option b). The V_IM
-fix makes the deep-depletion *thermodynamically honest*; the depth itself remains
-a defensible-range calibration choice, best framed by the dose-response result (§7).
+**Next (resolved in §9):** whether to also hold a *typical-stimulus* residual
+store via stronger IP₃R inactivation (§6 option b) — pursued next, with a
+surprising result.
+
+# 9. Resolution (2026-06-16, cont.): resting-balance recalibration — and why the residual is unachievable (and that's correct)
+
+Pursuing §6 option (b) — strengthen IP₃R Ca²⁺-inhibition (lower `d2`) to hold a
+residual — first *appeared* to work: `d2 = 0.10 µM` gave a ~30 % residual store.
+But checking the **resting** state exposed the catch.
+
+**The resting fixed point was drifting** — and not because of d2. An unstimulated
+cell drifted to DTS ~500 µM / cyt ~6 nM (target 250 µM / 100 nM). This is
+**pre-existing** (the original V_IM = −60 mV model drifts to ~449 µM / ~16 nM)
+and was masked because the validation always *initialises* at 250/100 and runs
+short, agonist-driven windows. The §8 **V_IM = 0** change worsened it: `γ_IP3R`
+had been balanced against SERCA at V_IM = −60 mV, and the smaller V_IM = 0 resting
+driving force under-leaks, so SERCA over-fills the store (the calibration coupling
+the TOML warns about).
+
+**The d2 "residual" was an artifact of that over-filled baseline** — the store
+wasn't *holding* a residual, it was being pulled up toward the broken ~500 µM
+fixed point.
+
+**Recalibration.** `γ_IP3R` was re-derived empirically for V_IM = 0 — the value
+that holds a **stable** resting fixed point: **0.075 → 0.135 pS** (still within
+the Bezprozvanny 1991 / Mak & Foskett 1997 plausibility range 0.05–0.5 pS). Result:
+unstimulated DTS 250 → 255 µM, cyt 100 → 96 nM, settled over 400 s.
+
+**With rest correct, the residual is unachievable via inactivation.** Raising γ
+to balance rest deepens *active* depletion in lockstep; `d2` (capped below by the
+`d5 = 0.082 µM` bell-curve bound) cannot offset it. A γ-sweep at balanced rest:
+
+| γ (pS) | rest DTS / cyt | +Ca residual | 5/5 |
+|--------|----------------|--------------|-----|
+| 0.075 (old) | 504 µM / 6 nM (drifts) | 75 µM (artifact) | 5/5 |
+| **0.135** | **255 µM / 96 nM (stable)** | **~1 µM** | **5/5** |
+
+So `d2` was **reverted to the literature 1.049 µM** (the residual differs by ~2 µM
+either way — not worth a 10× deviation from de Young–Keizer).
+
+**Conclusion — this vindicates View B.** Under sustained, saturating agonist the
+store *deeply depletes* (~1 µM free, but **above** cytosol — the V_IM = 0 floor
+holds), and that is the honest behavior: you *cannot* hold a residual via IP₃R
+inactivation once homeostasis is correct. A held residual would require an
+explicit **store-retention** term (§6 option c), which the quantal-release
+literature weakly motivates (it argues luminal Ca²⁺ is *not* the mechanism).
+Partial depletion at lower / transient doses is the dose-response story (§7).
+
+**Final DTS-realism config:** `V_IM = 0` · `γ_IP3R = 0.135 pS` · `d2 = 1.049`
+(literature). Stable resting fixed point, deep-but-above-cytosol depletion under
+sustained agonist, Dolan 5/5 (peak 430 nM, SOCE Δ 138 nM), goldens regenerated,
+`test_dts_never_drains_below_cytosol` guard in place.
 
 ---
 

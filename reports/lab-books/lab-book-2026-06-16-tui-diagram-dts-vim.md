@@ -109,17 +109,40 @@ resting potential; only the ER membrane was wrong).
 - On branch `dose-response-v0.63` (PR #59 — the DTS-depletion investigation; the
   V_IM fix is its resolution).
 
-**Still open (separable, not forced):** whether to also hold a *typical-stimulus*
-residual store (~30–50 %) via stronger IP₃R inactivation (design-doc §6 option b).
-V_IM fixed the *floor*; depth remains a defensible-range calibration best framed by
-the dose-response result.
+### Follow-up — stronger IP₃R inactivation, and the resting-balance recalibration
+
+Pursued §6 option (b): strengthen IP₃R Ca²⁺-inhibition (lower `d2`) to hold a
+residual. `d2 = 0.10 µM` *appeared* to give a ~30 % residual — but checking the
+resting state exposed the catch:
+
+- **The resting fixed point was drifting** (unstimulated DTS → ~500 µM, cyt → ~6 nM
+  vs target 250/100). Pre-existing (original V_IM = −60 model drifts to ~449/16),
+  masked because the validation initialises at 250/100 and runs short windows. The
+  V_IM = 0 change worsened it — `γ_IP3R` was balanced against SERCA at V_IM = −60,
+  so the smaller V_IM = 0 driving force under-leaks and SERCA over-fills.
+- **The d2 "residual" was an artifact** of that over-filled baseline (the store was
+  being pulled up toward the broken ~500 µM fixed point, not holding a residual).
+- **Recalibrated `γ_IP3R` 0.075 → 0.135 pS** (empirically, for V_IM = 0) → stable
+  rest: DTS 250 → 255 µM, cyt 100 → 96 nM, settled over 400 s. Still within the
+  0.05–0.5 pS plausibility range.
+- **With rest correct, the residual is unachievable via inactivation** — raising γ
+  deepens active depletion in lockstep and `d2` (bounded by `d5`) can't offset.
+  So `d2` was **reverted to the literature 1.049 µM**.
+
+**Outcome (vindicates View B):** under sustained saturating agonist the store
+deeply depletes (~1 µM, but **above** cytosol — V_IM = 0 floor holds); a held
+residual would need an explicit store-retention term (§6 option c), weakly
+motivated. Partial depletion at lower/transient doses is the dose-response story.
+**Final config:** `V_IM = 0` · `γ_IP3R = 0.135 pS` · `d2 = 1.049`; stable rest,
+Dolan 5/5 (peak 430, SOCE Δ 138), goldens regenerated. Design doc §9.
 
 ---
 
 ## Status / next
 
 - PR #60 (TUI) merged to main; #48 closed.
-- PR #59 (dose-response + DTS-depletion) now also carries the V_IM=0 fix.
+- PR #59 (dose-response + DTS-depletion) now carries V_IM = 0, the γ_IP3R
+  resting-balance recalibration, and the mypy `RunConfig(**overrides)` fix.
 - Issue #61 open for the BioRender diagram work.
-- Noted (not fixed): pre-existing mypy `RunConfig(**dynamic_dict)` typing
-  complaint in `runDoseResponse.py` (outside the CI mypy path).
+- Resting fixed point is now stable (was a pre-existing drift); deep depletion
+  under sustained agonist is the model's honest behavior (View B).

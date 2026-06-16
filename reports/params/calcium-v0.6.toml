@@ -75,19 +75,25 @@ a2 = 0.2      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets 
 # N_IP3R, you MUST re-derive γ_IP3R from the new SERCA cycle flux.
 # See calibration-coupling-2026-05-25.qmd chains 1 + 2.
 #
-# Derivation (original target γ = 0.35 pS; current calibrated value
-# 0.075 pS reflects a later re-balance against the corrected IP3R
-# Po⁴ × Nernst flux): SERCA 6-state steady-state flux at the Dolan
-# resting state = 112 570 Ca²⁺ ions/s. Setting IP3R resting flux equal:
-#   γ_required = J / (N · Po · |driving| · NA/zF)
-# Biological plausibility: Bezprozvanny 1991 / Mak & Foskett 1997 give
-# effective IP3R γ_Ca in cellular conditions at 0.05–0.5 pS (K⁺ carries
-# most of the unitary current); our value is in range. The historical
-# 10 pS (Zschauer 1988 via Purvis 2008) was a bilayer measurement under
-# symmetric high Ca²⁺ and is not transferable.
+# Derivation (original target γ = 0.35 pS; the earlier 0.075 pS value reflected
+# a re-balance against the corrected IP3R Po⁴ × Nernst flux at V_IM = −60 mV):
+# SERCA 6-state steady-state flux at the Dolan resting state = 112 570 Ca²⁺
+# ions/s; setting IP3R resting flux equal, γ = J / (N · Po · |driving| · NA/zF).
+#
+# Recalibrated 2026-06-16 → 0.135 pS. Moving V_IM to 0 mV (the ER/DTS membrane
+# holds ≈0 mV — see the [ip3r] potentials header) shrank the resting
+# electrochemical driving force (|V_IM − E_Ca| 0.164 → 0.104 V), so the old
+# 0.075 pS under-leaked and SERCA over-filled the store (resting DTS drifted to
+# ~500 µM, cyt to ~6 nM). γ was re-derived empirically as the value that holds a
+# STABLE resting fixed point — DTS ~255 µM, cyt ~96 nM, settled over 400 s — with
+# Dolan 5/5 intact. See dts-depletion-literature-2026-06-14.qmd §8.
+# Biological plausibility: Bezprozvanny 1991 / Mak & Foskett 1997 give effective
+# IP3R γ_Ca at 0.05–0.5 pS (K⁺ carries most of the unitary current); 0.135 pS is
+# in range. The historical 10 pS (Zschauer 1988 via Purvis 2008) was a bilayer
+# measurement under symmetric high Ca²⁺ and is not transferable.
 [ip3r.channel]
 n_total = 1328       # (count) — Burkhart 2012 ITPR2 monomer abundance; Dolan 2014 Table S1
-gamma_s = 0.075e-12  # (A/V) — 0.075 pS Ca²⁺-specific conductance; calibrated (see header)
+gamma_s = 0.135e-12  # (A/V) — 0.135 pS; recalibrated 2026-06-16 for V_IM=0 (see header)
 
 
 # ── SERCA cycle (Purvis 2008 Table 1, Dode 2002 isoform 3b) ──────────
