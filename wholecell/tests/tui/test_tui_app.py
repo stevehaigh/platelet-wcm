@@ -235,7 +235,8 @@ def test_short_run_through_tui_streams_live_csv():
 			# the aspirin knockout flowed through to the written run spec
 			spec_path = os.path.join(
 				tui.resolve_sim_path('tui_run', root), 'run_config.json')
-			spec = json.loads(open(spec_path).read())
+			with open(spec_path) as handle:
+				spec = json.load(handle)
 			assert spec['run_config']['cox1_factor'] == 0.0
 			# the PAR1 expression knockout reached count_overrides
 			assert spec['run_config']['count_overrides']['PAR1_active[pl]'] == 0

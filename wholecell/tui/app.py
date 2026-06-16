@@ -1,16 +1,19 @@
 """
-Platelet WCM — terminal experiment bench (Textual TUI), phase P1.
+Platelet WCM — terminal experiment bench (Textual TUI), phases P0–P2.
 
-Builds on the P0 skeleton: the full `RunConfig` is now surfaced, grouped by
-subsystem (Stimulus / Feedback loops / Pumps & brakes), with inline "KO"
-checkboxes for the curated knockouts (each forces a knob to 0). Editing the
-form builds a JSON run spec that is run on demand by
-`runscripts/manual/runFromConfig.py` as a subprocess (decision §12), with the
-cytosolic / DTS Ca²⁺ trace streamed live from the run's `live.csv`.
+The full `RunConfig` is surfaced, grouped by subsystem (Stimulus / Feedback
+loops / Pumps & brakes), with inline "KO" checkboxes for the curated scale
+knockouts (each forces a knob to 0). Editing the form builds a JSON run spec
+that is run on demand by `runscripts/manual/runFromConfig.py` as a subprocess
+(decision §12), with the cytosolic / DTS Ca²⁺ trace streamed live from the
+run's `live.csv`.
 
-Schema and config assembly live in `wholecell/tui/runspec.py`. Still to come
-(P1): presets (save/load) and compare-to-baseline. See
-`reports/design/tui-tinkering-dashboard-2026-06-15.qmd`.
+Schema and config assembly live in `wholecell/tui/runspec.py`; presets in
+`wholecell/tui/presets.py`. Expression knockouts (P2) zero copy numbers via
+`RunConfig.count_overrides` (entity map in
+`reconstruction/platelet/knockouts.py`). Presets, compare-to-baseline, the
+modified/stale indicators, and the on-demand 5-panel figure are all wired here.
+See `reports/design/tui-tinkering-dashboard-2026-06-15.qmd`.
 """
 
 from __future__ import annotations
