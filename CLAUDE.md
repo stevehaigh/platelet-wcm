@@ -48,6 +48,9 @@ PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 
 # Run the Dash webapp locally (http://localhost:8050)
 make run     # foreground with hot reload
 make stop    # kill it
+
+# Run the terminal UI — the experiment bench (Textual)
+make tui     # edit run conditions / knockouts, run, watch the Ca²⁺ trace live
 ```
 
 All runscripts support `-h` for full options.
@@ -432,6 +435,32 @@ Dash app at `wholecell/webapp/`. `make run` starts it locally. Pushing to the `w
 branch (`make deploy`) triggers `.github/workflows/deploy-azure.yml`, which builds
 docker images (`docker/runtime/`, `docker/webapp/`) and deploys to Azure Container
 Instances at `platelet-wcm.uksouth.azurecontainer.io`.
+
+### Terminal UI (TUI)
+
+Textual app at `wholecell/tui/` — the **experiment bench**: edit run conditions and
+pathway knobs, knock out receptors/pathways, hit run, and watch the cytosolic / DTS
+Ca²⁺ trace stream live. Launch with `make tui` (entry point
+`runscripts/manual/runTui.py`). Design + status:
+`reports/design/tui-tinkering-dashboard-2026-06-15.qmd` (P0–P2 built).
+
+- Runs each sim as a **subprocess** of `runscripts/manual/runFromConfig.py`, which takes
+  a `{length_sec, seed, run_config}` JSON spec and builds a `RunConfig` — exposing the
+  *full* config surface (the `runPlateletSim.py` CLI only covers a subset). The spec
+  doubles as a reproducible/shareable preset.
+- **Tier-0 knobs** (scales/gains) are inline KO checkboxes; **expression knockouts**
+  (P2) zero copy numbers via `RunConfig.count_overrides`, with the logical-entity →
+  species map in `reconstruction/platelet/knockouts.py`, applied at state-seeding in
+  `reconstruction/platelet/initialization.py:initialize_bulk_molecules` (wired from
+  `models/platelet/sim/initial_conditions.py` via `sim.run_config`). Empty overrides →
+  byte-identical.
+- **Env gotcha:** `make tui` uses `pyenv exec python`, NOT bare `python3` — on dev
+  machines `python3` may resolve to a system Python lacking `textual-plotext` / the sim
+  deps; the pinned pyenv 3.11.5 has everything. Deps: `textual`, `textual-plotext`,
+  `plotext`. Tests in `wholecell/tests/tui/`.
+- Like the loops/perturbations, **knockout effects are invisible under the default
+  saturating agonist** (store-limited); isolate one agonist and read IP₃, or use the
+  baseline overlay, to see them.
 
 ### Reports & docs
 

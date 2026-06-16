@@ -23,7 +23,8 @@ the same process get two independent configs.
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Dict
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,16 @@ class RunConfig:
 
 	mcu_vmax_scale: float = 1.0
 	"""Scale on MCU V_max (K_MITO['V_max_MCU']) — the runPerturbation mcu sweep."""
+
+	# ── Initial-count overrides (Tier 2 — expression knockouts) ───────────
+	count_overrides: Dict[str, int] = field(default_factory=dict)
+	"""Per-run overrides of resting copy numbers, keyed by molecule id (e.g.
+	``{'P2Y1_inactive[pl]': 0}``). Applied when the bulk-molecule state is
+	seeded (``initialize_bulk_molecules``), over the sim_data baseline. Empty
+	(default) → byte-identical to the unmodified run. Setting an entity's
+	copy number to 0 is an expression knockout; the TUI expands a logical
+	entity (e.g. "P2Y1") into all its conformational sub-states via the
+	knockout entity map before populating this."""
 
 	def to_metadata(self) -> dict:
 		"""Flat dict of the config for the run ``metadata/`` JSON (provenance)."""

@@ -1,0 +1,511 @@
+---
+title: "Platelet WCM — TUI tinkering dashboard (design / envisaging)"
+author: "Steve Haigh"
+date: "2026-06-15"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+---
+
+# TUI tinkering dashboard — design / envisaging
+
+**Status: P0–P2 implemented (2026-06-16)** — the TUI lives in `wholecell/tui/`
+(run `make tui`); P3 (rate overrides) not started. Build narrative:
+`reports/lab-books/lab-book-2026-06-16-tui-bench.md`. The rest of this doc is
+the original envisaging pass that scoped the work.
+
+Envisaging pass on a terminal UI that
+turns the platelet WCM into an interactive *experiment bench*: edit the
+biology (concentrations, copy numbers, rate constants), knock out
+receptors or whole pathways, hit **run**, watch the calcium trace stream
+live, and compare against baseline — all from the terminal, sitting next
+to the existing runscripts.
+
+Scope decision (2026-06-15): build a **terminal TUI** (not an extension
+of the Dash webapp), and **envisage all three depth phases** before
+committing to how far the model refactor goes.
+
+This doc has two halves, as the brief framed it:
+
+1. **UI work** — what the TUI looks like and how it's built (§3–§5).
+2. **How the model supports tinkering** — the three tiers of tunable
+   values, and the refactor each tier needs (§6–§8). This is the harder
+   and more interesting half.
+
+---
+
+## 1. Vision
+
+A single full-screen terminal app — a "computational platelet bench" —
+where one screen lets you:
+
+- **Set up an experiment**: stimulus (agonist doses, extracellular Ca²⁺,
+  timing), *genotype* (which receptors/enzymes are expressed and at what
+  copy number), and *pharmacology* (which pathways are scaled or
+  knocked out).
+- **Run it** in the background while the UI stays responsive.
+- **Watch** cytosolic / store Ca²⁺ (and IP₃, PKC, etc.) stream as the
+  sim steps.
+- **Compare** the result against the baseline or a previous run.
+- **Save / reload** the whole setup as a reproducible config — because
+  every knob already round-trips through `RunConfig.to_metadata()`.
+
+The mental model for the user is *genotype + stimulus + pharmacology →
+trace*, organised around the biology, not a flat form.
+
+---
+
+## 2. What already exists (we extend, not start cold)
+
+- **`RunConfig`** (`reconstruction/platelet/run_config.py`) — a frozen
+  per-sim knob bundle, threaded into the ODE as a *pure function*
+  argument (`_ode_rhs(t, y, t_sim_start, config, step_inputs)`). The
+  v0.62 refactor already killed in-place module-global mutation
+  ("monkeypatching"). This is the clean foundation the whole idea rests
+  on.
+- **`run_platelet_sim(...)`** (`runscripts/manual/runPlateletSim.py`) —
+  an importable function that takes a `RunConfig` (or its kwargs),
+  builds `SimulationDataPlatelet`, runs the loop, and writes listeners.
+  A TUI can call this directly in a worker thread.
+- **Live CSV** — `RunConfig.live=True` already writes
+  `simOut/live.csv` per step. Perfect for an in-terminal live trace.
+- **`TableReader`** (`wholecell/io/tablereader.py`) — reads listener
+  columns back for plotting / comparison.
+- **The Dash webapp's job queue, plot tabs, and Docker plumbing** are
+  *not* reused — a single-user local TUI doesn't need SQLite + a worker
+  thread + `docker run`. (Though the webapp remains as-is; this is a
+  parallel front-end, not a replacement.)
+
+> **The TUI is intended to eventually replace the Dash webapp** (decision
+> §12), not sit beside it forever. Textual can serve the same app over the
+> web via `textual serve` / `textual-web`, which covers the webapp's
+> remote-access use case; the Dash app stays only until the TUI reaches
+> parity.
+
+---
+
+## 3. Why a TUI, and what to build it with
+
+**Why a terminal UI fits this project.** It lives where the work already
+happens (the runscripts, `PYTHONPATH=$PWD python …`), is keyboard-driven
+and fast to iterate, needs no browser/server, and is trivially
+scriptable. The cost is plots: full multi-panel matplotlib figures don't
+render in a terminal, so live traces are ASCII/braille line charts and
+the *publication* figures are handed off to the existing
+`analysisPlatelet.py` (open externally). That split is fine — the TUI is
+for *iterating*, the matplotlib pipeline is for *figures*.
+
+**Recommended stack: [Textual](https://textual.textualize.io/)** (the
+modern Python TUI framework, built on Rich).
+
+| Need | Textual provides |
+|------|------------------|
+| Forms / editable fields | `Input`, `Switch`, `Select`, `Checkbox` |
+| The big editable tables (rates, counts) | `DataTable` (sortable, editable cells) |
+| Pathway grouping / collapsible sections | `Collapsible`, `TabbedContent`, `Tree` |
+| Run without freezing the UI | `@work(thread=True)` workers + reactive state |
+| Live trace | `textual-plotext` line charts (chosen, §12) |
+| Progress | `ProgressBar` |
+| Styling | TCSS (CSS-like), themeable |
+| **Path to replace the webapp** (§12) | `textual serve` exposes the same app in a browser |
+
+Alternatives considered: **Rich-only** (rendering, no interactivity — too
+limited for editable forms), **prompt_toolkit** (lower-level, more
+boilerplate), **urwid** (older, smaller widget set). Textual is the clear
+pick and is actively maintained.
+
+---
+
+## 4. The core: three tiers of tunable values
+
+This is the crux of "how the model supports tinkering." Every value a
+user might want to edit lives in exactly one of three tiers — and **only
+the first is per-run editable today**:
+
+| Tier | Lives in | Per-run editable now? | Contents |
+|------|----------|:---:|----------|
+| **0 — Run knobs** | `RunConfig` | ✅ clean, pure-threaded | Extracellular Ca²⁺; 3 agonist doses + delay; feedback-loop gains (autocrine ADP/TXA₂); 6 curated scale/knockout knobs (COX-1/aspirin, integrin/Glanzmann, MCU, PMCA-k\_cat, P2Y1-desens, PLCβ-phos) |
+| **1 — Rate constants** | `calcium-v0.6.toml` (~200 params) | ❌ loaded at **import time** → module globals | Every IP3R / SERCA / PMCA / SOCE / GPCR / PKC rate, K\_d, conductance, channel copy-number |
+| **2 — Initial counts** | `species-v0.6.tsv` (78 species) | ❌ loaded at **import time** → `initial_counts` array | Resting copy number of every molecule / receptor / enzyme |
+| **3 — Physics / structure** | hardcoded Python | ❌ — *and should stay that way* | Compartment volumes, Faraday/gas/T, subunits-per-channel |
+
+Tier 0 maps essentially 1:1 onto form controls — it is almost free UI.
+Tiers 1 and 2 are each loaded **once at module import** into module-level
+globals (`_KINETICS`, `_MOLECULES`/`initial_counts`); making them per-run
+is the real model work, and it is the *same architectural move* v0.62
+already made for `RunConfig`: stop reading module globals, thread a
+per-sim object through instead. Tier 3 should never be a UI knob (it's
+physics and molecular architecture) — possibly excepting compartment
+volumes, which are acknowledged estimates (cytosol ≈ 6 fL is a guess).
+
+This tiering connects directly to the existing
+[`kinetics-as-data-2026-05-22.qmd`](kinetics-as-data-2026-05-22.qmd)
+plan, whose "four-level spectrum" describes the same axis from
+Python-constants → fully-data-driven. Tier-1 editing is essentially that
+doc's "Level 2" made interactive.
+
+---
+
+## 5. Knockouts decompose into two clean mechanisms
+
+"Knock out a receptor or pathway" is not one operation — it's two, and
+naming them clarifies the model work:
+
+- **Expression knockout** = set a copy number to **0** (Tier 2). The
+  natural way to kill a *receptor* (P2Y1, PAR1, PAR4, P2X1, TP, αIIbβ3)
+  or an *enzyme* (SERCA, PMCA). Needs `count_overrides` + init-time
+  count construction.
+- **Activity knockout** = set a rate to **0** (Tier 1, or an existing
+  Tier-0 scale). Six pathways already have this (aspirin → COX-1 = 0,
+  MCU = 0, etc.). Generalising to *any* rate needs `rate_overrides`.
+
+**Design judgement:** expression knockouts (Tier 2) are the
+**higher-value, lower-risk** model investment. "Kill any
+receptor/enzyme" is mostly achievable by zeroing copy numbers — one
+clean mechanism — whereas the ~200-parameter rate-override machinery
+(Tier 1) is really a *calibration / sensitivity-analysis* tool, not a
+knockout tool. If forced to pick one of Phases 2 or 3, do Phase 2.
+
+**The conservation gotcha.** Many species are pre-equilibrated
+*sub-states* (SERCA E1/E2/E1Ca/E1PCa/E2PCa/E2P; the CaM ladder; STIM1
+free/Ca-bound/dimer; P2Y1 active/inactive/desensitised). Zeroing one TSV
+row in isolation breaks mass conservation and the resting steady state.
+So a knockout must operate on the **logical entity** (sum of all its
+conformational states), not a raw row. That implies a small **entity
+map**:
+
+```
+"P2Y1"   -> {P2Y1_inactive[pl], P2Y1_active[pl], P2Y1_desensitised[pl]}
+"SERCA"  -> {SERCA_E1[dts], SERCA_E2[dts], SERCA_E1Ca[dts], ...}
+"αIIbβ3" -> {aIIbb3_resting[pl], aIIbb3_active[pl]}
+...
+```
+
+curated once (design work, not hard), sitting above the flat species
+list. The TUI's "knock out P2Y1" toggle then zeroes the whole set and
+picks the right mechanism (count → 0) without the user knowing which
+tier it touches.
+
+---
+
+## 6. Model refactor required, per tier
+
+```{mermaid}
+%%| fig-cap: "Data flow. Tier-0 knobs already reach the ODE as pure args (solid). Tiers 1–2 (dashed) are loaded once at import into module globals today; the refactor moves their load to build-time so per-sim overrides can be merged in — the same 'no globals' move v0.62 made for RunConfig."
+flowchart LR
+  subgraph TUI
+    K0[Tier 0 knobs]
+    K1[Tier 1 rate overrides]
+    K2[Tier 2 count overrides]
+  end
+  RC[RunConfig + overrides]
+  K0 --> RC
+  K1 -.-> RC
+  K2 -.-> RC
+  RC --> BUILD[build SimulationDataPlatelet]
+  BUILD --> KIN[per-sim kinetics bundle]
+  BUILD --> CNT[per-sim initial_counts]
+  KIN --> ODE[_ode_rhs pure fn]
+  CNT --> STATE[BulkMolecules]
+  ODE --> RUN[sim loop]
+  STATE --> RUN
+  RUN --> LIS[listeners + live.csv]
+  LIS --> TUI
+```
+
+**Tier 0 — none.** Already per-run and pure. The UI just has to *expose*
+the full `RunConfig` (today the Configure tab surfaces only a handful of
+its ~14 fields).
+
+**Tier 2 — `count_overrides` (medium, well-contained).**
+
+- Add `count_overrides: Mapping[str, int]` to `RunConfig` (default empty
+  → byte-identical baseline).
+- Move `initial_counts` array construction out of `internal_state.py`
+  *import time* into sim-data build / `BulkMolecules` init, so overrides
+  can be merged before the state vector is frozen.
+- Add the entity map (§5) for logical-entity knockouts.
+- Provenance: overrides already serialise via `to_metadata()`.
+
+**Tier 1 — `rate_overrides` (most invasive, same pattern as v0.62).**
+
+- Add `rate_overrides: Mapping[str, float]` to `RunConfig`, keyed by
+  dotted TOML path (e.g. `"serca.cycle.k_cat"`).
+- Move `_KINETICS = load_calcium_kinetics()` out of *module scope* into
+  sim-data build, producing a **per-sim kinetics bundle** (frozen) with
+  overrides merged onto the baseline TOML.
+- Thread that bundle into `_ode_rhs(... , kinetics)` as an additional
+  pure argument, replacing the ~30 module-level `K_*` / `N_*` / `GAMMA_*`
+  reads. This is the bulk of the work — it touches the whole ODE — but
+  it is mechanical and is the natural endpoint of the kinetics-as-data
+  plan.
+
+**Tier 3 — leave alone** (optionally expose volumes as an "advanced /
+unvalidated" group, clearly flagged).
+
+### 6.1 A correctness reason the refactor matters (not just UX)
+
+A long-lived TUI process runs *many differently-tinkered sims back to
+back*. Today, Tiers 1–2 are process-global (loaded at import). Mutating
+them in-process to apply overrides would resurrect exactly the
+module-global contamination v0.62 removed — run N's overrides would leak
+into run N+1. So:
+
+- **Phase 1 (RunConfig-only) runs are safe in-process today** — every
+  knob is already pure-threaded.
+- **Arbitrary Tier-1/2 overrides are only safe in-process *after* the
+  build-time refactor.** Until then, the fallback is **subprocess per
+  run** (fresh import each time) — simpler, but slower and it loses the
+  easy in-process live-trace handoff.
+
+This makes the refactor a *prerequisite* for the expert tinkering modes,
+not merely a nicety — a useful argument when deciding how far to go.
+
+**Decision (§12): subprocess per run.** A fresh process per run sidesteps
+the contamination entirely (each run re-imports cleanly), so this refactor
+is **off the P0+P1 critical path** and returns only if/when P2–P3 want
+in-process multi-run. The cost is that the live trace comes from polling
+the subprocess's `live.csv`, not an in-process callback.
+
+---
+
+## 7. The TUI itself — layout & interaction
+
+A single dashboard screen, pathway-shaped, with a results pane. Sketch
+(80×24 is the floor; it reflows wider):
+
+```
+┌─ Platelet WCM bench ──────────────────────── preset: [Agonist transient ▾] ┐
+│ STIMULUS                          │ RESULTS                                 │
+│  Thrombin   [ 1.0 ] nM            │  Ca²⁺_cyt (µM)   ▁▂▅█▇▅▃▂▁▁▁  peak 0.84 │
+│  ADP        [10.0 ] µM            │  Ca²⁺_dts (µM)   ████▇▆▅▅▅▅▅  ───────── │
+│  ATP_ex     [10.0 ] µM            │  IP₃ (nM)        ▁▃▆█▆▄▃▂▂▁▁  peak 412  │
+│  Ca²⁺_ex    [ 1.2 ] mM            │  PKC active      ▁▁▂▄▆▇███▇▇             │
+│  delay [0]s  length [200]s        │  t = 142 / 200 s   ████████░░  71%      │
+│  □ run at rest                    │                                         │
+├───────────────────────────────────┤  [ compare: baseline ▾ ]  overlay: ▢   │
+│ RECEPTORS         expr   knockout │─────────────────────────────────────────│
+│  P2Y1   [ 1500 ]   ●      ☐       │ MODIFIED FROM BASELINE (3)              │
+│  PAR1   [ 1800 ]   ●      ☐       │  • thrombin_peak_nM  1.0 → 0.5          │
+│  PAR4   [  900 ]   ●      ☐       │  • MCU scale         1.0 → 0.0  (KO)    │
+│  P2X1   [ ... ]    ●      ☐       │  • PKC→PLCβ scale    1.0 → 0.3          │
+│  TP     [ 1000 ]   ●      ☐       │                                         │
+│  αIIbβ3 [80000 ]   ●      ☐       │  [ Run ]  [ Reset ]  [ Save preset ]    │
+├───────────────────────────────────┴─────────────────────────────────────────┤
+│ PATHWAYS (scale 0–2, ✕ = knockout)   IP3R[1.0] SERCA[1.0] PMCA[1.0] SOCE[1.0]│
+│   MCU[✕] NCX[1.0] | feedback: autocrine-ADP[on] autocrine-TXA₂[on] | aspirin□ │
+│   ▸ Expert: rate table (~200)   ▸ Expert: count table (78)                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+ [Tab] move  [Enter] edit  [r] run  [c] compare  [s] save  [/]search  [?] help
+```
+
+Interaction principles:
+
+- **Baseline-relative editing.** Every field shows its baseline default;
+  editing flags it modified and the "MODIFIED FROM BASELINE" pane is the
+  live diff. A run is always *"baseline + N changes,"* never a mystery
+  blob.
+- **Knockout as a first-class verb.** Per-receptor / per-pathway toggle
+  that auto-selects the mechanism (count → 0 or scale → 0) via the
+  entity map — the user thinks "kill P2Y1," not "which tier?".
+- **Presets extend the existing four.** Add Aspirin, Glanzmann, and
+  *user-saved* genotypes; presets are just named `RunConfig`s.
+- **Expert tables behind a disclosure.** The ~200-rate and 78-count
+  tables (Tiers 1/2) are searchable `DataTable`s, off by default, so the
+  default screen stays biological and uncluttered.
+- **Live trace + compare.** Poll the subprocess's `live.csv` into the
+  results pane's plotext line charts as it runs; one keypress overlays the
+  chosen baseline/previous run.
+
+---
+
+## 8. Backend wiring
+
+```
+TUI (Textual)
+  └─ build RunConfig (+ overrides)        ← form state
+  └─ @work(thread=True): subprocess → runPlateletSim.py <cfg> --live
+        └─ writes simOut/…  +  simOut/live.csv
+  └─ poll live.csv  → update plotext line charts + progress
+  └─ on finish: TableReader → results pane; optional analysisPlatelet → external figure
+```
+
+- **A Textual worker thread supervises a subprocess** (decision §12) so
+  the UI stays live; the trace comes from polling the subprocess's
+  `live.csv`; final columns are read back with `TableReader`.
+- **Subprocess per run** keeps each run's import-time globals isolated,
+  so the Tier-1/2 build-time refactor (§6.1) is not on the P0+P1 path.
+- **Full figures** are rendered by the figure-recipe registry (§9) and
+  opened externally (`open` / image viewer) — the TUI iterates with the
+  in-terminal sparklines; it does not render publication figures itself.
+
+---
+
+## 9. Figure generation on demand
+
+Today, publication figures come from small bespoke scripts in
+`runscripts/manual/` written per question and re-run by hand. We can do
+better: a **registry of figure recipes** that the TUI (or the CLI) runs
+on demand against a finished run. Half of this already exists.
+
+### 9.1 Figures split into two kinds
+
+| Kind | Input | Status today |
+|------|-------|--------------|
+| **Single-run** (e.g. `calcium_trace`, `scaffold_summary`) | one `simOut/` | ✅ registry exists; on-demand already works |
+| **Multi-condition** (Phase 3 ±Ca²⁺; second-wave open/closed loop; perturbation knockouts) | **N runs** + labels/styles | ❌ no registry; bundled inside ad-hoc runners |
+
+A single-run registry already lives in
+`models/platelet/analysis/single/` — a base class
+(`analysisPlot.py`, contract `do_plot(inputDir, plotOutDir, …)`), a
+`TAGS` registry, importlib discovery, and the CLI
+`analysisPlatelet.py <run_dir> --plot calcium_trace`, which writes
+`plotOut/<name>.{pdf,svg,png}` (high-res PDF + SVG + 120-DPI PNG) via one
+`exportFigure()` helper. **So "render figure X against a finished run, on
+demand" is already solved for single-run figures.** A new one is
+~40–60 lines (a couple of `TableReader` reads + matplotlib).
+
+### 9.2 Why the bespoke scripts feel one-off
+
+`runPhase3.py`, `runSecondWave.py`, `runPerturbation.py`,
+`plotStoreLimitedFeedbacks.py`, `plotDownstreamModules.py`,
+`plotIntegrin.py` are decoupled from that registry for one structural
+reason: each *both* (a) runs several sims with different `RunConfig`s
+*and* (b) plots them together. They're "one-off" because the experiment
+(which conditions to run) is baked into the figure code. The single-run
+registry can't host them because its contract is one input dir, not N.
+
+### 9.3 The design — two moves, mostly refactoring
+
+1. **Add a `MultiConditionAnalysisPlot` base class** taking
+   `[(sim_out_dir, label, style), …]` → figure, with a `comparison/`
+   registry beside `single/`. Refactor the *plotting half* of each
+   bespoke script into one of these (≈ same line count, minus the
+   sim-running boilerplate).
+2. **Separate the experiment recipe from the figure recipe.** The
+   bespoke scripts' "run these N conditions" half is *exactly what the
+   TUI already does interactively* — a base `RunConfig` plus named
+   variants (aspirin = `cox1_factor 0`, Glanzmann = `integrin_act_scale
+   0`, EDTA = `ca_ex_mM 0`). So a comparison figure becomes: *"run my
+   current config + these variants, overlay with recipe Z."* The figure
+   recipe consumes the resulting output dirs and never knows how they
+   were produced.
+
+In the TUI: after any run, list the applicable recipes (single-run ones
+always; comparison ones once a variant set has been run), render on a
+keypress → `plotOut/<name>.{pdf,svg,png}` → open externally. The
+"compare runs" feature and the "render figure" feature become the **same
+machinery**.
+
+### 9.4 Payoffs beyond the TUI
+
+- **Fills a real gap.** There is currently *no canonical figure-set
+  regeneration script* — release figures (`reports/figures/v0.5/`,
+  `v0.61/`) are re-run by hand and committed. A recipe registry *is* the
+  regeneration pipeline: "regenerate the v0.7 figures" = run the
+  registry. Worth it independently of the TUI.
+- **DRY + consistent style.** Stops re-deriving `TableReader` reads and
+  thesis styling in every script; a shared rcParams/theme on top of the
+  existing `exportFigure` PDF+SVG+PNG split gives uniform thesis-grade
+  output.
+
+### 9.5 Caveats (the actual labour)
+
+- Untangling experiment-from-figure in each bespoke script is the work —
+  every one needs splitting into a `RunConfig`-set recipe + a figure
+  recipe.
+- Some scripts also emit `.npz` / `.json` data sidecars for
+  reproducibility; the recipe pattern must preserve those.
+- Matplotlib render time means this is a *render-to-file-and-open*
+  action, not a live in-terminal redraw (the sparklines cover live).
+
+---
+
+## 10. Reproducibility & guardrails
+
+- **Every run is reproducible by construction.** `RunConfig` +
+  `to_metadata()` already capture the complete knob set; a tinkered run
+  is self-documenting and shareable as a JSON preset. Extending it with
+  `count_overrides` / `rate_overrides` keeps that property.
+- **Goldens are untouchable.** Dolan 5/5 and the golden tests always run
+  the *baseline* `RunConfig`; tinkering cannot regress them, because
+  overrides default to empty → byte-identical.
+- **Stability.** Arbitrary counts/rates can make the BDF solver stiff /
+  non-convergent or produce negative counts. The TUI should: show
+  baseline + units + a plausible range per field; catch sim failure
+  (the run function raises → show the error in the diff pane, don't
+  crash the UI); and label the expert tables as "here be dragons."
+- **Validation of edits.** Soft range hints, not hard locks (research
+  tool — the user may *want* an extreme value), but flag
+  out-of-physiological-band values, consistent with the existing
+  caution that volume/flux estimates cross biological bands.
+
+---
+
+## 11. Phasing
+
+| Phase | Scope | Model change | Effort | Payoff |
+|-------|-------|--------------|:---:|--------|
+| **P0** | Textual skeleton: stimulus + run + live trace + results, in-process, Tier-0 only | none | small | proves the loop end-to-end |
+| **P1** | Full `RunConfig` surfaced, grouped by subsystem; curated knockouts; compare-to-baseline; save/load presets | none | small–med | ~80% of the "tinkering" feel |
+| **P2** | `count_overrides` + init-time counts + entity map → knock out / titrate *any* receptor/enzyme; count table | medium, contained | medium | the real knockout story |
+| **P3** | `rate_overrides` + build-time kinetics bundle threaded into the ODE → edit *any* rate; rate table | invasive (whole ODE), same pattern as v0.62 | large | expert / sensitivity mode |
+
+P0+P1 deliver a genuinely useful bench (and a strong demo / thesis
+artifact) with **zero model risk**, because Tier 0 is already clean. P2
+is the highest-value model investment (knockouts). P3 is real but should
+be gated on whether "edit any rate" is an actual research need vs. a
+nice-to-have — it's the kinetics-as-data refactor in disguise.
+
+**Figure recipes (§9) are an orthogonal workstream**, not a phase gate.
+Single-run recipes already work, so the TUI gets them in P1 for free
+(just expose `analysisPlatelet.py`). The `MultiConditionAnalysisPlot`
+base class + refactoring the bespoke comparison scripts is independent of
+the tier refactor and can land whenever — its biggest standalone payoff
+(a canonical figure-regeneration pipeline) is worth doing regardless of
+how far the TUI itself goes.
+
+---
+
+## 12. Decisions (resolved 2026-06-15)
+
+1. **Scope: P0 + P1.** Build the Textual skeleton and surface the full
+   `RunConfig` + curated knockouts + compare-to-baseline + save/load
+   presets. **Defer P2 (count overrides) and P3 (rate overrides)** until
+   there's a concrete need — so the build touches Tier 0 only and carries
+   zero model risk.
+2. **Run worker: subprocess per run** (not critical, can revisit). A
+   fresh process per run means import-time globals can't leak between
+   runs, so **the Tier-1/2 build-time refactor (§6.1) is off the critical
+   path** — consistent with the P0+P1-only scope. Trade-off accepted:
+   live trace comes from the `live.csv` the subprocess writes (poll the
+   file), not an in-process callback.
+3. **Entity map lives in `reconstruction/platelet/`**, alongside the
+   species loader. (Relevant only when P2 lands, but fixing the home
+   now.)
+4. **Live trace: line charts** via `textual-plotext` (one dependency),
+   not Rich sparklines. The §7 mockup's bar glyphs are illustrative; the
+   real results pane is plotext line charts.
+5. **The TUI will eventually replace the Dash webapp** — it is the
+   intended primary front-end, not a parallel toy. Plan for `textual
+   serve` to cover the webapp's remote-access use case; the Dash app
+   stays only until the TUI reaches parity.
+6. **Versioned params: yes** — every saved preset records the param
+   version it was authored against (`calcium-v0.6` / `species-v0.6`) so
+   overrides don't silently drift on a v0.7 bump.
+7. **Figure recipes (§9): the final piece — defer.** Build the
+   `MultiConditionAnalysisPlot` base + refactor the bespoke comparison
+   scripts *after* the UI itself is done. Single-run recipes already work
+   and come for free in P1; the multi-condition registry (and its
+   regeneration-pipeline payoff) waits until last.
+```
