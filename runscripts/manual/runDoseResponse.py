@@ -44,6 +44,7 @@ import argparse
 import json
 import os
 from datetime import datetime
+from typing import Any, cast
 
 import matplotlib
 matplotlib.use('Agg')
@@ -107,8 +108,12 @@ def run_dose_response(out_path: str, agonist: str = 'adp', grid: int = 7,
 		for d in doses:
 			cell_dir = os.path.join(out_path, f'{ckey}_{agonist}_{d:.4g}')
 			fp.makedirs(cell_dir)
+			# AGONISTS mixes str/float/dict values, so `spec` is dict[str, object];
+			# build the RunConfig overrides as a typed str->Any mapping for mypy.
+			overrides: dict[str, Any] = {str(spec['field']): float(d)}
+			overrides.update(cast('dict[str, Any]', spec['other']))
 			cfg = RunConfig(ca_ex_mM=1.2, autocrine_adp_gain=adp_gain,
-				cox1_factor=cox1, **{spec['field']: float(d)}, **spec['other'])
+				cox1_factor=cox1, **overrides)
 			paths = run_platelet_sim(cell_dir, length_sec=length, seed=0,
 				log_to_shell=False, run_config=cfg)
 			h = _harvest(paths['sim_out_dir'])
