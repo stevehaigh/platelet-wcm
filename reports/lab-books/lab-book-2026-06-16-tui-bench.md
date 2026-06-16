@@ -76,9 +76,29 @@ charts.
    uses `pyenv exec python` (pinned 3.11.5 has everything); `make`'s `/bin/sh` can reach
    pyenv at `/opt/homebrew/bin/pyenv`.
 
-## Next
+## Outcome
 
-- **P3 — `rate_overrides`** (Tier 1): edit any of the ~200 TOML rate constants. The most
-  invasive piece — needs the build-time refactor that moves `_KINETICS` off import-time
-  and threads a per-sim kinetics bundle into `_ode_rhs`. Deferred.
-- Otherwise: open a PR for the P0–P2 work.
+Opened **PR #62** (`worktree-new_UI` → `main`); CI green (mypy + pytest 3.11.5 +
+kinetics-review PDF). Requested a GitHub Copilot review — positive summary plus two
+trivial nits (a stale `app.py` docstring; an `open().read()` handle leak in a test),
+both fixed and pushed.
+
+## P3 (rate overrides) — dropped
+
+Decided **not** to build Tier-1 rate overrides in the TUI. Two reasons:
+
+1. **Not a biological intervention.** The ~200 TOML constants are mostly *elementary*
+   rates of multi-state schemes (SERCA's E1↔E2 cycle, the PMCA/CaM states, the SOCE MWC
+   parameters, buffer on/off rates). No real perturbation edits one of those in
+   isolation; real interventions act on *expression* (copy number — P2) or *whole-protein
+   activity* (the Tier-0 scale knobs), both already exposed.
+2. **It breaks the calibrated resting state.** The resting fixed point and the
+   pre-equilibrated buffer / sub-state counts are pinned to the original rate ratios (see
+   `reports/design/calibration-coupling-2026-05-25.qmd`). Editing a rate without
+   re-deriving the dependent counts/rates gives a cell that isn't at rest at t=0 — a
+   silently non-physiological run that's easy to over-interpret.
+
+**Positioning:** the TUI is a **demo / explanation** tool, not an analysis workbench.
+Sensitivity analysis and parameter sweeps stay **scripted** (`runPerturbation.py`,
+`runDoseSweep.py` → reproducible figures); future TUI polish should favour
+clarity/storytelling over analysis depth. **P0–P2 is the intended endpoint.**
