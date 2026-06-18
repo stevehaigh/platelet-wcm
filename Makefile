@@ -1,4 +1,4 @@
-.PHONY: help run stop deploy pdfs pdfs-clean kinetics-review kinetics-fonts
+.PHONY: help run stop tui deploy pdfs pdfs-clean kinetics-review kinetics-fonts
 
 help:
 	@echo ""
@@ -7,6 +7,9 @@ help:
 	@echo "  Webapp"
 	@echo "    run           Run webapp with hot-reload (port $(PORT))"
 	@echo "    stop          Kill a running webapp process"
+	@echo ""
+	@echo "  TUI"
+	@echo "    tui           Run the terminal experiment bench (Textual)"
 	@echo ""
 	@echo "  Azure"
 	@echo "    deploy        Push current branch to webapp → triggers Azure CI pipeline"
@@ -31,6 +34,9 @@ run:
 
 stop:
 	pkill -f "webapp.py" && echo "Stopped." || echo "No webapp process found."
+
+tui:
+	OPENBLAS_NUM_THREADS=1 PYTHONPATH="$$PWD" pyenv exec python runscripts/manual/runTui.py
 
 # ── Azure deployment ──────────────────────────────────────────────────────────
 
