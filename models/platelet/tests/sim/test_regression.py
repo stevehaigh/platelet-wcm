@@ -12,9 +12,13 @@ Baseline (seed=42, length_sec=60):
     ip3[0]      ≈  50.1 nM   (resting IP3)
     dry_mass     > 0 throughout
 
-Note: DTS drains to zero by ~60 s — this is a known Phase 2 issue
-(GAMMA_IP3R_S needs recalibration; tracked in issue #48).  The final Ca_dts
-value is therefore NOT asserted here to avoid locking in the broken behaviour.
+Note: with V_IM = 0 (the ER/DTS membrane holds ≈ 0 mV) the store no longer
+drains *below* cytosolic free Ca²⁺. Under sustained agonist it still depletes
+~99 %, but the passive IP3R bottoms it at the cytosolic equilibrium and SERCA
+holds free Ca²⁺ just above — replacing the earlier unphysical drain toward
+zero. The final Ca_dts value is still not asserted here (it depends on the
+agonist time course); see
+reports/design/dts-depletion-literature-2026-06-14.qmd.
 """
 
 import os
@@ -75,6 +79,17 @@ class TestPlateletGoldenRun(unittest.TestCase):
 			'Initial DTS store too low')
 		self.assertLess(self.ca_dts_uM[0], 270.0,
 			'Initial DTS store too high')
+
+	def test_dts_never_drains_below_cytosol(self):
+		"""Thermodynamic floor: a passive IP3R can only equilibrate the DTS
+		free Ca²⁺ toward the cytosol, never below it (V_IM = 0; the ER membrane
+		holds ≈ 0 mV). Guards against re-introducing a negative DTS-membrane
+		potential, which would drain the store sub-cytosolically — the old
+		V_IM = −60 mV artefact."""
+		margin_uM = float(np.min(self.ca_dts_uM - self.ca_cyt_nM / 1000.0))
+		self.assertGreater(margin_uM, -1e-6,
+			f'DTS free Ca²⁺ fell {-margin_uM:.3f} µM below cytosolic free '
+			f'Ca²⁺ — a passive IP3R cannot do this; check V_IM (≈ 0).')
 
 	def test_resting_ip3_near_50_nM(self):
 		"""Resting IP3 should be ~50 nM (Purvis 2008 baseline)."""

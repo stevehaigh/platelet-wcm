@@ -1,0 +1,227 @@
+---
+title: "v0.7 design — the inhibitory axis: cAMP/PKA (PGI₂/NO) and P2Y12/Gi"
+author: "Steve Haigh (with Claude Code)"
+date: "2026-06-15"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+  html:
+    embed-resources: true
+    toc: true
+---
+
+# Summary
+
+Through v0.6/v0.61 the model became a rich **activation** model — a Gq cascade
+(P2Y1, PAR1/4, P2X1, TP) driving the PI cycle and the Ca²⁺ core, with PKC as the
+hub of four feedback loops and three terminal outputs (secretion, thromboxane,
+integrin). What it has **no representation of is inhibition** — the signalling
+that keeps platelets quiescent in the circulation and that the major antiplatelet
+drugs act on. Resting quiescence is currently a *tuned fixed point*, not a
+mechanism, and the model cannot speak to the pharmacology that dominates platelet
+medicine.
+
+**v0.7 adds the inhibitory axis:** the cyclic-nucleotide "off" signal —
+prostacyclin (PGI₂) and nitric oxide (NO) raising cAMP/cGMP → PKA/PKG → braking
+the activation cascade — and **P2Y12 (Gi)**, the ADP receptor that *lowers* cAMP
+(a brake-on-the-brake) and is *the* antiplatelet drug target (clopidogrel,
+ticagrelor, cangrelor). This is the single most valuable addition to the model:
+it completes the activation⊕inhibition logic, makes resting quiescence
+mechanistic, and unlocks drug-mechanism and activation-**threshold** questions the
+current model structurally cannot ask.
+
+This doc scopes the biology, the integration with the existing ODE, the new
+species, a sliced implementation plan, and the validation targets — mirroring the
+PKC-downstream design (`pkc-downstream-effects-2026-06-12.qmd`).
+
+# Where the model is now (and the gap)
+
+Every signal in the model is **activating or auto-amplifying**. There is:
+
+- no Gs / Gi (only Gq);
+- no cyclic-nucleotide node (cAMP / cGMP);
+- no PKA / PKG, and so no PKA-mediated braking of IP₃R / PLCβ / Ca clearance /
+  integrin;
+- no P2Y12 — ADP acts only through P2Y1 (Gq), i.e. half of its real biology.
+
+Consequences: the resting state is held by a hand-tuned PM-leak/PMCA balance
+(and drifts slowly over long runs — see the recovery-phase lab book), and the
+model is silent on PGI₂/NO, on cAMP-elevating drugs (PDE3 inhibitors,
+iloprost), and on P2Y12 antagonists. The inhibitory axis fixes all of these at
+once.
+
+# The biology
+
+```{mermaid}
+flowchart TB
+  PGI2[PGI₂] --> IPR[IP receptor / Gs]
+  NO[NO] --> sGC[soluble guanylyl cyclase]
+  ADP[ADP] --> P2Y12[P2Y12 / Gi]
+  IPR -->|+| AC[adenylyl cyclase]
+  P2Y12 -->|−| AC
+  AC --> cAMP[cAMP]
+  sGC --> cGMP[cGMP]
+  PDE3[PDE3A] -.degrades.-> cAMP
+  cGMP -.inhibits.-> PDE3
+  cAMP --> PKA[PKA]
+  cGMP --> PKG[PKG]
+  PKA --> VASP[VASP-P readout]
+  PKG --> VASP
+  PKA -->|brake| GQ[Gq / PLCβ / IP₃R / Ca clearance / Rap1-integrin]
+  PKG -->|brake| GQ
+  ADP --> P2Y1[P2Y1 / Gq → activation]
+```
+
+**cAMP arm (the dominant brake).** Endothelial **prostacyclin (PGI₂)** binds the
+IP receptor (PTGIR, Gs-coupled) → activates **adenylyl cyclase (AC)** → raises
+**cAMP** → activates **protein kinase A (PKA)**. cAMP is set by the balance of AC
+production against **phosphodiesterase 3A (PDE3A)**, the dominant platelet
+cAMP-PDE (target of cilostazol/dipyridamole).
+
+**cGMP arm (parallel).** **NO** → soluble guanylyl cyclase → **cGMP** → **PKG**;
+cGMP also inhibits PDE3A, so the two arms cross-potentiate. PKG shares most of
+PKA's anti-activation substrates.
+
+**P2Y12 / Gi — the brake-on-the-brake.** ADP activates **two** receptors: P2Y1
+(Gq, activating — already modelled) **and P2Y12 (Gi)**, which *inhibits* AC →
+*lowers* cAMP → *removes* PKA inhibition, amplifying activation. This is why P2Y12
+antagonists are antiplatelet: blocking the cAMP-lowering keeps PKA braking intact.
+Adding P2Y12 also completes the model's ADP biology (currently P2Y1-only).
+
+**The brakes (PKA/PKG substrates, lumped).** PKA/PKG phosphorylate many targets
+that collectively *raise the activation threshold*: IP₃R (↓Ca²⁺ release), PLCβ/Gq
+(↓IP₃ production), SERCA/PMCA regulation (↑Ca²⁺ clearance), and Rap1b/Rap1GAP
+(↓integrin inside-out). The canonical, *measurable* readout is **VASP
+phosphorylation** (Ser157 by PKA, Ser239 by PKG) — the basis of the clinical
+VASP/PRI assay for P2Y12 inhibition.
+
+# Integration with the existing model
+
+The inhibitory axis is a **modulating layer on the Gq/Ca core**, not a parallel
+universe. Concretely, a single lumped **PKA activity** (and later PKG) scales a
+small number of existing terms in `_ode_rhs`:
+
+- **first slice (cleanest):** PKA reduces the Gq → PLCβ drive and/or the IP₃R open
+  probability — i.e. one multiplicative `(1 − brake·PKA_active)` factor on the
+  IP₃ production / release terms, so elevating cAMP lowers the Ca²⁺ response;
+- **later:** PKA also up-regulates Ca²⁺ clearance and brakes the Rap1→integrin
+  step (extending into the v0.61 integrin output).
+
+ADP gains its second receptor: the existing `adp_um_now` now drives **both** P2Y1
+(Gq, `+`) and P2Y12 (Gi, → AC `−` → cAMP `−`). So the model's ADP response becomes
+the physiological integration of activation (P2Y1) and dis-inhibition (P2Y12).
+
+All knobs are per-run `RunConfig` fields (the v0.62 pattern): `pgi2_nM`, `no_nM`,
+`p2y12_block` (cangrelor/ticagrelor), `pde3_block` (cilostazol), `forskolin`
+(AC activator, a tool compound). No monkeypatching.
+
+# New species (sketch)
+
+| species | role | initial | source |
+|---|---|---|---|
+| `PTGIR_inactive/active[pl]` | PGI₂ (IP) receptor, Gs | resting copies | Burkhart suppl. T3 (to source) |
+| `Gs_active[c]` | Gs cycle (implicit inactive) | low | model-choice cycle |
+| `P2Y12_inactive/active[pl]` | ADP receptor, Gi | ~mid-hundreds | Burkhart suppl. T3 |
+| `Gi_active[c]` | Gi cycle | low | model-choice cycle |
+| `cAMP[c]` | central node | resting tone (~µM) | calibrate to resting quiescence |
+| `PKA_inactive/active[c]` | cAMP effector | — | — |
+| `cGMP[c]`, `PKG_*[c]` | NO arm (later slice) | — | — |
+| `VASP[c]` / `VASP_phos[c]` | readout (PKA/PKG) | ~45 000–79 000 | Burkhart Table 1 (VASP) |
+
+AC and PDE3A enter as **activities/rate terms** (modulated by Gs/Gi and by drug
+knobs), not necessarily as state species — keeping the addition lean. Exact copy
+numbers (PTGIR, P2RY12, ADCY isoforms, PDE3A, PRKACA) come from Burkhart suppl.
+Table 3 (the same source to reconcile after the STIM1 discrepancy noted in the
+DTS-depletion doc).
+
+# Recommended sequencing
+
+1. **Slice 1 — the cAMP/PKA core ("off" signal).** PGI₂ → Gs → AC → cAMP → PKA,
+   with PDE3A degradation; one lumped PKA brake on the Gq→PLCβ/IP₃R node; VASP
+   readout + `InhibitionTrace` listener. Establishes a resting cAMP tone and
+   makes elevating cAMP suppress the Ca²⁺ response. **Highest value; do first.**
+2. **Slice 2 — P2Y12 / Gi.** ADP → P2Y12 → Gi → AC `−` → lowers cAMP. Completes
+   the dual-ADP logic and enables P2Y12-antagonist studies (the headline
+   pharmacology). VASP/PRI becomes a validation readout.
+3. **Slice 3 — the NO/cGMP/PKG arm.** Parallel inhibition; cGMP–PDE3 cross-talk.
+4. **Slice 4 — extend the brake downstream.** PKA on Ca²⁺ clearance, and on the
+   Rap1→integrin inside-out step (ties into the v0.61 integrin output) and
+   secretion.
+
+Each slice that touches the Ca²⁺ ODE regenerates goldens + re-verifies Dolan 5/5
+(as v0.6 did). Slices 3–4 are optional / depth.
+
+# Calibration & validation targets
+
+- **Resting quiescence becomes mechanistic.** A basal PGI₂/AC tone sets resting
+  cAMP and a low resting VASP phosphorylation; PKA brake holds the activation
+  cascade off. *Potential side-benefit:* this may stabilise the slow resting
+  drift (cyt 100→55 nM over 200 s) we flagged — a genuine, testable improvement,
+  not just an addition.
+- **PGI₂ / forskolin dose-dependently inhibit** the agonist-induced Ca²⁺ rise and
+  secretion — classic, well-quantified.
+- **VASP phosphorylation (VASP/PRI assay)** is the quantitative validation: ADP
+  lowers VASP-P (via P2Y12), P2Y12 blockade restores it. This is the clinical
+  readout and a strong, falsifiable target.
+- **Activation-threshold shifts.** The inhibitory axis *sets the threshold*, so
+  the **dose-response machinery just built** (`runDoseResponse.py`) is the natural
+  validation tool: PGI₂, PDE3 inhibition, and P2Y12 blockade should each shift the
+  agonist EC₅₀ rightward (and lower the commitment switch). Predicting those
+  shifts under named drugs is a compelling, clinically-resonant result.
+
+# The unifying argument
+
+With v0.7, the model holds **both halves of the regulatory logic**: activation
+(Gq/PKC, v0.6/v0.61) ⊕ inhibition (Gs/Gi–cAMP/PKA). Platelet behaviour is then an
+emergent **threshold** set by their competition — quiescent below threshold,
+committed above it (the autocrine "second wave" the dose-response study already
+quantifies). That threshold, and how antiplatelet drugs move it, is the
+physiologically and clinically central behaviour — and it is exactly what a
+mechanistic whole-cell model is for.
+
+# Scope boundaries
+
+- **In:** PGI₂/IP–Gs–AC–cAMP–PKA; PDE3A; P2Y12/Gi; (NO/cGMP/PKG, later); a lumped
+  PKA/PKG brake on the Ca²⁺ cascade + integrin; VASP readout; drug knobs.
+- **Out:** detailed AC isoform biology, the full PKA substrate set (lumped),
+  Rap1/CalDAG-GEFI mechanistic detail (proxy), receptor internalisation kinetics,
+  aggregation/multi-cell, the platelet-storage-lesion / apoptosis programme.
+
+# Open questions / risks
+
+- **Calibration coupling.** The PKA brake interacts with the existing PKC brakes
+  and the resting PM-leak/PMCA balance — risk of double-counting or destabilising
+  resting. Mitigate: introduce a *resting cAMP tone* first and re-anchor the
+  resting fixed point before adding agonist-driven inhibition.
+- **Lumping.** PKA has many substrates; resist modelling each — one PKA-activity →
+  brake-factor mapping, calibrated to the VASP and PGI₂-inhibition data.
+- **Goldens / Dolan 5/5.** A real Ca²⁺-ODE change → regenerate + re-verify, as
+  v0.6.
+- **cGMP/NO arm** can be deferred (Slice 3) without blocking the headline
+  P2Y12/cAMP pharmacology.
+- **Citation hygiene.** Verify every reference in Zotero before thesis use
+  ([[feedback_citation_verification]]); the list below is first-author +
+  approximate-year anchors only. The library already holds relevant P2Y12/cAMP
+  and VASP/prostacyclin papers (Zotero search, 2026-06-15).
+
+# References
+
+*Verify in Zotero before citing — titles/first authors/years below are
+safe-to-recall anchors; the user's library has matching items to attach.*
+
+- **Smolenski A.** Novel roles of cAMP/cGMP-dependent signaling in platelets.
+  *J. Thromb. Haemost.* ~2012. *(cAMP/cGMP–PKA/PKG–VASP inhibitory signalling
+  review.)*
+- **Gachet C.** P2 receptors / ADP signalling in platelets (P2Y1 + P2Y12).
+  *Purinergic Signalling / Annu. Rev. Pharmacol.* ~2006–2012. *(P2Y12–Gi–AC.)*
+- **Yusuf S. / Wallentin L.** (clinical) P2Y12 antagonists (clopidogrel,
+  ticagrelor) — mechanism anchors. *(For the drug-mechanism framing.)*
+- **Aszódi A. / Hauser W.** VASP and the cyclic-nucleotide pathway in platelet
+  inhibition. ~1999–2000. *(VASP as readout.)*
+- **Burkhart JM et al. (2012)** Blood 120:e73 — VASP ~45 000–79 000 (Table 1);
+  P2RY12 / PTGIR / ADCY / PDE3A / PRKACA copy numbers from suppl. Table 3.
+  *(Already in the library; [VERIFIED] DOI 10.1182/blood-2012-04-416594.)*
+- **Purvis JE et al. (2008)** Blood 112:4069 — the PI/Ca model the platelet
+  cascade is anchored to (integration point for the PKA brake).
+
+*Render: `quarto render reports/design/inhibitory-axis-design-2026-06-15.qmd`.*

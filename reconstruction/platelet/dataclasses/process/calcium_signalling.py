@@ -209,11 +209,19 @@ T_KELVIN         = 310.0            # 37 °C; Purvis/Dolan
 RT_OVER_zF_V     = R_GAS * T_KELVIN / (2.0 * F_FARADAY)   # ≈ 0.01334 V (z=2 for Ca²⁺)
 NA_OVER_zF       = N_A / (2.0 * F_FARADAY)                # ions per ampere-second (z=2)
 
-# Membrane potentials (Dolan 2014 Methods §"Membrane potentials"):
-#   V_IM responsive cluster sits at the upper end of the −100..−60 mV
-#   sampling range (V_IM > −70 mV); use the Dolan upper bound.
-#   V_PM measured 60..70 mV inside-negative; Dolan uses −60 mV.
-V_IM_V = -0.060          # DTS-membrane potential (V)
+# Membrane potentials.
+#   V_IM (DTS/ER membrane): 0 mV. The ER/SR membrane is freely permeable to
+#   K⁺/Cl⁻ counter-ions and sustains essentially no potential, so the passive
+#   IP3R can only equilibrate the store toward *cytosolic* free Ca²⁺ — it
+#   cannot drive it below. Dolan 2014 sampled −100..−60 mV for V_IM (values
+#   borrowed from the plasma membrane); that drove the store below cytosolic
+#   free Ca²⁺, which is thermodynamically impossible for a passive channel.
+#   With V_IM = 0 the store still depletes ~99 % under sustained agonist
+#   (SERCA holds free Ca²⁺ just above cytosol) but no longer undershoots it.
+#   See reports/design/dts-depletion-literature-2026-06-14.qmd.
+#   V_PM (plasma membrane): −60 mV inside-negative — physiological; the PM,
+#   unlike the ER membrane, does hold a resting potential (Dolan 2014).
+V_IM_V = 0.0             # DTS-membrane potential (V); ER membrane ≈ 0 mV
 V_PM_V = -0.060          # plasma-membrane potential (V)
 
 
