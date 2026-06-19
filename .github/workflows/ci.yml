@@ -59,6 +59,12 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
+        # GH_TOKEN authenticates the action's GitHub-API lookup of the latest
+        # TinyTeX release; without it the unauthenticated call is intermittently
+        # rate-limited (HTTP 403 "Unable to determine latest release for
+        # rstudio/tinytex-releases"), failing this job spuriously.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tinytex: true
 

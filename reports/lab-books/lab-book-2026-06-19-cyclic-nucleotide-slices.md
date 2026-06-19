@@ -82,6 +82,31 @@ and secretion + a rise in VASP-P. New figure
   IP3R brake; rest unchanged). Dry mass unchanged (VASP total still 50 000).
 - Full suite: platelet **122** + wholecell **117** pass; mypy clean.
 
+## 6. Experiments & reproduction (the inhibitory-axis experiment set)
+
+All experiments are driven by per-run `RunConfig` knobs (no monkeypatching);
+each figure script runs its own sims. Drug knobs introduced across the axis:
+`p2y12_block` (clopidogrel, #10), `pgi2_nM` / `forskolin` / `pde3_block`
+(Slice 1), plus `cox1_factor` (aspirin, v0.61).
+
+| Experiment | Command | Artifact / readout |
+|---|---|---|
+| **Mechanism** — ADP→P2Y12→cAMP↓→PKA↓→VASP-P↓ (standard agonist) | `python runscripts/manual/plotInhibitoryAxis.py --figure mechanism` | `reports/figures/v0.7/inhibitory_axis_mechanism.png` |
+| **Antiplatelet treatments** — control vs aspirin vs clopidogrel vs both (weak agonist; PAC-1, Gαq, cAMP, VASP/PRI, TXA₂, Ca²⁺) | `… --figure treatments` | `reports/figures/v0.7/antiplatelet_treatments.png` |
+| **Cyclic-nucleotide drugs** — control vs clopidogrel vs PGI₂ / forskolin / cilostazol (PAC-1, cAMP, VASP/PRI, secretion) | `… --figure drugs` | `reports/figures/v0.7/cyclic_nucleotide_drugs.png` |
+| **Granule-secretion kinetics** (#8) | `python runscripts/manual/analysisPlatelet.py --plot granule_secretion <run>` | `analysis/single/granule_secretion.py` |
+| **Behavioural assertions** (acceptance criteria, both directions) | `pytest models/platelet/tests/sim/test_inhibitory_axis.py` | `TestInhibitoryAxis` (#10) + `TestCyclicNucleotideDrugs` (Slices 1+4) |
+| **Calibration probe** (rest invariant + drug dose panel) | inline `RunConfig(pgi2_nM=…, forskolin=…, pde3_block=…, p2y12_block=…)` → read `CalciumTrace`/`IntegrinTrace`/`SecretionTrace` | §4 table above |
+
+Readout provenance (single source of truth): cAMP / PKA / VASP-P / P2Y12 →
+`CalciumTrace`; PAC-1 → `IntegrinTrace.active_frac`; ADP release →
+`SecretionTrace.adp_released_frac`; the PKA brake values → `IntegrinTrace` /
+`SecretionTrace` `pka_brake`. Earlier same-day work (the P2Y12 axis itself, the
+cytosolic-Ca²⁺ clamp probes that motivated braking the *outputs*, and the
+"5/5" → validation-portfolio reframe) is in
+`lab-book-2026-06-19-p2y12-inhibitory-axis.md`; the validation portfolio is
+`reports/design/validation-map-2026-06-19.qmd`.
+
 ## State / next
 
 - v0.7 inhibitory axis now spans **Slices 1, 2, 4** — the full cAMP/PKA "off"
