@@ -94,12 +94,14 @@ Small constant cyt influx that balances PMCA outflow at rest, keeping resting Ca
 
 γ_IP3R is *not* an independently measured single-channel conductance. It balances K_SERCA below at the [Dolan 2014](#ref-dolan_diamond_2014) platelet resting state (cyt = 100 nM, DTS = 250 µM). If you change any K_SERCA rate or N_IP3R, you MUST re-derive γ_IP3R from the new SERCA cycle flux. See calibration-coupling-2026-05-25.qmd chains 1 + 2.
 
-Derivation (original target γ = 0.35 pS; current calibrated value 0.075 pS reflects a later re-balance against the corrected IP3R Po⁴ × Nernst flux): SERCA 6-state steady-state flux at the Dolan resting state = 112 570 Ca²⁺ ions/s. Setting IP3R resting flux equal: γ_required = J / (N · Po · |driving| · NA/zF) Biological plausibility: [Bezprozvanny 1991](#ref-bezprozvanny_1991) / [Mak & Foskett 1997](#ref-mak_foskett_1997) give effective IP3R γ_Ca in cellular conditions at 0.05–0.5 pS (K⁺ carries most of the unitary current); our value is in range. The historical 10 pS (Zschauer 1988 via [Purvis 2008](#ref-purvis_2008)) was a bilayer measurement under symmetric high Ca²⁺ and is not transferable.
+Derivation (original target γ = 0.35 pS; the earlier 0.075 pS value reflected a re-balance against the corrected IP3R Po⁴ × Nernst flux at V_IM = −60 mV): SERCA 6-state steady-state flux at the Dolan resting state = 112 570 Ca²⁺ ions/s; setting IP3R resting flux equal, γ = J / (N · Po · |driving| · NA/zF).
+
+Recalibrated 2026-06-16 → 0.135 pS. Moving V_IM to 0 mV (the ER/DTS membrane holds ≈0 mV — see the [ip3r] potentials header) shrank the resting electrochemical driving force (|V_IM − E_Ca| 0.164 → 0.104 V), so the old 0.075 pS under-leaked and SERCA over-filled the store (resting DTS drifted to ~500 µM, cyt to ~6 nM). γ was re-derived empirically as the value that holds a STABLE resting fixed point — DTS ~255 µM, cyt ~96 nM, settled over 400 s — with Dolan 5/5 intact. See dts-depletion-literature-2026-06-14.qmd §8. Biological plausibility: [Bezprozvanny 1991](#ref-bezprozvanny_1991) / [Mak & Foskett 1997](#ref-mak_foskett_1997) give effective IP3R γ_Ca at 0.05–0.5 pS (K⁺ carries most of the unitary current); 0.135 pS is in range. The historical 10 pS (Zschauer 1988 via [Purvis 2008](#ref-purvis_2008)) was a bilayer measurement under symmetric high Ca²⁺ and is not transferable.
 
 | Parameter | Value | Notes |
 |---|---|---|
 | `n_total` | `1328` | (count) — [Burkhart 2012](#ref-burkhart_2012) ITPR2 monomer abundance; [Dolan 2014](#ref-dolan_diamond_2014) Table S1 |
-| `gamma_s` | `0.075e-12` | (A/V) — 0.075 pS Ca²⁺-specific conductance; calibrated (see header) |
+| `gamma_s` | `0.135e-12` | (A/V) — 0.135 pS; recalibrated 2026-06-16 for V_IM=0 (see header) |
 
 
 # SERCA cycle
@@ -301,6 +303,14 @@ Explicit receptor → G-protein cascade. Three Gq-coupled receptors in scope (P2
 | `k_cleave` | `0.2` | (nM⁻¹·s⁻¹) — [Kahn 1998](#ref-kahn_1998) / [Covic 2000](#ref-covic_2000) (slower than PAR1) |
 | `k_internalize` | `0.005` | (s⁻¹) — τ ~200 s (sustained response; model choice) |
 
+## `[gpcr.tp]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_on` | `1.0` | (µM⁻¹·s⁻¹) — model choice |
+| `k_off` | `0.5` | (s⁻¹) — model choice |
+
 ## `[gpcr.gq]`
 
 
@@ -316,6 +326,50 @@ Explicit receptor → G-protein cascade. Three Gq-coupled receptors in scope (P2
 | Parameter | Value | Notes |
 |---|---|---|
 | `n_total` | `5000` | (count of Gαq molecules per platelet; [Mazet 2020](#ref-mazet_2020)) |
+
+## `[gpcr.p2y12]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `425` | (P2Y12 binding sites per platelet; radioligand binding) |
+| `k_on` | `1.0` | P2Y12_i + ADP → P2Y12_a   (µM⁻¹·s⁻¹) — model choice |
+| `k_off` | `0.5` | P2Y12_a → P2Y12_i + ADP    (s⁻¹) — model choice |
+
+
+# Inhibitory
+
+## `[inhibitory.camp]` — Inhibitory axis: cAMP / PKA brake (issue #10, v0.7 Slice 2)
+
+The lean cAMP/PKA "off" module that P2Y12 acts on. Resting platelets sit at an elevated cAMP / active-PKA tone (PGI2/NO in vivo — not yet modelled; folded into the basal AC rate here). ADP → P2Y12 → Gi lowers cAMP → lowers PKA → dis-inhibits IP3R (the brake is RELEASED). The PKA brake on the IP3R open probability is normalised to 1.0 at resting cAMP, so the resting fixed point and the Dolan 5/5 goldens are preserved by construction (resting ADP = 0 → no P2Y12 occupancy → cAMP at basal). PGI2/Gs, explicit PDE3A, and the NO/cGMP/PKG arm are deferred (future slices — see reports/design/inhibitory-axis-design-2026-06-15.qmd).
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `camp_rest_uM` | `1.0` | resting basal cytosolic cAMP (µM) |
+| `k_pde` | `0.1` | cAMP degradation by PDE3A (s⁻¹) — τ ~ 10 s, model choice |
+| `i_gi_max` | `0.8` | max fractional AC inhibition at full P2Y12 occupancy |
+
+## `[inhibitory.pka]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `k_pka_uM` | `0.3` | cAMP for half-maximal PKA activation (µM) |
+| `n_pka` | `2` | Hill coefficient (int) |
+| `brake_gain` | `1.0` | IP3R dis-inhibition per unit PKA-fraction drop — model choice |
+| `b_min` | `0.2` | clamp: max PKA braking (future PGI2 arm) |
+| `b_max` | `2.0` | clamp: max IP3R dis-inhibition |
+| `integrin_brake_gain` | `2.0` | integrin dis-inhibition per PKA-fraction drop |
+| `integrin_b_max` | `3.0` | clamp: max integrin dis-inhibition |
+
+## `[inhibitory.vasp]`
+
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `n_total` | `50000` | VASP molecules per platelet ([Burkhart 2012](#ref-burkhart_2012)) |
+| `k_phos` | `0.1` | PKA-driven VASP phosphorylation (s⁻¹) — model choice |
+| `k_dephos` | `0.06` | phosphatase dephosphorylation (s⁻¹) — model choice |
 
 
 # PI cycle (PLCβ / metabolism)
@@ -542,6 +596,7 @@ Closes the previously dead-end DAG branch (DAG was produced by PLCβ and removed
 - **Dode, L. and Vilsen, B. and Van Baelen, K. and Wuytack, F. and Clausen, J. D. and Andersen, J. P. (2002)** {#ref-dode_2002}. *Dissection of the functional differences between sarco(endo)plasmic reticulum Ca2+-ATPase (SERCA) 1 and 3 isoforms by steady-state and transient kinetic analyses*. Journal of Biological Chemistry. [doi:10.1074/jbc.M207778200](https://doi.org/10.1074/jbc.M207778200) — *via* [Purvis 2008](#ref-purvis_2008)
 - **Dolan, A. T. and Diamond, S. L. (2014)** {#ref-dolan_diamond_2014}. *Systems modeling of Ca2+ homeostasis and mobilization in platelets mediated by IP3 and store-operated Ca2+ entry*. Biophysical Journal. [doi:10.1016/j.bpj.2014.03.028](https://doi.org/10.1016/j.bpj.2014.03.028)
 - **Falke, J. J. and Drake, S. K. and Hazard, A. L. and Peersen, O. B. (1994)** {#ref-falke_1994}. *Molecular tuning of ion binding to calcium signaling proteins*. Quarterly Reviews of Biophysics. [doi:10.1017/s0033583500003012](https://doi.org/10.1017/s0033583500003012)
+- **Gachet, C. (2012)** {#ref-gachet_2012}. *P2Y12 receptors in platelets and other hematopoietic and non-hematopoietic cells*. Purinergic Signalling. [doi:10.1007/s11302-012-9303-x](https://doi.org/10.1007/s11302-012-9303-x)
 - **Ghatge, M. and Flora, G. D. and Patel, R. B. and Nayak, M. K. and Kumskova, M. and Nguyen, T. and Usachev, Y. M. and Chauhan, A. K. (2026)** {#ref-ghatge_2026}. *The mitochondrial calcium uniporter regulates calcium dynamics to drive platelet function, bioenergetics, and thrombosis*. Journal of Thrombosis and Haemostasis. [doi:10.1016/j.jtha.2025.10.019](https://doi.org/10.1016/j.jtha.2025.10.019)
 - **Hammes, S. R. and Shapiro, M. J. and Coughlin, S. R. (1999)** {#ref-hammes_coughlin_1999}. *Shutoff and agonist-triggered internalization of protease-activated receptor 1 can be separated by mutation of putative phosphorylation sites in the cytoplasmic tail*. Biochemistry. [doi:10.1021/bi9902236](https://doi.org/10.1021/bi9902236)
 - **Hechler, B. and Lenain, N. and Marchese, P. and Vial, C. and Heim, V. and Freund, M. and Cazenave, J.-P. and Cattaneo, M. and Ruggeri, Z. M. and Evans, R. J. and Gachet, C. (2003)** {#ref-hechler_2003}. *A role of the fast ATP-gated P2X1 cation channel in thrombosis of small arteries in vivo*. Journal of Experimental Medicine. [doi:10.1084/jem.20030144](https://doi.org/10.1084/jem.20030144)
