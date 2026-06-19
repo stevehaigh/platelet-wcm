@@ -1,0 +1,281 @@
+---
+title: "Web UI rewrite over a shared bench-core — review + design"
+author: "Steve Haigh"
+date: "2026-06-18"
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    monofont: "Menlo"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+---
+
+# Web UI rewrite over a shared bench-core
+
+**Status: PARKED → tracked in GitHub issue #64 (post-dissertation).** Decision
+(2026-06-19): the full rewrite will be **option C — FastAPI + a small JS
+front-end** (§5), done as a greenfield rebuild *after* the dissertation. This
+document is the architecture review + design that the issue references; no code
+is being written now.
+
+Architecture review of the current Dash webapp, an assessment of UI/engine
+separation, and a proposed rewrite that makes the web UI a thin front-end over a
+**shared, framework-neutral "bench-core"** — the same backend the terminal TUI
+(merged in PR #62) already uses. Adds the three new asks: auto-legended figures
+on demand, generalized parameter sweeps, and named saved run settings. Companion
+to the TUI design (`tui-tinkering-dashboard-2026-06-15.qmd`).
+
+The bench-core extraction (§3) is the no-regret improvement that *also* de-leaks
+the existing webapp, independent of the front-end; the front-end fork (§5) is
+**resolved to option C**.
+
+---
+
+## 1. The thesis in one paragraph
+
+The webapp's runs go through a clean process boundary (it shells out to
+`runPlateletSim.py` / `analysisPlatelet.py`), but it carries a lot of
+**platelet-specific knowledge hardcoded in the UI layer** — output-directory
+regexes, listener/column names, biology presets, the dose-sweep observable list,
+the `at_rest` flag semantics. Meanwhile the TUI's backend (`runspec`,
+`runFromConfig`, `knockouts`, `run_config`) is already framework-neutral and
+clean. The fix for "good separation of UI from engine" is therefore **not** a
+webapp-only patch: it's to **extract a shared bench-core** that both front-ends
+import, so neither hardcodes platelet specifics, and the run-spec JSON is the one
+contract between UI and engine. The rewrite then becomes "build a thin web
+front-end over bench-core," and the new features (figures, sweeps, presets) are
+bench-core capabilities surfaced in both UIs.
+
+---
+
+## 2. Architecture review — current Dash webapp
+
+### 2.1 Files
+
+`wholecell/webapp/`: `app.py` (Dash factory, 5 tabs, callbacks), `jobs.py`
+(SQLite queue + worker thread + docker/subprocess runner), `results.py` (scans
+`out/`, reads via `TableReader`, finds plot images), and `tabs/` —
+`configure.py`, `inspect_data.py`, `explore.py`, `dose_response.py`, `runs.py`.
+
+### 2.2 Separation verdict: **functionally separated, but leaky**
+
+Runs cross a real process/Docker boundary, so a sim failure can't crash the UI
+and execution could move to a remote queue without UI changes. But the UI layer
+hardcodes domain knowledge in several places. The leaky points a rewrite should
+fix:
+
+| Leak | Where | Fix via bench-core |
+|------|-------|--------------------|
+| Output-dir nesting regexes | `results.py:68–72, 113–149` | A run-output **manifest** (listeners, columns, plots) written per run; UI reads the manifest, not a hardcoded layout |
+| Hardcoded listener/column defaults | `inspect_data.py:172–177, 196–203` | Discover from the manifest |
+| Biology presets embedded in UI | `configure.py:16–86` | `bench_core.presets` (shared with TUI) |
+| `OBSERVABLES` imported from a runscript | `dose_response.py:26` | `bench_core.observables` registry |
+| `at_rest`/CLI-flag semantics | `jobs.py:158–189`, `runs.py:47–55` | Submit a **run-spec JSON** to `runFromConfig.py`, not 8+ CLI flags |
+| `plotOut/` + sweep filenames | `results.py:37–39, 233–248` | Manifest / sweep manifest |
+
+**Clean boundaries to preserve:** the subprocess/Docker run boundary
+(`jobs.py`), `TableReader`, the SQLite job queue, Plotly rendering, and the
+`create_app(out_path, repo_root, docker_image)` entrypoint.
+
+### 2.3 Deployment constraints (must survive a rewrite)
+
+- Two images: `docker/runtime/` (deps) and `docker/webapp/` (project + entry).
+- Azure Container Instances (4 CPU / 8 GB), Azure File Share mounted at
+  `/platelet-wcm/out` for persistent results; `make deploy` pushes the `webapp`
+  branch → `deploy-azure.yml`.
+- `PLATELET_WEBAPP_MODE=container` makes the deployed app run sims as **local
+  subprocesses** (no docker-in-docker), so the image bakes in all sim deps.
+- Implication: the rewrite can change the *front-end* freely, but the
+  **job-runner contract** (spec in → subprocess → output dir + manifest out) and
+  the single-image deploy should stay intact.
+
+---
+
+## 3. The fix: a shared, framework-neutral bench-core
+
+The TUI already proved the backend is separable. Extract it into a package both
+front-ends import (proposed `reconstruction/platelet/bench_core/`, or a neutral
+top-level `bench/`):
+
+| Module | From | Reuse status |
+|--------|------|--------------|
+| `config.py` (`RunConfig`) | `reconstruction/platelet/run_config.py` | as-is (already neutral) |
+| `runspec.py` (`GROUPS`, `build_spec`) | `wholecell/tui/runspec.py` | as-is (zero UI imports) |
+| `knockouts.py` (entity map) | `reconstruction/platelet/knockouts.py` | as-is |
+| `presets.py` (built-ins + save/load) | `wholecell/tui/presets.py` | minor: pluggable store |
+| `observables.py` (registry) | extracted from `runDoseSweep.py` | new (de-dupes sweep/perturbation) |
+| `sweep.py` (generalized sweep) | generalized from `runDoseSweep.py` | new (§6) |
+| `figure_recipes.py` (legend/caption/criteria metadata) | extracted from the `single/` plots | new (§7) |
+
+The **run-spec JSON** (`{length_sec, seed, run_config}`) consumed by
+`runscripts/manual/runFromConfig.py` stays the universal contract: every
+front-end *produces* a spec and *visualizes* results; only `runFromConfig.py`
+*executes*. This single move both (a) de-leaks the existing webapp and (b) makes
+the rewrite a thin shell.
+
+> **Sequencing note.** `runspec.py` / `presets.py` currently live in
+> `wholecell/tui/` and are exercised by PR #62. The extraction should land
+> **after #62 merges** (or be folded into it) to avoid a moving target — see §8.
+
+---
+
+## 4. The web rewrite — goal
+
+A thin web front-end over bench-core that surfaces the TUI's functionality
+*natively for the web* (forms, interactive Plotly, downloads) and adds the new
+asks. Target screens:
+
+- **Configure** — the full `RunConfig` grouped by subsystem (as the TUI), inline
+  knockout toggles, the curated expression-knockout list, agonist/Ca²⁺ knobs;
+  load/save **named presets**.
+- **Run / queue** — submit (spec JSON → existing job queue), live status.
+- **Results** — inline interactive traces + one-click **figure** rendering
+  (§7) with auto-legends; **compare runs** (overlay), as the TUI's baseline.
+- **Sweep** — configure and launch a **generalized parameter sweep** (§6);
+  browse heatmaps/surfaces/line plots.
+- **Presets / library** — manage saved run settings by meaningful name (§8).
+
+---
+
+## 5. Front-end fork — RESOLVED: option C
+
+**Decision (2026-06-19): option C — FastAPI + a small JS front-end**, as a
+greenfield rebuild after the dissertation. Steve chose the clean long-term result
+over the lower-risk Dash rebuild, accepting the larger effort and a new deploy
+story precisely because it's deferred to post-project. The bench-core (§3) and the
+feature work (§6–§8) are the same regardless of this choice. The options as
+weighed:
+
+| Option | What it is | Pros | Cons |
+|--------|-----------|------|------|
+| **A. Dash, rebuilt over bench-core** *(recommended)* | Keep Dash + the deploy pipeline; rebuild the front-end cleanly on bench-core; add figures/sweeps/presets tabs | Reuses Azure deploy, Plotly, the job queue; real web UX (interactive plots, downloads); lowest deploy risk | Dash callback model is clunky for rich forms; still a rewrite |
+| **B. `textual serve` the TUI** | Serve the existing TUI in a browser (fulfils the TUI §12 "replace the webapp" line) | Almost no new UI code; one UI to maintain | It's the *terminal* UI in a browser (xterm.js) — keyboard-driven, no native web plots/downloads; the figure/sweep asks don't fit well; single-session |
+| **C. FastAPI + small JS front-end** | New web service over bench-core | Most control, cleanest long-term, real API | Most work; new deploy story; over-scoped for a dissertation tool |
+
+*(Original recommendation was A — Dash rebuilt over bench-core — as the
+lowest-risk option that still delivers the web-shaped asks. Superseded by the
+post-dissertation framing, where C's greenfield cleanliness wins since the effort
+and deploy-rework are no longer near-term constraints. B — `textual serve` the
+TUI — was cheapest but doesn't fit the figure/sweep/download asks.)*
+
+---
+
+## 6. Generalized parameter sweeps
+
+Today `runDoseSweep.py` is hardcoded to a 2-D ADP × thrombin log grid with five
+baked-in observables; `runPerturbation.py` does 1-D single-knob scans. Both
+generalize to one `bench_core.sweep`:
+
+```python
+@dataclass(frozen=True)
+class GridAxis:
+    field: str            # any RunConfig field, e.g. 'adp_peak_uM', 'pmca_kcat_scale'
+    lo: float; hi: float; n: int
+    spacing: str = 'log'  # 'log' | 'linear'
+
+@dataclass(frozen=True)
+class SweepSpec:
+    axes: list[GridAxis]          # 1-D, 2-D (heatmap/surface), or N-D
+    observables: list[str]        # keys into bench_core.observables
+    base: RunConfig               # template; each cell overrides the swept fields
+    length_sec: int = 200; seed: int = 0
+```
+
+`run_sweep(spec, out_dir)` builds the N-D grid, runs each cell via the same
+`RunConfig` path (immutable per-cell override — no global mutation), harvests the
+requested observables, and writes a **sweep manifest** (axes + observable keys +
+result arrays) so the UI renders without importing runscript constants. This
+*subsumes* both existing scripts (they become thin `SweepSpec` presets) and lets
+the web UI sweep **any** RunConfig parameter the user picks — agonist doses,
+extracellular Ca²⁺, the scale knobs, even count-override-driven titrations.
+
+---
+
+## 7. Figures with auto-generated legends
+
+**Current state:** every figure's legend, caption, annotations and acceptance
+criteria are *hand-written* in its plot module (e.g. `calcium_trace.py` builds
+panel titles, the Dolan reference curve, the peak annotation, and a pass/fail
+criteria box inline). There is a plot **registry** (`TAGS` + importlib in
+`analysisPlatelet.py`) but no legend *generation*.
+
+**Proposal — a figure-recipe layer** (`bench_core.figure_recipes`), building on
+§9 of the TUI design doc. A recipe declares, as data, what a figure *is*:
+
+```python
+FigureRecipe(
+  id='calcium_trace', title='Cytosolic Ca²⁺ transient',
+  panels=[ Panel(y='ca_cyt_nM', ylabel='[Ca²⁺]_cyt (nM)',
+                 refs=[Ref('Dolan 2014', band_pct=30)],
+                 annotate=[Peak(window=(0,20))],
+                 criteria=[Crit('peak', (200,800), 'nM')]),
+           ... ],
+  caption_template='Cytosolic Ca²⁺ rises to {peak:.0f} nM at t={t_peak:.0f} s; '
+                   'the DTS store depletes from {dts0:.0f} µM ...')
+```
+
+The **legend and caption are then generated** from the recipe + the run's data
+(units, references, the measured peak/AUC, pass/fail vs. the declared criteria) —
+consistent across figures and honest to detailed-legend practice, instead of
+re-typed per plot. Two figure kinds (both surfaced as "render this" in the web
+UI, downloadable as PDF/PNG/SVG):
+
+- **single-run** — one `simOut/` → figure (today's `single/` plots, recipe-driven).
+- **multi-condition** — N runs → overlay/comparison (the §9
+  `MultiConditionAnalysisPlot`): wires the "compare runs" and sweep-slice views.
+
+This also doubles as the missing **canonical figure-regeneration** path (run the
+recipe registry to rebuild a release's figure set).
+
+---
+
+## 8. Named saved run settings (presets library)
+
+Extend the TUI's preset system (`presets.py`) into bench-core with:
+
+- **Meaningful names + metadata** — name, description, created-at, the param
+  version it was authored against (so a preset doesn't silently drift on a TOML
+  bump), and the diff-from-defaults.
+- **A pluggable store** — the TUI uses `~/.config/...`; the webapp needs a
+  shared/served store (the mounted `out/` or a `presets/` dir on the Azure File
+  Share), so presets created in either front-end are visible to both.
+- **Round-trip** — a preset *is* a form state (`values`, `knockouts`,
+  `at_rest`); a *run* is a preset + length/seed → spec JSON. Same artifact the
+  TUI already saves; the web UI just gets a browse/rename/delete library view.
+
+---
+
+## 9. Phasing
+
+| Phase | Work | Depends on | Risk |
+|-------|------|-----------|------|
+| **P1** | Extract **bench-core** (config/runspec/knockouts/presets); repoint TUI + webapp at it; de-leak the webapp (manifest, presets, run-spec submission) | PR #62 merged | low–med (mechanical, but touches TUI) |
+| **P2** | `bench_core.observables` + generalized `bench_core.sweep`; fold `runDoseSweep`/`runPerturbation` onto it | P1 | medium |
+| **P3** | `bench_core.figure_recipes` + auto-legends; single + multi-condition recipes | P1 | medium |
+| **P4** | Web front-end rewrite over bench-core (the chosen §5 option): Configure / Run / Results / Sweep / Presets | P1 (+P2/P3 for those tabs) | medium–high |
+
+P1 is the no-regret core and the thing that actually delivers "good separation."
+P2/P3 are independently useful (they improve the scripts/figures even without a
+new UI). P4 is the visible rewrite and the largest piece.
+
+---
+
+## 10. Open questions / decisions
+
+1. **§5 front-end fork** — ✅ RESOLVED: option C (FastAPI + JS), post-dissertation.
+2. **bench-core home** — `reconstruction/platelet/bench_core/` (model-scoped) vs
+   a neutral top-level `bench/`. Leaning model-scoped (it *is* platelet-specific).
+3. **Sequencing vs PR #62** — #62 is now merged, so the bench-core extraction (P1)
+   can proceed whenever it's picked up; recommend it as the first step when the
+   work resumes.
+4. **Multi-user / state** — the webapp is currently single-store; if it's ever
+   multi-user, presets/runs need namespacing. Out of scope unless you want it.
+5. **Deploy** — keep the single baked image + ACI, or split UI/worker? Keep as-is
+   for now.
