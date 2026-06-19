@@ -644,41 +644,42 @@ K_CAMP = dict(_KINETICS['inhibitory']['camp'])
 K_PKA  = dict(_KINETICS['inhibitory']['pka'])
 K_VASP = dict(_KINETICS['inhibitory']['vasp'])
 
-# Resting basal cAMP as a count; AC basal rate derived so V_AC / k_pde sits
-# the resting node exactly at camp_rest (with zero resting P2Y12 drive).
-CAMP_REST_COUNT = K_CAMP['camp_rest_uM'] / _UM_PER_COUNT_CYT
-V_AC_BASAL      = K_CAMP['k_pde'] * CAMP_REST_COUNT   # counts/s
-
-# Resting PKA activity (Hill of resting cAMP). The IP3R brake b is anchored
-# to 1.0 here, so deviations of cAMP from rest move b above/below 1.
-PKA_REST_FRAC = (
-	K_CAMP['camp_rest_uM'] ** K_PKA['n_pka']
-	/ (K_PKA['k_pka_uM'] ** K_PKA['n_pka']
-		+ K_CAMP['camp_rest_uM'] ** K_PKA['n_pka'])
-)
-
-
 def pka_active_frac(camp_count):
 	"""Fractional PKA activity = Hill(cAMP). Single definition shared by the
-	ODE IP3R brake and the IntegrinActivation PKA brake (issue #10)."""
+	resting anchor (PKA_REST_FRAC), the ODE IP3R brake, and the
+	IntegrinActivation PKA brake (issue #10)."""
 	camp_uM = max(camp_count, 0.0) * _UM_PER_COUNT_CYT
 	n = K_PKA['n_pka']
 	return camp_uM ** n / (K_PKA['k_pka_uM'] ** n + camp_uM ** n)
 
 
-def pka_brake_factor(camp_count, gain, b_max, b_min=None):
-	"""PKA dis-inhibition factor for a braked target.
+# Resting basal cAMP as a count, ROUNDED to an integer so the seeded initial
+# count (species-v0.6.tsv cAMP[c]) and the AC/PDE fixed point V_AC_BASAL/k_pde
+# coincide exactly. With them equal, the PKA brake is *exactly* 1.0 at rest
+# (no startup transient), so the resting fixed point and Dolan 5/5 are
+# preserved by construction (resting ADP = 0 → no P2Y12 drive → cAMP sits here).
+CAMP_REST_COUNT = float(round(K_CAMP['camp_rest_uM'] / _UM_PER_COUNT_CYT))
+V_AC_BASAL      = K_CAMP['k_pde'] * CAMP_REST_COUNT   # counts/s
 
-	Normalised to 1.0 at resting cAMP/PKA (so the resting fixed point and the
-	Dolan goldens are unchanged), rising above 1 as ADP → P2Y12 → Gi lowers
-	cAMP/PKA (the brake is released), and falling below 1 if cAMP rises
-	(future PGI2 arm). ``gain`` and ``b_max`` are per-target (IP3R vs
-	integrin); ``b_min`` defaults to the shared ``[inhibitory.pka] b_min``.
-	"""
-	if b_min is None:
-		b_min = K_PKA['b_min']
-	b = 1.0 + gain * (PKA_REST_FRAC - pka_active_frac(camp_count))
-	return min(b_max, max(b_min, b))
+# Resting PKA activity (Hill of the resting cAMP count). The brake b is
+# anchored to 1.0 here, so deviations of cAMP from rest move b above/below 1.
+PKA_REST_FRAC = pka_active_frac(CAMP_REST_COUNT)
+
+
+def _pka_brake_from_frac(pka_frac, gain, b_max):
+	"""PKA dis-inhibition factor from an already-computed PKA fraction: 1.0 at
+	resting PKA, >1 as cAMP/PKA falls (brake released), clamped to
+	[b_min, b_max] (b_min from [inhibitory.pka], the floor for the future
+	cAMP-elevating PGI2 arm)."""
+	b = 1.0 + gain * (PKA_REST_FRAC - pka_frac)
+	return min(b_max, max(K_PKA['b_min'], b))
+
+
+def pka_brake_factor(camp_count, gain, b_max):
+	"""PKA dis-inhibition factor for a braked target (IP3R / αIIbβ3), keyed off
+	the current cAMP count. ``gain`` and ``b_max`` are per-target. See
+	`_pka_brake_from_frac`."""
+	return _pka_brake_from_frac(pka_active_frac(camp_count), gain, b_max)
 
 
 # ── Agonist forcing functions — stimulation inputs ───────────────────────
@@ -956,7 +957,7 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	# αIIbβ3 PKA brake (the dominant, visible P2Y12 effect) uses the same
 	# pka_brake_factor in the IntegrinActivation process.
 	pka_frac = pka_active_frac(camp_count)
-	b_ip3r = pka_brake_factor(camp_count, K_PKA['brake_gain'], K_PKA['b_max'])
+	b_ip3r = _pka_brake_from_frac(pka_frac, K_PKA['brake_gain'], K_PKA['b_max'])
 
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
@@ -1010,8 +1011,11 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Quasi-steady activation and slow inactivation ODE.
 	m_inf = (ip3 / (ip3 + K_DYK['d1'])) * (ca_cyt / (ca_cyt + K_DYK['d5']))
-	# PKA brake (inhibitory axis, #10): b_ip3r scales the open probability —
-	# 1.0 at resting cAMP/PKA (Dolan-safe), > 1 when P2Y12/Gi lowers cAMP.
+	# PKA brake (inhibitory axis, #10): b_ip3r ∈ [b_min, b_max] scales the IP3R
+	# flux — 1.0 at resting cAMP/PKA (Dolan-safe), > 1 when P2Y12/Gi lowers cAMP
+	# (dis-inhibition). NB this makes po_channel a *conductance scale* that can
+	# exceed 1 (up to b_max), not a true open probability — it feeds the Nernst
+	# flux below only as a linear multiplier, never as a sampled probability.
 	po_channel = (m_inf ** 4) * h * b_ip3r
 
 	dh_dt = K_DYK['a2'] * (K_DYK['d2'] - (ca_cyt + K_DYK['d2']) * h)
@@ -1377,7 +1381,9 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	# join total_active_R — instead it lowers cAMP. p2y12_block ∈ [0,1] is
 	# the competitive-antagonist knob (cangrelor/ticagrelor): it scales the
 	# ADP on-rate, so block = 1 leaves P2Y12 inactive → cAMP at basal.
-	avail = 1.0 - config.p2y12_block
+	# Clamp to [0,1]: block > 1 would otherwise flip the on-rate negative
+	# (non-physical), block < 0 would over-activate.
+	avail = 1.0 - min(1.0, max(0.0, config.p2y12_block))
 	v_p2y12_on  = K_P2Y12['k_on'] * p2y12_i * adp_um_now * avail
 	v_p2y12_off = K_P2Y12['k_off'] * p2y12_a
 	dy[_IDX['P2Y12_inactive[pl]']] += -v_p2y12_on + v_p2y12_off
@@ -1386,8 +1392,12 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	# cAMP node: basal AC production, Gi inhibition scaling with active
 	# P2Y12 fraction, linear PDE3A degradation. At rest (ADP = 0) the Gi
 	# term is 0 → cAMP sits at V_AC_BASAL / k_pde = camp_rest.
-	p2y12_frac = p2y12_a / N_P2Y12_TOTAL if N_P2Y12_TOTAL > 0 else 0.0
-	v_ac  = V_AC_BASAL * (1.0 - K_CAMP['i_gi_max'] * p2y12_frac)
+	# p2y12_frac clamped to ≤1, and the AC factor floored at 0, so a mis-set
+	# i_gi_max > 1 can never drive AC production negative (AC can't consume
+	# cAMP). NB: AC consumes ATP biologically; that small ATP debit (~V_AC
+	# ≈ 361/s vs a ~1e7 ATP pool) is intentionally omitted (lean module).
+	p2y12_frac = min(1.0, p2y12_a / N_P2Y12_TOTAL) if N_P2Y12_TOTAL > 0 else 0.0
+	v_ac  = V_AC_BASAL * max(0.0, 1.0 - K_CAMP['i_gi_max'] * p2y12_frac)
 	v_pde = K_CAMP['k_pde'] * camp_count
 	dy[_IDX['cAMP[c]']] += v_ac - v_pde
 

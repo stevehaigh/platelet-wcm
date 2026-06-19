@@ -12,6 +12,9 @@ Columns written:
   aIIbb3_resting   — low-affinity αIIbβ3 count ([pl])
   active_frac      — active / (active + resting) — the per-cell PAC-1 readout
   integrin_gate    — PKC* × Ca²⁺ inside-out activation gate value (0–1)
+  pka_brake        — PKA dis-inhibition factor on the inside-out rate (≥1;
+                     1.0 at rest, >1 as P2Y12/Gi lowers cAMP — the clopidogrel
+                     mechanism, issue #10)
 """
 
 import wholecell.listeners.listener
@@ -40,8 +43,10 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 		self.aIIbb3_resting = 0
 		self.active_frac = 0.0
 		self.integrin_gate = 0.0
+		self.pka_brake = 1.0
 
 		self.registerLoggedQuantity('αIIbβ3 act\n(frac)', 'active_frac', '.3f')
+		self.registerLoggedQuantity('PKA brake\n(≥1)', 'pka_brake', '.3f')
 
 	def update(self):
 		counts = self._bulk_molecules.counts()
@@ -52,10 +57,11 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 		total = active + resting
 		self.active_frac = float(active / total) if total > 0 else 0.0
 		self.integrin_gate = float(getattr(self._activation, '_gate', 0.0))
+		self.pka_brake = float(getattr(self._activation, '_pka_brake', 1.0))
 
 	def tableCreate(self, tableWriter):
 		tableWriter.writeAttributes(
-			units='count for active/resting; active_frac and gate dimensionless',
+			units='count for active/resting; active_frac, gate, pka_brake dimensionless',
 		)
 
 	def tableAppend(self, tableWriter):
@@ -66,4 +72,5 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 			aIIbb3_resting=self.aIIbb3_resting,
 			active_frac=self.active_frac,
 			integrin_gate=self.integrin_gate,
+			pka_brake=self.pka_brake,
 		)

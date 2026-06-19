@@ -43,7 +43,6 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	pka_active_frac,
 	GAMMA_SOC_S,
 	NA_OVER_zF,
-	N_P2Y12_TOTAL,
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
 	RT_OVER_zF_V,
@@ -131,7 +130,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.p2y1_desensitised_frac = 0.0
 		self.plcb_phosphorylated_frac = 0.0
 		self.camp_uM                = 0.0
-		self.pka_active_frac        = 0.0
+		self.pka_frac               = 0.0
 		self.p2y12_active_frac      = 0.0
 		self.vasp_phos_frac         = 0.0
 
@@ -196,7 +195,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		# occupancy, and the clinical VASP/PRI readout (phospho-VASP fraction).
 		camp_count = counts[self._idx_camp]
 		self.camp_uM = float(camp_count * _UM_PER_COUNT_CYT)
-		self.pka_active_frac = float(pka_active_frac(camp_count))
+		self.pka_frac = float(pka_active_frac(camp_count))
 		p2y12_total = (counts[self._idx_p2y12_inactive]
 			+ counts[self._idx_p2y12_active])
 		self.p2y12_active_frac = float(
@@ -265,7 +264,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			p2y1_desensitised_frac=self.p2y1_desensitised_frac,
 			plcb_phosphorylated_frac=self.plcb_phosphorylated_frac,
 			camp_uM=self.camp_uM,
-			pka_active_frac=self.pka_active_frac,
+			pka_active_frac=self.pka_frac,
 			p2y12_active_frac=self.p2y12_active_frac,
 			vasp_phos_frac=self.vasp_phos_frac,
 		)

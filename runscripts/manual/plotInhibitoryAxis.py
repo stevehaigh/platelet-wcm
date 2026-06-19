@@ -39,9 +39,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reconstruction.platelet.dataclasses.process.calcium_signalling import (
-	_UM_PER_COUNT_EX,
-)
 from reconstruction.platelet.run_config import RunConfig
 from runscripts.manual.runPlateletSim import run_platelet_sim
 from wholecell.io.tablereader import TableReader
@@ -56,47 +53,39 @@ def _run(length=250, **config_kwargs):
 	return paths['sim_out_dir']
 
 
-def _trace(sim_out, column):
-	return TableReader(os.path.join(sim_out, 'CalciumTrace')).readColumn(
-		column).flatten()
+def _series(sim_out):
+	"""Read every series a figure needs, opening each table once.
 
-
-def _bulk(sim_out):
+	PAC-1 and TXA2 come from the IntegrinTrace ``active_frac`` and
+	ThromboxaneTrace ``txa2_uM`` listener columns (the single source of truth),
+	not re-derived from raw BulkMolecules counts. Gαq has no dedicated listener
+	column, so it is read once from BulkMolecules.
+	"""
+	ct = TableReader(os.path.join(sim_out, 'CalciumTrace'))
+	it = TableReader(os.path.join(sim_out, 'IntegrinTrace'))
+	tt = TableReader(os.path.join(sim_out, 'ThromboxaneTrace'))
 	rb = TableReader(os.path.join(sim_out, 'BulkMolecules'))
-	return list(rb.readAttribute('objectNames')), rb.readColumn('counts')
-
-
-def _pac1(sim_out):
-	"""αIIbβ3 active fraction (%) — the per-cell PAC-1 readout."""
-	ids, counts = _bulk(sim_out)
-	act = counts[:, ids.index('aIIbb3_active[pl]')].astype(float)
-	rest = counts[:, ids.index('aIIbb3_resting[pl]')].astype(float)
-	total = act + rest
-	return 100.0 * np.divide(act, total, out=np.zeros_like(act), where=total > 0)
-
-
-def _txa2_uM(sim_out):
-	"""Pericellular synthesised TXA2 (µM) — the aspirin (COX-1) arm."""
-	ids, counts = _bulk(sim_out)
-	return counts[:, ids.index('TXA2[e]')].astype(float) * _UM_PER_COUNT_EX
-
-
-def _gq(sim_out):
-	"""Active Gαq (count) — the shared amplification node the TXA2 loop feeds."""
-	ids, counts = _bulk(sim_out)
-	return counts[:, ids.index('Gq_active[c]')].astype(float)
+	ids = list(rb.readAttribute('objectNames'))
+	gq = rb.readColumn('counts')[:, ids.index('Gq_active[c]')].astype(float)
+	return {
+		'camp_uM': ct.readColumn('camp_uM').flatten(),
+		'pka':     ct.readColumn('pka_active_frac').flatten(),
+		'vaspp':   ct.readColumn('vasp_phos_frac').flatten(),
+		'p2y12':   ct.readColumn('p2y12_active_frac').flatten(),
+		'ca':      ct.readColumn('ca_cyt_nM').flatten(),
+		'pac1':    100.0 * it.readColumn('active_frac').flatten(),
+		'txa2_uM': tt.readColumn('txa2_uM').flatten(),
+		'gq':      gq,
+	}
 
 
 # ── 1. Inhibitory-axis mechanism ─────────────────────────────────────────────
 
 def fig_mechanism(outdir: str) -> str:
 	"""The cAMP/PKA off-switch responding to agonist (standard transient, WT)."""
-	sim = _run(250)
-	t = np.arange(len(_trace(sim, 'camp_uM')))
-	camp = _trace(sim, 'camp_uM')
-	pka = _trace(sim, 'pka_active_frac')
-	vaspp = _trace(sim, 'vasp_phos_frac')
-	p2y12 = _trace(sim, 'p2y12_active_frac')
+	s = _series(_run(250))
+	t = np.arange(len(s['camp_uM']))
+	camp, pka, vaspp, p2y12 = s['camp_uM'], s['pka'], s['vaspp'], s['p2y12']
 
 	fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4.7))
 
@@ -174,24 +163,24 @@ def fig_treatments(outdir: str) -> str:
 	# nothing downstream; the autocrine arm only bites when the primary drive
 	# is weak — so this is the regime that reveals aspirin's mechanism.
 	weak = dict(thrombin_peak_nM=0.0, adp_peak_uM=0.5, atp_ex_peak_uM=0.0)
-	runs = [(label, _run(300, **weak, **kw), color, ls)
+	runs = [(label, _series(_run(300, **weak, **kw)), color, ls)
 		for label, kw, color, ls in _TREATMENTS]
-	t = np.arange(len(_pac1(runs[0][1])))
+	t = np.arange(len(runs[0][1]['camp_uM']))
 
 	fig, axes = plt.subplots(2, 3, figsize=(16, 9))
 	(axA, axB, axC), (axD, axE, axF) = axes
 
-	for label, sim, color, ls in runs:
-		axA.plot(t, _pac1(sim), lw=2.2, color=color, ls=ls, label=label)
-		axB.plot(t, _gq(sim), lw=2.2, color=color, ls=ls, label=label)
-		axC.plot(t, _trace(sim, 'camp_uM'), lw=2.2, color=color, ls=ls, label=label)
-		axD.plot(t, _trace(sim, 'vasp_phos_frac'), lw=2.2, color=color, ls=ls, label=label)
-		axE.plot(t, _txa2_uM(sim), lw=2.2, color=color, ls=ls, label=label)
-		axF.plot(t, _trace(sim, 'ca_cyt_nM'), lw=2.2, color=color, ls=ls, label=label)
+	for label, s, color, ls in runs:
+		axA.plot(t, s['pac1'], lw=2.2, color=color, ls=ls, label=label)
+		axB.plot(t, s['gq'], lw=2.2, color=color, ls=ls, label=label)
+		axC.plot(t, s['camp_uM'], lw=2.2, color=color, ls=ls, label=label)
+		axD.plot(t, s['vaspp'], lw=2.2, color=color, ls=ls, label=label)
+		axE.plot(t, s['txa2_uM'], lw=2.2, color=color, ls=ls, label=label)
+		axF.plot(t, s['ca'], lw=2.2, color=color, ls=ls, label=label)
 
-	axA.set_title('A — PAC-1 integrin (αIIbβ3) activation  [clopidogrel ↓]',
+	axA.set_title(r'A — PAC-1 integrin ($\alpha_{IIb}\beta_3$) activation  [clopidogrel ↓]',
 		fontsize=10, fontweight='bold')
-	axA.set_ylabel('active αIIbβ3 (% — PAC-1 readout)')
+	axA.set_ylabel(r'active $\alpha_{IIb}\beta_3$ (% — PAC-1 readout)')
 	axA.set_ylim(bottom=0)
 
 	axB.set_title(r'B — active G$\alpha_q$  [aspirin ↓: TXA$_2$ loop removed]',
