@@ -34,8 +34,9 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 # Order: ca_cyt, ca_dts, ip3, stim1, orai, cam_free, ca2_cam, ca4_cam,
 #        ca4_cam_pmca, ca4_cam_pmca_ca, pmca_cam, pmca_free, pmca_ca,
 #        pkc_active, p2y1_inactive, p2y1_active, p2y1_desensitised (v0.6),
-#        plcb_inactive, plcb_active, plcb_phosphorylated (v0.6 Slice 3)
-_NUM_SPECIES = 20
+#        plcb_inactive, plcb_active, plcb_phosphorylated (v0.6 Slice 3),
+#        cAMP, p2y12_inactive, p2y12_active, vasp, vasp_phos (v0.7 Slice 2)
+_NUM_SPECIES = 25
 
 
 def _make_listener(counts, ca_ex_uM=1200.0):
@@ -81,6 +82,11 @@ def _make_listener(counts, ca_ex_uM=1200.0):
 	lst._idx_plcb_inactive   = 17
 	lst._idx_plcb_active     = 18
 	lst._idx_plcb_phos       = 19
+	lst._idx_camp            = 20
+	lst._idx_p2y12_inactive  = 21
+	lst._idx_p2y12_active    = 22
+	lst._idx_vasp            = 23
+	lst._idx_vasp_phos       = 24
 	return lst
 
 
@@ -120,7 +126,8 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 			1_000, 500, 200,
 			7, 8, 9, 30, 40,
 			0, 150, 0, 0,
-			857, 143, 0]
+			857, 143, 0,
+			0, 0, 0, 0, 0]  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
 		lst = _make_listener(counts)
 		lst.update()
 
@@ -140,7 +147,8 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 		# plcb: 600 inact/100 act/300 phospho
 		counts = [100, 38_800, 50, 200, 400, 0, 0, 0, 0, 0, 0, 0, 0,
 			1_234, 30, 20, 50,
-			600, 100, 300]
+			600, 100, 300,
+			0, 0, 0, 0, 0]  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
 		lst = _make_listener(counts)
 		lst.update()
 		self.assertEqual(lst.pkc_active, 1_234)

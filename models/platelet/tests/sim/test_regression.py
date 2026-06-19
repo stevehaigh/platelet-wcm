@@ -139,17 +139,17 @@ class TestPlateletGoldenRun(unittest.TestCase):
 			f'Dry mass reached zero or below (min={self.dry_mass.min():.6f})')
 
 	def test_dry_mass_near_baseline(self):
-		"""Initial dry mass should be within 1% of the 261.70 fg baseline.
+		"""Initial dry mass should be within 1% of the 265.05 fg baseline.
 
-		Baseline updated 2026-06-14 (v0.61 §3 integrin): the αIIbβ3 conformational
-		states aIIbb3_resting/active[pl] add the β3 partner's mass (80 000 ×
-		1.494e-4 fg ≈ 11.95 fg); the αIIb mass is already counted as ITGA2B[c]
-		(no double-count). Previous baseline 247.72 fg (2026-05-15, PIP2
-		transcription fix); 245.97 fg before that (2026-05-12, Phase 3 / issue
-		#25 multi-buffer DTS).
+		Baseline updated 2026-06-19 (v0.7 Slice 2, issue #10 inhibitory axis):
+		the new VASP readout pool (VASP + VASP_phos = 50 000 × 6.61e-5 fg ≈
+		3.31 fg) dominates the +3.35 fg shift; P2Y12 (425) and cAMP (3 613) add
+		negligible mass. Previous baseline 261.70 fg (2026-06-14, v0.61 §3
+		integrin β3 mass); 247.72 fg (2026-05-15, PIP2 transcription fix);
+		245.97 fg before that (2026-05-12, Phase 3 / issue #25 multi-buffer DTS).
 		"""
 		initial = self.dry_mass[0]
-		self.assertGreater(initial, 259.1,   # 261.70 * 0.99
+		self.assertGreater(initial, 262.4,   # 265.05 * 0.99
 			f'Initial dry mass {initial:.3f} below baseline −1%')
-		self.assertLess(initial, 264.3,      # 261.70 * 1.01
+		self.assertLess(initial, 267.7,      # 265.05 * 1.01
 			f'Initial dry mass {initial:.3f} above baseline +1%')
