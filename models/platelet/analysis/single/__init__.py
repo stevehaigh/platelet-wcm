@@ -3,6 +3,7 @@
 ACTIVE = [
 	'scaffold_summary.py',
 	'calcium_trace.py',
+	'granule_secretion.py',
 	]
 
 TAGS = {
