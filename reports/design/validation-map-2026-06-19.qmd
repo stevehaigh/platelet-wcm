@@ -1,0 +1,116 @@
+---
+title: "Validation map — from a single Ca²⁺ number to a portfolio of targets"
+author: "Steve Haigh (with Claude Code)"
+date: "2026-06-19"
+format:
+  pdf:
+    include-in-header: ../pandoc-header.tex
+  html:
+    embed-resources: true
+    toc: true
+---
+
+# Why this doc
+
+The "Dolan 5/5" criteria (Dolan & Diamond 2014, Fig. 4 — the cytosolic Ca²⁺
+transient with and without extracellular Ca²⁺) were the model's headline
+validation when the model *was* the Ca²⁺ transient. The model has since grown
+into a multi-subsystem whole-cell model: the PI cycle, the GPCR cascade
+(P2Y1/PAR1/PAR4/P2X1/TP), PKC feedback, granule secretion, thromboxane, integrin
+(αIIbβ3), and now the inhibitory axis (P2Y12/Gi/cAMP/PKA/VASP). Validating that
+whole model against one Ca²⁺ figure no longer reflects what the model does.
+
+This doc re-frames the validation strategy: **keep Dolan 5/5 as a regression
+invariant on the Ca²⁺ core, and judge the model on a portfolio of
+subsystem-specific targets, each tied to a real experimental assay.**
+
+# Why "5/5" is no longer the headline
+
+Three reasons, each established from the current model:
+
+1. **It passes by construction.** Every layer added since the Ca²⁺ core is
+   deliberately normalised at rest so the resting fixed point and the Dolan
+   transient are unchanged (e.g. the v0.7 PKA brake is exactly 1.0 at resting
+   cAMP). A criterion engineered to keep passing is a *guard against accidental
+   breakage*, not evidence that the new biology is correct.
+
+2. **Low discriminating power (the Ca²⁺ clamp).** Cytosolic Ca²⁺ is
+   store-limited and SOCE-clamped: it is nearly insensitive to any single
+   release/clearance lever. Probes (2026-06-19) moved the peak by:
+
+   | Lever | Range tested | Peak cyt Ca²⁺ effect |
+   |---|---|---|
+   | IP₃R open-probability brake | gain 1 → 8 | 293 → 298 nM (+5) |
+   | PMCA $k_\mathrm{cat}$ | 1.0 → 0.3× | 408 → 412 nM (+4) |
+   | SERCA forward rate | 1.0 → 0.3× | ~0 nM |
+
+   The buffers (CaM / gelsolin / calreticulin) plus the SOCE↔clearance balance
+   pin the cytosolic level. Many different parameterisations therefore pass
+   Dolan 5/5 — it cannot discriminate between them.
+
+3. **Scope mismatch.** The interesting, clinically-relevant biology has its own,
+   stronger validation targets that the Ca²⁺ transient cannot speak to: the
+   VASP/PRI assay for P2Y12 inhibition, PAC-1 flow cytometry for integrin
+   activation, lumi-aggregometry for dense-granule release, and antiplatelet
+   drug dose-response.
+
+# The portfolio
+
+Each subsystem is judged against the assay a wet lab would use. Status: ✓ has a
+working comparison; ◐ partial / qualitative; ○ aspirational.
+
+| Subsystem | Validation target (assay) | Status | Where |
+|---|---|---|---|
+| Ca²⁺ core | Dolan & Diamond 2014 Fig. 4 transient (±Ca_ex) | ✓ (now a **regression invariant**) | `test_phase3.py`, `phase3_dolan_fig4.py` |
+| PI cycle / IP₃ | Resting IP₃ ≈ 50 nM; transient shape (Purvis 2008; Dolan Fig. S2) | ✓ | `test_regression.py` |
+| PKC feedback | "Rapid, substantial" P2Y1 desensitisation; IP₃ ↓ (Mundell 2006; Purvis 2008) | ◐ direction + magnitude band | `test_validation_targets.py` |
+| Granule secretion | Lumi-aggregometry (ATP/5-HT release kinetics); P-selectin flow | ◐ sigmoidal release shown | `granule_secretion.py` plot |
+| Thromboxane | Aspirin abolishes TXA₂; autocrine second wave | ✓ direction | `test_thromboxane.py`, second-wave tests |
+| Integrin (αIIbβ3) | PAC-1 flow cytometry; graded dose-response; drug shifts | ✓ new (this work) | `plotInhibitoryAxis.py`, `test_integrin.py` |
+| Inhibitory axis | VASP/PRI assay (P2Y12 inhibition); PGI₂/forskolin Ca²⁺ suppression | ✓ VASP/PRI direction; ○ PGI₂ (future slice) | `test_inhibitory_axis.py`, `plotInhibitoryAxis.py` |
+
+The v0.7 inhibitory-axis work added two genuine portfolio targets — the VASP/PRI
+readout and a PAC-1 drug-response — neither of which the Ca²⁺ transient could
+provide.
+
+# The Ca²⁺ clamp as a stated limitation
+
+The clamp is not a bug to hide; it is a model property with consequences worth
+stating in the thesis:
+
+- **What it means.** The model currently cannot quantitatively predict changes in
+  cytosolic Ca²⁺ *amplitude* driven by upstream modulation (PKC, P2Y12/cAMP).
+  Those signals are real in the model but are absorbed by buffering and the SOCE
+  clamp before they reach free cytosolic Ca²⁺.
+
+- **How we work with it.** Feedback and inhibitory signals are validated and made
+  visible on the readouts they actually move — the functional outputs (integrin,
+  secretion, thromboxane) and the signalling-node readouts (IP₃, cAMP, VASP-P) —
+  rather than on free cytosolic Ca²⁺. This is why the v0.7 PKA brake acts on the
+  αIIbβ3 inside-out rate (visible: clopidogrel lowers PAC-1) as well as on IP₃R
+  (real but ~invisible on cyt Ca²⁺).
+
+- **Future work.** Revisiting the cytosolic buffer load and the SOCE-clamp
+  calibration so that upstream modulation reaches free Ca²⁺ is a candidate
+  Ca²⁺-core project. It would need its own re-validation against Dolan — which is
+  exactly the regression-invariant role 5/5 is well suited to.
+
+# Recommendation
+
+1. Keep Dolan 5/5 as the cheap regression invariant on the Ca²⁺ core (done — see
+   the re-worded `test_phase3.py` docstring).
+2. Present the model's validation as the portfolio table above; report each
+   subsystem against its own assay.
+3. State the Ca²⁺ clamp as a known limitation with the future-work hook.
+
+# References
+
+*Verify in Zotero before citing (titles / first authors / approximate years are
+safe-to-recall anchors only).*
+
+- **Dolan & Diamond 2014** *Biophys. J.* 106:2049 — Ca²⁺ transient validation.
+- **Purvis et al. 2008** *Blood* 112:4069 — PI/Ca model; resting IP₃.
+- **Mundell et al. 2006** — PKC-dependent P2Y1 desensitisation.
+- **Gachet 2012** *Purinergic Signal.* 8:609 — P2Y12 / Gi; the basis for the
+  VASP/PRI readout direction.
+- **Burkhart et al. 2012** *Blood* 120:e73 — platelet proteome copy numbers.

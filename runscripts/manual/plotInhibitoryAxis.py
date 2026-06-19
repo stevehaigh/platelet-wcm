@@ -10,12 +10,14 @@ RunConfig knobs (no monkeypatching) and writing a PNG to the output directory
        falls with it. The new "off" machinery in action.
 
   2. treatments  -> antiplatelet_treatments.png
-       Control vs aspirin (COX-1 = 0) vs clopidogrel (P2Y12 block) vs both,
-       under the same activation. PAC-1 integrin activation (the requested
-       readout) + cAMP + VASP/PRI + pericellular TXA2, so each drug shows its
-       characteristic, biologically-correct signature:
+       Control vs aspirin (COX-1 = 0) vs clopidogrel (P2Y12 block) vs both, in
+       the weak-agonist (autocrine second-wave) regime where the amplification
+       loops the drugs target actually operate. Six panels (PAC-1, Gαq, cAMP,
+       VASP/PRI, TXA2, cytosolic Ca²⁺) trace each drug to its lever:
          - clopidogrel: keeps cAMP/VASP-P high -> PKA brake intact -> lower PAC-1
-         - aspirin:     abolishes TXA2 (its arm); little PAC-1 effect here
+         - aspirin:     abolishes TXA2 -> removes TXA2->TP->Gαq amplification
+                        -> lower active Gαq (invisible at saturating agonist,
+                        where Gαq is already pinned at its pool ceiling)
 
 Figure conventions: matplotlib mathtext for chemical formulae (raw unicode
 super/subscripts drop glyphs), detailed per-series legends, and a caption
@@ -77,6 +79,12 @@ def _txa2_uM(sim_out):
 	"""Pericellular synthesised TXA2 (µM) — the aspirin (COX-1) arm."""
 	ids, counts = _bulk(sim_out)
 	return counts[:, ids.index('TXA2[e]')].astype(float) * _UM_PER_COUNT_EX
+
+
+def _gq(sim_out):
+	"""Active Gαq (count) — the shared amplification node the TXA2 loop feeds."""
+	ids, counts = _bulk(sim_out)
+	return counts[:, ids.index('Gq_active[c]')].astype(float)
 
 
 # ── 1. Inhibitory-axis mechanism ─────────────────────────────────────────────
@@ -156,59 +164,86 @@ _TREATMENTS: list[tuple[str, dict[str, float], str, str]] = [
 
 
 def fig_treatments(outdir: str) -> str:
-	"""Control vs aspirin vs clopidogrel vs both — PAC-1 + cAMP + VASP + TXA2."""
-	runs = [(label, _run(250, **kw), color, ls)
+	"""Control vs aspirin vs clopidogrel vs both, in the autocrine-dominated
+	weak-agonist (second-wave) regime where the amplification loops the drugs
+	target actually operate. Six panels trace each drug to its lever:
+	clopidogrel via cAMP/PKA → integrin (A, C, D); aspirin via TXA2 → Gαq
+	(B, E). F (cytosolic Ca²⁺) is the shared, store-limited output."""
+	# Weak ADP-only transient. At a saturating agonist Gαq is pinned at its
+	# ~5 000 pool ceiling, so removing the TXA2 contribution (aspirin) changes
+	# nothing downstream; the autocrine arm only bites when the primary drive
+	# is weak — so this is the regime that reveals aspirin's mechanism.
+	weak = dict(thrombin_peak_nM=0.0, adp_peak_uM=0.5, atp_ex_peak_uM=0.0)
+	runs = [(label, _run(300, **weak, **kw), color, ls)
 		for label, kw, color, ls in _TREATMENTS]
 	t = np.arange(len(_pac1(runs[0][1])))
 
-	fig, axes = plt.subplots(2, 2, figsize=(12.5, 9))
-	(axA, axB), (axC, axD) = axes
+	fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+	(axA, axB, axC), (axD, axE, axF) = axes
 
 	for label, sim, color, ls in runs:
 		axA.plot(t, _pac1(sim), lw=2.2, color=color, ls=ls, label=label)
-		axB.plot(t, _trace(sim, 'camp_uM'), lw=2.2, color=color, ls=ls, label=label)
-		axC.plot(t, _trace(sim, 'vasp_phos_frac'), lw=2.2, color=color, ls=ls, label=label)
-		axD.plot(t, _txa2_uM(sim), lw=2.2, color=color, ls=ls, label=label)
+		axB.plot(t, _gq(sim), lw=2.2, color=color, ls=ls, label=label)
+		axC.plot(t, _trace(sim, 'camp_uM'), lw=2.2, color=color, ls=ls, label=label)
+		axD.plot(t, _trace(sim, 'vasp_phos_frac'), lw=2.2, color=color, ls=ls, label=label)
+		axE.plot(t, _txa2_uM(sim), lw=2.2, color=color, ls=ls, label=label)
+		axF.plot(t, _trace(sim, 'ca_cyt_nM'), lw=2.2, color=color, ls=ls, label=label)
 
-	axA.set_title('A — PAC-1 integrin (αIIbβ3) activation', fontsize=10, fontweight='bold')
+	axA.set_title('A — PAC-1 integrin (αIIbβ3) activation  [clopidogrel ↓]',
+		fontsize=10, fontweight='bold')
 	axA.set_ylabel('active αIIbβ3 (% — PAC-1 readout)')
 	axA.set_ylim(bottom=0)
 
-	axB.set_title('B — cAMP', fontsize=10, fontweight='bold')
-	axB.set_ylabel(r'cAMP ($\mu$M)')
+	axB.set_title(r'B — active G$\alpha_q$  [aspirin ↓: TXA$_2$ loop removed]',
+		fontsize=10, fontweight='bold')
+	axB.set_ylabel(r'active G$\alpha_q$ (count)')
 	axB.set_ylim(bottom=0)
 
-	axC.set_title('C — phospho-VASP (VASP/PRI assay)', fontsize=10, fontweight='bold')
-	axC.set_ylabel('phospho-VASP fraction')
-	axC.set_ylim(0, 1)
+	axC.set_title('C — cAMP  [clopidogrel keeps high]', fontsize=10, fontweight='bold')
+	axC.set_ylabel(r'cAMP ($\mu$M)')
+	axC.set_ylim(bottom=0)
 
-	axD.set_title(r'D — pericellular $\mathrm{TXA_2}$ (aspirin target)', fontsize=10, fontweight='bold')
-	axD.set_ylabel(r'$[\mathrm{TXA_2}]_\mathrm{e}$ ($\mu$M)')
-	axD.set_ylim(bottom=0)
+	axD.set_title('D — phospho-VASP (VASP/PRI)  [clopidogrel keeps high]',
+		fontsize=10, fontweight='bold')
+	axD.set_ylabel('phospho-VASP fraction')
+	axD.set_ylim(0, 1)
 
-	for ax in (axA, axB, axC, axD):
+	axE.set_title(r'E — pericellular $\mathrm{TXA_2}$  [aspirin $\rightarrow$ 0]',
+		fontsize=10, fontweight='bold')
+	axE.set_ylabel(r'$[\mathrm{TXA_2}]_\mathrm{e}$ ($\mu$M)')
+	axE.set_ylim(bottom=0)
+
+	axF.set_title(r'F — cytosolic $\mathrm{Ca^{2+}}$  [store-limited; shared output]',
+		fontsize=10, fontweight='bold')
+	axF.set_ylabel(r'$[\mathrm{Ca^{2+}}]_\mathrm{cyt}$ (nM)')
+	axF.set_ylim(bottom=0)
+
+	for ax in (axA, axB, axC, axD, axE, axF):
 		ax.set_xlabel('time (s)')
 		ax.grid(alpha=0.3)
 		ax.legend(loc='best', fontsize=8, frameon=False)
 
-	fig.suptitle('Antiplatelet treatments in the platelet whole-cell model '
-		r'(standard agonist, +$\mathrm{Ca^{2+}}$ 1.2 mM)',
+	fig.suptitle('Antiplatelet treatments — weak-agonist (autocrine second-wave) '
+		r'regime: ADP 0.5 µM, +$\mathrm{Ca^{2+}}$ 1.2 mM',
 		fontsize=13, fontweight='bold')
 	fig.text(0.5, -0.01,
-		'Each drug shows its mechanism-specific signature. Clopidogrel '
-		'(P2Y12 antagonist) blocks ADP-driven cAMP lowering, so cAMP (B) and '
-		'phospho-VASP (C) stay at their high resting tone — the PKA brake remains '
-		'engaged and PAC-1 integrin activation (A) is reduced versus control: the '
-		'real clopidogrel mechanism and the basis of the VASP/PRI assay. Aspirin '
-		'(COX-1 knockout) abolishes thromboxane synthesis (D, $\\mathrm{TXA_2}$ '
-		'$\\rightarrow$ 0) but has little effect on PAC-1 here, because the '
-		'$\\mathrm{TXA_2}\\rightarrow$TP$\\rightarrow$G$_q$ amplification it '
-		'removes is secondary to the primary agonist drive in this regime. The '
-		'cytosolic-$\\mathrm{Ca^{2+}}$ effect of P2Y12 is small (the '
-		'store-limited/SOCE clamp), '
-		'so the visible P2Y12 action is on the downstream integrin output.',
+		'The two drugs act through different arms, each visible on its own lever. '
+		'Clopidogrel (P2Y12 antagonist) blocks ADP-driven cAMP lowering, so cAMP '
+		'(C) and phospho-VASP (D) stay at their high resting tone — the PKA brake '
+		'stays engaged and PAC-1 integrin activation (A) is reduced: the real '
+		'clopidogrel mechanism and the VASP/PRI assay basis. Aspirin (COX-1 '
+		'knockout) abolishes thromboxane (E, $\\mathrm{TXA_2}\\rightarrow$0), '
+		'removing the autocrine '
+		'$\\mathrm{TXA_2}\\rightarrow$TP$\\rightarrow$G$\\alpha_q$ amplification '
+		'and so visibly lowering active G$\\alpha_q$ (B). The regime is chosen '
+		'deliberately: at a saturating agonist G$\\alpha_q$ is already pinned at '
+		'its ~5 000 pool ceiling, leaving aspirin no downstream room — consistent '
+		'with aspirin being a weak antiplatelet against strong thrombin. Both arms '
+		'converge on cytosolic $\\mathrm{Ca^{2+}}$ (F), which is '
+		'store-limited/SOCE-clamped and moves little — so each drug is best read '
+		'on its proximal lever, not on free $\\mathrm{Ca^{2+}}$.',
 		ha='center', va='top', fontsize=8, wrap=True)
-	fig.tight_layout(rect=[0, 0.03, 1, 0.96])
+	fig.tight_layout(rect=[0, 0.04, 1, 0.96])
 	out = os.path.join(outdir, 'antiplatelet_treatments.png')
 	fig.savefig(out, dpi=150, bbox_inches='tight')
 	plt.close(fig)
