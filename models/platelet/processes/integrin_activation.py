@@ -26,6 +26,8 @@ import numpy as np
 import wholecell.processes.process as process
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	pkc_ca_gate,
+	pka_brake_factor,
+	K_PKA,
 )
 
 
@@ -58,8 +60,17 @@ class IntegrinActivation(process.Process):
 		self._active = self.bulkMoleculesView(
 			np.array([ig.active_id], dtype='U30'))
 
+		# PKA inhibitory brake on inside-out activation (v0.7 Slice 2, #10).
+		# cAMP/PKA brakes the Rap1→integrin step; ADP→P2Y12→Gi lowers cAMP/PKA
+		# → dis-inhibits αIIbβ3 (the dominant, clinically-relevant P2Y12
+		# effect). Normalised to 1.0 at resting cAMP → resting/Dolan unchanged.
+		self._camp = self.bulkMoleculesView(np.array(['cAMP[c]'], dtype='U30'))
+		self._pka_brake_gain = K_PKA['integrin_brake_gain']
+		self._pka_b_max = K_PKA['integrin_b_max']
+
 		# Exposed for the IntegrinTrace listener (diagnostic only).
 		self._gate = 0.0
+		self._pka_brake = 1.0
 		self._activated = 0
 		self._reverted = 0
 
@@ -77,10 +88,16 @@ class IntegrinActivation(process.Process):
 		pkc_count, ca_count = self._drivers.total_counts()
 		self._gate = self._compute_gate(pkc_count, ca_count)
 
-		# Forward: resting → active (gated by PKC×Ca and the knockout knob).
+		# PKA dis-inhibition brake (≥1): 1.0 at resting cAMP, >1 once ADP →
+		# P2Y12 → Gi lowers cAMP/PKA, releasing the brake on integrin.
+		camp_count = self._camp.total_counts()[0]
+		self._pka_brake = pka_brake_factor(
+			camp_count, self._pka_brake_gain, self._pka_b_max)
+
+		# Forward: resting → active (gated by PKC×Ca, PKA brake, knockout knob).
 		resting_count = self._resting.total_counts()[0]
 		act_frac = 1.0 - np.exp(
-			-self._k_act * self._act_scale * self._gate * dt)
+			-self._k_act * self._act_scale * self._gate * self._pka_brake * dt)
 		self._activated = int(np.floor(resting_count * act_frac))
 
 		# Reverse: active → resting (slow, gate-independent relaxation).

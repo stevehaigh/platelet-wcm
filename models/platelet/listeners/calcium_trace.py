@@ -40,6 +40,7 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_UM_PER_COUNT_CYT,
 	_UM_PER_COUNT_DTS,
 	_mwc_open_fraction,
+	pka_active_frac,
 	GAMMA_SOC_S,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
@@ -103,6 +104,12 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self._idx_plcb_inactive  = all_ids.index('PLCb_inactive[c]')
 		self._idx_plcb_active    = all_ids.index('PLCb_active[c]')
 		self._idx_plcb_phos      = all_ids.index('PLCb_phosphorylated[c]')
+		# Inhibitory axis (v0.7 Slice 2, #10): P2Y12 / cAMP / PKA / VASP.
+		self._idx_camp           = all_ids.index('cAMP[c]')
+		self._idx_p2y12_inactive = all_ids.index('P2Y12_inactive[pl]')
+		self._idx_p2y12_active   = all_ids.index('P2Y12_active[pl]')
+		self._idx_vasp           = all_ids.index('VASP[c]')
+		self._idx_vasp_phos      = all_ids.index('VASP_phos[c]')
 
 		# Initialise logged quantities.
 		self.ca_cyt_nM        = 0.0
@@ -122,6 +129,10 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pkc_active             = 0
 		self.p2y1_desensitised_frac = 0.0
 		self.plcb_phosphorylated_frac = 0.0
+		self.camp_uM                = 0.0
+		self.pka_frac               = 0.0
+		self.p2y12_active_frac      = 0.0
+		self.vasp_phos_frac         = 0.0
 
 		self.registerLoggedQuantity('Ca²⁺_cyt\n(nM)',   'ca_cyt_nM',     '.1f')
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
@@ -131,6 +142,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.registerLoggedQuantity('PKC*\n(count)',     'pkc_active',     '.0f')
 		self.registerLoggedQuantity('P2Y1 des\n(frac)',  'p2y1_desensitised_frac', '.3f')
 		self.registerLoggedQuantity('PLCβ-P\n(frac)',    'plcb_phosphorylated_frac', '.3f')
+		self.registerLoggedQuantity('cAMP\n(µM)',        'camp_uM',        '.3f')
+		self.registerLoggedQuantity('VASP-P\n(frac)',    'vasp_phos_frac', '.3f')
 
 		# Live CSV (for the live-plot viewer): written into simOut when enabled.
 		if self._config.live:
@@ -177,6 +190,19 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			+ counts[self._idx_plcb_phos])
 		self.plcb_phosphorylated_frac = float(
 			counts[self._idx_plcb_phos] / plcb_total) if plcb_total > 0 else 0.0
+
+		# Inhibitory axis (v0.7 Slice 2, #10): cAMP, PKA activity, P2Y12
+		# occupancy, and the clinical VASP/PRI readout (phospho-VASP fraction).
+		camp_count = counts[self._idx_camp]
+		self.camp_uM = float(camp_count * _UM_PER_COUNT_CYT)
+		self.pka_frac = float(pka_active_frac(camp_count))
+		p2y12_total = (counts[self._idx_p2y12_inactive]
+			+ counts[self._idx_p2y12_active])
+		self.p2y12_active_frac = float(
+			counts[self._idx_p2y12_active] / p2y12_total) if p2y12_total > 0 else 0.0
+		vasp_total = counts[self._idx_vasp] + counts[self._idx_vasp_phos]
+		self.vasp_phos_frac = float(
+			counts[self._idx_vasp_phos] / vasp_total) if vasp_total > 0 else 0.0
 
 		# Per-step ATP consumed by SERCA + PMCA pumping. `getattr` guards the
 		# initial update, which runs before the first calculateRequest sets
@@ -237,6 +263,10 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pkc_active=self.pkc_active,
 			p2y1_desensitised_frac=self.p2y1_desensitised_frac,
 			plcb_phosphorylated_frac=self.plcb_phosphorylated_frac,
+			camp_uM=self.camp_uM,
+			pka_active_frac=self.pka_frac,
+			p2y12_active_frac=self.p2y12_active_frac,
+			vasp_phos_frac=self.vasp_phos_frac,
 		)
 		if self._live_file is not None:
 			self._live_file.write(

@@ -6,6 +6,19 @@ tolerance of the current baseline. Locks Phase 3 output against future
 drift — analogous to ``test_regression.py`` but for the two-condition
 comparison.
 
+**Role of "Dolan 5/5" (re-reviewed 2026-06-19).** As the model has grown
+beyond the Ca²⁺ transient (PI cycle, GPCR cascade, PKC feedback, secretion,
+thromboxane, integrin, and the v0.7 inhibitory axis), this 5/5 is best read
+as a **regression invariant on the Ca²⁺ core**, not the model's primary
+validation. Because cytosolic Ca²⁺ is store-limited/SOCE-clamped (see
+``project_pkc_ca_invisible`` / the validation-map doc), many parameterisations
+pass it — it has low discriminating power for new biology, and each new layer
+is deliberately normalised at rest to *keep* it passing. The model's evidence
+now rests on a portfolio of subsystem targets (VASP/PRI, PAC-1, lumi-
+aggregometry, drug dose-response) — see
+``reports/design/validation-map-2026-06-19.qmd``. Keep this test as the cheap
+guard that the Ca²⁺ core is not accidentally broken.
+
 Baseline (seed=0, length=200 s, both conditions, 2026-05-07 after the
 Caride k_12 fix and STIM1 dimer-count fix; Dolan-convention IP3R N
 restored):

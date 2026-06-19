@@ -34,6 +34,10 @@ ENTITIES: Dict[str, List[str]] = {
 	'SERCA (DTS Ca2+ pump)': [
 		'SERCA_E1[dts]', 'SERCA_E2[dts]', 'SERCA_E1Ca[dts]',
 		'SERCA_E1PCa[dts]', 'SERCA_E2PCa[dts]', 'SERCA_E2P[dts]'],
+	# Appended (not inserted next to P2Y1) so the TUI's index-based entity
+	# checkbox IDs (#ent-N) and their tests are unaffected (issue #10 review).
+	'P2Y12 (ADP, Gi)': [
+		'P2Y12_inactive[pl]', 'P2Y12_active[pl]'],
 }
 
 

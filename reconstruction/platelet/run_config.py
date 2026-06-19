@@ -74,6 +74,12 @@ class RunConfig:
 	"""Scale on αIIbβ3 inside-out activation rate (v0.61 §3); 0 = αIIbβ3
 	antagonist / Glanzmann thrombasthenia (no high-affinity integrin)."""
 
+	p2y12_block: float = 0.0
+	"""P2Y12 competitive-antagonist occupancy (v0.7 Slice 2, issue #10);
+	0 = no drug (P2Y12 fully active), 1 = full block (cangrelor / ticagrelor /
+	clopidogrel). Scales the ADP on-rate at P2Y12, so blockade keeps cAMP at
+	its basal tone → PKA brake intact → reduced activation."""
+
 	# ── Single-constant perturbation scales (1.0 = baseline; 0.0 = knockout) ─
 	k_des_scale: float = 1.0
 	"""Scale on PKC → P2Y1 desensitisation rate (K_P2Y1_DES['k_des'])."""

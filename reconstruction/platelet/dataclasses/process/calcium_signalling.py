@@ -187,6 +187,14 @@ MOLECULE_NAMES = (
 	# autocrine TXA2 → TP → Gq amplification loop. See [gpcr.tp] in the TOML.
 	'TP_inactive[pl]',        # resting TP (TBXA2R)
 	'TP_active[pl]',          # TXA2-bound, Gq-driving
+	# Inhibitory axis (v0.7 Slice 2, issue #10) — P2Y12/Gi → cAMP/PKA brake.
+	# ADP's second receptor: P2Y12 (Gi-coupled) lowers cAMP → lowers PKA →
+	# dis-inhibits IP3R. The cAMP/PKA "off" tone the antiplatelet drugs act on.
+	'P2Y12_inactive[pl]',     # P2Y12 ADP receptor (Gi-coupled), inactive
+	'P2Y12_active[pl]',       # P2Y12 active (ADP-bound) → inhibits AC
+	'cAMP[c]',                # central inhibitory node; PKA = Hill(cAMP)
+	'VASP[c]',                # dephospho-VASP (PKA substrate; readout pool)
+	'VASP_phos[c]',           # phospho-VASP — the clinical VASP/PRI readout
 )
 # Index lookups for readability inside the rate function.
 _IDX = {name: i for i, name in enumerate(MOLECULE_NAMES)}
@@ -622,6 +630,58 @@ K_TP   = dict(_KINETICS['gpcr']['tp'])   # thromboxane TP receptor (v0.61 Slice 
 N_GQ_TOTAL = _KINETICS['gpcr']['gq_pool']['n_total']  # Mazet 2020 platelet Gαq
 
 
+# ── Inhibitory axis — P2Y12 / Gi → cAMP / PKA brake (issue #10, v0.7) ─────
+# ADP's second receptor: P2Y12 (Gi-coupled) lowers cAMP → lowers PKA →
+# dis-inhibits the IP3R. The PKA brake on IP3R open probability is
+# normalised to 1.0 at resting cAMP, so the resting fixed point and the
+# Dolan 5/5 goldens are preserved by construction (resting ADP = 0 → no
+# P2Y12 occupancy → cAMP at basal). Values + provenance live in
+# `reports/params/calcium-v0.6.toml [gpcr.p2y12]` and `[inhibitory.*]`.
+K_P2Y12       = dict(_KINETICS['gpcr']['p2y12'])
+N_P2Y12_TOTAL = _KINETICS['gpcr']['p2y12']['n_total']
+
+K_CAMP = dict(_KINETICS['inhibitory']['camp'])
+K_PKA  = dict(_KINETICS['inhibitory']['pka'])
+K_VASP = dict(_KINETICS['inhibitory']['vasp'])
+
+def pka_active_frac(camp_count):
+	"""Fractional PKA activity = Hill(cAMP). Single definition shared by the
+	resting anchor (PKA_REST_FRAC), the ODE IP3R brake, and the
+	IntegrinActivation PKA brake (issue #10)."""
+	camp_uM = max(camp_count, 0.0) * _UM_PER_COUNT_CYT
+	n = K_PKA['n_pka']
+	return camp_uM ** n / (K_PKA['k_pka_uM'] ** n + camp_uM ** n)
+
+
+# Resting basal cAMP as a count, ROUNDED to an integer so the seeded initial
+# count (species-v0.6.tsv cAMP[c]) and the AC/PDE fixed point V_AC_BASAL/k_pde
+# coincide exactly. With them equal, the PKA brake is *exactly* 1.0 at rest
+# (no startup transient), so the resting fixed point and Dolan 5/5 are
+# preserved by construction (resting ADP = 0 → no P2Y12 drive → cAMP sits here).
+CAMP_REST_COUNT = float(round(K_CAMP['camp_rest_uM'] / _UM_PER_COUNT_CYT))
+V_AC_BASAL      = K_CAMP['k_pde'] * CAMP_REST_COUNT   # counts/s
+
+# Resting PKA activity (Hill of the resting cAMP count). The brake b is
+# anchored to 1.0 here, so deviations of cAMP from rest move b above/below 1.
+PKA_REST_FRAC = pka_active_frac(CAMP_REST_COUNT)
+
+
+def _pka_brake_from_frac(pka_frac, gain, b_max):
+	"""PKA dis-inhibition factor from an already-computed PKA fraction: 1.0 at
+	resting PKA, >1 as cAMP/PKA falls (brake released), clamped to
+	[b_min, b_max] (b_min from [inhibitory.pka], the floor for the future
+	cAMP-elevating PGI2 arm)."""
+	b = 1.0 + gain * (PKA_REST_FRAC - pka_frac)
+	return min(b_max, max(K_PKA['b_min'], b))
+
+
+def pka_brake_factor(camp_count, gain, b_max):
+	"""PKA dis-inhibition factor for a braked target (IP3R / αIIbβ3), keyed off
+	the current cAMP count. ``gain`` and ``b_max`` are per-target. See
+	`_pka_brake_from_frac`."""
+	return _pka_brake_from_frac(pka_active_frac(camp_count), gain, b_max)
+
+
 # ── Agonist forcing functions — stimulation inputs ───────────────────────
 # Physiological agonist concentrations (thrombin in nM, ADP in µM, ATP_ex
 # in µM). Each forcing function reads its peak from the module at call time
@@ -884,6 +944,21 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	pkc_a    = max(y[_IDX['PKC_active[c]']],         0.0)
 	p2y1_des = max(y[_IDX['P2Y1_desensitised[pl]']], 0.0)
 
+	# Inhibitory-axis state reads (v0.7 Slice 2, issue #10)
+	p2y12_i    = max(y[_IDX['P2Y12_inactive[pl]']], 0.0)
+	p2y12_a    = max(y[_IDX['P2Y12_active[pl]']],   0.0)
+	camp_count = max(y[_IDX['cAMP[c]']],            0.0)
+	vasp_free  = max(y[_IDX['VASP[c]']],            0.0)
+	vasp_phos  = max(y[_IDX['VASP_phos[c]']],       0.0)
+
+	# PKA activity (fast, algebraic Hill of cAMP) and the IP3R dis-inhibition
+	# brake b: b = 1 at resting PKA (no calibration change), b > 1 as ADP →
+	# P2Y12 → Gi lowers cAMP/PKA (IP3R released → larger Ca²⁺ release). The
+	# αIIbβ3 PKA brake (the dominant, visible P2Y12 effect) uses the same
+	# pka_brake_factor in the IntegrinActivation process.
+	pka_frac = pka_active_frac(camp_count)
+	b_ip3r = _pka_brake_from_frac(pka_frac, K_PKA['brake_gain'], K_PKA['b_max'])
+
 	# IP3R inactivation variable (count of non-inhibited channels, 0–N_IP3R).
 	ip3r_h_count = max(y[_IDX['IP3R_h[dts]']], 0.0)
 
@@ -936,7 +1011,12 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Quasi-steady activation and slow inactivation ODE.
 	m_inf = (ip3 / (ip3 + K_DYK['d1'])) * (ca_cyt / (ca_cyt + K_DYK['d5']))
-	po_channel = (m_inf ** 4) * h
+	# PKA brake (inhibitory axis, #10): b_ip3r ∈ [b_min, b_max] scales the IP3R
+	# flux — 1.0 at resting cAMP/PKA (Dolan-safe), > 1 when P2Y12/Gi lowers cAMP
+	# (dis-inhibition). NB this makes po_channel a *conductance scale* that can
+	# exceed 1 (up to b_max), not a true open probability — it feeds the Nernst
+	# flux below only as a linear multiplier, never as a sampled probability.
+	po_channel = (m_inf ** 4) * h * b_ip3r
 
 	dh_dt = K_DYK['a2'] * (K_DYK['d2'] - (ca_cyt + K_DYK['d2']) * h)
 	dy[_IDX['IP3R_h[dts]']] += dh_dt * N_IP3R
@@ -1294,6 +1374,40 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	v_gq_act = (K_GQ['k_act_per_R'] * total_active_R + K_GQ['k_basal']) * gq_i_count
 	v_gq_rgs = K_GQ['k_rgs'] * gq_a
 	dy[_IDX['Gq_active[c]']] += v_gq_act - v_gq_rgs
+
+	# ── Inhibitory axis — P2Y12 / Gi → cAMP → PKA (v0.7 Slice 2, #10) ─
+	# P2Y12 is ADP's second receptor (Gi-coupled). It reads the SAME
+	# pericellular ADP as P2Y1 (adp_um_now) but, unlike P2Y1, does NOT
+	# join total_active_R — instead it lowers cAMP. p2y12_block ∈ [0,1] is
+	# the competitive-antagonist knob (cangrelor/ticagrelor): it scales the
+	# ADP on-rate, so block = 1 leaves P2Y12 inactive → cAMP at basal.
+	# Clamp to [0,1]: block > 1 would otherwise flip the on-rate negative
+	# (non-physical), block < 0 would over-activate.
+	avail = 1.0 - min(1.0, max(0.0, config.p2y12_block))
+	v_p2y12_on  = K_P2Y12['k_on'] * p2y12_i * adp_um_now * avail
+	v_p2y12_off = K_P2Y12['k_off'] * p2y12_a
+	dy[_IDX['P2Y12_inactive[pl]']] += -v_p2y12_on + v_p2y12_off
+	dy[_IDX['P2Y12_active[pl]']]   += +v_p2y12_on - v_p2y12_off
+
+	# cAMP node: basal AC production, Gi inhibition scaling with active
+	# P2Y12 fraction, linear PDE3A degradation. At rest (ADP = 0) the Gi
+	# term is 0 → cAMP sits at V_AC_BASAL / k_pde = camp_rest.
+	# p2y12_frac clamped to ≤1, and the AC factor floored at 0, so a mis-set
+	# i_gi_max > 1 can never drive AC production negative (AC can't consume
+	# cAMP). NB: AC consumes ATP biologically; that small ATP debit (~V_AC
+	# ≈ 361/s vs a ~1e7 ATP pool) is intentionally omitted (lean module).
+	p2y12_frac = min(1.0, p2y12_a / N_P2Y12_TOTAL) if N_P2Y12_TOTAL > 0 else 0.0
+	v_ac  = V_AC_BASAL * max(0.0, 1.0 - K_CAMP['i_gi_max'] * p2y12_frac)
+	v_pde = K_CAMP['k_pde'] * camp_count
+	dy[_IDX['cAMP[c]']] += v_ac - v_pde
+
+	# VASP phosphorylation readout (clinical VASP/PRI): PKA phosphorylates
+	# VASP; a phosphatase reverses it. Tracks PKA (so falls under ADP via
+	# P2Y12, restored under P2Y12 blockade). Pure readout — no feedback.
+	v_vasp_phos   = K_VASP['k_phos'] * pka_frac * vasp_free
+	v_vasp_dephos = K_VASP['k_dephos'] * vasp_phos
+	dy[_IDX['VASP[c]']]      += -v_vasp_phos + v_vasp_dephos
+	dy[_IDX['VASP_phos[c]']] += +v_vasp_phos - v_vasp_dephos
 
 	# ── Mitochondrial Ca²⁺ (MCU + NCLX) — issue #22 ──────────────────
 	# MCU uptake: cooperative Hill kinetics on cyt Ca²⁺.

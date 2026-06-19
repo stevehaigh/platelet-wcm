@@ -10,6 +10,19 @@ format:
     toc: true
 ---
 
+> **Status (2026-06-19): Slice 2 (P2Y12/Gi) implemented — issue #10.** A *lean*
+> cAMP/PKA core was built to support it: `P2Y12_inactive/active[pl]`, `cAMP[c]`,
+> `VASP/VASP_phos[c]`; ADP → P2Y12 → Gi lowers cAMP → lowers PKA. The PKA brake
+> acts on **(a)** the IP₃R open probability and **(b)** the αIIbβ3 inside-out
+> rate, both normalised to 1.0 at resting cAMP so the resting fixed point and
+> Dolan 5/5 are preserved by construction. Finding: the IP₃R brake is ~invisible
+> on cytosolic Ca²⁺ (the store-limited/SOCE clamp), so the **dominant, visible
+> effect is on the integrin output** — clopidogrel (`p2y12_block=1`) reduces
+> PAC-1 activation, the real drug mechanism. cAMP/PKA/VASP/P2Y12 are recorded by
+> `CalciumTrace`; the knob is `RunConfig.p2y12_block`. **Deferred to later
+> slices:** PGI₂/Gs, explicit PDE3A, the NO/cGMP/PKG arm, and the
+> secretion-side brake (Slice 1 full + Slices 3–4 below).
+
 # Summary
 
 Through v0.6/v0.61 the model became a rich **activation** model — a Gq cascade

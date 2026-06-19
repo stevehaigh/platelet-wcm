@@ -413,6 +413,73 @@ k_basal     = 6.7e-4   # (s⁻¹) — tonic Gq exchange; calibrated to hold IP3 
 n_total = 5000   # (count of Gαq molecules per platelet; Mazet 2020)
 
 
+[gpcr.p2y12]
+# P2Y12 ADP receptor — Gi-coupled, *inhibitory* arm of ADP signalling
+# (issue #10, v0.7 inhibitory-axis Slice 2). The second ADP receptor:
+# ADP binds both P2Y1 (Gq, activating — above) and P2Y12 (Gi), which
+# lowers cAMP and so dis-inhibits the cascade. *The* antiplatelet drug
+# target (clopidogrel, ticagrelor, cangrelor).
+# Copy number 425 ± 51 sites/platelet by [3H]PSB-0413 radioligand
+# binding, Kd 3.3 nM (Gachet 2012 review, reporting Ohlmann et al. 2011;
+# cross-references the Burkhart 2012 proteome).
+# k_on/k_off are *model-choice* (mirroring P2Y1 — same ADP ligand, no
+# platelet-specific P2Y12 kon/koff): Kd 0.5 µM, ~67 % active at 1 µM ADP.
+n_total = 425   # (P2Y12 binding sites per platelet; radioligand binding)
+k_on    = 1.0   # P2Y12_i + ADP → P2Y12_a   (µM⁻¹·s⁻¹) — model choice
+k_off   = 0.5   # P2Y12_a → P2Y12_i + ADP    (s⁻¹) — model choice
+
+
+# ── Inhibitory axis: cAMP / PKA brake (issue #10, v0.7 Slice 2) ───────
+# The lean cAMP/PKA "off" module that P2Y12 acts on. Resting platelets
+# sit at an elevated cAMP / active-PKA tone (PGI2/NO in vivo — not yet
+# modelled; folded into the basal AC rate here). ADP → P2Y12 → Gi lowers
+# cAMP → lowers PKA → dis-inhibits IP3R (the brake is RELEASED). The PKA
+# brake on the IP3R open probability is normalised to 1.0 at resting cAMP,
+# so the resting fixed point and the Dolan 5/5 goldens are preserved by
+# construction (resting ADP = 0 → no P2Y12 occupancy → cAMP at basal).
+# PGI2/Gs, explicit PDE3A, and the NO/cGMP/PKG arm are deferred (future
+# slices — see reports/design/inhibitory-axis-design-2026-06-15.qmd).
+
+[inhibitory.camp]
+# cAMP node: d[cAMP]/dt = V_AC·(1 − I_Gi_max·p2y12_frac) − k_pde·cAMP.
+# Resting basal ~1 µM (general cell basal; platelets default to elevated
+# cAMP/active PKA — Blood 2014 cAMP/PKA time-resolved study). V_AC is
+# derived in code from camp_rest_uM × k_pde so the basal balance is
+# self-consistent. k_pde (PDE3A turnover) and I_Gi_max are model-choice,
+# calibrated so 10 µM ADP lowers cAMP to ~25–30 % of basal.
+camp_rest_uM = 1.0    # resting basal cytosolic cAMP (µM)
+k_pde        = 0.1    # cAMP degradation by PDE3A (s⁻¹) — τ ~ 10 s, model choice
+i_gi_max     = 0.8    # max fractional AC inhibition at full P2Y12 occupancy
+
+[inhibitory.pka]
+# PKA activity = Hill(cAMP); half-max cAMP 0.1–0.3 µM (literature). The
+# brake on the IP3R open probability is b = 1 + brake_gain·(PKA_rest − PKA),
+# clamped to [b_min, b_max]: b = 1 at resting PKA (no calibration change),
+# b > 1 as ADP→P2Y12 lowers PKA (IP3R dis-inhibition → larger Ca²⁺ release).
+k_pka_uM   = 0.3    # cAMP for half-maximal PKA activation (µM)
+n_pka      = 2      # Hill coefficient (int)
+brake_gain = 1.0    # IP3R dis-inhibition per unit PKA-fraction drop — model choice
+b_min      = 0.2    # clamp: max PKA braking (future PGI2 arm)
+b_max      = 2.0    # clamp: max IP3R dis-inhibition
+# Integrin (αIIbβ3 inside-out) PKA brake — the biologically dominant P2Y12
+# effect (the clopidogrel mechanism). PKA brakes Rap1→integrin; ADP→P2Y12
+# lowers PKA → dis-inhibits the inside-out rate (visible PAC-1 rise), and
+# P2Y12 blockade keeps PKA high → integrin suppressed. Stronger gain than
+# IP3R since the αIIbβ3 output is not Ca²⁺-clamped. Normalised to 1 at rest.
+integrin_brake_gain = 2.0   # integrin dis-inhibition per PKA-fraction drop
+integrin_b_max      = 3.0   # clamp: max integrin dis-inhibition
+
+[inhibitory.vasp]
+# VASP phosphorylation — the clinical P2Y12 readout (VASP/PRI assay).
+# VASP-P fraction tracks PKA: d[VASP-P]/dt = k_phos·PKA·VASP_free −
+# k_dephos·VASP-P. Copy number ~45 000–79 000/platelet (Burkhart 2012
+# Table 1); k_phos/k_dephos model-choice → resting VASP-P ≈ 0.6, falling
+# under ADP (P2Y12 lowers cAMP) and restored under P2Y12 blockade.
+n_total  = 50000   # VASP molecules per platelet (Burkhart 2012)
+k_phos   = 0.1     # PKA-driven VASP phosphorylation (s⁻¹) — model choice
+k_dephos = 0.06    # phosphatase dephosphorylation (s⁻¹) — model choice
+
+
 # ── PI cycle / PLCβ — Phase 4 / issue #31 ────────────────────────────
 # Coarse-grained PI cycle (v0.3 scope; full PI/PI4P/PI45P2 chain in
 # v0.4). Mazet et al. 2020 framework has 35 rate constants in the full
@@ -861,6 +928,17 @@ volume  = "120"
 pages   = "e73-e82"
 doi     = "10.1182/blood-2012-04-416594"
 match   = ["Burkhart et al. 2012", "Burkhart 2012"]
+
+[references.gachet_2012]
+authors = "Gachet, C."
+year    = 2012
+title   = "P2Y12 receptors in platelets and other hematopoietic and non-hematopoietic cells"
+journal = "Purinergic Signalling"
+volume  = "8"
+pages   = "609-619"
+doi     = "10.1007/s11302-012-9303-x"
+match   = ["Gachet 2012", "Gachet C. 2012"]
+note    = "P2Y12 425 ± 51 sites/platelet, Kd 3.3 nM ([3H]PSB-0413, reporting Ohlmann et al. 2011); P2Y12-Gi-AC inhibition. Issue #10."
 
 [references.hoover_lewis_2011]
 authors = "Hoover, P. J. and Lewis, R. S."
