@@ -1,6 +1,7 @@
-"""Figures for the v0.7 inhibitory axis — P2Y12 / Gi / cAMP / PKA (issue #10).
+"""Figures for the v0.7 inhibitory axis — P2Y12/Gi/cAMP/PKA (issue #10) and the
+cAMP-raising Gs arm + secretion brake (Slices 1 + 4).
 
-Two self-contained figures, each running its own simulation(s) with supported
+Three self-contained figures, each running its own simulation(s) with supported
 RunConfig knobs (no monkeypatching) and writing a PNG to the output directory
 (default ``reports/figures/v0.7``):
 
@@ -19,13 +20,19 @@ RunConfig knobs (no monkeypatching) and writing a PNG to the output directory
                         -> lower active Gαq (invisible at saturating agonist,
                         where Gαq is already pinned at its pool ceiling)
 
+  3. drugs       -> cyclic_nucleotide_drugs.png
+       The bidirectional cAMP axis (Slices 1+4): control vs clopidogrel (cAMP↓)
+       vs PGI2 / forskolin / cilostazol (cAMP↑), weak-agonist regime. Four panels
+       (PAC-1, cAMP, VASP/PRI, dense-granule release) show the cAMP-raising drugs
+       suppress BOTH functional outputs (integrin + secretion) and raise VASP-P.
+
 Figure conventions: matplotlib mathtext for chemical formulae (raw unicode
 super/subscripts drop glyphs), detailed per-series legends, and a caption
 stating the takeaway (standalone thesis artefacts).
 
 Usage:
     PYTHONPATH=$PWD python runscripts/manual/plotInhibitoryAxis.py \\
-        [--outdir reports/figures/v0.7] [--figure mechanism|treatments|all]
+        [--outdir reports/figures/v0.7] [--figure mechanism|treatments|drugs|all]
 """
 
 from __future__ import annotations
@@ -64,6 +71,7 @@ def _series(sim_out):
 	ct = TableReader(os.path.join(sim_out, 'CalciumTrace'))
 	it = TableReader(os.path.join(sim_out, 'IntegrinTrace'))
 	tt = TableReader(os.path.join(sim_out, 'ThromboxaneTrace'))
+	se = TableReader(os.path.join(sim_out, 'SecretionTrace'))
 	rb = TableReader(os.path.join(sim_out, 'BulkMolecules'))
 	ids = list(rb.readAttribute('objectNames'))
 	gq = rb.readColumn('counts')[:, ids.index('Gq_active[c]')].astype(float)
@@ -75,6 +83,7 @@ def _series(sim_out):
 		'ca':      ct.readColumn('ca_cyt_nM').flatten(),
 		'pac1':    100.0 * it.readColumn('active_frac').flatten(),
 		'txa2_uM': tt.readColumn('txa2_uM').flatten(),
+		'adp_rel': 100.0 * se.readColumn('adp_released_frac').flatten(),
 		'gq':      gq,
 	}
 
@@ -239,12 +248,82 @@ def fig_treatments(outdir: str) -> str:
 	return out
 
 
+# ── 3. Bidirectional cyclic-nucleotide drug panel (v0.7 Slices 1 + 4) ────────
+
+_CN_DRUGS: list[tuple[str, dict[str, float], str, str]] = [
+	('control (ADP lowers cAMP)', {},                 '#2c3e50', '-'),
+	('clopidogrel (P2Y12 block)', dict(p2y12_block=1.0), '#c0392b', '-'),
+	('PGI₂ 50 nM (cAMP↑)',    dict(pgi2_nM=50.0),      '#2980b9', '--'),
+	('forskolin ×5 (cAMP↑)',  dict(forskolin=5.0),     '#16a085', '-.'),
+	('cilostazol (PDE3, cAMP↑)', dict(pde3_block=0.8), '#8e44ad', ':'),
+]
+
+
+def fig_drugs(outdir: str) -> str:
+	"""The bidirectional cAMP axis: a P2Y12 antagonist LOWERS cAMP (more
+	activation) while PGI2 / forskolin / PDE3-block RAISE it (less activation).
+	Weak-agonist regime (ADP 0.5 µM) for headroom. Four panels — PAC-1 integrin,
+	cAMP, VASP/PRI, and dense-granule secretion — show that the cAMP-raising
+	drugs suppress BOTH functional outputs (integrin + secretion, Slices 1+4)."""
+	weak = dict(thrombin_peak_nM=0.0, adp_peak_uM=0.5, atp_ex_peak_uM=0.0)
+	runs = [(label, _series(_run(300, **weak, **kw)), color, ls)
+		for label, kw, color, ls in _CN_DRUGS]
+	t = np.arange(len(runs[0][1]['camp_uM']))
+
+	fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+	(axA, axB), (axC, axD) = axes
+	for label, s, color, ls in runs:
+		axA.plot(t, s['pac1'], lw=2.2, color=color, ls=ls, label=label)
+		axB.plot(t, s['camp_uM'], lw=2.2, color=color, ls=ls, label=label)
+		axC.plot(t, s['vaspp'], lw=2.2, color=color, ls=ls, label=label)
+		axD.plot(t, s['adp_rel'], lw=2.2, color=color, ls=ls, label=label)
+
+	axA.set_title(r'A — PAC-1 integrin ($\alpha_{IIb}\beta_3$) activation',
+		fontsize=10, fontweight='bold')
+	axA.set_ylabel(r'active $\alpha_{IIb}\beta_3$ (%)')
+	axB.set_title('B — cAMP  [drugs raise it; control lowered by autocrine ADP]',
+		fontsize=10, fontweight='bold')
+	axB.set_ylabel(r'cAMP ($\mu$M)')
+	axC.set_title('C — phospho-VASP (VASP/PRI assay)', fontsize=10, fontweight='bold')
+	axC.set_ylabel('phospho-VASP fraction')
+	axC.set_ylim(0, 1)
+	axD.set_title('D — dense-granule release (ADP)', fontsize=10, fontweight='bold')
+	axD.set_ylabel('ADP released (%)')
+	for ax in (axA, axB, axC, axD):
+		ax.set_xlabel('time (s)')
+		ax.set_ylim(bottom=0)
+		ax.grid(alpha=0.3)
+		ax.legend(loc='best', fontsize=8, frameon=False)
+
+	fig.suptitle('Cyclic-nucleotide pharmacology — the bidirectional cAMP/PKA '
+		r'axis (weak agonist: ADP 0.5 µM, +$\mathrm{Ca^{2+}}$ 1.2 mM)',
+		fontsize=13, fontweight='bold')
+	fig.text(0.5, -0.01,
+		'The inhibitory axis runs both ways around the resting cAMP tone. In '
+		'control, autocrine ADP (via P2Y12/Gi) LOWERS cAMP (B), releasing the '
+		'PKA brake → most activation. A P2Y12 antagonist (clopidogrel) blocks '
+		'that lowering, so cAMP holds near rest and activation drops below '
+		'control. The cAMP-*raising* drugs — PGI₂/iloprost (Gs), forskolin '
+		'(direct AC), and cilostazol (PDE3 inhibitor) — push cAMP several-fold '
+		'ABOVE rest (B), engaging the PKA brake so integrin activation (A) and '
+		'dense-granule secretion (D) are both strongly suppressed and '
+		'phospho-VASP (C, the VASP/PRI readout) rises. The PKA brake on the '
+		'functional outputs (integrin + secretion) is normalised to 1.0 at rest, '
+		'so the resting state and Dolan 5/5 are unchanged.',
+		ha='center', va='top', fontsize=8, wrap=True)
+	fig.tight_layout(rect=[0, 0.03, 1, 0.96])
+	out = os.path.join(outdir, 'cyclic_nucleotide_drugs.png')
+	fig.savefig(out, dpi=150, bbox_inches='tight')
+	plt.close(fig)
+	return out
+
+
 def main(argv: list[str] | None = None) -> None:
 	parser = argparse.ArgumentParser(description=__doc__,
 		formatter_class=argparse.RawDescriptionHelpFormatter)
 	parser.add_argument('--outdir', default='reports/figures/v0.7')
 	parser.add_argument('--figure', default='all',
-		choices=['mechanism', 'treatments', 'all'])
+		choices=['mechanism', 'treatments', 'drugs', 'all'])
 	args = parser.parse_args(argv)
 
 	os.makedirs(args.outdir, exist_ok=True)
@@ -252,6 +331,8 @@ def main(argv: list[str] | None = None) -> None:
 		print('Wrote', fig_mechanism(args.outdir))
 	if args.figure in ('treatments', 'all'):
 		print('Wrote', fig_treatments(args.outdir))
+	if args.figure in ('drugs', 'all'):
+		print('Wrote', fig_drugs(args.outdir))
 
 
 if __name__ == '__main__':

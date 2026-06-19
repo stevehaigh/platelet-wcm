@@ -68,11 +68,14 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 		self.fibrinogen_released_frac = 0.0
 		self.pselectin_surface_frac = 0.0
 		self.secretion_gate = 0.0
+		self.pka_brake = 1.0
 
 		self.registerLoggedQuantity(
 			'ADP rel\n(frac)', 'adp_released_frac', '.3f')
 		self.registerLoggedQuantity(
 			'P-sel\n(frac)', 'pselectin_surface_frac', '.3f')
+		self.registerLoggedQuantity(
+			'PKA brake\n(≥1)', 'pka_brake', '.3f')
 
 	@staticmethod
 	def _frac(released, source):
@@ -103,10 +106,11 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 			counts[self._idx_selp_sfc], counts[self._idx_selp_ag])
 
 		self.secretion_gate = float(getattr(self._secretion, '_gate', 0.0))
+		self.pka_brake = float(getattr(self._secretion, '_pka_brake', 1.0))
 
 	def tableCreate(self, tableWriter):
 		tableWriter.writeAttributes(
-			units='counts for [e]/surface species; fractions are dimensionless',
+			units='counts for [e]/surface species; fractions/brake dimensionless',
 		)
 
 	def tableAppend(self, tableWriter):
@@ -124,4 +128,5 @@ class SecretionTrace(wholecell.listeners.listener.Listener):
 			fibrinogen_released_frac=self.fibrinogen_released_frac,
 			pselectin_surface_frac=self.pselectin_surface_frac,
 			secretion_gate=self.secretion_gate,
+			pka_brake=self.pka_brake,
 		)

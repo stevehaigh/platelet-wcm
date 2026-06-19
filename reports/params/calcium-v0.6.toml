@@ -437,29 +437,40 @@ k_off   = 0.5   # P2Y12_a → P2Y12_i + ADP    (s⁻¹) — model choice
 # brake on the IP3R open probability is normalised to 1.0 at resting cAMP,
 # so the resting fixed point and the Dolan 5/5 goldens are preserved by
 # construction (resting ADP = 0 → no P2Y12 occupancy → cAMP at basal).
-# PGI2/Gs, explicit PDE3A, and the NO/cGMP/PKG arm are deferred (future
-# slices — see reports/design/inhibitory-axis-design-2026-06-15.qmd).
+# The NO/cGMP/PKG arm is deferred (later slice — see
+# reports/design/inhibitory-axis-design-2026-06-15.qmd). The cAMP-raising Gs
+# arm (PGI2/Gs/AC + explicit PDE3A) is the v0.7 Slice 1 below.
 
 [inhibitory.camp]
-# cAMP node: d[cAMP]/dt = V_AC·(1 − I_Gi_max·p2y12_frac) − k_pde·cAMP.
-# Resting basal ~1 µM (general cell basal; platelets default to elevated
-# cAMP/active PKA — Blood 2014 cAMP/PKA time-resolved study). V_AC is
-# derived in code from camp_rest_uM × k_pde so the basal balance is
-# self-consistent. k_pde (PDE3A turnover) and I_Gi_max are model-choice,
-# calibrated so 10 µM ADP lowers cAMP to ~25–30 % of basal.
+# cAMP node (issue #10 Gi arm + v0.7 Slice 1 Gs arm):
+#   d[cAMP]/dt = V_AC·(1 + ac_gs_max·gs(PGI2) + forskolin)·(1 − i_gi_max·p2y12_frac)
+#                − k_pde·(1 − pde3_block)·cAMP
+# Gs arm RAISES cAMP — PGI2/iloprost (→PTGIR→Gs→AC, saturating in pgi2_nM) and
+# forskolin (direct AC activator, a fold term); the Gi arm (ADP→P2Y12) LOWERS
+# it; PDE3A degrades it, with cilostazol/dipyridamole as pde3_block ∈ [0,1].
+# V_AC_BASAL is derived in code from camp_rest_uM × k_pde, so at rest (no
+# agonist, no drug) cAMP sits at camp_rest. Resting basal ~1 µM (platelets
+# default to elevated cAMP/active PKA — Blood 2014). k_pde, i_gi_max, ac_gs_max,
+# K_pgi2_nM are model-choice, calibrated so 10 µM ADP lowers cAMP to ~25–30 % of
+# basal and a saturating PGI2 raises it several-fold.
 camp_rest_uM = 1.0    # resting basal cytosolic cAMP (µM)
-k_pde        = 0.1    # cAMP degradation by PDE3A (s⁻¹) — τ ~ 10 s, model choice
+k_pde        = 0.1    # PDE3A turnover (s⁻¹) — τ ~ 10 s, model choice
 i_gi_max     = 0.8    # max fractional AC inhibition at full P2Y12 occupancy
+ac_gs_max    = 6.0    # max fold-increase in AC production at saturating PGI2/Gs
+K_pgi2_nM    = 5.0    # PGI2/iloprost EC50 for Gs/AC stimulation (nM) — model choice
 
 [inhibitory.pka]
-# PKA activity = Hill(cAMP); half-max cAMP 0.1–0.3 µM (literature). The
-# brake on the IP3R open probability is b = 1 + brake_gain·(PKA_rest − PKA),
-# clamped to [b_min, b_max]: b = 1 at resting PKA (no calibration change),
-# b > 1 as ADP→P2Y12 lowers PKA (IP3R dis-inhibition → larger Ca²⁺ release).
-k_pka_uM   = 0.3    # cAMP for half-maximal PKA activation (µM)
+# PKA activity = Hill(cAMP). k_pka_uM is set ≈ resting cAMP so resting PKA is
+# ~50 % — leaving HEADROOM for both cAMP-lowering (P2Y12) and cAMP-raising
+# (PGI2/forskolin/PDE3-block) drugs to move it (a near-saturated resting PKA,
+# the earlier 0.3 µM, could only fall). Brake b = 1 + gain·(PKA_rest − PKA),
+# clamped to [b_min, b_max]: b = 1 at resting PKA (so the resting fixed point
+# and Dolan 5/5 are preserved by construction regardless of k_pka_uM), b > 1 as
+# cAMP/PKA falls (dis-inhibition), b < 1 as cAMP/PKA rises (the PGI2 brake).
+k_pka_uM   = 1.0    # cAMP for half-maximal PKA activation (µM) — ≈ resting cAMP
 n_pka      = 2      # Hill coefficient (int)
 brake_gain = 1.0    # IP3R dis-inhibition per unit PKA-fraction drop — model choice
-b_min      = 0.2    # clamp: max PKA braking (future PGI2 arm)
+b_min      = 0.2    # clamp: max PKA braking (the cAMP-raising / PGI2 direction)
 b_max      = 2.0    # clamp: max IP3R dis-inhibition
 # Integrin (αIIbβ3 inside-out) PKA brake — the biologically dominant P2Y12
 # effect (the clopidogrel mechanism). PKA brakes Rap1→integrin; ADP→P2Y12
@@ -468,6 +479,11 @@ b_max      = 2.0    # clamp: max IP3R dis-inhibition
 # IP3R since the αIIbβ3 output is not Ca²⁺-clamped. Normalised to 1 at rest.
 integrin_brake_gain = 2.0   # integrin dis-inhibition per PKA-fraction drop
 integrin_b_max      = 3.0   # clamp: max integrin dis-inhibition
+# Granule-secretion PKA brake (v0.7 Slice 4). PKA brakes SNARE-mediated
+# release; like integrin it is a functional output (not Ca²⁺-clamped), so
+# clopidogrel↑/PGI2↓ are visible on cargo release. Normalised to 1 at rest.
+secretion_brake_gain = 2.0  # secretion dis-inhibition per PKA-fraction drop
+secretion_b_max      = 3.0  # clamp: max secretion dis-inhibition
 
 [inhibitory.vasp]
 # VASP phosphorylation — the clinical P2Y12 readout (VASP/PRI assay).

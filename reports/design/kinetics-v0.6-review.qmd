@@ -341,26 +341,30 @@ Explicit receptor → G-protein cascade. Three Gq-coupled receptors in scope (P2
 
 ## `[inhibitory.camp]` — Inhibitory axis: cAMP / PKA brake (issue #10, v0.7 Slice 2)
 
-The lean cAMP/PKA "off" module that P2Y12 acts on. Resting platelets sit at an elevated cAMP / active-PKA tone (PGI2/NO in vivo — not yet modelled; folded into the basal AC rate here). ADP → P2Y12 → Gi lowers cAMP → lowers PKA → dis-inhibits IP3R (the brake is RELEASED). The PKA brake on the IP3R open probability is normalised to 1.0 at resting cAMP, so the resting fixed point and the Dolan 5/5 goldens are preserved by construction (resting ADP = 0 → no P2Y12 occupancy → cAMP at basal). PGI2/Gs, explicit PDE3A, and the NO/cGMP/PKG arm are deferred (future slices — see reports/design/inhibitory-axis-design-2026-06-15.qmd).
+The lean cAMP/PKA "off" module that P2Y12 acts on. Resting platelets sit at an elevated cAMP / active-PKA tone (PGI2/NO in vivo — not yet modelled; folded into the basal AC rate here). ADP → P2Y12 → Gi lowers cAMP → lowers PKA → dis-inhibits IP3R (the brake is RELEASED). The PKA brake on the IP3R open probability is normalised to 1.0 at resting cAMP, so the resting fixed point and the Dolan 5/5 goldens are preserved by construction (resting ADP = 0 → no P2Y12 occupancy → cAMP at basal). The NO/cGMP/PKG arm is deferred (later slice — see reports/design/inhibitory-axis-design-2026-06-15.qmd). The cAMP-raising Gs arm (PGI2/Gs/AC + explicit PDE3A) is the v0.7 Slice 1 below.
 
 | Parameter | Value | Notes |
 |---|---|---|
 | `camp_rest_uM` | `1.0` | resting basal cytosolic cAMP (µM) |
-| `k_pde` | `0.1` | cAMP degradation by PDE3A (s⁻¹) — τ ~ 10 s, model choice |
+| `k_pde` | `0.1` | PDE3A turnover (s⁻¹) — τ ~ 10 s, model choice |
 | `i_gi_max` | `0.8` | max fractional AC inhibition at full P2Y12 occupancy |
+| `ac_gs_max` | `6.0` | max fold-increase in AC production at saturating PGI2/Gs |
+| `K_pgi2_nM` | `5.0` | PGI2/iloprost EC50 for Gs/AC stimulation (nM) — model choice |
 
 ## `[inhibitory.pka]`
 
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `k_pka_uM` | `0.3` | cAMP for half-maximal PKA activation (µM) |
+| `k_pka_uM` | `1.0` | cAMP for half-maximal PKA activation (µM) — ≈ resting cAMP |
 | `n_pka` | `2` | Hill coefficient (int) |
 | `brake_gain` | `1.0` | IP3R dis-inhibition per unit PKA-fraction drop — model choice |
-| `b_min` | `0.2` | clamp: max PKA braking (future PGI2 arm) |
+| `b_min` | `0.2` | clamp: max PKA braking (the cAMP-raising / PGI2 direction) |
 | `b_max` | `2.0` | clamp: max IP3R dis-inhibition |
 | `integrin_brake_gain` | `2.0` | integrin dis-inhibition per PKA-fraction drop |
 | `integrin_b_max` | `3.0` | clamp: max integrin dis-inhibition |
+| `secretion_brake_gain` | `2.0` | secretion dis-inhibition per PKA-fraction drop |
+| `secretion_b_max` | `3.0` | clamp: max secretion dis-inhibition |
 
 ## `[inhibitory.vasp]`
 

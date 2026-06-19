@@ -26,6 +26,8 @@ import numpy as np
 import wholecell.processes.process as process
 from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	pkc_ca_gate,
+	pka_brake_factor,
+	K_PKA,
 )
 
 
@@ -58,6 +60,13 @@ class GranuleSecretion(process.Process):
 		self._drivers = self.bulkMoleculesView(
 			np.array([gs.pkc_active_id, gs.ca_cyt_id], dtype='U30'))
 
+		# PKA inhibitory brake on SNARE secretion (v0.7 Slice 4): cAMP/PKA brakes
+		# release; ADP→P2Y12 lowers cAMP → dis-inhibits (clopidogrel ↑ secretion),
+		# PGI2 raises cAMP → suppresses it. Normalised to 1.0 at resting cAMP.
+		self._camp = self.bulkMoleculesView(np.array(['cAMP[c]'], dtype='U30'))
+		self._pka_brake_gain = K_PKA['secretion_brake_gain']
+		self._pka_b_max = K_PKA['secretion_b_max']
+
 		# Ecto-NTPDase clearance: ADP[e] (a secretion destination) → AMP[e].
 		self._k_ntpdase = gs.k_ntpdase
 		self._adp_dest_idx = dest_ids.index(gs.adp_ex_id)
@@ -66,6 +75,7 @@ class GranuleSecretion(process.Process):
 
 		# Exposed for the SecretionTrace listener (diagnostic only).
 		self._gate = 0.0
+		self._pka_brake = 1.0
 		self._released = np.zeros(len(gs.cargo), dtype=np.int64)
 		self._cleared = 0
 
@@ -85,8 +95,15 @@ class GranuleSecretion(process.Process):
 		pkc_count, ca_count = self._drivers.total_counts()
 		self._gate = self._compute_gate(pkc_count, ca_count)
 
+		# PKA dis-inhibition brake (≥1 at/below resting cAMP, <1 when raised):
+		# scales the release rate. 1.0 at rest, so resting secretion stays zero.
+		camp_count = self._camp.total_counts()[0]
+		self._pka_brake = pka_brake_factor(
+			camp_count, self._pka_brake_gain, self._pka_b_max)
+
 		src_counts = self._sources.total_counts()
-		released_frac = 1.0 - np.exp(-self._k_sec * self._gate * dt)
+		released_frac = 1.0 - np.exp(
+			-self._k_sec * self._gate * self._pka_brake * dt)
 		self._released = np.floor(src_counts * released_frac).astype(np.int64)
 		self._sources.requestIs(self._released)
 

@@ -44,6 +44,11 @@ GROUPS: Tuple[Tuple[str, Tuple[Tuple[str, str, str, str, bool], ...]], ...] = (
 		('cox1_factor',         'COX-1 (aspirin)',     '1.0', 'float', True),
 		('p2y12_block',         'P2Y12 block (clopidogrel)', '0.0', 'float', False),
 	)),
+	('Inhibitory / drugs (cAMP-raising)', (
+		('pgi2_nM',    'PGI2 / iloprost (nM)',     '0.0', 'float', False),
+		('forskolin',  'Forskolin (AC fold)',      '0.0', 'float', False),
+		('pde3_block', 'PDE3 block (cilostazol)',  '0.0', 'float', False),
+	)),
 	('Pumps / brakes (scale)', (
 		('pmca_kcat_scale',    'PMCA k_cat',        '1.0', 'float', True),
 		('mcu_vmax_scale',     'MCU V_max',         '1.0', 'float', True),

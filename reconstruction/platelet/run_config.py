@@ -80,6 +80,20 @@ class RunConfig:
 	clopidogrel). Scales the ADP on-rate at P2Y12, so blockade keeps cAMP at
 	its basal tone → PKA brake intact → reduced activation."""
 
+	# ── cAMP-raising (Gs) arm — antiplatelet/vasodilator drugs (v0.7 Slice 1) ─
+	pgi2_nM: float = 0.0
+	"""PGI₂ / iloprost concentration (nM) — Gs → adenylyl cyclase stimulation
+	that RAISES cAMP (v0.7 Slice 1). 0 = none. The prostacyclin arm; suppresses
+	activation (↑PKA brake → ↓integrin/secretion, ↑VASP-P)."""
+
+	forskolin: float = 0.0
+	"""Forskolin — direct adenylyl-cyclase activator, as a fold-increase in AC
+	production (v0.7 Slice 1). 0 = none. Tool compound; raises cAMP."""
+
+	pde3_block: float = 0.0
+	"""PDE3A inhibition fraction (cilostazol / dipyridamole) ∈ [0,1] (v0.7
+	Slice 1). 0 = none; reduces cAMP degradation → raises cAMP."""
+
 	# ── Single-constant perturbation scales (1.0 = baseline; 0.0 = knockout) ─
 	k_des_scale: float = 1.0
 	"""Scale on PKC → P2Y1 desensitisation rate (K_P2Y1_DES['k_des'])."""
