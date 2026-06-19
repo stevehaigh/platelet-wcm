@@ -1389,16 +1389,21 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	dy[_IDX['P2Y12_inactive[pl]']] += -v_p2y12_on + v_p2y12_off
 	dy[_IDX['P2Y12_active[pl]']]   += +v_p2y12_on - v_p2y12_off
 
-	# cAMP node: basal AC production, Gi inhibition scaling with active
-	# P2Y12 fraction, linear PDE3A degradation. At rest (ADP = 0) the Gi
-	# term is 0 → cAMP sits at V_AC_BASAL / k_pde = camp_rest.
-	# p2y12_frac clamped to ≤1, and the AC factor floored at 0, so a mis-set
-	# i_gi_max > 1 can never drive AC production negative (AC can't consume
-	# cAMP). NB: AC consumes ATP biologically; that small ATP debit (~V_AC
-	# ≈ 361/s vs a ~1e7 ATP pool) is intentionally omitted (lean module).
+	# cAMP node (Gi arm #10 + Gs arm v0.7 Slice 1). AC production = basal ×
+	# (1 + Gs stimulation + forskolin) × (1 − Gi inhibition); PDE3A degrades,
+	# reduced by cilostazol (pde3_block). All drug knobs default to 0, so at
+	# rest (ADP = 0, no drug) v_ac = V_AC_BASAL and v_pde = k_pde·cAMP → cAMP
+	# sits at camp_rest. p2y12_frac clamped ≤1 and the AC factor floored at 0 so
+	# a mis-set i_gi_max > 1 can't drive AC production negative. NB: AC consumes
+	# ATP biologically; that small debit (~V_AC ≈ 361/s vs a ~1e7 ATP pool) is
+	# intentionally omitted (lean module).
 	p2y12_frac = min(1.0, p2y12_a / N_P2Y12_TOTAL) if N_P2Y12_TOTAL > 0 else 0.0
-	v_ac  = V_AC_BASAL * max(0.0, 1.0 - K_CAMP['i_gi_max'] * p2y12_frac)
-	v_pde = K_CAMP['k_pde'] * camp_count
+	gs_stim = (config.pgi2_nM / (config.pgi2_nM + K_CAMP['K_pgi2_nM'])
+		if config.pgi2_nM > 0.0 else 0.0)
+	ac_drive = 1.0 + K_CAMP['ac_gs_max'] * gs_stim + config.forskolin
+	v_ac  = (V_AC_BASAL * ac_drive
+		* max(0.0, 1.0 - K_CAMP['i_gi_max'] * p2y12_frac))
+	v_pde = K_CAMP['k_pde'] * max(0.0, 1.0 - config.pde3_block) * camp_count
 	dy[_IDX['cAMP[c]']] += v_ac - v_pde
 
 	# VASP phosphorylation readout (clinical VASP/PRI): PKA phosphorylates

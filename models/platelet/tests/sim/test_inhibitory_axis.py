@@ -29,14 +29,15 @@ from runscripts.manual.runPlateletSim import run_platelet_sim
 from wholecell.io.tablereader import TableReader
 
 
-def _run(**cfg):
-	"""Run a 150 s sim and harvest the inhibitory-axis traces + PAC-1."""
+def _run(length=150, **cfg):
+	"""Run a sim (default 150 s) and harvest the inhibitory-axis traces."""
 	rc = RunConfig(ca_ex_mM=1.2, **cfg)
 	paths = run_platelet_sim(
-		tempfile.mkdtemp(), length_sec=150, seed=0,
+		tempfile.mkdtemp(), length_sec=length, seed=0,
 		log_to_shell=False, run_config=rc)
 	sim_out = paths['sim_out_dir']
 	ct = TableReader(os.path.join(sim_out, 'CalciumTrace'))
+	se = TableReader(os.path.join(sim_out, 'SecretionTrace'))
 	rb = TableReader(os.path.join(sim_out, 'BulkMolecules'))
 	ids = list(rb.readAttribute('objectNames'))
 	counts = rb.readColumn('counts')
@@ -53,6 +54,7 @@ def _run(**cfg):
 		'p2y12_active_frac': ct.readColumn('p2y12_active_frac').flatten(),
 		'ca_cyt_nM': ct.readColumn('ca_cyt_nM').flatten(),
 		'pac1': 100.0 * act / total,
+		'adp_rel': 100.0 * se.readColumn('adp_released_frac').flatten(),
 	}
 
 
@@ -102,3 +104,47 @@ class TestInhibitoryAxis(unittest.TestCase):
 		"""Brake = 1 at rest → resting cytosolic Ca²⁺ fixed point unchanged."""
 		self.assertGreater(self.rest['ca_cyt_nM'][0], 80.0)
 		self.assertLess(self.rest['ca_cyt_nM'][0], 120.0)
+
+
+@pytest.mark.slow
+class TestCyclicNucleotideDrugs(unittest.TestCase):
+	"""cAMP-raising arm (v0.7 Slice 1) + secretion brake (Slice 4).
+
+	Weak-agonist (ADP 0.5 µM) regime, where the PKA brake has headroom: the
+	cAMP-elevating drugs (PGI₂ via Gs, forskolin, cilostazol via PDE3) raise
+	cAMP above its resting tone and so SUPPRESS both functional outputs
+	(integrin + secretion) and RAISE phospho-VASP.
+	"""
+
+	@classmethod
+	def setUpClass(cls):
+		weak = dict(thrombin_peak_nM=0, adp_peak_uM=0.5, atp_ex_peak_uM=0,
+			length=300)
+		cls.control = _run(**weak)
+		cls.pgi2 = _run(pgi2_nM=50.0, **weak)
+		cls.forskolin = _run(forskolin=5.0, **weak)
+		cls.cilostazol = _run(pde3_block=0.8, **weak)
+
+	def test_pgi2_raises_camp_above_rest(self):
+		"""PGI₂ → Gs → AC raises cAMP several-fold above the 1 µM resting tone."""
+		self.assertGreater(self.pgi2['camp_uM'].max(), 3.0)
+
+	def test_pde3_block_raises_camp(self):
+		"""Cilostazol (PDE3 inhibition) raises cAMP above rest."""
+		self.assertGreater(self.cilostazol['camp_uM'].max(), 2.0)
+
+	def test_camp_raising_suppresses_integrin(self):
+		"""PGI₂ / forskolin lower PAC-1 vs control (the prostacyclin brake)."""
+		ctrl = self.control['pac1'][150]
+		self.assertLess(self.pgi2['pac1'][150], ctrl - 10.0)
+		self.assertLess(self.forskolin['pac1'][150], ctrl - 10.0)
+
+	def test_camp_raising_suppresses_secretion(self):
+		"""Slice 4: cAMP-raising drugs brake dense-granule release vs control."""
+		self.assertLess(self.pgi2['adp_rel'][-1], self.control['adp_rel'][-1] - 10.0)
+
+	def test_camp_raising_raises_vasp(self):
+		"""VASP/PRI: cAMP-raising drugs increase phospho-VASP above control."""
+		self.assertGreater(
+			self.pgi2['vasp_phos_frac'][150],
+			self.control['vasp_phos_frac'][150] + 0.1)

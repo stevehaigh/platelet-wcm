@@ -19,9 +19,21 @@ format:
 > on cytosolic Ca²⁺ (the store-limited/SOCE clamp), so the **dominant, visible
 > effect is on the integrin output** — clopidogrel (`p2y12_block=1`) reduces
 > PAC-1 activation, the real drug mechanism. cAMP/PKA/VASP/P2Y12 are recorded by
-> `CalciumTrace`; the knob is `RunConfig.p2y12_block`. **Deferred to later
-> slices:** PGI₂/Gs, explicit PDE3A, the NO/cGMP/PKG arm, and the
-> secretion-side brake (Slice 1 full + Slices 3–4 below).
+> `CalciumTrace`; the knob is `RunConfig.p2y12_block`.
+>
+> **Status (2026-06-19b): Slices 1 + 4 also implemented.** The cAMP-*raising*
+> arm is in (lean rate-term form, no PTGIR/Gs species per this doc): the cAMP
+> node gains a Gs stimulation term (PGI₂/iloprost, saturating in `pgi2_nM`), a
+> `forskolin` direct-AC fold, and an explicit PDE3A with `pde3_block`
+> (cilostazol). `RunConfig.pgi2_nM / forskolin / pde3_block`. **Slice 4**: the
+> PKA brake now also acts on the **granule-secretion** rate (`SecretionTrace`
+> gains `pka_brake`). The PKA EC50 was raised to ≈ resting cAMP so resting PKA
+> is ~50 % (headroom both ways; the earlier near-saturated 0.3 µM could only
+> fall) — the brake is still exactly 1.0 at rest, so Dolan 5/5 is preserved.
+> Result: PGI₂/forskolin/cilostazol raise cAMP several-fold and suppress **both**
+> PAC-1 and secretion while raising VASP-P (`cyclic_nucleotide_drugs.png`).
+> **Still deferred:** the NO/cGMP/PKG arm (Slice 3) and a mechanistic resting
+> cAMP tone / Ca²⁺-core recalibration — see issue #70.
 
 # Summary
 

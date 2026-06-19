@@ -80,5 +80,5 @@ aIIbb3_active[pl]	0.0001494	0	protein
 P2Y12_inactive[pl]	8.3e-05	425	protein
 P2Y12_active[pl]	8.3e-05	0	protein
 cAMP[c]	5.47e-07	3613	metabolite
-VASP[c]	6.61e-05	19770	protein
-VASP_phos[c]	6.61e-05	30230	protein
+VASP[c]	6.61e-05	27273	protein
+VASP_phos[c]	6.61e-05	22727	protein
