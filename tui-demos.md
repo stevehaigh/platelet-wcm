@@ -25,10 +25,10 @@ The right pane streams cytosolic + DTS Ca²⁺ live from `live.csv`.
 `out/` — named by the **save as…** field if you've typed one, otherwise a
 timestamp — so runs no longer overwrite each other and a pinned run survives to
 be compared against. **Set baseline** (`b`) pins the last run; the next **Demo
-figure** (`f`) then renders **four focused per-theme figures** into the run's
+figure** (`f`) then renders **five focused per-theme figures** into the run's
 plot folder — `demo_calcium`, `demo_integrin`, `demo_thromboxane`,
-`demo_secretion` — each with that baseline overlaid in **grey**, and opens the
-folder. Each demo below names the figure it uses, so you only look at the one
+`demo_secretion`, `demo_reversibility` — each with that baseline overlaid in
+**grey**, and opens the folder. Each demo below names the figure it uses, so you only look at the one
 that matters (no more hunting for the relevant panel in a wall of plots).
 
 > **Why the demos are framed this way:** under the default *saturating* agonist
@@ -127,6 +127,41 @@ difference, and **`demo_calcium`** shows the lifted late cytosolic Ca²⁺.
 **Bonus — autocrine ADP in isolation:** thrombin-only run (`ADP (uM)` = 0) makes
 *secreted* ADP the sole P2Y1 driver. Toggle **Autocrine ADP gain → KO** to show
 the loop's contribution vanish.
+
+---
+
+## Demo 5 — Reversible αIIbβ3 activation (Zou et al. 2022)
+
+Maps to Zou et al. 2022 (*Int. J. Mol. Sci.* **23**:12512): αIIbβ3 activation is
+an intrinsically **reversible** inside-out switch, not a permanent on-state, and
+that reversibility underlies thrombus *instability*. The model's integrin is a
+reversible two-state switch, so under a *transient* agonist it shows this directly.
+
+Use a **long run with a transient agonist** so both the rise *and* the fall show:
+
+1. `Thrombin (nM)` = **0**, `ADP (uM)` = **5.0**, `ATP_ex (uM)` = **0**,
+   `Length` = **600**. Press **r**, then **f**.
+
+**What to point at:** in **`demo_reversibility`** the **PAC-1 trace rises then
+falls** (≈ 0 → 0.67 @ ~150 s → 0.41 @ 600 s) — reversible activation, not a latch.
+The right panel shows **autocrine ADP[e]** peaking (~2.9 µM) then cleared to zero
+by ~250 s (ecto-NTPDase = the paper's apyrase / CD39 mechanism); the PAC-1
+relaxation *lags* the ADP clearance, because the integrin's return to the resting
+conformation is slow. This is the single-platelet affinity-state basis of the
+paper's thrombus-instability argument.
+
+**Bonus — prostacyclin antagonism:** press **b** to pin that run, then set
+`PGI2 / iloprost (nM)` = **50** and re-run. PAC-1 is strongly suppressed (peak
+≈ 0.67 → 0.18 vs the grey baseline) — the cAMP/PKA arm antagonising integrin
+activation, as prostacyclin / iloprost do in the paper.
+
+*Caveat: reversibility here is a designed feature of the 2-state module, not a
+surprising prediction. The paper's primary (ir)reversibility node, PI3K→Akt→Rap1b,
+is absent (the model has only the cAMP/PKA arm of P2Y12); the model does **not**
+robustly reproduce the paper's weak-(ADP)-vs-strong-(thrombin) reversibility
+distinction, because its PARs internalise rather than latch; and disaggregation /
+embolization are inter-cellular, out of single-cell reach. The model shows the
+proposed cause (affinity reversal), not the observed effect.*
 
 ---
 

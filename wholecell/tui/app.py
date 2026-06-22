@@ -64,7 +64,8 @@ _PANELS = (
 # Per-theme demo figures rendered by the "Demo figure" button (each reads the
 # run's listeners; the first doubles as the success sentinel). See tui-demos.md.
 _DEMO_PLOTS = (
-	'demo_calcium', 'demo_integrin', 'demo_thromboxane', 'demo_secretion')
+	'demo_calcium', 'demo_integrin', 'demo_thromboxane', 'demo_secretion',
+	'demo_reversibility')
 
 
 def resolve_sim_path(outdir: str, root: str) -> str:
