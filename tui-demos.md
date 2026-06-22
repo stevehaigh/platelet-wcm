@@ -31,6 +31,12 @@ plot folder — `demo_calcium`, `demo_integrin`, `demo_thromboxane`,
 **grey**, and opens the folder. Each demo below names the figure it uses, so you only look at the one
 that matters (no more hunting for the relevant panel in a wall of plots).
 
+**Match the lengths.** The grey baseline trace stops where *its* run ended, so a
+60 s baseline (the default `Length`) against a 200 s run looks truncated at 60 s.
+Run the baseline and the comparison at the **same `Length`**; each baseline's
+duration is now shown in the legend (e.g. "… (baseline · 60 s)") so a mismatch is
+obvious rather than mysterious.
+
 > **Why the demos are framed this way:** under the default *saturating* agonist
 > the Ca²⁺ response is **store-limited**, so most knockouts/loops barely move the
 > cytosolic trace. The compelling demos either read a *different* output or use a

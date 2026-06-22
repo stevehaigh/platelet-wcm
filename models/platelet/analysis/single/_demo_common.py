@@ -51,9 +51,14 @@ def make_draw(sim_out_dir, baseline_dir):
 		if baseline and baseline_dir is not None:
 			bt = read_col(baseline_dir, listener, 'time')
 			by = read_col(baseline_dir, listener, column)
-			if bt is not None and by is not None and len(bt) == len(by):
+			if bt is not None and by is not None and len(bt) == len(by) and len(bt):
+				# Include the baseline run's duration so a length mismatch
+				# (e.g. a 60 s baseline vs a longer current run) reads as
+				# "the baseline run was shorter", not a broken/truncated line.
+				blabel = ('%s (baseline · %.0f s)' % (label, bt[-1])
+					if label else None)
 				ax.plot(bt, by, color=BASELINE_COLOR, lw=1.3, ls=ls, zorder=1,
-					label='%s (baseline)' % label if label else None)
+					label=blabel)
 		t = read_col(sim_out_dir, listener, 'time')
 		y = read_col(sim_out_dir, listener, column)
 		if t is not None and y is not None and len(t) == len(y):

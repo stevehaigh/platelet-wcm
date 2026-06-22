@@ -1,11 +1,17 @@
 """
-Integrin demo figure (TUI) — PAC-1 activation, PKC×Ca gate, PKA brake.
+Integrin demo figure (TUI) — PAC-1 activation and its cAMP/PKA brake.
 
 Focused figure for the integrin demo (demo 3, clopidogrel) and the Glanzmann
-foil. PAC-1 active fraction is the per-cell flow-cytometry readout; the PKA
-brake (right axis) shows the cAMP-driven mechanism by which clopidogrel lowers
-activation with the integrin intact. Grey baseline overlay via
-PLATELET_BASELINE_SIMOUT.
+foil. Two stacked panels sharing a time axis (no twin axis — that conflated the
+fraction and brake scales):
+
+  Top    — PAC-1 active fraction (the flow-cytometry readout) + the PKC×Ca²⁺
+           activation gate. 0–1.
+  Bottom — the PKA brake factor (≥1) that the cAMP arm sets: clopidogrel keeps
+           it engaged (≈1), so PAC-1 falls with the integrin fully intact.
+
+Grey baseline overlay via PLATELET_BASELINE_SIMOUT (e.g. control vs clopidogrel).
+For a clean overlay, run the baseline and current sims at the SAME length.
 
 Usage: analysisPlatelet.py --plot demo_integrin [sim_dir]
 """
@@ -16,12 +22,12 @@ from matplotlib import pyplot as plt
 
 from models.platelet.analysis import singleAnalysisPlot
 from models.platelet.analysis.single._demo_common import (
-	combined_legend, make_draw, resolve_baseline, suptitle)
+	make_draw, resolve_baseline, suptitle)
 from wholecell.analysis.analysis_tools import exportFigure
 
 
 class Plot(singleAnalysisPlot.SingleAnalysisPlot):
-	"""PAC-1 active fraction (+ gate, PKA brake) with baseline overlay."""
+	"""PAC-1 active fraction (top) and the PKA brake (bottom), baseline overlay."""
 
 	def do_plot(self, simOutDir, plotOutDir, plotOutFileName, simDataFile,
 			validationDataFile, metadata):
@@ -29,32 +35,40 @@ class Plot(singleAnalysisPlot.SingleAnalysisPlot):
 		base = resolve_baseline(simOutDir)
 		draw = make_draw(simOutDir, base)
 
-		fig, ax = plt.subplots(figsize=(9, 5.5))
-		fig.subplots_adjust(top=0.9, bottom=0.12, right=0.85)
+		fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(10, 8),
+			sharex=True)
+		fig.subplots_adjust(hspace=0.22, top=0.9, bottom=0.09, right=0.97)
 
-		draw(ax, 'IntegrinTrace', 'active_frac', 'tab:purple', 'PAC-1 active')
-		# Gate is current-run context only (no baseline) to keep the panel clean.
-		draw(ax, 'IntegrinTrace', 'integrin_gate', 'tab:purple', 'PKC×Ca gate',
-			lw=1.0, ls=':', baseline=False)
-		ax.set_ylabel('fraction')
-		ax.set_ylim(0, 1)
-		ax.set_xlabel('Time (s)')
-		ax.grid(True, alpha=0.3)
-
-		ax_r = ax.twinx()
-		# Brake gets the baseline overlay too: the control's dis-inhibited brake
-		# (>1) vs the drug's re-engaged brake (≈1) IS the clopidogrel mechanism.
-		draw(ax_r, 'IntegrinTrace', 'pka_brake', 'tab:brown',
-			'PKA brake (≥1)', lw=1.4, ls='--')
-		ax_r.set_ylabel('PKA brake (≥1; higher = more activation)',
-			color='tab:brown')
-		ax_r.tick_params(axis='y', labelcolor='tab:brown')
-
-		ax.set_title(
-			'PAC-1 integrin activation  (clopidogrel lowers; Glanzmann $\\to$ 0)',
+		# ── Top: PAC-1 active fraction (the readout) ─────────────────────
+		draw(ax_top, 'IntegrinTrace', 'active_frac', 'tab:purple',
+			r'PAC-1$^{+}$ active fraction')
+		# Gate is current-run context only (no baseline) to keep it readable.
+		draw(ax_top, 'IntegrinTrace', 'integrin_gate', 'tab:olive',
+			r'PKC$\times\mathrm{Ca}^{2+}$ activation gate', lw=1.3, ls=':',
+			baseline=False)
+		ax_top.set_ylabel('active fraction  (0–1)')
+		ax_top.set_ylim(0, 1)
+		ax_top.set_title('αIIbβ3 activation — PAC-1 readout',
 			fontsize=11, fontweight='bold')
-		combined_legend(ax, ax_r)
-		suptitle(fig, 'Integrin — PAC-1 activation', base)
+		ax_top.legend(loc='upper left', fontsize=8)
+		ax_top.grid(True, alpha=0.3)
+
+		# ── Bottom: PKA brake (the cAMP mechanism) ───────────────────────
+		draw(ax_bot, 'IntegrinTrace', 'pka_brake', 'tab:brown',
+			'PKA brake factor')
+		ax_bot.axhline(1.0, color='grey', lw=0.8, ls=':',
+			label='1.0 = brake fully engaged (resting cAMP)')
+		ax_bot.set_ylabel('PKA brake factor\n(≥1; higher → more activation)')
+		ax_bot.set_ylim(bottom=0.95)
+		ax_bot.set_xlabel('Time (s)')
+		ax_bot.set_title(
+			'cAMP/PKA brake on activation  (P2Y12 → Gi → cAMP → PKA)',
+			fontsize=11, fontweight='bold')
+		ax_bot.legend(loc='best', fontsize=8)
+		ax_bot.grid(True, alpha=0.3)
+
+		suptitle(fig,
+			'Integrin αIIbβ3 — PAC-1 activation and its cAMP/PKA brake', base)
 		exportFigure(plt, plotOutDir, plotOutFileName, metadata)
 		plt.close('all')
 
