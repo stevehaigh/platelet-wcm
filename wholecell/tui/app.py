@@ -61,6 +61,10 @@ _PANELS = (
 	('plot-dts', 'ca_dts_uM', 'Ca2+_dts (uM)', 'green'),
 )
 
+# Braille marker → ~8× sub-cell resolution (2×4 dots per character cell) for
+# much smoother live traces than plotext's default block marker.
+_PLOT_MARKER = 'braille'
+
 # Per-theme demo figures rendered by the "Demo figure" button (each reads the
 # run's listeners; the first doubles as the success sentinel). See tui-demos.md.
 _DEMO_PLOTS = (
@@ -535,10 +539,11 @@ class PlateletBenchApp(App):
 			base_t, base_y = self._baseline.get('time', []), \
 				self._baseline.get(ycol, [])
 			if base_t and base_y:
-				plt.plot(base_t, base_y, color='gray')  # reference, behind
+				plt.plot(base_t, base_y, color='gray',
+					marker=_PLOT_MARKER)  # reference, behind
 		title = ylabel
 		if time and yvals:
-			plt.plot(time, yvals, color=colour)
+			plt.plot(time, yvals, color=colour, marker=_PLOT_MARKER)
 			title = f'{ylabel}   peak {max(yvals):.1f}'
 		if self._baseline:
 			title += '  (grey = baseline)'
