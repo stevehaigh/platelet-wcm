@@ -100,9 +100,10 @@ cascade (P2Y12 → Gi → cAMP↑ → PKA brake → integrin).
 
 **What to point at:** in **`demo_integrin`** the **PAC-1 trace** drops (≈ 64% →
 53% here, −11 points) against the grey control — with αIIbβ3 copy number
-**unchanged** (the PKA-brake line, right axis, shows the mechanism re-engaging).
-Blocking P2Y12 stops autocrine ADP from lowering cAMP, so the PKA brake
-re-engages and the terminal output falls. This is the real clopidogrel / VASP
+**unchanged**. The **lower panel** shows why: under clopidogrel the PKA brake
+stays at ~1.0 (engaged), versus the control's dis-inhibited hump to ~1.8.
+Blocking P2Y12 stops autocrine ADP from lowering cAMP, so the PKA brake stays
+engaged and the terminal output falls. This is the real clopidogrel / VASP
 mechanism (the basis of the clinical platelet-reactivity assay), and it shows
 several pathways integrating onto one readout.
 
