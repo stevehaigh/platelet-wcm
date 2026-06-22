@@ -10,8 +10,9 @@ ODE right-hand-side used by the CalciumDynamics process. The ODE covers:
     6-state Markov model, which was correctly implemented but calibrated
     at IP3 = 10 µM and extrapolated poorly to resting IP3 = 50 nM.
   * IP3R Ca²⁺ flux via the Nernst form (Purvis 2008 eq. 13 / Dolan 2014
-    eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 0.35 pS
-    (calibrated to Dolan 2014 platelet resting state; Phase 4 #30),
+    eq. 4): I = γ·N·Po·(ψ_IM − E_Ca,IM)·NA/(zF), with γ_IP3R = 0.135 pS
+    (recalibrated 2026-06-16 for V_IM = 0 to hold the Dolan resting
+    state; live value in calcium-v0.6.toml [ip3r.channel].gamma_s),
     Po = m∞(IP3, Ca)⁴ × h.
   * SERCA E1/E2 cycle (Purvis 2008 Table 1, Dode 2002 kinetics) with the
     primary-source rate constants — including k_bind_f = 1×10¹⁵ M⁻²s⁻¹.
@@ -1022,7 +1023,7 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	dy[_IDX['IP3R_h[dts]']] += dh_dt * N_IP3R
 
 	# Ca²⁺ flux via the Nernst form (Dolan 2014 eq. 4 / Purvis eq. 13).
-	# N_IP3R = 1 328 channels (Burkhart 2012 / Dolan Table S1 convention).
+	# N_IP3R = 1 328 channels (Dolan 2014 Table S1; Burkhart 2012 total IP3R ~4 850).
 	# Flux is zero when either compartment is empty to avoid phantom currents
 	# from a degenerate Nernst potential.
 	if ca_cyt > 0.0 and ca_dts > 0.0:

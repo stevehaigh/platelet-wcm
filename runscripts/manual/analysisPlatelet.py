@@ -47,8 +47,13 @@ def _find_simout(sim_path):
 	return os.path.join(sim_path, 'simOut')
 
 
-def run_platelet_analysis(sim_path, plot_names=None):
-	"""Run one or more platelet analysis plots for a local run."""
+def run_platelet_analysis(sim_path, plot_names=None, out_name=None):
+	"""Run one or more platelet analysis plots for a local run.
+
+	``out_name`` overrides the output file's base name; it only applies when a
+	single plot is requested (otherwise plots would overwrite each other), so
+	the figure can be named by e.g. a TUI save-as name instead of the module.
+	"""
 	sim_out_dir = _find_simout(sim_path)
 	# Write plots alongside simOut/ so the web app can find them via find_plot_images
 	plot_out_dir = fp.makedirs(sim_out_dir.replace('simOut', constants.PLOTOUT_DIR))
@@ -60,20 +65,23 @@ def run_platelet_analysis(sim_path, plot_names=None):
 	if metadata.get('analysis_type') is None:
 		metadata.pop('analysis_type', None)
 
+	expanded = expand_plot_names(plot_names)
 	plots = []
-	for filename in expand_plot_names(plot_names):
+	for filename in expanded:
 		module_name = os.path.splitext(filename)[0]
+		# Custom name only when a single plot is requested, else plots collide.
+		file_name = out_name if (out_name and len(expanded) == 1) else module_name
 		module = importlib.import_module(
 			'models.platelet.analysis.single.' + module_name)
 		module.Plot.main(
 			sim_out_dir,
 			plot_out_dir,
-			module_name,
+			file_name,
 			sim_data_file,
 			None,
 			metadata,
 			)
-		plots.append(module_name)
+		plots.append(file_name)
 
 	return {
 		'sim_path': sim_path,
@@ -100,6 +108,10 @@ class AnalysisPlatelet(scriptBase.ScriptBase):
 			nargs='+',
 			default=[],
 			help='Platelet plot names or tags (DEFAULT, CORE, ACTIVE).')
+		parser.add_argument(
+			'--out-name',
+			default=None,
+			help='Override the output figure base name (single --plot only).')
 
 	def parse_args(self):
 		args = super(AnalysisPlatelet, self).parse_args()
@@ -107,7 +119,8 @@ class AnalysisPlatelet(scriptBase.ScriptBase):
 		return args
 
 	def run(self, args):
-		result = run_platelet_analysis(args.sim_path, args.plot)
+		result = run_platelet_analysis(
+			args.sim_path, args.plot, out_name=getattr(args, 'out_name', None))
 		print('Wrote platelet plots to {}'.format(result['plot_out_dir']))
 		print('Plots: {}'.format(', '.join(result['plots'])))
 

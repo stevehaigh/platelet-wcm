@@ -1,0 +1,161 @@
+---
+title: "Design: a minimal PI3K / Akt → Rap1b arm for P2Y12-sustained integrin activation"
+author: "Steve Haigh"
+date: 2026-06-22
+format:
+  html:
+    toc: true
+  pdf:
+    pdf-engine: xelatex
+    include-in-header: ../pandoc-header.tex
+---
+
+## Why
+
+Zou et al. 2022 (*Int. J. Mol. Sci.* 23:12512, "Reversible Platelet Integrin
+αIIbβ3 Activation and Thrombus Instability") identifies the **PI3K → Akt →
+Rasa3 ⊣ Rap1b** axis, downstream of the ADP receptor **P2Y12 (Giα)**, as the
+*principal* molecular route that makes integrin activation **persistent** (and
+its loss the route to reversibility / disaggregation). Their conclusion:
+
+> "the (autocrine) ADP P2Y1 and P2Y12 receptor signaling via phosphoinositide
+> 3-kinases and Akt as principal pathways linked to reversible integrin
+> activation … the signaling via PI3K and Akt isoforms ensures irreversibility
+> of the platelet aggregation process."
+
+The current model has **no PI3K/Akt/Rap1b**. P2Y12 acts only through the
+**cAMP/PKA brake** (the Gi → ↓cAMP arm). Consequence, confirmed empirically
+(2026-06-22): blocking P2Y12 (clopidogrel) in the model **lowers the activation
+peak** (≈0.67→0.53) but does **not remove the sustained phase** — the end-level
+is unchanged because the model's only "sustain" mechanism is the agonist drive
+itself, which clears either way. So the model captures *one of two* P2Y12 arms,
+and arguably the minor one. This design adds the missing arm, **minimally**.
+
+Scope: **single-cell, inside-out only.** Out of scope (unchanged): outside-in
+signalling, aggregation/disaggregation, fibrinogen occupancy, shear/force, the
+PAR-latching problem (a separate gap — see §Non-goals).
+
+## Biology being captured (minimal)
+
+Two-route Rap1b activation (Stolla et al. 2011, *Blood*, "kinetics of αIIbβ3
+activation determines thrombus size/stability"):
+
+```{mermaid}
+flowchart LR
+  Ca["Ca²⁺_cyt"] -->|fast, reversible| CDG[CalDAG-GEFI]
+  CDG --> RAP[Rap1b-GTP active]
+  ADP["ADP"] --> P2Y12["P2Y12 (Giα)"]
+  P2Y12 -->|PI3K| AKT[Akt activity]
+  AKT -.->|inhibits| RASA3["Rasa3 (Rap1b-GAP)"]
+  RASA3 -->|GAP, deactivates| RAP
+  PKC[PKC*] -->|slow, sustained| RAP
+  RAP --> INT["αIIbβ3 forward rate"]
+  PKA["PKA brake (cAMP)"] -.->|×| INT
+```
+
+- **Fast route**: a rise in cytosolic Ca²⁺ activates CalDAG-GEFI → Rap1b-GTP
+  quickly and *reversibly* (gives the initial PAC-1 rise).
+- **Slow / sustaining route**: P2Y12 (Gi) → PI3K → **Akt**, which **inhibits the
+  Rap1b-GAP Rasa3**, so Rap1b-GTP stays high *while P2Y12 is driven* (sustained
+  autocrine ADP). When ADP clears → P2Y12 inactive → Akt falls → Rasa3 re-engages
+  → Rap1b-GTP falls → integrin reverses. (PKC contributes a second slow input.)
+- **Integrin** forward rate becomes proportional to **Rap1b-GTP** (× the existing
+  PKA brake), replacing the current PKC×Ca²⁺ gate as the *proximal* driver.
+
+## State variables (2 new)
+
+Recommended home: inside the existing `IntegrinActivation` process (discrete 1 s
+update), reading `P2Y12_active[pl]` and cytosolic Ca²⁺ from state each step.
+**The calcium ODE is not touched** — Akt/Rap1b are downstream and do not feed
+back to Ca²⁺, so the Dolan 5/5 goldens are preserved by construction (as for the
+secretion / thromboxane / integrin terminal outputs already added).
+
+| State | Meaning | Range | Notes |
+|---|---|---|---|
+| `Akt_active` | lumped PI3K/Akt activity | 0–1 (activity) | driven by P2Y12-active fraction |
+| `Rap1b_GTP` | active Rap1b fraction | 0–1 | the integrin's proximal driver |
+
+(Optionally expose Rap1b as a `Rap1b_GDP[c]`/`Rap1b_GTP[c]` bulk pair for the
+listener; Rap1b copy number is known. Akt can stay a process-internal scalar or
+become `AKT1` if a count is wanted. Minimal version: two scalars on the process.)
+
+## Rate laws (sketch)
+
+Let `p12 = P2Y12_active / P2Y12_total` (already computed in the GPCR cascade),
+`caldag(Ca) = Ca^n / (K^n + Ca^n)` (fast Hill), `pkc = PKC_active fraction`.
+
+```
+dAkt/dt   = k_akt_on · p12 · (1 − Akt)        − k_akt_off · Akt
+dRap/dt   = (k_cdg · caldag(Ca) + k_pkc · pkc) · (1 − Rap)
+            − k_gap · (1 − f_akt · Akt) · Rap        # Rasa3 GAP, dis-inhibited by Akt
+# integrin (existing module), proximal driver swapped:
+k_act_eff = k_act · Rap · pka_brake                  # was k_act · pkc_ca_gate · pka_brake
+```
+
+Resting: with `p12≈0`, `Ca≈100 nM`, `pkc≈0` → `Akt→0`, `Rap→0` → `k_act_eff→0`
+(resting activation exactly zero, as now).
+
+## Parameters (all model-choice, ~6)
+
+`k_akt_on, k_akt_off, k_cdg, k_pkc, k_gap, f_akt, K_cdg, n_cdg`. Calibration
+targets (no new experimental constants exist; these are tuned, like the rest of
+the downstream module):
+
+1. **Rest**: Akt ≈ 0, Rap ≈ 0 (→ Dolan/goldens untouched).
+2. **Sustained ADP** (10 µM held): Rap stays high → integrin active fraction
+   sustained (matches intact-P2Y12 persistence).
+3. **P2Y12 block** (`p2y12_block=1`): Akt suppressed → Rasa3 active → Rap decays
+   after the Ca transient → integrin **reverses even at high ADP** (the Zou
+   Table 1 claim the model currently fails).
+4. **Onset kinetics**: `k_cdg` fast (initial rise), `k_akt_on/k_gap` slow
+   (sustained phase) — the Stolla two-timescale split.
+
+## Validation targets (categorical — the paper is a review, no curves)
+
+| Perturbation (RunConfig) | Expected (Zou Table 1/2; Stolla 2011) |
+|---|---|
+| P2Y12 block / high ADP | activation **reverses** (sustained phase lost) — *the headline fix* |
+| `count_overrides` Rasgrp2/CalDAG-GEFI KO | slower onset, slow-PKC sustain remains |
+| Rap1b KO | no activation (downstream Glanzmann-like) |
+| autocrine ADP intact vs apyrase/`k_ntpdase`↑ | faster ADP clearance → earlier reversal |
+
+These map onto existing knobs (`p2y12_block`, `count_overrides`, secretion
+`k_ntpdase`). New entity knockouts for CalDAG-GEFI / Rap1b would be added to
+`reconstruction/platelet/knockouts.py`.
+
+## What this changes downstream
+
+- The **clopidogrel demo** (TUI demo 3) would then show *loss of the sustained
+  phase*, not just a lower peak — a stronger, more paper-faithful result.
+- The **reversibility demo** (demo 5) gains a genuine **P2Y12-dependent** reversal
+  contrast (intact = sustained; blocked = reverses), which the model currently
+  lacks.
+- It makes the integrin's proximal driver mechanistic (Rap1b) rather than the
+  lumped PKC×Ca gate — closer to the real inside-out cascade.
+
+## Non-goals / honest limits
+
+- **Does not fix the agonist-class distinction** (thrombin "consolidates" vs ADP
+  "reverses"). That needs PAR receptors to *latch* rather than internalise — a
+  separate change to the GPCR cascade, not this arm.
+- **Does not add outside-in / aggregation / disaggregation** — still inter-cellular,
+  out of single-cell scope.
+- Rasa3 is folded into the Rap1b GAP term (not a separate state); PI3K and Akt are
+  lumped into one `Akt_active`. Finer resolution is deferred.
+
+## Effort / risk
+
+~2 state variables + ~6 model-choice parameters + a one-line swap of the integrin
+forward driver, plus a `SecretionTrace`/`IntegrinTrace`-style listener column for
+`Rap1b_GTP` and `Akt_active`. **Calcium core untouched → Dolan 5/5 preserved by
+construction**; main cost is calibrating the 6 parameters to hit targets 1–4
+without a resting-state drift. Comparable in size to the v0.61 thromboxane slice.
+
+## Decision points
+
+1. **Home**: process-internal scalars (minimal) vs bulk species (visible/listenable,
+   slightly more plumbing). Recommend bulk `Rap1b_GTP/GDP` + internal Akt.
+2. **Keep or drop the PKC×Ca gate** as a parallel Rap1b input. Recommend *keep* (it
+   is the model's existing slow route; fold it into `k_pkc`).
+3. **Whether to also make PARs latch** (the agonist-class fix) — recommend treating
+   as a separate, later change so this arm can be validated in isolation.
