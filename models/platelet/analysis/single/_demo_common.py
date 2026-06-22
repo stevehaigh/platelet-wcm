@@ -78,3 +78,28 @@ def suptitle(fig, title, baseline_dir):
 	"""Figure title, noting the grey baseline overlay when one is shown."""
 	extra = '  ·  grey = baseline overlay' if baseline_dir is not None else ''
 	fig.suptitle(title + extra, fontsize=12, fontweight='bold')
+
+
+def provenance_footnote(fig, plot_name, metadata=None):
+	"""Small grey footnote naming the scripts behind the figure + run provenance.
+
+	``plot:`` is the script that produced this graph (with its regenerate
+	command); ``sim:`` is the script that ran the experiment; the run's git hash
+	/ seed / length come from the sim metadata when present — so every figure is
+	self-documenting for reproducibility.
+	"""
+	md = metadata or {}
+	text = ('plot: single/%s.py  (analysisPlatelet.py --plot %s)'
+		'   ·   sim: runFromConfig.py / runPlateletSim.py'
+		% (plot_name, plot_name))
+	prov = []
+	if md.get('git_hash'):
+		prov.append('git ' + str(md['git_hash'])[:8])
+	if md.get('seed') is not None:
+		prov.append('seed %s' % md['seed'])
+	if md.get('length_sec') is not None:
+		prov.append('%s s' % md['length_sec'])
+	if prov:
+		text += '   ·   ' + ' · '.join(prov)
+	fig.text(0.5, 0.012, text, fontsize=6, color='0.55', ha='center',
+		va='bottom')

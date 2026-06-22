@@ -22,7 +22,7 @@ from matplotlib import pyplot as plt
 
 from models.platelet.analysis import singleAnalysisPlot
 from models.platelet.analysis.single._demo_common import (
-	make_draw, resolve_baseline, suptitle)
+	make_draw, provenance_footnote, resolve_baseline, suptitle)
 from wholecell.analysis.analysis_tools import exportFigure
 
 
@@ -37,7 +37,7 @@ class Plot(singleAnalysisPlot.SingleAnalysisPlot):
 
 		fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(10, 8),
 			sharex=True)
-		fig.subplots_adjust(hspace=0.22, top=0.9, bottom=0.09, right=0.97)
+		fig.subplots_adjust(hspace=0.22, top=0.9, bottom=0.11, right=0.97)
 
 		# ── Top: PAC-1 active fraction (the readout) ─────────────────────
 		draw(ax_top, 'IntegrinTrace', 'active_frac', 'tab:purple',
@@ -69,6 +69,7 @@ class Plot(singleAnalysisPlot.SingleAnalysisPlot):
 
 		suptitle(fig,
 			'Integrin αIIbβ3 — PAC-1 activation and its cAMP/PKA brake', base)
+		provenance_footnote(fig, 'demo_integrin', metadata)
 		exportFigure(plt, plotOutDir, plotOutFileName, metadata)
 		plt.close('all')
 
