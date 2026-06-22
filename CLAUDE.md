@@ -182,7 +182,7 @@ partition step. The current platelet model has a single group:
 | **Process** | `wholecell/processes/process.py` | `models/platelet/processes/` (RestingDecay, CalciumDynamics, GranuleSecretion, ThromboxaneSynthesis, IntegrinActivation) | Biological submodels that modify state |
 | **State** | `wholecell/states/internal_state.py` | `BulkMolecules`, `UniqueMolecules`, `LocalEnvironment` | Cellular state containers |
 | **Listener** | `wholecell/listeners/listener.py` | `models/platelet/listeners/` (Mass, CalciumTrace, SecretionTrace, ThromboxaneTrace, IntegrinTrace) | Observe and record data each timestep |
-| **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary) | Post-simulation plots |
+| **Analysis** | `models/platelet/analysis/analysisPlot.py` | `single/` (calcium_trace, scaffold_summary, granule_secretion, demo_calcium/integrin/thromboxane/secretion) | Post-simulation plots |
 
 There is no platelet equivalent of E. coli variants yet; the simulation runs a single
 "platelet_stub" condition, written into the output path as `platelet_stub_{seed:06d}/`.
@@ -232,6 +232,15 @@ ODE solver and rate constants in
 
 `CalciumTrace` listener records 18 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost, PKC active, P2Y1 desensitised fraction + PLCβ phosphorylated fraction).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
+The TUI "Demo figure" button renders four focused per-theme figures —
+`single/demo_calcium.py` (cytosolic Ca²⁺, DTS+SOCE, IP₃), `demo_integrin.py`
+(PAC-1 + PKA brake), `demo_thromboxane.py` (TXA₂/TXB₂), `demo_secretion.py`
+(autocrine ADP + cargo release) — sharing `single/_demo_common.py`. Each
+overlays a baseline run in grey when `PLATELET_BASELINE_SIMOUT` points at one
+(the TUI sets this to the run pinned via "Set baseline"). The TUI writes each
+run to its own `out/<save-as-or-timestamp>/` dir so prior runs survive as
+baselines; `analysisPlatelet.py --out-name NAME` overrides a figure's file name
+(single `--plot` only).
 
 Validation target: Dolan & Diamond 2014 Fig. 4 (Ca²⁺ transients with/without
 extracellular Ca²⁺).

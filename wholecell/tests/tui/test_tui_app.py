@@ -50,6 +50,16 @@ def test_read_live_csv_missing_file_is_empty():
 	assert cols['time'] == []
 
 
+def test_run_root_uses_save_as_else_timestamp():
+	# a save-as name becomes a filesystem-safe root (spaces/punctuation -> '-')
+	assert tui._run_root('Aspirin demo!') == 'Aspirin-demo'
+	assert tui._run_root('  my_run-1 ') == 'my_run-1'
+	# empty -> timestamp YYYYMMDD-HHMMSS (15 chars, dash at index 8)
+	stamp = tui._run_root('   ')
+	assert len(stamp) == 15 and stamp[8] == '-'
+	assert stamp.replace('-', '').isdigit()
+
+
 # ── headless app (fast: no simulation) ─────────────────────────────────────
 
 def test_app_builds_with_grouped_form_and_knockouts():
@@ -156,6 +166,7 @@ def test_figure_handoff_renders_pdf(monkeypatch):
 		async with app.run_test(size=(120, 50)) as pilot:
 			await pilot.pause()
 			app.query_one('#in-length_sec', Input).value = '5'
+			app.query_one('#preset-name', Input).value = 'pytest_fig'
 			await pilot.pause()
 			await pilot.press('r')
 			for _ in range(80):
@@ -170,10 +181,13 @@ def test_figure_handoff_renders_pdf(monkeypatch):
 					break
 			assert app._figure_ok is True
 			root = tui.fp.ROOT_PATH
-			sim_out = os.path.dirname(tui.live_csv_path('tui_run', 0, root))
-			pdf = os.path.join(
-				sim_out.replace('simOut', 'plotOut'), 'calcium_trace.pdf')
-			assert os.path.exists(pdf)
+			assert app._outdir == 'pytest_fig'
+			sim_out = os.path.dirname(tui.live_csv_path(app._outdir, 0, root))
+			plot_out = sim_out.replace('simOut', 'plotOut')
+			# all per-theme demo figures are rendered into the run's plotOut
+			for name in tui._DEMO_PLOTS:
+				assert os.path.exists(
+					os.path.join(plot_out, name + '.pdf')), name
 
 	asyncio.run(scenario())
 
@@ -217,6 +231,7 @@ def test_short_run_through_tui_streams_live_csv():
 		async with app.run_test(size=(120, 50)) as pilot:
 			await pilot.pause()
 			app.query_one('#in-length_sec', Input).value = '5'
+			app.query_one('#preset-name', Input).value = 'pytest_run'
 			app.query_one('#ko-cox1_factor', Checkbox).value = True  # aspirin
 			app.query_one('#ent-1', Checkbox).value = True  # PAR1 expression KO
 			await pilot.pause()
@@ -229,12 +244,13 @@ def test_short_run_through_tui_streams_live_csv():
 					break
 			assert app._sim_ok is True
 			root = tui.fp.ROOT_PATH
+			assert app._outdir == 'pytest_run'
 			# the sim wrote live.csv where the TUI computed it
-			cols = tui.read_live_csv(tui.live_csv_path('tui_run', 0, root))
+			cols = tui.read_live_csv(tui.live_csv_path(app._outdir, 0, root))
 			assert len(cols['time']) >= 1
 			# the aspirin knockout flowed through to the written run spec
 			spec_path = os.path.join(
-				tui.resolve_sim_path('tui_run', root), 'run_config.json')
+				tui.resolve_sim_path(app._outdir, root), 'run_config.json')
 			with open(spec_path) as handle:
 				spec = json.load(handle)
 			assert spec['run_config']['cox1_factor'] == 0.0

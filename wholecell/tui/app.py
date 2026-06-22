@@ -12,13 +12,17 @@ Schema and config assembly live in `wholecell/tui/runspec.py`; presets in
 `wholecell/tui/presets.py`. Expression knockouts (P2) zero copy numbers via
 `RunConfig.count_overrides` (entity map in
 `reconstruction/platelet/knockouts.py`). Presets, compare-to-baseline, the
-modified/stale indicators, and the on-demand 5-panel figure are all wired here.
+modified/stale indicators, and the on-demand per-theme demo figures (calcium /
+integrin / thromboxane / secretion, each with a grey baseline overlay) are all
+wired here. Each run writes to its own output dir named by the save-as field
+(else a timestamp), so prior runs survive as baselines.
 See `reports/design/tui-tinkering-dashboard-2026-06-15.qmd`.
 """
 
 from __future__ import annotations
 
 import csv
+import datetime
 import os
 import subprocess
 import sys
@@ -39,14 +43,28 @@ from wholecell.utils import filepath as fp
 # Columns the CalciumTrace listener writes to live.csv (one row per timestep).
 _LIVE_COLUMNS = ('time', 'ca_cyt_nM', 'ca_dts_uM', 'ip3_nM', 'soce_flux_nMs')
 
-# Fixed output directory for TUI runs (overwritten each run).
-_OUTDIR = 'tui_run'
+def _run_root(save_as_name: str) -> str:
+	"""Per-run output dir root: the "save as" name if set, else a timestamp.
+
+	Successive runs therefore write to distinct out/ directories instead of
+	overwriting one, so a pinned baseline run survives to be overlaid in the
+	figure and prior results are kept.
+	"""
+	safe = ''.join(
+		c if (c.isalnum() or c in '-_') else '-' for c in save_as_name.strip())
+	safe = safe.strip('-')
+	return safe or datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
 # Plot panels: (widget id, y-column, axis label, line colour).
 _PANELS = (
 	('plot-cyt', 'ca_cyt_nM', 'Ca2+_cyt (nM)', 'blue'),
 	('plot-dts', 'ca_dts_uM', 'Ca2+_dts (uM)', 'green'),
 )
+
+# Per-theme demo figures rendered by the "Demo figure" button (each reads the
+# run's listeners; the first doubles as the success sentinel). See tui-demos.md.
+_DEMO_PLOTS = (
+	'demo_calcium', 'demo_integrin', 'demo_thromboxane', 'demo_secretion')
 
 
 def resolve_sim_path(outdir: str, root: str) -> str:
@@ -140,9 +158,11 @@ class PlateletBenchApp(App):
 		self._sim_running = False
 		self._sim_timer = None
 		self._sim_live_path: Optional[str] = None
+		self._outdir: Optional[str] = None  # this run's output dir root
 		self._sim_length = 0
 		self._sim_ok: Optional[bool] = None  # last run outcome (for tests)
 		self._baseline: Optional[Dict[str, List[float]]] = None  # overlay trace
+		self._baseline_simout: Optional[str] = None  # baseline run's simOut dir
 		self._figure_ok: Optional[bool] = None  # last figure render (for tests)
 		self._last_status = ''  # mirror of the status line (for tests)
 		self._preset_status_text = ''  # mirror of the stale-preset marker
@@ -192,7 +212,7 @@ class PlateletBenchApp(App):
 				yield Horizontal(
 					Button('Set baseline', id='baseline-btn'),
 					Button('Clear', id='clear-baseline-btn'),
-					Button('Figure (5-panel)', id='figure-btn'),
+					Button('Demo figure', id='figure-btn'),
 					id='baseline-row')
 				yield Static('Ready.', id='status')
 		yield Footer()
@@ -235,19 +255,21 @@ class PlateletBenchApp(App):
 
 	def action_set_baseline(self) -> None:
 		"""Snapshot the last run's trace as the overlay baseline."""
-		cols = (read_live_csv(self._sim_live_path)
-			if self._sim_live_path else {})
-		if not cols.get('time'):
+		path = self._sim_live_path
+		cols = read_live_csv(path) if path else {}
+		if path is None or not cols.get('time'):
 			self._set_status('⚠ Run a simulation first, then set it as baseline')
 			return
 		self._baseline = cols
+		self._baseline_simout = os.path.dirname(path)
 		self._poll_or_redraw()
 		self._set_status(
 			f'Baseline set ({len(cols["time"])} steps) — new runs overlay it '
-			f'in grey.')
+			f'in grey (live trace + figure).')
 
 	def action_clear_baseline(self) -> None:
 		self._baseline = None
+		self._baseline_simout = None
 		self._poll_or_redraw()
 		self._set_status('Baseline cleared.')
 
@@ -261,58 +283,68 @@ class PlateletBenchApp(App):
 	# ── full-figure handoff ─────────────────────────────────────────────────
 
 	def action_figure(self) -> None:
-		"""Render the 5-panel matplotlib calcium figure and open it externally."""
+		"""Render the per-theme demo figures and open the run's plot folder."""
 		if self._sim_running:
-			self._set_status('⚠ Wait for the run to finish, then render the figure')
+			self._set_status('⚠ Wait for the run to finish, then render the figures')
 			return
-		if not (self._sim_ok and self._sim_live_path):
-			self._set_status('⚠ Run a simulation first, then render its figure')
+		if not (self._sim_ok and self._sim_live_path and self._outdir):
+			self._set_status('⚠ Run a simulation first, then render its figures')
 			return
 		root = fp.ROOT_PATH
 		sim_out_dir = os.path.dirname(self._sim_live_path)
-		fig_path = os.path.join(
-			sim_out_dir.replace('simOut', 'plotOut'), 'calcium_trace.pdf')
+		plot_out_dir = sim_out_dir.replace('simOut', 'plotOut')
+		sentinel = os.path.join(plot_out_dir, _DEMO_PLOTS[0] + '.pdf')
 		env = dict(os.environ)
 		env['PYTHONPATH'] = root
 		env['OPENBLAS_NUM_THREADS'] = '1'
 		env['MPLBACKEND'] = 'Agg'  # render to file, no GUI backend
+		# Overlay the pinned baseline run (if any) in grey on every figure.
+		if self._baseline_simout and os.path.isdir(self._baseline_simout):
+			env['PLATELET_BASELINE_SIMOUT'] = self._baseline_simout
+		else:
+			env.pop('PLATELET_BASELINE_SIMOUT', None)
+		cmd = [
+			sys.executable, 'runscripts/manual/analysisPlatelet.py',
+			self._outdir, '--plot', *_DEMO_PLOTS]
 		self._figure_ok = None
-		self._set_status('Rendering 5-panel figure…')
-		self._figure_worker(root, env, fig_path)
+		overlay = ' + baseline' if 'PLATELET_BASELINE_SIMOUT' in env else ''
+		self._set_status(
+			f'Rendering {len(_DEMO_PLOTS)} demo figures{overlay}…')
+		self._figure_worker(cmd, root, env, plot_out_dir, sentinel)
 
 	@work(thread=True, group='figure', exclusive=True)
-	def _figure_worker(self, cwd: str, env: dict, fig_path: str) -> None:
-		cmd = [
-			sys.executable, 'runscripts/manual/analysisPlatelet.py', _OUTDIR,
-			'--plot', 'calcium_trace']
+	def _figure_worker(self, cmd: List[str], cwd: str, env: dict,
+			open_target: str, sentinel: str) -> None:
 		try:
 			proc = subprocess.run(
 				cmd, cwd=cwd, env=env, capture_output=True, text=True)
-			ok = proc.returncode == 0 and os.path.exists(fig_path)
+			ok = proc.returncode == 0 and os.path.exists(sentinel)
 			err = '' if ok else (
-				proc.stderr or proc.stdout or 'figure not produced').strip()
+				proc.stderr or proc.stdout or 'figures not produced').strip()
 		except Exception as exc:  # pragma: no cover - defensive
 			ok, err = False, str(exc)
-		self.call_from_thread(self._figure_finished, ok, err, fig_path)
+		self.call_from_thread(self._figure_finished, ok, err, open_target)
 
-	def _figure_finished(self, ok: bool, err: str, fig_path: str) -> None:
+	def _figure_finished(self, ok: bool, err: str, open_target: str) -> None:
 		self._figure_ok = ok
 		if not ok:
 			tail = err.splitlines()[-1] if err else 'unknown error'
-			self._set_status(f'✗ Figure failed: {tail}')
+			self._set_status(f'✗ Figures failed: {tail}')
 			return
 		# PLATELET_TUI_NO_OPEN lets tests/headless runs skip launching a viewer
 		if os.environ.get('PLATELET_TUI_NO_OPEN'):
-			self._set_status(f'✓ Figure rendered: {fig_path}')
+			self._set_status(
+				f'✓ {len(_DEMO_PLOTS)} demo figures rendered: {open_target}')
 			return
 		opener = {'darwin': 'open', 'win32': 'start'}.get(
 			sys.platform, 'xdg-open')
 		try:
-			subprocess.Popen([opener, fig_path])
+			subprocess.Popen([opener, open_target])
 		except Exception as exc:  # pragma: no cover - defensive
-			self._set_status(f'✓ Figure at {fig_path} (open failed: {exc})')
+			self._set_status(f'✓ Figures in {open_target} (open failed: {exc})')
 			return
-		self._set_status(f'✓ Figure rendered & opened: calcium_trace.pdf')
+		self._set_status(
+			f'✓ {len(_DEMO_PLOTS)} demo figures rendered & folder opened')
 
 	def on_select_changed(self, event: Select.Changed) -> None:
 		if event.select.id == 'preset-select' and event.value is not Select.BLANK:
@@ -424,8 +456,10 @@ class PlateletBenchApp(App):
 
 		root = fp.ROOT_PATH
 		self._sim_length = spec['length_sec']
-		self._sim_live_path = live_csv_path(_OUTDIR, spec['seed'], root)
-		sim_path = resolve_sim_path(_OUTDIR, root)
+		save_as = self.query_one('#preset-name', Input).value
+		self._outdir = _run_root(save_as)
+		self._sim_live_path = live_csv_path(self._outdir, spec['seed'], root)
+		sim_path = resolve_sim_path(self._outdir, root)
 		os.makedirs(sim_path, exist_ok=True)
 		cfg_path = os.path.join(sim_path, 'run_config.json')
 		runspec.write_spec(spec, cfg_path)
@@ -437,7 +471,7 @@ class PlateletBenchApp(App):
 
 		cmd = [
 			sys.executable, 'runscripts/manual/runFromConfig.py',
-			'--config', cfg_path, '--out', _OUTDIR]
+			'--config', cfg_path, '--out', self._outdir]
 		env = dict(os.environ)
 		env['PYTHONPATH'] = root
 		env['OPENBLAS_NUM_THREADS'] = '1'
@@ -445,7 +479,8 @@ class PlateletBenchApp(App):
 		self._sim_running = True
 		self._sim_ok = None
 		self.query_one('#run-btn', Button).disabled = True
-		self._set_status(f'Running… 0 / {self._sim_length} s')
+		self._set_status(
+			f'Running… 0 / {self._sim_length} s  → out/{self._outdir}')
 		self._sim_timer = self.set_interval(0.5, self._poll)
 		self._run_worker(cmd, root, env)
 
