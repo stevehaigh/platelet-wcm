@@ -13,7 +13,8 @@ Schema and config assembly live in `wholecell/tui/runspec.py`; presets in
 `RunConfig.count_overrides` (entity map in
 `reconstruction/platelet/knockouts.py`). Presets, compare-to-baseline, the
 modified/stale indicators, and the on-demand per-theme demo figures (calcium /
-integrin / thromboxane / secretion, each with a grey baseline overlay) are all
+integrin / thromboxane / secretion / reversibility, each with a grey baseline
+overlay) are all
 wired here. Each run writes to its own output dir named by the save-as field
 (else a timestamp), so prior runs survive as baselines.
 See `reports/design/tui-tinkering-dashboard-2026-06-15.qmd`.

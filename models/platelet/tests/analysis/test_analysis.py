@@ -40,6 +40,21 @@ class TestPlateletAnalysis(unittest.TestCase):
 					result['plot_out_dir'], 'low_res_plots', f'{plot_name}.png')),
 					f'{plot_name}.png not found')
 
+	@pytest.mark.slow
+	def test_out_name_overrides_single_plot_filename(self):
+		with tempfile.TemporaryDirectory() as sim_path:
+			run_platelet_sim(sim_path, length_sec=1, seed=5, log_to_shell=False)
+
+			result = run_platelet_analysis(
+				sim_path, ['demo_calcium'], out_name='custom_fig')
+
+			# figure is written under the custom base name, not the module name
+			self.assertEqual(['custom_fig'], result['plots'])
+			self.assertTrue(os.path.isfile(os.path.join(
+				result['plot_out_dir'], 'custom_fig.pdf')))
+			self.assertFalse(os.path.isfile(os.path.join(
+				result['plot_out_dir'], 'demo_calcium.pdf')))
+
 	def test_granule_secretion_plot_in_active(self):
 		self.assertIn('granule_secretion.py', expand_plot_names(['ACTIVE']))
 

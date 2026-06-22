@@ -232,7 +232,7 @@ ODE solver and rate constants in
 
 `CalciumTrace` listener records 18 columns (Ca²⁺ pools, CaM/PMCA sub-states, IP3, SOCE flux, SERCA+PMCA ATP cost, PKC active, P2Y1 desensitised fraction + PLCβ phosphorylated fraction).
 The 5-panel `single/calcium_trace.py` plot is the headline validation figure.
-The TUI "Demo figure" button renders four focused per-theme figures —
+The TUI "Demo figure" button renders five focused per-theme figures —
 `single/demo_calcium.py` (cytosolic Ca²⁺, DTS+SOCE, IP₃), `demo_integrin.py`
 (PAC-1 + PKA brake), `demo_thromboxane.py` (TXA₂/TXB₂), `demo_secretion.py`
 (autocrine ADP + cargo release), `demo_reversibility.py` (reversible PAC-1 +
