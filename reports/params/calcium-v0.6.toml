@@ -92,7 +92,7 @@ a2 = 0.2      # Ca²⁺ inhibition on-rate          (µM⁻¹·s⁻¹) — sets 
 # in range. The historical 10 pS (Zschauer 1988 via Purvis 2008) was a bilayer
 # measurement under symmetric high Ca²⁺ and is not transferable.
 [ip3r.channel]
-n_total = 1328       # (count) — Burkhart 2012 ITPR2 monomer abundance; Dolan 2014 Table S1
+n_total = 1328       # (count) — Dolan 2014 Table S1 (Burkhart 2012 total IP3R ~4850, not used here)
 gamma_s = 0.135e-12  # (A/V) — 0.135 pS; recalibrated 2026-06-16 for V_IM=0 (see header)
 
 

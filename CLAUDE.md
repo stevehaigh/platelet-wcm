@@ -75,7 +75,7 @@ simulated, beyond simulation length and seed:
 | Flag | Default | Effect |
 |------|---------|--------|
 | `--length N` | 60 | Simulation length in seconds |
-| `--seed N` | 0 | RNG seed (currently no stochastic processes use it) |
+| `--seed N` | 0 | RNG seed. The one stochastic process (`RestingDecay`) draws from numpy's global RNG rather than this seed, so runs are **not** currently seed-reproducible. |
 | `--ca-ex-mM X` | 1.2 | Extracellular Ca²⁺ in mM. Set `0` for the Dolan Fig. 4 EDTA / no-extracellular-Ca²⁺ condition (SOCE inactive, PM leak inactive). |
 | `--at-rest` | (off) | Shorthand for `--thrombin-peak-nM 0 --adp-peak-uM 0 --atp-ex-peak-uM 0`. All agonists stay at REST level → cell sits at its endogenous fixed point. |
 | `--thrombin-peak-nM X` | (module default: 1.0) | Peak thrombin (nM) during the activation transient. Drives PAR1/PAR4. |
