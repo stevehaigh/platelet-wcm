@@ -34,6 +34,16 @@ limitations):
 - **Structural:** single-cell (no aggregation), `--seed` not actually
   reproducible, no metabolism, well-mixed.
 
+> **Correction (2026-06-23).** This entry repeatedly cites "MCU KO *raising*
+> cytosolic Ca²⁺ (Ghatge 2026)" as a genuinely emergent, *literature-matched*
+> result (above in §1, and in §4 "Demo 2"). That is wrong on two counts: the
+> MCU rise is a direct consequence of the buffer-only MCU model (not emergent),
+> and the literature runs the *other* way — Ghatge et al. 2026 and Ajanel et al.
+> 2025 both report *reduced* agonist-evoked cytosolic Ca²⁺ in MCU-knockout
+> platelets. The model therefore *diverges* from the data here; this is
+> documented in `reports/experiments/3-mcu-knockout.qmd` and tracked as issue
+> #76. Original wording left below for an accurate record.
+
 This appraisal framed everything below (it is also the spine of the new thesis
 Discussion).
 

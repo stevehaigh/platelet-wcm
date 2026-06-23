@@ -92,6 +92,13 @@ the original protocol assumption:
   the elevated-cyt phenotype of MCU⁻/⁻ platelets (Ghatge 2026). Bonus: ×4 lowers
   the peak but raises the recovery-AUC — slow NCLX release prolongs the tail.
 
+> **Correction (2026-06-23).** "KO reproduces the elevated-cyt phenotype …
+> (Ghatge 2026)" is **wrong**: Ghatge et al. 2026 and Ajanel et al. 2025 both
+> report *reduced* agonist-evoked cytosolic Ca²⁺ in MCU-knockout platelets. The
+> buffer-only model raises the peak, so it *diverges* from the data here — see
+> `reports/experiments/3-mcu-knockout.qmd` and issue #76. Original wording left
+> as written for the record.
+
 Output: `out/2026-06-10_perturbation/` (`pmca_traces.png`, `mcu_traces.png`,
 two `.npz`, `perturbation_summary.json`). The design doc
 (`reports/design/perturbation-figures.qmd`) and issue **#53** record the

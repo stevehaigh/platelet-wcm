@@ -22,6 +22,16 @@ make the case:
 - **Shehwar et al. 2025** (review) — MCU complex in inner mito
   membrane; NCLX is the matrix efflux pathway.
 
+> **Correction (2026-06-23).** The Ghatge bullet above — and the repeated
+> claim later in this entry — that "MCU⁻/⁻ platelets show *elevated* cyt Ca²⁺"
+> is **wrong**. On reading the paper in full (Ghatge et al., *J. Thromb.
+> Haemost.* 2026; 24:716–731), MCU-knockout platelets show *reduced*
+> agonist-evoked cytosolic Ca²⁺ (store release + SOCE), as does Ajanel et al.
+> 2025. The model (buffer-only MCU) *raises* the peak and therefore *diverges*
+> from this literature; this is documented in
+> `reports/experiments/3-mcu-knockout.qmd` and tracked as issue #76. The
+> original (incorrect) wording is left below as written, for an accurate record.
+
 In real platelets, mitochondria take up Ca²⁺ rapidly during a
 transient (~10–30% of imported Ca²⁺), then release it slowly via
 NCLX over minutes. This **bypasses the PMCA-rate-limited extrusion
@@ -191,6 +201,12 @@ The Ghatge/Ajanel papers show MCU-KO platelets have **elevated** cyt
 Ca²⁺, consistent with our model (MCU reduces cyt peak). They don't
 directly measure DTS recovery rate as a function of MCU activity — so
 the model prediction here is, in principle, testable experimentally.
+
+> **Correction (2026-06-23):** the sentence above is **wrong** — see the
+> correction note near the top of this entry. Ghatge et al. 2026 and Ajanel et
+> al. 2025 both report *reduced* agonist-evoked cytosolic Ca²⁺ in MCU-knockout
+> platelets, so the model (which raises the peak) *diverges* from the data.
+> Issue #76; `reports/experiments/3-mcu-knockout.qmd`.
 
 ### What MCU **does** add to the model
 
