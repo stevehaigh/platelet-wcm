@@ -63,8 +63,29 @@ class IntegrinActivation:
 		self.K_ca_uM  = 0.40
 		self.n_ca     = 2
 
-		# Species the process reads (gate drivers) / writes (the two states).
-		self.pkc_active_id = 'PKC_active[c]'
-		self.ca_cyt_id     = 'CA2_CYT[c]'
-		self.resting_id    = 'aIIbb3_resting[pl]'
-		self.active_id     = 'aIIbb3_active[pl]'
+		# ── #73 — PI3K/Akt → Rap1b arm (P2Y12-sustained activation) ──────────
+		# Zou 2022 (IJMS 23:12512) / Stolla 2011 (Blood): Rap1b-GTP is the
+		# integrin's *proximal* driver. It FORMS via the fast inside-out trigger
+		# (the existing PKC×Ca gate — already 0 at rest, so the resting-quiescence
+		# invariant holds) and is DEACTIVATED by the Rap1b-GAP Rasa3. Akt (lumped
+		# PI3K/Akt, driven by P2Y12 occupancy = the autocrine-ADP / Gi arm)
+		# dis-inhibits Rasa3, so Rap stays high *while P2Y12 is driven* and decays
+		# when ADP clears → P2Y12 off → Akt off → GAP re-engages → integrin
+		# REVERSES (the persistence/reversibility axis the lumped gate could not
+		# capture). Rap1b-GTP replaces the gate as the integrin's forward driver:
+		#   k_act_eff = k_act · Rap1b_GTP · pka_brake · act_scale · rap1b_scale
+		# Two-timescale (Stolla): fast formation (gate), slow Akt-modulated GAP.
+		# All model-choice (no measured constants); calcium ODE untouched →
+		# Dolan goldens preserved. Design: pi3k-akt-rap1b-arm-2026-06-22.qmd.
+		self.k_rap_form = 0.30   # Rap1b-GTP formation at full gate (s⁻¹, fast rise)
+		self.k_rap_gap  = 0.08   # Rasa3 GAP deactivation of Rap1b-GTP (s⁻¹, slow)
+		self.f_akt_gap  = 0.90   # max fractional Rasa3-GAP inhibition by Akt (0–1)
+		self.k_akt_on   = 0.04   # Akt activation by P2Y12 occupancy (s⁻¹, slow)
+		self.k_akt_off  = 0.02   # Akt deactivation when P2Y12 clears (s⁻¹)
+
+		# Species the process reads (gate drivers / P2Y12) / writes (the states).
+		self.pkc_active_id   = 'PKC_active[c]'
+		self.ca_cyt_id       = 'CA2_CYT[c]'
+		self.p2y12_active_id = 'P2Y12_active[pl]'
+		self.resting_id      = 'aIIbb3_resting[pl]'
+		self.active_id       = 'aIIbb3_active[pl]'
