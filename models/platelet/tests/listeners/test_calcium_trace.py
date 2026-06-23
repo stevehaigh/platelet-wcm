@@ -23,6 +23,7 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_UM_PER_COUNT_DTS,
 	_mwc_open_fraction,
 	GAMMA_SOC_S,
+	K_MITO,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
@@ -35,8 +36,9 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 #        ca4_cam_pmca, ca4_cam_pmca_ca, pmca_cam, pmca_free, pmca_ca,
 #        pkc_active, p2y1_inactive, p2y1_active, p2y1_desensitised (v0.6),
 #        plcb_inactive, plcb_active, plcb_phosphorylated (v0.6 Slice 3),
-#        cAMP, p2y12_inactive, p2y12_active, vasp, vasp_phos (v0.7 Slice 2)
-_NUM_SPECIES = 25
+#        cAMP, p2y12_inactive, p2y12_active, vasp, vasp_phos (v0.7 Slice 2),
+#        ca_mito (issue #76 observability)
+_NUM_SPECIES = 26
 
 
 def _make_listener(counts, ca_ex_uM=1200.0):
@@ -87,6 +89,8 @@ def _make_listener(counts, ca_ex_uM=1200.0):
 	lst._idx_p2y12_active    = 22
 	lst._idx_vasp            = 23
 	lst._idx_vasp_phos       = 24
+	lst._idx_ca_mito         = 25
+	lst._mcu_vmax_scale      = 1.0
 	return lst
 
 
@@ -127,7 +131,8 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 			7, 8, 9, 30, 40,
 			0, 150, 0, 0,
 			857, 143, 0,
-			0, 0, 0, 0, 0]  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
+			0, 0, 0, 0, 0,  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
+			0]  # ca_mito (issue #76)
 		lst = _make_listener(counts)
 		lst.update()
 
@@ -148,7 +153,8 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 		counts = [100, 38_800, 50, 200, 400, 0, 0, 0, 0, 0, 0, 0, 0,
 			1_234, 30, 20, 50,
 			600, 100, 300,
-			0, 0, 0, 0, 0]  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
+			0, 0, 0, 0, 0,  # cAMP, p2y12_i/a, vasp, vasp_phos (v0.7)
+			0]  # ca_mito (issue #76)
 		lst = _make_listener(counts)
 		lst.update()
 		self.assertEqual(lst.pkc_active, 1_234)
@@ -171,6 +177,41 @@ class TestCalciumTracePassThroughCounts(unittest.TestCase):
 		lst.update()
 		self.assertEqual(lst.atp_pump_per_s, 137.0)
 		self.assertIsInstance(lst.atp_pump_per_s, float)
+
+
+class TestCalciumTraceMitoModule(unittest.TestCase):
+	"""Mitochondrial pool count + MCU uptake flux (issue #76 observability)."""
+
+	def test_ca_mito_count_is_int_copy_of_count(self):
+		"""ca_mito_count is the raw CA2_MITO[m] count as an int."""
+		counts = [0] * _NUM_SPECIES
+		counts[25] = 1_234
+		lst = _make_listener(counts)
+		lst.update()
+		self.assertEqual(lst.ca_mito_count, 1_234)
+		self.assertIsInstance(lst.ca_mito_count, int)
+
+	def test_mcu_uptake_matches_ode_hill_kinetics(self):
+		"""mcu_uptake_per_s re-derives the ODE's Hill flux; catches drift."""
+		# ca_cyt set to ~K_MCU → half-saturation of the n=4 Hill term.
+		counts = [0] * _NUM_SPECIES
+		counts[0] = round(K_MITO['K_MCU'] / _UM_PER_COUNT_CYT)
+		lst = _make_listener(counts)
+		lst.update()
+		ca_uM = counts[0] * _UM_PER_COUNT_CYT
+		ca_n = ca_uM ** K_MITO['n_MCU']
+		km_n = K_MITO['K_MCU'] ** K_MITO['n_MCU']
+		expected = K_MITO['V_max_MCU'] * 1.0 * ca_n / (km_n + ca_n)
+		self.assertAlmostEqual(lst.mcu_uptake_per_s, expected, places=4)
+
+	def test_mcu_uptake_zero_when_knocked_out(self):
+		"""mcu_vmax_scale = 0 (KO) zeroes the recomputed uptake flux."""
+		counts = [0] * _NUM_SPECIES
+		counts[0] = 3_613  # ca_cyt ≈ 1 µM
+		lst = _make_listener(counts)
+		lst._mcu_vmax_scale = 0.0
+		lst.update()
+		self.assertEqual(lst.mcu_uptake_per_s, 0.0)
 
 
 class TestCalciumTraceSoceFlux(unittest.TestCase):
