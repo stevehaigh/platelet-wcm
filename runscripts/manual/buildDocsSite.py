@@ -1,7 +1,7 @@
 """Render every doc under reports/ to HTML via Quarto + build an index page.
 
 Quarto handles both .md and .qmd files. Each source file under
-reports/{data,decks,design,external,lab-books} (plus any reports/*.md at
+reports/{data,decks,design,experiments,external,lab-books} (plus any reports/*.md at
 the top level) is rendered to HTML into reports/site/<category>/, and a
 reports/site/index.html is emitted listing every rendered doc grouped by
 category with title, source path, and a link.
@@ -39,7 +39,7 @@ REPORTS = REPO_ROOT / 'reports'
 SITE = REPORTS / 'site'
 
 # Order controls how categories appear in the index.
-CATEGORIES = ['design', 'lab-books', 'data', 'external', 'decks']
+CATEGORIES = ['design', 'lab-books', 'experiments', 'data', 'external', 'decks']
 ROOT_LABEL = 'top-level'
 
 DATE_RE = re.compile(r'(20\d{2}-\d{2}-\d{2})')
@@ -207,6 +207,7 @@ CATEGORY_LABELS = {
 	ROOT_LABEL: 'Top-level',
 	'design':    'Design docs',
 	'lab-books': 'Lab books',
+	'experiments': 'Demo experiments',
 	'data':      'Data provenance',
 	'external':  'External references',
 	'decks':     'Slide decks',
@@ -316,8 +317,8 @@ def main(argv: list[str] | None = None) -> int:
 	parser.add_argument('--out-dir', default=str(SITE),
 		help=f'Output directory. Default: {SITE.relative_to(REPO_ROOT)}/')
 	parser.add_argument('--only', action='append', default=None,
-		help='Restrict to one category (design / lab-books / data / external / '
-		'decks / top-level). May be repeated.')
+		help='Restrict to one category (design / lab-books / experiments / data '
+		'/ external / decks / top-level). May be repeated.')
 	parser.add_argument('--jobs', type=int, default=1,
 		help='Parallel quarto renders. Default 1 (Quarto can be flaky in '
 		'parallel for some projects).')

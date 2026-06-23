@@ -1,0 +1,102 @@
+---
+title: "MCU knockout: mitochondrial Ca²⁺ uptake"
+subtitle: "Platelet whole-cell model — demo experiment 3 of 4"
+author: "Steve Haigh"
+date: 2026-06-23
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+Knock out the **mitochondrial calcium uniporter (MCU)** on the
+[baseline experiment](1-baseline-resting-agonist.qmd) and observe its effect on
+the cytosolic Ca²⁺ transient. This is the experiment where the model makes a
+**counterintuitive, emergent, literature-matched** prediction.
+
+## What is changed from the baseline
+
+Exactly **one** knob relative to experiment 1:
+
+| | Baseline | MCU knockout |
+|---|---|---|
+| `mcu_vmax_scale` | 1.0 | **0.0** |
+
+Everything else is identical (Dolan agonist at 60 s, +Ca²⁺, 300 s). In the TUI
+this is the **MCU V_max → KO** checkbox. `mcu_vmax_scale` scales the maximal MCU
+flux, so `0.0` removes mitochondrial Ca²⁺ uptake entirely.
+
+## Biological reasoning
+
+The MCU is the main channel that lets cytosolic Ca²⁺ enter the mitochondrial
+matrix. During platelet activation, mitochondria **take up** a share of the
+cytosolic Ca²⁺ that floods in from the store — they act as a transient
+**buffer/sink** that shapes the cytosolic signal (and, at high load, drive the
+procoagulant response). Naively, one might expect that removing a Ca²⁺-*uptake*
+pathway would have little effect on, or even lower, cytosolic Ca²⁺.
+
+## What happens in the model
+
+The opposite happens: knocking out MCU **raises** the cytosolic Ca²⁺ peak from
+**429 nM to 602 nM (+40 %)** and the sustained plateau likewise (423 → 600 nM)
+(@fig-mcu). Crucially, the DTS store still empties to ~1 µM in **both** cases —
+mitochondria do not refill the store; they merely siphon Ca²⁺ out of the
+cytosol. Remove that siphon and more Ca²⁺ remains free in the cytosol. The
+slightly higher integrin activation (PAC-1⁺ 0.796 → 0.842) and thromboxane that
+follow are simply downstream of the larger Ca²⁺ signal.
+
+![**Cytosolic Ca²⁺ with MCU knocked out (current) vs the baseline (grey).** Left: removing mitochondrial Ca²⁺ uptake raises the cytosolic peak/plateau by ~40 % (429 → 602 nM) — the curve sits *above* the grey wild-type baseline. Centre: the DTS store empties to ~1 µM in both runs (grey and current overlap at the bottom), confirming mitochondria redistribute Ca²⁺ away from the cytosol rather than returning it to the store; store-operated entry (right axis) is similar. Right: IP₃ is essentially unchanged (the perturbation is downstream of IP₃). The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
+
+This result is **emergent**: the model was never tuned to produce it. It falls
+out of having mitochondria, the store and the pumps all present and
+mass-balanced — the payoff of a whole-cell rather than single-pathway model. It
+is also the *one* perturbation in this set that visibly moves the otherwise
+store-limited cytosolic Ca²⁺ peak, because mitochondrial uptake competes for
+cytosolic Ca²⁺ directly during the transient.
+
+## What happens in real platelets
+
+MCU-deficient (MCU⁻/⁻) platelets show **elevated** agonist-evoked cytosolic
+Ca²⁺ — exactly because the mitochondrial buffer is gone — together with reduced
+mitochondrial Ca²⁺ overload and a blunted procoagulant (phosphatidylserine-
+exposure) response (Ghatge et al. 2026, and related work). The *direction* of the
+cytosolic-Ca²⁺ change is the headline phenotype, and it is the one the model
+reproduces.
+
+## Honest comparison
+
+- **What the model gets right.** The counterintuitive *rise* in cytosolic Ca²⁺
+  on MCU loss, and the mechanism (mitochondria buffer/redistribute cytosolic
+  Ca²⁺ rather than rescue the store) — emergent and matching the MCU⁻/⁻ phenotype
+  the model was not fitted to. This is the strongest "the model predicted
+  something" result in the demo set.
+- **Magnitude.** The +40 % is a model number. There is no clean wet-lab figure
+  for the fold-change to fit against, so only the direction should be claimed
+  quantitatively.
+- **What the model cannot show.** MCU's *other* major role — driving the
+  mitochondrial-Ca²⁺ overload that triggers the procoagulant/PS-exposure
+  response — is absent: the model has a mitochondrial Ca²⁺ pool (MCU/NCLX) but no
+  bioenergetics and no procoagulant pathway. So it captures the Ca²⁺-buffering
+  role of MCU, not its procoagulant role.
+- **Single-cell.** As always, aggregation and any thrombus-level consequence are
+  out of reach.
+
+## Take-away
+
+MCU knockout is the demo that best showcases the model's value: a perturbation
+whose result (cytosolic Ca²⁺ goes *up*) is not obvious from the knob turned, is
+emergent from the integrated Ca²⁺ machinery, and matches a named knockout
+phenotype the model was never tuned to.

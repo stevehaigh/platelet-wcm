@@ -1,0 +1,109 @@
+---
+title: "Aspirin: COX-1 inhibition"
+subtitle: "Platelet whole-cell model — demo experiment 2 of 4"
+author: "Steve Haigh"
+date: 2026-06-23
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+Reproduce the molecular action of **aspirin** — abolition of thromboxane A₂
+(TXA₂) synthesis via cyclooxygenase-1 (COX-1) inhibition — on the
+[baseline experiment](1-baseline-resting-agonist.qmd), and ask honestly how far
+a single-cell model can capture aspirin's antiplatelet effect.
+
+## What is changed from the baseline
+
+Exactly **one** knob relative to experiment 1:
+
+| | Baseline | Aspirin |
+|---|---|---|
+| `cox1_factor` | 1.0 | **0.0** |
+
+Everything else is identical (Dolan agonist at 60 s, +Ca²⁺, 300 s). In the TUI
+this is the **COX-1 (aspirin) → KO** checkbox (or the *Aspirin (COX-1 KO)*
+preset). `cox1_factor` scales the lumped cPLA₂ → COX-1 → TXA₂-synthase
+production term, so `0.0` switches off all de-novo TXA₂.
+
+## Biological reasoning
+
+Aspirin irreversibly acetylates a serine in the COX-1 active site, blocking the
+conversion of arachidonic acid to the prostaglandin precursor of TXA₂. TXA₂ is a
+**secondary, autocrine mediator**: activated platelets synthesise and release it,
+and it feeds back through the Gq-coupled TP receptor to **amplify** activation of
+the same and neighbouring platelets. Because platelets are anucleate and cannot
+re-synthesise COX-1, a single dose silences TXA₂ for the platelet's lifetime —
+the basis of low-dose aspirin's lasting antiplatelet effect.
+
+In the model, TXA₂ is one of the two autocrine amplifier loops downstream of PKC
+(the other is secreted ADP); removing it with `cox1_factor = 0` deletes the
+TXA₂ → TP → Gq feedback.
+
+## What happens in the model
+
+TXA₂ synthesis is **abolished**: the baseline run produces ~1.0 µM TXA₂ (with
+the stable TXB₂ metabolite accumulating), while the aspirin run produces
+**zero** (@fig-thromboxane). However, the *upstream and functional* readouts are
+**essentially unchanged** under this saturating agonist: cytosolic Ca²⁺ peak
+429 → 428 nM and the PAC-1⁺ integrin fraction 0.796 → 0.795 — i.e. no measurable
+effect on the Ca²⁺ response or on integrin activation.
+
+![**Thromboxane synthesis: aspirin (current) vs the baseline (grey).** Left axis: active TXA₂ — the grey baseline rises to ~1 µM after the agonist, while the aspirin run (COX-1 → 0) stays flat at zero. Right axis: the stable TXB₂ metabolite, which accumulates in the baseline and is likewise zero under aspirin. The grey trace is the baseline run; the baseline's duration is shown in its legend label. This is the model reproducing aspirin's molecular action — but note it is the *direct* target of the knob, not an emergent prediction.](../figures/demos/aspirin_thromboxane.png){#fig-thromboxane width=100%}
+
+The reason the functional readouts do not move: under a saturating agonist the
+cytosolic Ca²⁺ response is **store-limited** and dominated by the thrombin/PAR
+and P2Y1 (Gq) drive, so the TXA₂ → TP → Gq loop is a minor amplifier here. In
+the model the TXA₂ loop contributes mainly to IP₃, and the cytosolic Ca²⁺
+"second wave" at weaker agonists is carried by the *secreted-ADP* loop rather
+than by TXA₂.
+
+## What happens in real platelets
+
+Aspirin abolishes platelet TXA₂ production and blunts the **secondary wave** of
+aggregation and secretion — most clearly in response to **weak agonists**
+(e.g. low collagen or ADP), where TXA₂ amplification is needed to consolidate
+the response. Against strong agonists (high thrombin), aggregation is largely
+TXA₂-independent and aspirin has little effect — high-dose agonists "overcome"
+aspirin. Clinically, aspirin reduces arterial thrombosis at the cost of a
+bleeding tendency.
+
+## Honest comparison
+
+- **What the model gets right.** It reproduces aspirin's defining biochemistry —
+  no COX-1, no TXA₂/TXB₂ — and the *direction* of the clinical picture: the
+  effect on the platelet's own activation is negligible under a strong agonist
+  ("overcome by high-dose agonist").
+- **What is true by construction.** The abolition of TXA₂ is the knob acting
+  directly (`cox1_factor = 0` zeroes the production term); it is not an emergent
+  result.
+- **What the model cannot show.** Aspirin's principal clinical benefit is reduced
+  **aggregation / thrombus growth**, which is inter-cellular. A single-platelet
+  model represents the affinity state of αIIbβ3 (the PAC-1 readout) but not
+  platelet–platelet bridging, so it cannot reproduce reduced aggregation or
+  bleeding risk.
+- **A model-specific limitation.** Even at threshold agonists the model's TXA₂
+  loop adds mostly IP₃ rather than cytosolic Ca²⁺, so the model under-represents
+  the functional weight of the TXA₂ second wave compared with real platelets.
+
+## Take-away
+
+The model faithfully reproduces aspirin's molecular action (TXA₂ abolished) and
+the clinically real observation that this barely changes a strongly-stimulated
+platelet's own Ca²⁺/integrin response. Its main shortfall is structural, not a
+mis-calibration: the readout that matters for aspirin — aggregation — is out of
+reach for a single-cell model.

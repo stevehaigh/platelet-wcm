@@ -1,0 +1,111 @@
+---
+title: "Baseline experiment: resting state and the Dolan agonist transient"
+subtitle: "Platelet whole-cell model — demo experiment 1 of 4"
+author: "Steve Haigh"
+date: 2026-06-23
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+This is the **baseline** against which the three perturbation experiments
+(aspirin, MCU knockout, clopidogrel) are read. It does two things:
+
+1. shows that the model holds a **stable resting state**, and
+2. reproduces the **agonist-evoked Ca²⁺ transient** of Dolan & Diamond
+   (*Biophys. J.* 2014) when a physiological agonist mixture is applied after a
+   60 s settling period, and that the activated state is **maintained** out to
+   300 s.
+
+Experiments 2–4 take this exact set-up and change a single knob.
+
+## Model set-up
+
+| Setting | Value |
+|---|---|
+| Cell | single platelet, +extracellular Ca²⁺ (1.2 mM) |
+| Agonists | thrombin 1 nM, ADP 10 µM, ATP 10 µM (the Dolan standard) |
+| Agonist onset | t = 60 s (a 60 s settle precedes stimulation) |
+| Duration | 300 s |
+| `RunConfig` | `agonist_delay_s = 60` (all other knobs at default) |
+
+Reproduce via the TUI (set Length = 300, Agonist delay = 60, the default agonist
+levels) or directly:
+
+```bash
+runFromConfig.py --config spec.json   # {"length_sec":300,"run_config":{"agonist_delay_s":60}}
+analysisPlatelet.py exp_base --plot demo_calcium
+```
+
+The agonists enter as transient time-courses (a rise and slow decay), not step
+inputs — this matches the *shape* of an agonist bolus reaching a platelet,
+though the precise time-course is a modelling choice, not a measurement.
+
+## Resting state
+
+Started from the Dolan initial conditions (cytosolic Ca²⁺ = 100 nM, dense
+tubular system (DTS) store = 250 µM), the model does **not** sit exactly still:
+those initial conditions are not its own equilibrium, so it undergoes a damped
+settling transient — an overshoot to ~128 nM by t ≈ 30 s — before converging to
+its resting fixed point of **~95 nM cytosolic / ~255 µM store** by ~300 s
+(@fig-resting). Resting IP₃ holds at ~50 nM throughout.
+
+![**Resting state with no agonist (300 s).** Left: cytosolic Ca²⁺ relaxes from the imposed initial value (100 nM) through a damped overshoot (~128 nM at ~30 s) to a maintained fixed point of ~95 nM. Centre: the DTS store mirrors this (250 → ~199 → ~255 µM); store-operated entry stays near its low resting level. Right: IP₃ holds at ~50 nM. The model converges to and then holds a resting steady state close to the Dolan resting targets (100 nM / 250 µM); the settling takes a few hundred seconds because the imposed initial conditions are not the model's exact equilibrium. Grey baseline overlay is absent (single run). Provenance is printed in the figure footnote.](../figures/demos/resting_calcium.png){#fig-resting width=100%}
+
+The practical consequence: at the 60 s mark used below (and by Dolan), the
+resting state is still completing this settle. This does not materially affect
+the agonist response, but it is the honest reason the resting trace in
+@fig-agonist is not perfectly flat over 0–60 s.
+
+## Agonist response
+
+Applying the agonist mixture at t = 60 s evokes the canonical response
+(@fig-agonist): cytosolic Ca²⁺ rises and is sustained as a **plateau of
+~423 nM** (held from ~150 s to 300 s), the DTS store empties (250 → ~1 µM),
+store-operated entry switches on, and IP₃ rises to ~220 nM. Downstream, the
+αIIbβ3 integrin reaches a PAC-1⁺ active fraction of ~0.80 and thromboxane A₂
+rises to ~1 µM (used as the references for experiments 2–4).
+
+![**Resting state then Dolan agonist transient (agonist at 60 s, 300 s total).** Left: cytosolic Ca²⁺ — the brief resting settle (0–60 s) is followed by a rise to a sustained ~423 nM plateau that is maintained to 300 s. Centre: the DTS store empties (~250 → ~1 µM) as IP₃ receptors open, and store-operated Ca²⁺ entry (right axis, dashed) switches on to sustain the cytosolic plateau. Right: endogenously generated IP₃ rises to ~220 nM. The sustained (rather than transient-then-recovering) plateau is the model's autocrine "second wave" under a saturating agonist; it is store-limited, so the peak height is set by buffering and SOCE rather than by the exact agonist dose.](../figures/demos/baseline_calcium.png){#fig-agonist width=100%}
+
+## Comparison with real platelets
+
+- **Resting Ca²⁺.** Real resting platelets sit at ~50–100 nM cytosolic Ca²⁺ with
+  a high DTS store; the model's resting fixed point (~95 nM / ~255 µM) is within
+  this range and close to the Dolan targets. The damped settling transient is a
+  model artefact of the chosen initial conditions, not a biological prediction.
+- **Agonist transient.** Real platelets respond to thrombin/ADP with a rapid
+  cytosolic Ca²⁺ rise to several hundred nM, sustained in the presence of
+  extracellular Ca²⁺ by store-operated entry — qualitatively what the model
+  shows, and the basis of its validation against Dolan & Diamond (2014) Fig. 4
+  (the "5/5" peak/SOCE-differential criteria).
+- **Honest differences.** (i) The model's store empties almost completely
+  (~1 µM), whereas Dolan infer a substantial residual; the free luminal store
+  Ca²⁺ has never been measured directly, so this is a falsifiable model
+  prediction, not a known error. (ii) The real transient is sharper and shows
+  more recovery; the model's sustained plateau reflects its autocrine
+  amplification loops under a saturating agonist. (iii) Cytosolic free Ca²⁺ is
+  **store-limited** in the model — the peak is nearly insensitive to most single
+  parameters — which is the key caveat for interpreting experiments 2–4.
+
+## Take-away
+
+The model holds a physiologically reasonable resting state and reproduces the
+Dolan agonist transient and a maintained activated plateau. The next three
+documents perturb this baseline by one knob each — aspirin (COX-1), MCU
+knockout, and clopidogrel (P2Y12) — and read the change against these reference
+values.
