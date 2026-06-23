@@ -1,0 +1,200 @@
+---
+title: "MCU knockout: mitochondrial Ca²⁺ uptake"
+subtitle: "Platelet whole-cell model — demo experiment 3 of 4"
+author: "Steve Haigh"
+date: 2026-06-23
+format:
+  pdf:
+    pdf-engine: xelatex
+    geometry: "margin=2.5cm"
+    fontsize: 11pt
+    mainfont: "STIX Two Text"
+    colorlinks: true
+    linkcolor: blue
+    urlcolor: blue
+    toc: true
+    toc-depth: 2
+    include-in-header: ../pandoc-header.tex
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+Knock out the **mitochondrial calcium uniporter (MCU)** on the
+[baseline experiment](1-baseline-resting-agonist.qmd) and examine its effect on
+the cytosolic Ca²⁺ transient. This experiment is most useful as an **honest check
+against the literature**. The model's simplified, buffer-only treatment of MCU
+makes a clear, mechanistically transparent prediction; checked against two
+independent MCU-knockout studies, that prediction runs the **opposite way
+round**. The discrepancy is a genuine *finding* rather than a failure — it
+localises precisely which biology the single-cell buffer picture is missing, and
+motivates the next iteration of the mitochondrial module (logged as GitHub issue
+#76).
+
+## What is changed from the baseline
+
+Exactly **one model setting** changes from the baseline:
+
+| | Baseline | MCU knockout |
+|---|---|---|
+| `mcu_vmax_scale` | 1.0 | **0.0** |
+
+Everything else is identical (Dolan agonist at 60 s, +Ca²⁺, 300 s).
+`mcu_vmax_scale` (a parameter in `reconstruction/platelet/run_config.py`) scales
+the maximal MCU flux, so `0.0` removes mitochondrial Ca²⁺ uptake entirely. The
+exact commands are in the [Appendix](#appendix).
+
+## Biological reasoning
+
+In the model, MCU is represented essentially as a **cytosolic Ca²⁺ buffer /
+sink**: during activation it carries a share of the Ca²⁺ released from the store
+into the mitochondrial matrix, shaping the cytosolic signal. Viewed purely as a
+buffer, the expectation is straightforward — remove the sink and the buffered
+species (cytosolic Ca²⁺) should **rise**. There is nothing counterintuitive
+about that direction; it is simply what removing a buffer does.
+
+Real platelet MCU does considerably more than buffer cytosolic Ca²⁺:
+mitochondrial Ca²⁺ uptake drives bioenergetics and reactive-oxygen-species (ROS)
+signalling and — as the measurements below show — also *supports* store-operated
+Ca²⁺ entry. The model captures only the buffer role, and that omission is what
+the comparison exposes.
+
+## What happens in the model
+
+Removing MCU **raises** the cytosolic Ca²⁺ peak from **429 nM to 602 nM (+40 %)**
+and the sustained plateau likewise (423 → 600 nM) (@fig-mcu); the DTS store still
+empties to ~1 µM in both cases. This is exactly the buffer expectation — with no
+mitochondrial sink, more of the released Ca²⁺ stays free in the cytosol. The
+slightly higher integrin activation (PAC-1⁺ 0.796 → 0.842) and thromboxane that
+follow are simply downstream of the larger Ca²⁺ signal. The result is a direct,
+self-consistent consequence of the model's MCU-as-buffer assumption — not an
+independent or emergent prediction.
+
+![**Model prediction — cytosolic Ca²⁺ with MCU knocked out (current) vs the baseline (grey).** Left: in the model, removing mitochondrial Ca²⁺ uptake raises the cytosolic peak/plateau by ~40 % (429 → 602 nM) — the curve sits *above* the grey wild-type baseline. Centre: the DTS store empties to ~1 µM in both runs (grey and current overlap at the bottom), so the mitochondria redistribute Ca²⁺ away from the cytosol rather than returning it to the store; store-operated entry (right axis) is similar. Right: IP₃ is essentially unchanged (the perturbation is downstream of IP₃). This is the model's prediction; the *Comparison* section below shows it runs opposite to the platelet MCU-knockout literature. The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
+
+## What happens in real platelets
+
+Two independent platelet MCU-knockout studies — **Ajanel et al., *Circ. Res.*
+2025; 137(4):474–492** (platelet-specific Mcu^plt−/−^ mice) and **Ghatge et al.,
+*J. Thromb. Haemost.* 2026; 24:716–731** (global Mcu⁻/⁻ mice) — found the
+**opposite** direction for cytosolic Ca²⁺, and agree with each other:
+
+- **Cytosolic Ca²⁺ was reduced, not raised — in both studies.** Ajanel: agonist-
+  evoked Ca²⁺ store release *and* store-operated Ca²⁺ entry were both
+  *significantly reduced*, "independent of agonist," including the GPCR agonists
+  thrombin and the ADP analogue 2-MeSADP that this experiment uses. Ghatge
+  (summarised as "diminished cytosolic Ca²⁺"): agonist-evoked cytosolic Ca²⁺ was
+  significantly attenuated under both the GPVI agonist CRP-XL **and the GPCR
+  agonist thrombin**, with both DTS store release and the subsequent SOCE phase
+  reduced. Because Ghatge shows the reduction under thrombin — the same GPCR class
+  this experiment drives — the contradiction with the model is direct.
+- **Mechanism — impaired store-operated entry above all, not a simple buffer.**
+  The one mechanism *both* papers support is reduced **store-operated Ca²⁺ entry**
+  (Orai1/STIM1): each measured SOCE down. Beyond that they diverge, and both are
+  explicit that the underlying cause is unresolved. Ghatge *speculates* that MCU
+  loss also depletes the DTS store — via disrupted mitochondria–DTS
+  (mitochondria-associated-membrane, MAM) coupling — and did see reduced
+  thapsigargin-evoked store release. Ajanel, by contrast, *directly measured* DTS
+  store content (ionomycin) and passive thapsigargin-evoked release and found
+  **both normal**, so it attributes the defect not to a depleted store but to
+  impaired Orai1/STIM1 gating, alongside mitochondrial bioenergetics and
+  mitochondrial **ROS → Syk/PLCγ2 (ITAM)** signalling, and calls the link between
+  MCU loss and lower cytosolic Ca²⁺ "unclear." (Ajanel also notes the older
+  expectation — Brass, 1984 — that blocking mitochondrial uptake leaves cytosolic
+  Ca²⁺ essentially **unchanged**, *not* elevated.) So store-*content* depletion is
+  contested — seen in one study, excluded by the other — whereas reduced SOCE is
+  the robust, shared finding. In neither account does MCU behave as a pure
+  cytosolic buffer whose removal would raise free Ca²⁺.
+
+(The cytosolic-Ca²⁺ findings are reported directionally — Ghatge as area-under-
+the-curve of Fura-2 traces, Ajanel in supplemental figures; neither gives resting
+or peak nM values, so there is no magnitude to fit against — but the *sign* is
+unambiguous and consistent across both studies.)
+
+## Honest comparison
+
+- **Direction is wrong.** The model *raises* cytosolic Ca²⁺ on MCU loss; the data
+  show it *fall* (reduced store release and SOCE).
+- **Agonist-dependence is wrong.** The model's effect is produced under a GPCR
+  (thrombin/ADP/ATP) mix. Both studies report the cytosolic reduction under GPCR
+  stimulation too — Ajanel "independent of agonist" (including thrombin/2-MeSADP),
+  Ghatge explicitly under thrombin — so the GPCR regime the model relies on is the
+  very regime in which the data run the other way.
+- **Mechanism is incomplete.** The model knows MCU only as a cytosolic buffer.
+  The real net effect is dominated by MCU's *support* of store-operated entry
+  (Orai1/STIM1) — the mechanism both studies agree on — likely with mitochondrial
+  bioenergetics, and possibly (contested) store filling via mitochondria–DTS
+  (MAM) coupling, so that its loss *lowers* cytosolic Ca²⁺; none of these
+  couplings, nor the ROS/ITAM arm, is in the model.
+- **What is right.** Given its assumptions, the model's behaviour is internally
+  consistent (remove a buffer → the buffered species rises), and "the store
+  empties regardless" is physically sound. The assumptions are simply too narrow.
+- **A correction.** Earlier versions of this note (and related write-ups)
+  described this as a "counterintuitive, emergent, literature-matched" result and
+  cited Ghatge 2026 for an *elevated* MCU⁻/⁻ cytosolic-Ca²⁺ phenotype. That was a
+  misreading: Ghatge et al. 2026 in fact report *reduced* agonist-evoked cytosolic
+  Ca²⁺, in agreement with Ajanel et al. 2025. Both the direction and the citation
+  are corrected here — the model runs opposite to both papers, which agree with
+  each other.
+
+## Take-away
+
+This is the most instructive result in the set, and it is a **finding, not a
+failure**. The model makes a clear, mechanistically transparent prediction —
+treat MCU as a pure cytosolic buffer and its removal *must* raise free Ca²⁺ — and
+confronting that prediction with data shows it is wrong in *direction*: two
+independent MCU-knockout studies (Ghatge 2026, Ajanel 2025) both find cytosolic
+Ca²⁺ *reduced*. The value lies in *why*. The discrepancy localises the missing
+biology: the real MCU–Ca²⁺ relationship is an **emergent property of a coupled
+network** — above all MCU's support of Orai1/STIM1 store-operated entry (the one
+mechanism both studies agree on), plus mitochondrial bioenergetics, and possibly
+mitochondria–DTS (MAM) coupling that helps keep the store filled (contested —
+measured normal in one study, depleted in the other), with mitochondrial ROS/ITAM
+signalling on top — none of which a single buffer term can reproduce. A properly
+acknowledged discrepancy of this kind is exactly what a mechanistic model is
+*for*: it converts a vague "mitochondria matter" into a specific, testable list of
+what to add next. That is concrete future work — coupling MCU first to
+store-operated entry (Orai1/STIM1) and to mitochondrial bioenergetics, with
+store-filling (MAM) coupling as a contested option, and adding mitochondrial ROS
+and the GPVI/ITAM pathway, so that mitochondrial Ca²⁺ handling reflects more than
+buffering — and it is a reason to push the model further rather than a mark
+against it. Logged as GitHub issue #76.
+
+## Provenance
+
+The simulations were produced by `runscripts/manual/runFromConfig.py`, and the
+figure by `runscripts/manual/analysisPlatelet.py --plot demo_calcium` (figure
+module `models/platelet/analysis/single/demo_calcium.py`, reading the
+`CalciumTrace` listener; the grey baseline overlay is supplied through the
+`PLATELET_BASELINE_SIMOUT` environment variable). Both runs used **seed 0** for
+**300 s** on Python 3.11.5, at git commit **`9724cc81`** — the exact commit is
+also stamped in the figure footnote and in each run's `metadata/metadata.json`.
+
+## Appendix — reproduce {#appendix}
+
+From the repository root (`PYTHONPATH=$PWD`):
+
+```bash
+# Baseline run (provides the grey overlay)
+cat > base.json <<'EOF'
+{"length_sec": 300, "seed": 0, "run_config": {"agonist_delay_s": 60}}
+EOF
+python runscripts/manual/runFromConfig.py --config base.json --out exp_base
+
+# MCU knockout: mitochondrial Ca2+ uptake removed
+cat > mcu.json <<'EOF'
+{"length_sec": 300, "seed": 0,
+ "run_config": {"agonist_delay_s": 60, "mcu_vmax_scale": 0.0}}
+EOF
+python runscripts/manual/runFromConfig.py --config mcu.json --out exp_mcu
+
+# Figure: MCU knockout (coloured) over the baseline (grey)
+base=out/exp_base/platelet_stub_000000/000000/generation_000000/000000/simOut
+PLATELET_BASELINE_SIMOUT=$base MPLBACKEND=Agg \
+  python runscripts/manual/analysisPlatelet.py exp_mcu --plot demo_calcium
+```
+
+The figure module `demo_calcium.py` plots the `CalciumTrace` columns `ca_cyt_nM`,
+`ca_dts_uM`, `soce_flux_nMs` and `ip3_nM`.
