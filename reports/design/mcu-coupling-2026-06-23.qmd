@@ -1,0 +1,194 @@
+---
+title: "Design (#76): bounding the mitochondrial Ca²⁺ sink, and a bioenergetic MCU → SOCE coupling"
+author: "Steve Haigh"
+date: 2026-06-23
+format:
+  html:
+    toc: true
+  pdf:
+    pdf-engine: xelatex
+    include-in-header: ../pandoc-header.tex
+---
+
+## Why
+
+The model treats the mitochondrial Ca²⁺ uniporter (MCU) as a **pure cytosolic
+sink** — Hill uptake into the matrix plus slow linear NCLX efflux, coupled to
+nothing but the cytosol (`calcium_signalling.py:1421–1429`). Two consequences,
+both now verified empirically (issue #76; PR #78 adds the trace columns that
+made them visible):
+
+1. **Wrong-direction knockout.** Removing MCU (`mcu_vmax_scale = 0`) *raises*
+   the agonist-evoked cytosolic peak (~+40 %, 429 → 602 nM). Both platelet
+   MCU-knockout studies report the **opposite** — Ghatge 2026 (global Mcu⁻/⁻)
+   and Ajanel 2025 (platelet-specific) both find agonist-evoked cytosolic Ca²⁺
+   and SOCE *reduced*. The literature agrees on direction; the model diverges.
+2. **Unbounded matrix.** Under a sustained agonist the matrix accumulates ~180×
+   its resting Ca²⁺ in 200 s and is still filling (uptake 1634 ≫ efflux 911
+   ions/s) — a bottomless, unbuffered sink with no capacity, no ΔΨ_m, no mPTP.
+
+These are two different problems with two different fixes. Removing a sink can
+only ever *raise* the buffered species, so **no amount of uptake tuning flips
+the sign** — the flip requires coupling mito uptake to a Ca²⁺ *source*. And the
+unbounded pool is a latent realism bug that must be closed before the matrix
+level can sensibly drive anything (e.g. bioenergetics).
+
+This doc designs both, in two parts:
+
+- **Part 1 — bound the matrix (implement now).** A realism fix; Dolan-safe; the
+  prerequisite for Part 2.
+- **Part 2 — bioenergetic MCU → SOCE coupling (designed; future work).** The
+  source-coupling that would flip the knockout sign, via an ATP intermediate.
+
+> Per the 2026-06-23 scoping decision: **implement Part 1 only.** Part 2 is the
+> chosen *design* for the eventual sign-flip — the **bioenergetic** route, not
+> the Orai-CDI route — written up here so the path is explicit and the
+> implementation boundary is honest.
+
+## What the data actually constrain
+
+| Observation (KO vs WT) | Ghatge 2026 (global) | Ajanel 2025 (platelet-specific) |
+|---|---|---|
+| Agonist-evoked cytosolic Ca²⁺ | reduced (CRP-XL **and thrombin**) | reduced ("independent of agonist") |
+| SOCE | reduced | reduced (**leading mechanism**: Orai1/STIM1 gating) |
+| DTS store **content** | *speculated* depleted | **measured normal** (ionomycin) — contested |
+| Mito ATP-linked respiration | reduced | reduced (basal too) |
+| Cytosolic mechanism | "we speculate … unclear" | "remains unclear" |
+
+So the **robust, shared** target is *reduced SOCE → reduced cytosolic
+transient*; store-content depletion is contested; and the mechanism is, by both
+authors' own words, unresolved. Magnitudes are categorical only (AUC /
+supplemental figures), so validation here is **directional**, not a curve fit.
+
+## Part 1 — bound the matrix (implement now)
+
+### Problem
+
+`dCa_mito/dt = v_mcu − v_nclx`, with `v_mcu = V_max·scale·cyt⁴/(K⁴+cyt⁴)` and
+`v_nclx = k_NCLX·ca_mito`. Uptake ignores matrix load, so the steady state
+`ca_mito_ss = v_mcu / k_NCLX` is ~3×10⁵ ions at the agonist plateau —
+physiologically absurd, and (because it never saturates) the cytosolic
+buffering it provides never fades.
+
+### Options
+
+1. **Capacity back-pressure on uptake** *(recommended, minimal)*:
+   `v_mcu ·= max(0, 1 − ca_mito / C_max)`. One parameter; the matrix saturates
+   near `C_max`. Resting balance unchanged while `C_max ≫ resting load`.
+2. **Matrix Ca²⁺ buffer** (Ca–phosphate proxy), as the cytosolic CALR/gelsolin
+   buffers already are: track free vs total matrix Ca²⁺. More mechanistic, but
+   only bounds the pool if efflux is made to read *free* matrix Ca²⁺ — a larger
+   change.
+3. **ΔΨ_m-dependent uptake** (uptake ∝ driving potential; ΔΨ_m depolarises as
+   the matrix fills). The "correct" biophysics; adds a ΔΨ_m relation. Defer.
+
+### Change + Dolan-safety
+
+Option 1 is one extra factor in the `v_mcu` line plus `C_max` in
+`[mito.kinetics]`. **Dolan-safe by construction:** choose `C_max` ≫ the 30-s
+accumulation (~2.5×10⁴ ions, measured), so over the 30-s golden window the
+back-pressure factor ≈ 1 and the trace is unchanged; the bound bites only on the
+long sustained runs where the runaway currently appears. The resting fixed point
+(1000 ions; uptake = efflux = 5 ions/s) is untouched.
+
+### Calibration + tests
+
+`C_max` is a calibration choice (like `V_EX_L`), set toward a plausible matrix
+load and constrained by "30-s Dolan unchanged." Tests: (i) byte-identical
+goldens still pass (30-s window); (ii) a long (≥300 s) sustained run shows the
+matrix plateauing near `C_max` rather than growing; (iii) Dolan 5/5 preserved.
+
+## Part 2 — bioenergetic MCU → SOCE coupling (designed; future work)
+
+### Mechanism (the chosen route)
+
+Matrix Ca²⁺ activates the Ca²⁺-sensitive TCA dehydrogenases → mitochondrial ATP
+production. Define a **normalised mitochondrial energy support** `E`, a function
+of the (now-bounded) matrix Ca²⁺, with `E = 1` at the wild-type matrix load.
+SOCE then reads `E`:
+
+```
+J_SOCE  ←  J_SOCE × g(E),     g(1) = 1
+```
+
+Knockout → low matrix Ca²⁺ → `E < 1` → `g(E) < 1` → reduced SOCE → reduced
+cytosolic plateau. The sign flips, on the mechanism both papers share (reduced
+SOCE). Optionally `SERCA` also reads `E` (store refill), reinforcing the same
+direction.
+
+### The sign-determining subtlety (key risk)
+
+ATP gates **efflux** too. If `E` also throttles **PMCA**, then KO → low `E` →
+slower PMCA → *less* extrusion → *higher* cytosol — the **opposite** of the
+target. So the net knockout sign depends on whether the source side
+(SOCE + SERCA) outweighs the extrusion side (PMCA). To match the data the
+coupling must gate the **influx/store** machinery (SOCE, SERCA) and leave PMCA
+(largely) ungated — defensible because the papers localise the defect to SOCE /
+agonist-evoked release, not to extrusion. This is the crux of the bioenergetic
+route, and the main reason it needs careful re-validation (the Orai-CDI
+alternative below avoids it entirely).
+
+### State + calibration
+
+`ATP[c]` exists (~1.08×10⁷ count) but is **non-limiting** today — the pumps
+debit it, but no rate reads `[ATP]`. Part 2 introduces (a) a Ca²⁺-dependent
+mitochondrial ATP source term and (b) the `g(E)` gate on SOCE (and optionally
+SERCA). Hard constraint: `E = 1` and `g(1) = 1` at wild type, so the **WT Dolan
+response is unchanged**; only knockout/perturbation moves `E`.
+
+### Honest caveats
+
+- Both papers **hedge** the bioenergetic → Ca²⁺ causal link. Ajanel explicitly
+  finds the *ITAM-activation* defect OCR-**independent** — but that is about
+  ROS-driven activation, not the SOCE/Ca²⁺ defect, so it does not refute an
+  energy → SOCE link; it only means we cannot claim it as established.
+- Resting OCR differs between the studies (Ghatge equal, Ajanel reduced).
+- The result is therefore *mechanistically transparent but not validated* — the
+  same honest stance as the rest of the model, and consistent with the
+  literature's own "mechanism unclear."
+
+## Alternatives considered
+
+- **Orai CDI-prevention (microdomain).** Mito uptake relieves Ca²⁺-dependent
+  inactivation of Orai1 → sustains SOCE. The most direct route (no PMCA
+  ambiguity; ties the flip to the +Ca²⁺ SOCE plateau) and canonical in immune
+  cells. **Not chosen** (2026-06-23) in favour of the bioenergetic route, but
+  retained here as the lower-risk fallback if the bioenergetic sign proves
+  fragile.
+- **Phenomenological SOCE gain** (a direct mito-uptake → SOCE factor). Simplest,
+  least mechanistic — a lumped stand-in for either route.
+- **Store / MAM filling.** Contested (Ghatge speculates depletion; Ajanel
+  measured store content normal). Low priority.
+- **GPVI/ITAM + mito-ROS → Syk/PLCγ2.** Ajanel's headline mechanism, but a
+  whole new agonist class beyond the model's GPCR single-cell scope. Out of
+  scope.
+
+## Non-goals / honest limits
+
+- No aggregation / inter-cellular effects (single-cell model).
+- No GPVI/CLEC-2/ITAM pathway, no mitochondrial ROS.
+- Part 2's sign-flip is a transparent prediction, **not** a validated mechanism;
+  the literature mechanism is itself unresolved.
+
+## Validation targets (categorical)
+
+1. **WT unchanged:** Dolan & Diamond 2014 Fig. 4 ±Ca²⁺ preserved (5/5). Hard
+   constraint on both parts.
+2. **Bounded matrix:** no runaway; the matrix plateaus on long runs (Part 1).
+3. **KO direction (Part 2):** `mcu_vmax_scale = 0` → cytosolic transient and
+   SOCE *reduced* vs WT, matching Ghatge 2026 + Ajanel 2025 (direction only).
+
+## Effort / risk
+
+- **Part 1 (realism):** low effort (~½–1 day), low risk, Dolan-safe.
+- **Part 2 (bioenergetic):** medium effort; **medium-high risk** — SOCE is
+  Dolan-central, the PMCA-opposition makes the sign non-automatic, and the
+  causal link is hedged in the literature. Design now, implement after Part 1.
+
+## Decision points
+
+1. **Part 1:** `C_max` target (and whether to add a matrix buffer, Option 2).
+2. **Part 2:** does `E` gate **SERCA** and/or **PMCA**, or **SOCE only**?
+   (sign-determining — see the subtlety above).
+3. **Part 2:** explicit ATP production (glycolysis + Ca²⁺-dependent OXPHOS) vs a
+   lumped `E(ca_mito)` factor.
