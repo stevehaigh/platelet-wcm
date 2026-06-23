@@ -24,6 +24,7 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_mwc_open_fraction,
 	GAMMA_SOC_S,
 	K_MITO,
+	K_MITO_BIO,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
@@ -91,6 +92,7 @@ def _make_listener(counts, ca_ex_uM=1200.0):
 	lst._idx_vasp_phos       = 24
 	lst._idx_ca_mito         = 25
 	lst._mcu_vmax_scale      = 1.0
+	lst._mito_coupling_gain  = 1.0
 	return lst
 
 
@@ -254,6 +256,7 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 		orai_count = 400
 		counts = [ca_cyt_count, ca_dts_count, ip3_count,
 			stim1_count, orai_count] + [0] * (_NUM_SPECIES - 5)
+		counts[25] = 1_000  # ca_mito ≥ E_ref → #76 Part 2 coupling factor = 1 (WT)
 
 		lst = _make_listener(counts, ca_ex_uM=ca_ex_uM)
 		lst.update()
@@ -274,6 +277,20 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 		expected_nMs = soce_ions_s * _UM_PER_COUNT_CYT * 1e3
 
 		self.assertAlmostEqual(lst.soce_flux_nMs, expected_nMs, places=8)
+
+	def test_soce_reduced_when_matrix_depleted(self):
+		"""#76 Part 2: a depleted matrix (ca_mito < E_ref) scales SOCE down."""
+		ca_ex_uM = 1200.0
+		base = [361, 38_800, 180, 200, 400] + [0] * (_NUM_SPECIES - 5)
+		full = list(base); full[25] = 1_000                        # WT → factor 1
+		dep = list(base); dep[25] = round(K_MITO_BIO['E_ref'] / 2)  # → factor 0.5
+		lst_full = _make_listener(full, ca_ex_uM=ca_ex_uM); lst_full.update()
+		lst_dep = _make_listener(dep, ca_ex_uM=ca_ex_uM); lst_dep.update()
+		self.assertAlmostEqual(lst_full.mito_coupling_factor, 1.0, places=9)
+		self.assertAlmostEqual(lst_dep.mito_coupling_factor, 0.5, places=6)
+		# Halved support factor → halved SOCE influx.
+		self.assertAlmostEqual(
+			lst_dep.soce_flux_nMs, 0.5 * lst_full.soce_flux_nMs, places=8)
 
 	def test_soce_flux_non_negative_at_resting_state(self):
 		"""At resting cyt with extracellular > intracellular, SOCE ≥ 0."""

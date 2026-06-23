@@ -19,15 +19,15 @@ Exp A — PMCA V_max rate-limits cytosolic Ca²⁺ recovery
     Observable: recovery-tail AUC = ∫ max(cyt − rest, 0) dt over the post-peak
         window. Censoring-free; decreases as PMCA V_max rises.
 
-Exp B — MCU buffers cytosolic Ca²⁺ without rescuing the DTS store
+Exp B — MCU loss reduces the cytosolic transient (v0.7 #76 coupling)
     Knob   : K_MITO['V_max_MCU']  (baseline 50000 ions/s; 0 = knockout)
     Scan   : {0 (KO), 1 (baseline), 4 (over-expression)}
     Protocol: +Ca²⁺ (ca_ex = 1.2 mM), standard sustained agonist transient.
-    Observable: peak/sustained cyt (MCU lowers it — buffering) and DTS depletion
-        (full in every case — MCU doesn't refill the store). NB MCU=0 *raises*
-        cyt in this buffer-only model, whereas real MCU⁻/⁻ platelets show
-        *reduced* agonist-evoked cyt Ca²⁺ (Ghatge 2026; Ajanel 2025) — the
-        model diverges; see issue #76.
+    Observable: peak/sustained cyt. With the v0.7 #76 coupling (matrix-Ca²⁺ support
+        of IP3R store release + SOCE), MCU=0 depletes the matrix → less release and
+        SOCE → cyt REDUCED (KO ~480 vs WT ~530 nM) and the KO store releases less,
+        matching Ghatge 2026 / Ajanel 2025. Set RunConfig.mito_coupling_gain=0 to
+        recover the old buffer-only behaviour (KO *raises* cyt). See issue #76.
 
 Exp C — PKC desensitises P2Y1, throttling the ADP arm (v0.6, issue #57)
     Knob   : K_P2Y1_DES['k_des']  (P2Y1 desensitisation rate; 0 = knockout)

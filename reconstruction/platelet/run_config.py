@@ -107,6 +107,13 @@ class RunConfig:
 	mcu_vmax_scale: float = 1.0
 	"""Scale on MCU V_max (K_MITO['V_max_MCU']) — the runPerturbation mcu sweep."""
 
+	mito_coupling_gain: float = 1.0
+	"""#76 Part 2 — strength of the MCU → (SOCE + store-release) coupling. A lumped
+	matrix-Ca²⁺ support factor E gates both store-operated entry (bioenergetic arm)
+	and agonist-evoked IP3R release (mitochondria–DTS / MAM arm). 1.0 = full
+	coupling; 0.0 = decoupled (Part-1-only, energy-independent). MCU loss depletes
+	the matrix → E < 1 → both fall → cytosolic Ca²⁺ reduced (Ghatge/Ajanel)."""
+
 	# ── Initial-count overrides (Tier 2 — expression knockouts) ───────────
 	count_overrides: Dict[str, int] = field(default_factory=dict)
 	"""Per-run overrides of resting copy numbers, keyed by molecule id (e.g.

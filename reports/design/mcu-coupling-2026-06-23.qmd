@@ -41,10 +41,18 @@ This doc designs both, in two parts:
 - **Part 2 — bioenergetic MCU → SOCE coupling (designed; future work).** The
   source-coupling that would flip the knockout sign, via an ATP intermediate.
 
-> Per the 2026-06-23 scoping decision: **implement Part 1 only.** Part 2 is the
-> chosen *design* for the eventual sign-flip — the **bioenergetic** route, not
-> the Orai-CDI route — written up here so the path is explicit and the
-> implementation boundary is honest.
+> **Status (2026-06-23): both parts now implemented.** Part 1 (capacity bound)
+> and Part 2 (matrix-Ca²⁺ support coupling) are merged. **Key empirical finding
+> during Part 2:** the bioenergetic **SOCE-only** route — the one originally
+> chosen here — turned out to be *too weak to flip the sign* (it pulls KO cyt
+> 602→585 nM, not below WT 530), because the model's MCU buffer effect dominates
+> and SOCE-gating is compensated by PMCA. The lever with enough authority is
+> gating **agonist-evoked store release (IP3R)** — the mitochondria–DTS / MAM arm
+> — which *both* papers actually observe (reduced release). Per the user's call,
+> Part 2 ships **both** arms (one matrix-Ca²⁺ support factor gating SOCE *and*
+> IP3R release), with the **release arm providing the flip**: KO cyt now ~480 <
+> WT ~530, matching the data. WT is byte-identical (factor ≡ 1 at normal matrix
+> load → Dolan 5/5 untouched). See the updated Part 2 section and `3-mcu-knockout.qmd`.
 
 ## What the data actually constrain
 
@@ -99,9 +107,18 @@ load and constrained by "30-s Dolan unchanged." Tests: (i) byte-identical
 goldens still pass (30-s window); (ii) a long (≥300 s) sustained run shows the
 matrix plateauing near `C_max` rather than growing; (iii) Dolan 5/5 preserved.
 
-## Part 2 — bioenergetic MCU → SOCE coupling (designed; future work)
+## Part 2 — MCU coupling to store release + SOCE (IMPLEMENTED)
 
-### Mechanism (the chosen route)
+> **As shipped:** a single matrix-Ca²⁺ support factor `E = min(1, ca_mito/E_ref)`
+> (`E_ref` ≈ resting matrix, `[mito.bioenergetic]`) gates **both** the IP3R
+> store-release flux (MAM arm) and the SOCE flux (bioenergetic arm), via
+> `RunConfig.mito_coupling_gain` (1 = full, 0 = decoupled). The original
+> SOCE-only design below is retained for the record; the **release (MAM) arm was
+> added because SOCE-gating alone could not flip the sign** (it is compensated by
+> PMCA). The text below describes the bioenergetic arm; the MAM arm is the same
+> factor applied to `flux_ip3r_ions_s`.
+
+### Mechanism (the originally chosen route — bioenergetic SOCE)
 
 Matrix Ca²⁺ activates the Ca²⁺-sensitive TCA dehydrogenases → mitochondrial ATP
 production. Define a **normalised mitochondrial energy support** `E`, a function
@@ -186,10 +203,20 @@ response is unchanged**; only knockout/perturbation moves `E`.
   Dolan-central, the PMCA-opposition makes the sign non-automatic, and the
   causal link is hedged in the literature. Design now, implement after Part 1.
 
-## Decision points
+## Decision points (resolved)
 
-1. **Part 1:** `C_max` target (and whether to add a matrix buffer, Option 2).
-2. **Part 2:** does `E` gate **SERCA** and/or **PMCA**, or **SOCE only**?
-   (sign-determining — see the subtlety above).
-3. **Part 2:** explicit ATP production (glycolysis + Ca²⁺-dependent OXPHOS) vs a
-   lumped `E(ca_mito)` factor.
+1. **Part 1:** `C_max` target → **`100000` ions** (calibration choice; preserves
+   Dolan, plateaus the matrix ~9e4). Matrix buffer (Option 2) not added.
+2. **Part 2:** what does `E` gate? → **IP3R store release *and* SOCE**, *not* the
+   efflux pumps (SERCA/PMCA). The release arm is sign-determining (SOCE-only was
+   too weak); efflux pumps stay ungated (gating them would oppose the sign).
+3. **Part 2:** explicit ATP vs lumped factor → **lumped `E(ca_mito)`** (one
+   support factor); explicit glycolysis/OXPHOS deferred.
+
+## Still open (future)
+
+- Mitochondrial **ROS → Syk/PLCγ2 (ITAM)** + the GPVI pathway (Ajanel's mechanism;
+  out of single-cell GPCR scope).
+- Matrix **ΔΨ_m / mPTP** realism (Part 1 used a capacity bound, not a potential).
+- The store-**content** disagreement (Ghatge depleted vs Ajanel normal) — the
+  model represents reduced *release*, not altered resting content.

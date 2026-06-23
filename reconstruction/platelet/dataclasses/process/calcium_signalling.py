@@ -816,6 +816,8 @@ K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 # Values live in `reports/params/calcium-v0.6.toml [mito.kinetics]`
 # (issue #32 Phase 2 slice 6).
 K_MITO = dict(_KINETICS['mito']['kinetics'])
+# #76 Part 2 — bioenergetic MCU → SOCE coupling params ([mito.bioenergetic]).
+K_MITO_BIO = dict(_KINETICS['mito']['bioenergetic'])
 
 
 
@@ -933,6 +935,18 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
+	# Bioenergetic + MAM MCU coupling (#76 Part 2): a lumped matrix-Ca²⁺ support
+	# factor gates both store-operated entry (bioenergetic arm) and agonist-evoked
+	# IP3R release (mitochondria–DTS / MAM arm). E = min(1, ca_mito/E_ref) = 1
+	# whenever the matrix is at/above its WT resting load (E_ref < rest), so the
+	# wild type is unchanged (E ≡ 1 → both fluxes unscaled → Dolan-safe, goldens
+	# byte-identical). MCU knockout depletes the matrix → E < 1 → reduced release
+	# AND reduced SOCE → cytosolic Ca²⁺ *reduced*, matching Ghatge 2026 / Ajanel
+	# 2025 (both report reduced agonist-evoked release and SOCE). gain interpolates:
+	# factor = 1 − gain·(1−E); gain 0 = Part-1-only (decoupled). The flip is
+	# release-driven (SOCE alone is too weak — PMCA compensates); design doc §Part 2.
+	mito_e = min(1.0, ca_mito_count / K_MITO_BIO['E_ref'])
+	mito_coupling_factor = 1.0 - config.mito_coupling_gain * (1.0 - mito_e)
 
 	# GPCR cascade state reads
 	p2y1_i = max(y[_IDX['P2Y1_inactive[pl]']], 0.0)
@@ -1036,6 +1050,7 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 		driving_v = V_IM_V - e_ca_im_v
 		flux_ip3r_ions_s = (
 			-GAMMA_IP3R_S * N_IP3R * po_channel * driving_v * NA_OVER_zF
+			* mito_coupling_factor          # #76 Part 2: MAM support of release
 		)
 	else:
 		flux_ip3r_ions_s = 0.0
@@ -1216,8 +1231,11 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	if ca_ex_uM > 0.0 and ca_cyt > 0.0:
 		e_ca_pm_v = RT_OVER_zF_V * math.log(ca_ex_uM / ca_cyt)
 		driving_pm_v = V_PM_V - e_ca_pm_v
+		# Bioenergetic arm of the #76 Part 2 coupling: the same matrix-Ca²⁺
+		# support factor (computed above) scales store-operated entry.
 		soce_ions_s = (
 			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
+			* mito_coupling_factor
 		)
 		dy[_IDX['CA2_CYT[c]']] += soce_ions_s
 
