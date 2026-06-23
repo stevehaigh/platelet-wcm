@@ -90,17 +90,23 @@ Two independent platelet MCU-knockout studies — **Ajanel et al., *Circ. Res.*
   agonist thrombin**, with both DTS store release and the subsequent SOCE phase
   reduced. Because Ghatge shows the reduction under thrombin — the same GPCR class
   this experiment drives — the contradiction with the model is direct.
-- **Mechanism — store filling and SOCE, not a simple buffer.** Both papers
-  attribute the lower cytosolic Ca²⁺ to loss of MCU's *support* for the store and
-  for store-operated entry, not to removal of a buffer. Ghatge traces the reduced
-  release to depletion of the DTS store through disrupted mitochondria–DTS
-  (mitochondria-associated-membrane, MAM) coupling, compounded by impaired SOCE
-  and bioenergetics. Ajanel emphasises MCU's support of Orai1/STIM1-mediated SOCE
-  together with mitochondrial **ROS → Syk/PLCγ2 (ITAM)** signalling, calls the
-  link between MCU loss and lower cytosolic Ca²⁺ "unclear," and notes the prior
-  expectation (Brass, 1984) was that blocking mitochondrial uptake leaves
-  cytosolic Ca²⁺ essentially **unchanged** — *not* elevated. In neither account
-  does MCU behave as a pure cytosolic buffer whose removal would raise free Ca²⁺.
+- **Mechanism — impaired store-operated entry above all, not a simple buffer.**
+  The one mechanism *both* papers support is reduced **store-operated Ca²⁺ entry**
+  (Orai1/STIM1): each measured SOCE down. Beyond that they diverge, and both are
+  explicit that the underlying cause is unresolved. Ghatge *speculates* that MCU
+  loss also depletes the DTS store — via disrupted mitochondria–DTS
+  (mitochondria-associated-membrane, MAM) coupling — and did see reduced
+  thapsigargin-evoked store release. Ajanel, by contrast, *directly measured* DTS
+  store content (ionomycin) and passive thapsigargin-evoked release and found
+  **both normal**, so it attributes the defect not to a depleted store but to
+  impaired Orai1/STIM1 gating, alongside mitochondrial bioenergetics and
+  mitochondrial **ROS → Syk/PLCγ2 (ITAM)** signalling, and calls the link between
+  MCU loss and lower cytosolic Ca²⁺ "unclear." (Ajanel also notes the older
+  expectation — Brass, 1984 — that blocking mitochondrial uptake leaves cytosolic
+  Ca²⁺ essentially **unchanged**, *not* elevated.) So store-*content* depletion is
+  contested — seen in one study, excluded by the other — whereas reduced SOCE is
+  the robust, shared finding. In neither account does MCU behave as a pure
+  cytosolic buffer whose removal would raise free Ca²⁺.
 
 (The cytosolic-Ca²⁺ findings are reported directionally — Ghatge as area-under-
 the-curve of Fura-2 traces, Ajanel in supplemental figures; neither gives resting
@@ -117,10 +123,11 @@ unambiguous and consistent across both studies.)
   Ghatge explicitly under thrombin — so the GPCR regime the model relies on is the
   very regime in which the data run the other way.
 - **Mechanism is incomplete.** The model knows MCU only as a cytosolic buffer.
-  The real net effect is dominated by MCU's *support* of store filling and store-
-  operated entry — via mitochondria–DTS (MAM) coupling and Orai1/STIM1, so its
-  loss *lowers* cytosolic Ca²⁺ — together with mitochondrial bioenergetics and
-  ROS/ITAM signalling, none of which is in the model.
+  The real net effect is dominated by MCU's *support* of store-operated entry
+  (Orai1/STIM1) — the mechanism both studies agree on — likely with mitochondrial
+  bioenergetics, and possibly (contested) store filling via mitochondria–DTS
+  (MAM) coupling, so that its loss *lowers* cytosolic Ca²⁺; none of these
+  couplings, nor the ROS/ITAM arm, is in the model.
 - **What is right.** Given its assumptions, the model's behaviour is internally
   consistent (remove a buffer → the buffered species rises), and "the store
   empties regardless" is physically sound. The assumptions are simply too narrow.
@@ -141,16 +148,19 @@ confronting that prediction with data shows it is wrong in *direction*: two
 independent MCU-knockout studies (Ghatge 2026, Ajanel 2025) both find cytosolic
 Ca²⁺ *reduced*. The value lies in *why*. The discrepancy localises the missing
 biology: the real MCU–Ca²⁺ relationship is an **emergent property of a coupled
-network** — mitochondria–DTS (MAM) contact that helps keep the store filled,
-MCU's support of Orai1/STIM1 store-operated entry, and mitochondrial bioenergetics
-and ROS/ITAM signalling — none of which a single buffer term can reproduce. A
-properly acknowledged discrepancy of this kind is exactly what a mechanistic model
-is *for*: it converts a vague "mitochondria matter" into a specific, testable list
-of what to add next. That is concrete future work — coupling MCU to store filling
-and to store-operated entry, and adding mitochondrial ROS and the GPVI/ITAM
-pathway, so that mitochondrial Ca²⁺ handling reflects more than buffering — and it
-is a reason to push the model further rather than a mark against it. Logged as
-GitHub issue #76.
+network** — above all MCU's support of Orai1/STIM1 store-operated entry (the one
+mechanism both studies agree on), plus mitochondrial bioenergetics, and possibly
+mitochondria–DTS (MAM) coupling that helps keep the store filled (contested —
+measured normal in one study, depleted in the other), with mitochondrial ROS/ITAM
+signalling on top — none of which a single buffer term can reproduce. A properly
+acknowledged discrepancy of this kind is exactly what a mechanistic model is
+*for*: it converts a vague "mitochondria matter" into a specific, testable list of
+what to add next. That is concrete future work — coupling MCU first to
+store-operated entry (Orai1/STIM1) and to mitochondrial bioenergetics, with
+store-filling (MAM) coupling as a contested option, and adding mitochondrial ROS
+and the GPVI/ITAM pathway, so that mitochondrial Ca²⁺ handling reflects more than
+buffering — and it is a reason to push the model further rather than a mark
+against it. Logged as GitHub issue #76.
 
 ## Provenance
 
