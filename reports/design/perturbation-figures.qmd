@@ -70,7 +70,7 @@ Both are mutated in place before sim construction — the same live-read overrid
 - **Knob / conditions:** `K_MITO['V_max_MCU']` ∈ **{0 (knockout), 1.0 (baseline), 4.0 (over-expression)}**. Knockout is biologically clean — MCU is a transient buffer, not homeostatic extrusion.
 - **Observable:** `t_refill_dts_s` = time for DTS Ca²⁺ to return to 90 % of its resting level after depletion (threshold-crossing). Also track cyt + mito pools to show *where the Ca²⁺ goes*.
 - **Prediction tested:** DTS refill is unchanged or *slower* with MCU active, because MCU diverts cytosolic Ca²⁺ into mitochondria, away from SERCA → DTS refilling.
-- **Validation bonus:** the code cites **Ghatge et al. 2026 — MCU⁻/⁻ platelets show elevated cytosolic Ca²⁺**. The `V_max_MCU = 0` trace can be compared qualitatively to that knockout data, turning Exp. B from pure prediction into a *semi-validation*.
+- **Comparison to data (corrected 2026-06-23):** an earlier version of this note treated the `V_max_MCU = 0` trace as a *semi-validation* against "Ghatge 2026 — MCU⁻/⁻ platelets show elevated cytosolic Ca²⁺." That was a misreading: Ghatge et al. 2026 (and Ajanel et al. 2025) in fact report *reduced* agonist-evoked cytosolic Ca²⁺ in MCU-knockout platelets. The model's buffer-only MCU *raises* the peak, so this is a **divergence**, not a validation — see `reports/experiments/3-mcu-knockout.qmd` and issue #76.
 - **Figure (2-panel):** (left) DTS Ca²⁺ traces for KO / baseline / over-expression; (right) cyt + mito traces showing the diversion (or `t_refill_dts_s` vs MCU level).
 
 # Harness
@@ -84,7 +84,7 @@ Both are mutated in place before sim construction — the same live-read overrid
 
 1. `factor = 1` / `MCU baseline` reproduces Phase-3 (regression anchor).
 2. Exp. A: `t_recovery_cyt_s` increases monotonically as PMCA V_max decreases.
-3. Exp. B: `t_refill_dts_s` is **not** decreased by MCU activity; `V_max_MCU = 0` shows elevated / prolonged cyt Ca²⁺ (qualitatively consistent with Ghatge 2026).
+3. Exp. B: `t_refill_dts_s` is **not** decreased by MCU activity; `V_max_MCU = 0` shows elevated / prolonged cyt Ca²⁺ in the model (this *raised*-cyt direction diverges from the MCU-knockout literature, which shows it *reduced* — see issue #76).
 4. Two committed figures + `.npz` + summary `.json`; resting state reported per condition.
 
 # Open items to confirm before coding

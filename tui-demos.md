@@ -63,10 +63,11 @@ baseline — the canonical Dolan contrast, side-by-side via the baseline overlay
 
 ---
 
-## Demo 2 — MCU knockout: mitochondria buffer the cytosol (a counterintuitive prediction)
+## Demo 2 — MCU knockout: the one lever that moves the store-clamped cytosolic peak
 
-The model *predicting* something you can't read off the knob — the payoff of
-having every Ca²⁺ pathway present and mass-balanced, not an isolated submodel.
+A worked example of confronting a model prediction with data — the payoff (and
+the honesty test) of having every Ca²⁺ pathway present and mass-balanced, not an
+isolated submodel.
 
 1. Preset dropdown → **Agonist transient** (standard +Ca²⁺ stimulus). Press **r**,
    then **b** (wild-type baseline).
@@ -78,11 +79,13 @@ peak go **up**, not down (~+15%; ≈ 407 → 468 nM here) — in **`demo_calcium
 baseline. Meanwhile the **DTS panel** (same figure) shows the store still empties
 either way:
 mitochondria *redistribute* Ca²⁺ away from the cytosol during the transient
-rather than returning it to the store. The naive expectation — remove an uptake
-pathway, get less Ca²⁺ — is wrong, and the direction matches the elevated
-cytosolic Ca²⁺ in MCU-knockout platelets (Ghatge 2026), a phenotype the model was
-never tuned to. It's also the *one* lever that visibly moves the otherwise
-store-clamped cytosolic peak.
+rather than returning it to the store. Removing a buffer and getting *more* of the
+buffered species is the **expected** direction (not counterintuitive). **Honest
+caveat:** real platelet MCU-knockout data show agonist-evoked cytosolic Ca²⁺
+*reduced*, not raised (Ghatge 2026; Ajanel 2025) — the model treats MCU as
+buffer-only and so **diverges** here; see `reports/experiments/3-mcu-knockout.qmd`
+and issue #76. As a demo it remains the *one* lever that visibly moves the
+otherwise store-clamped cytosolic peak.
 
 ---
 
