@@ -14,7 +14,8 @@ format:
 
 The model treats the mitochondrial Ca²⁺ uniporter (MCU) as a **pure cytosolic
 sink** — Hill uptake into the matrix plus slow linear NCLX efflux, coupled to
-nothing but the cytosol (`calcium_signalling.py:1421–1429`). Two consequences,
+nothing but the cytosol (the MCU/NCLX block of `_ode_rhs` in
+`calcium_signalling.py`). Two consequences,
 both now verified empirically (issue #76; PR #78 adds the trace columns that
 made them visible):
 
