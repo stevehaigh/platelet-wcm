@@ -1,3 +1,6 @@
+# Claude Code session directory (worktrees, local state — never commit)
+/.claude/
+
 # A temporary copy to upload to Cloud Build. Don't .dockerignore it.
 /cloud/docker/runtime/requirements.txt
 

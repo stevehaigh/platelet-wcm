@@ -207,12 +207,13 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.mcu_uptake_per_s = float(
 			K_MITO['V_max_MCU'] * self._mcu_vmax_scale
 			* ca_n / (km_n + ca_n) * mito_fill)
-		# #76 Part 2 — matrix-Ca²⁺ support factor that gates the SOCE recompute
-		# below (and, in the ODE, IP3R store release). 1.0 on the wild type
-		# (matrix ≥ E_ref) → soce_flux_nMs unchanged → goldens byte-identical.
-		mito_e = min(1.0, self.ca_mito_count / K_MITO_BIO['E_ref'])
+		# #76 Part 2 — MCU-capacity support factor that gates the SOCE recompute
+		# below (and, in the ODE, IP3R store release). ∝ functional MCU capacity
+		# (mcu_vmax_scale); 1.0 on the wild type → soce_flux_nMs unchanged →
+		# goldens byte-identical; 1−strength on knockout.
 		self.mito_coupling_factor = float(
-			1.0 - self._mito_coupling_gain * (1.0 - mito_e))
+			1.0 - self._mito_coupling_gain
+			* K_MITO_BIO['coupling_strength'] * (1.0 - self._mcu_vmax_scale))
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.

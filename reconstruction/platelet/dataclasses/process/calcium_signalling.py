@@ -935,18 +935,18 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
-	# Bioenergetic + MAM MCU coupling (#76 Part 2): a lumped matrix-Ca²⁺ support
-	# factor gates both store-operated entry (bioenergetic arm) and agonist-evoked
-	# IP3R release (mitochondria–DTS / MAM arm). E = min(1, ca_mito/E_ref) = 1
-	# whenever the matrix is at/above its WT resting load (E_ref < rest), so the
-	# wild type is unchanged (E ≡ 1 → both fluxes unscaled → Dolan-safe, goldens
-	# byte-identical). MCU knockout depletes the matrix → E < 1 → reduced release
-	# AND reduced SOCE → cytosolic Ca²⁺ *reduced*, matching Ghatge 2026 / Ajanel
-	# 2025 (both report reduced agonist-evoked release and SOCE). gain interpolates:
-	# factor = 1 − gain·(1−E); gain 0 = Part-1-only (decoupled). The flip is
-	# release-driven (SOCE alone is too weak — PMCA compensates); design doc §Part 2.
-	mito_e = min(1.0, ca_mito_count / K_MITO_BIO['E_ref'])
-	mito_coupling_factor = 1.0 - config.mito_coupling_gain * (1.0 - mito_e)
+	# MCU coupling to release + SOCE (#76 Part 2): MCU uptake at MAM / ER–PM
+	# contacts clears the local Ca²⁺ microdomain, relieving the Ca²⁺-dependent
+	# INACTIVATION of IP3R and Orai1 → sustained release/SOCE. With no spatial
+	# microdomains here, the relief is lumped as ∝ *functional MCU capacity*
+	# (mcu_vmax_scale = uptake normalised to full capacity; the matrix LEVEL was
+	# tried first and is brittle — it depends on the matrix initial condition).
+	# factor = 1 − gain·strength·(1 − scale): WT (scale=1) → 1 → both fluxes
+	# unscaled → byte-identical/Dolan-safe; KO (scale=0) → 1−strength → reduced
+	# release + SOCE → cytosolic Ca²⁺ reduced across the whole transient (matches
+	# Ghatge 2026 / Ajanel 2025). gain (default 1) toggles the coupling off.
+	mito_coupling_factor = (1.0 - config.mito_coupling_gain
+		* K_MITO_BIO['coupling_strength'] * (1.0 - config.mcu_vmax_scale))
 
 	# GPCR cascade state reads
 	p2y1_i = max(y[_IDX['P2Y1_inactive[pl]']], 0.0)

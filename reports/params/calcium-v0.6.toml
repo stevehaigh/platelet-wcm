@@ -536,20 +536,23 @@ k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
 C_max     = 100000.0 # matrix Ca²⁺ capacity (ions); uptake back-pressure (#76 Part 1)
 
 [mito.bioenergetic]
-# #76 Part 2 — MCU coupling to SOCE + agonist-evoked store release (Ghatge 2026 /
+# #76 Part 2 — MCU coupling to agonist-evoked store release + SOCE (Ghatge 2026 /
 # Ajanel 2025, which BOTH report reduced release AND reduced SOCE on MCU loss).
-# A lumped matrix-Ca²⁺ support factor E = min(1, ca_mito / E_ref) gates both the
-# IP3R store-release flux (mitochondria–DTS / MAM arm) and the SOCE flux
-# (bioenergetic arm). E = 1 whenever the matrix is at/above its WT resting load
-# (E_ref is set BELOW the resting ~986 ions), so the wild type is byte-identical
-# (E ≡ 1 → both fluxes unscaled → Dolan 5/5 preserved). MCU knockout depletes the
-# matrix (decays toward 0) → E < 1 → reduced release + reduced SOCE → cytosolic
-# Ca²⁺ REDUCED, matching the platelet MCU-KO data. The flip is release-driven
-# (SOCE alone is too weak: PMCA compensates); efflux pumps (SERCA/PMCA) are left
-# ungated on purpose (gating them would oppose the sign). Gated by
-# RunConfig.mito_coupling_gain (1 = full; 0 = Part-1-only / decoupled).
+# Biology: MCU uptake at mitochondria–DTS (MAM) and ER–PM contacts clears the
+# local Ca²⁺ microdomain, relieving the Ca²⁺-dependent INACTIVATION of IP3R and
+# Orai1 → sustained release/SOCE. We have no spatial microdomains, so this relief
+# is lumped as proportional to *functional MCU capacity* — i.e. mcu_vmax_scale,
+# which is the MCU uptake normalised to full capacity (the matrix LEVEL was tried
+# first and is brittle: it depends on the matrix initial condition). Factor =
+# 1 − gain·strength·(1 − mcu_vmax_scale), applied to flux_ip3r + SOCE. WT
+# (scale=1) → factor 1 → both fluxes unscaled → byte-identical, Dolan 5/5
+# preserved. Knockout (scale=0) → factor 1−strength → reduced release+SOCE →
+# cytosolic Ca²⁺ REDUCED throughout the transient (peak + AUC), matching the data.
+# Graded for partial knockdown. Efflux pumps (SERCA/PMCA) left ungated on purpose
+# (gating an efflux would oppose the sign). gain (RunConfig.mito_coupling_gain,
+# default 1) toggles the whole coupling off (0 = Part-1-only).
 # See reports/design/mcu-coupling-2026-06-23.qmd.
-E_ref = 950.0        # matrix Ca²⁺ (ions) below which support falls (< resting ~986)
+coupling_strength = 0.6   # max relief lost at full KO (calibrated; KO reduction)
 
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────
