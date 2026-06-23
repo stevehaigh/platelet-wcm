@@ -100,9 +100,13 @@ REPORTS_QMD_PDF := $(patsubst reports/%.qmd,reports/pdf-quarto/%.pdf,$(REPORTS_Q
 quarto-pdfs: $(REPORTS_QMD_PDF)
 	@echo "Built $(words $(REPORTS_QMD_PDF)) Quarto PDF(s) into reports/pdf-quarto/"
 
+# quarto's --output-dir preserves the input's relative path, double-nesting
+# subdir docs (reports/pdf-quarto/<dir>/reports/<dir>/…). Render the PDF next to
+# the source instead, then move it into the mirror tree.
 reports/pdf-quarto/%.pdf: reports/%.qmd reports/pandoc-header.tex
 	@mkdir -p $(dir $@)
-	quarto render "$<" --output-dir "$(CURDIR)/$(dir $@)"
+	quarto render "$<" --to pdf
+	@mv "reports/$*.pdf" "$@"
 
 quarto-pdfs-clean:
 	rm -rf reports/pdf-quarto
