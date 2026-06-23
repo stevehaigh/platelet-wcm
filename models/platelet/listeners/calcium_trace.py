@@ -50,8 +50,8 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_mwc_open_fraction,
 	pka_active_frac,
 	GAMMA_SOC_S,
+	ip3r_relief_factor,
 	K_MITO,
-	K_MITO_BIO,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
@@ -208,17 +208,13 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.mcu_uptake_per_s = float(
 			K_MITO['V_max_MCU'] * self._mcu_vmax_scale
 			* ca_n / (km_n + ca_n) * mito_fill)
-		# #76 Part 2 — the evoked IP3R-release gate factor applied in the ODE
-		# (∝ functional MCU capacity, gated by an activation function of Ca²⁺).
-		# 1.0 on the wild type; < 1 during the KO transient. Recorded for audit;
-		# SOCE is NOT gated by it (SOCE falls indirectly via the fuller store).
-		mito_act = (ca_cyt_uM ** K_MITO_BIO['n_act']
-			/ (ca_cyt_uM ** K_MITO_BIO['n_act']
-				+ K_MITO_BIO['Ka_act'] ** K_MITO_BIO['n_act']))
-		self.mito_coupling_factor = float(
-			1.0 - self._mito_coupling_gain
-			* K_MITO_BIO['coupling_strength'] * (1.0 - self._mcu_vmax_scale)
-			* mito_act)
+		# #76 Part 2 — the evoked IP3R-release gate the ODE applies, via the shared
+		# `ip3r_relief_factor` helper so the recorded value matches the ODE exactly
+		# (one source of truth). Recorded for audit; SOCE is NOT gated by it (it
+		# falls indirectly via the fuller store). End-of-step snapshot: computed
+		# from the committed Ca²⁺, so it is an estimate of the within-step factor.
+		self.mito_coupling_factor = float(ip3r_relief_factor(
+			ca_cyt_uM, self._mcu_vmax_scale, self._mito_coupling_gain))
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.

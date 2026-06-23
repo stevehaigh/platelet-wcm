@@ -98,5 +98,55 @@ class TestOdeRhsResting(unittest.TestCase):
 			'PAR4_active should not accumulate at rest.')
 
 
+class TestMcuCoupling(unittest.TestCase):
+	"""#76 Part 2 — the MCU → IP3R-relief gate: the helper's clamps/behaviour,
+	and the ODE's *application* of it (not just the algebra)."""
+
+	def test_ip3r_relief_factor_clamps_and_behaviour(self):
+		f = cs.ip3r_relief_factor
+		# WT (scale=1): full relief → factor 1, regardless of Ca²⁺ or gain.
+		self.assertEqual(f(0.5, 1.0, 1.0), 1.0)
+		# Over-expression (scale>1): clamped to 1 — cannot *raise* release.
+		# (Regression for the runPerturbation mcu ×4 sweep, which sets scale=4.)
+		self.assertEqual(f(0.5, 4.0, 1.0), 1.0)
+		# Resting (low Ca²⁺), KO: activation gate ≈ off → factor ≈ 1 (rest spared).
+		self.assertGreater(f(0.1, 0.0, 1.0), 0.97)
+		# Evoked (high Ca²⁺), KO: relief lost → factor < 1.
+		self.assertLess(f(0.5, 0.0, 1.0), 1.0)
+		# No misconfiguration can drive it negative (would reverse the flux).
+		self.assertGreaterEqual(f(0.5, 0.0, 100.0), 0.0)
+		# gain = 0 disables the coupling entirely → factor 1 even at full KO.
+		self.assertEqual(f(0.5, 0.0, 0.0), 1.0)
+
+	def test_coupling_cuts_ip3r_release_in_ode_and_is_inert_at_wt(self):
+		"""At a fixed evoked state, the gain toggle isolates the coupling: gain=1
+		(KO) cuts IP3R release vs gain=0; at WT (scale=1) the gate is inert."""
+		from reconstruction.platelet.simulation_data import SimulationDataPlatelet
+		sim_data = SimulationDataPlatelet()
+		all_ids = list(sim_data.internal_state.bulk_molecules.bulk_data['id'])
+		all_counts = sim_data.internal_state.bulk_molecules.initial_counts
+		names = list(cs.MOLECULE_NAMES)
+		y = np.zeros(cs.N_SPECIES)
+		for i, name in enumerate(names):
+			y[i] = float(all_counts[all_ids.index(name)])
+		# Evoked: high cyt Ca²⁺ and IP3 so the IP3R is actively releasing.
+		y[names.index('CA2_CYT[c]')] = round(0.5 / cs._UM_PER_COUNT_CYT)
+		y[names.index('IP3[c]')] = round(0.3 / cs._UM_PER_COUNT_CYT)
+		cyt, dts = names.index('CA2_CYT[c]'), names.index('CA2_DTS[dts]')
+
+		def dy(scale, gain):
+			cfg = RunConfig(mcu_vmax_scale=scale, mito_coupling_gain=gain)
+			return cs._ode_rhs(0.0, y, 5.0, cfg, {})
+
+		ko_on, ko_off = dy(0.0, 1.0), dy(0.0, 0.0)
+		self.assertLess(ko_on[cyt], ko_off[cyt],
+			'KO coupling should cut Ca²⁺ release into the cytosol.')
+		self.assertGreater(ko_on[dts], ko_off[dts],
+			'KO coupling should leave the store fuller (less depletion).')
+		wt_on, wt_off = dy(1.0, 1.0), dy(1.0, 0.0)
+		self.assertAlmostEqual(wt_on[cyt], wt_off[cyt], places=9,
+			msg='Coupling must be inert at wild type (scale=1).')
+
+
 if __name__ == '__main__':
 	unittest.main()

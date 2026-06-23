@@ -190,3 +190,31 @@ class TestDolanRecoveryPhase:
 		# autocrine amplifiers are removed.
 		assert dolan_eq[-1] < 120.0
 		assert dolan_eq[-1] < full[-1] - 80.0
+
+
+@pytest.mark.slow
+class TestMcuCouplingDirection:
+	"""#76 Part 2 — end-to-end regression guard for the MCU-knockout result.
+	These pin the ODE's *behaviour*; the listener factor tests only check the
+	formula, and the byte-identical goldens / Dolan 5/5 are wild-type-only
+	(factor ≡ 1 at WT, so they are blind to the coupling by construction)."""
+
+	def test_ko_reduces_transient_and_gain_toggle_flips_sign(self):
+		"""Coupling ON: MCU KO *reduces* the evoked cytosolic peak + AUC (the
+		headline). Coupling OFF (gain=0, bare buffer loss): KO *raises* it — the
+		discriminating signature a deleted/broken/inverted coupling would fail."""
+		wt = _cal(_run(300, agonist_delay_s=60.0, mcu_vmax_scale=1.0), 'ca_cyt_nM')
+		ko = _cal(_run(300, agonist_delay_s=60.0, mcu_vmax_scale=0.0), 'ca_cyt_nM')
+		ko_off = _cal(_run(300, agonist_delay_s=60.0, mcu_vmax_scale=0.0,
+			mito_coupling_gain=0.0), 'ca_cyt_nM')
+		assert ko.max() < wt.max()              # KO peak below WT
+		assert ko.max() < 0.92 * wt.max()       # ~18% lower (loose band)
+		assert ko.sum() < wt.sum()              # AUC lower (1 s steps)
+		assert ko_off.max() > wt.max()          # buffer-only raises KO (sign flip)
+
+	def test_ko_preserves_resting_cytosolic_ca(self):
+		"""The evoked-specific gate spares the resting state (measured ~5% drift)."""
+		rest = dict(thrombin_peak_nM=0.0, adp_peak_uM=0.0, atp_ex_peak_uM=0.0)
+		wt = _cal(_run(60, mcu_vmax_scale=1.0, **rest), 'ca_cyt_nM')
+		ko = _cal(_run(60, mcu_vmax_scale=0.0, **rest), 'ca_cyt_nM')
+		assert abs(ko[-1] - wt[-1]) < 0.12 * wt[-1]

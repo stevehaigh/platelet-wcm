@@ -108,11 +108,12 @@ class RunConfig:
 	"""Scale on MCU V_max (K_MITO['V_max_MCU']) — the runPerturbation mcu sweep."""
 
 	mito_coupling_gain: float = 1.0
-	"""#76 Part 2 — strength of the MCU → (SOCE + store-release) coupling. A lumped
-	matrix-Ca²⁺ support factor E gates both store-operated entry (bioenergetic arm)
-	and agonist-evoked IP3R release (mitochondria–DTS / MAM arm). 1.0 = full
-	coupling; 0.0 = decoupled (Part-1-only, energy-independent). MCU loss depletes
-	the matrix → E < 1 → both fall → cytosolic Ca²⁺ reduced (Ghatge/Ajanel)."""
+	"""#76 Part 2 — toggle/strength of the MCU → IP3R-relief coupling, via
+	`ip3r_relief_factor`. Scales the evoked relief of the IP3R's Ca²⁺-dependent
+	inactivation that MCU provides at mitochondria–DTS (MAM) contacts. 1.0 = full
+	coupling; 0.0 = decoupled (Part-1-only). MCU knockout (mcu_vmax_scale→0) → relief
+	lost → reduced agonist-evoked release → cytosolic Ca²⁺ reduced; the fuller store
+	then lowers SOCE indirectly (SOCE is NOT gated directly). Ghatge/Ajanel 2025."""
 
 	# ── Initial-count overrides (Tier 2 — expression knockouts) ───────────
 	count_overrides: Dict[str, int] = field(default_factory=dict)
