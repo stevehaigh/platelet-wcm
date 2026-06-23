@@ -24,8 +24,10 @@ Exp B — MCU buffers cytosolic Ca²⁺ without rescuing the DTS store
     Scan   : {0 (KO), 1 (baseline), 4 (over-expression)}
     Protocol: +Ca²⁺ (ca_ex = 1.2 mM), standard sustained agonist transient.
     Observable: peak/sustained cyt (MCU lowers it — buffering) and DTS depletion
-        (full in every case — MCU doesn't refill the store). MCU=0 reproduces
-        the elevated-cytosolic-Ca²⁺ phenotype of MCU⁻/⁻ platelets (Ghatge 2026).
+        (full in every case — MCU doesn't refill the store). NB MCU=0 *raises*
+        cyt in this buffer-only model, whereas real MCU⁻/⁻ platelets show
+        *reduced* agonist-evoked cyt Ca²⁺ (Ghatge 2026; Ajanel 2025) — the
+        model diverges; see issue #76.
 
 Exp C — PKC desensitises P2Y1, throttling the ADP arm (v0.6, issue #57)
     Knob   : K_P2Y1_DES['k_des']  (P2Y1 desensitisation rate; 0 = knockout)
