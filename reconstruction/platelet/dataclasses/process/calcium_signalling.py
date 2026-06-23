@@ -935,18 +935,22 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
-	# MCU coupling to release + SOCE (#76 Part 2): MCU uptake at MAM / ER–PM
-	# contacts clears the local Ca²⁺ microdomain, relieving the Ca²⁺-dependent
-	# INACTIVATION of IP3R and Orai1 → sustained release/SOCE. With no spatial
-	# microdomains here, the relief is lumped as ∝ *functional MCU capacity*
-	# (mcu_vmax_scale = uptake normalised to full capacity; the matrix LEVEL was
-	# tried first and is brittle — it depends on the matrix initial condition).
-	# factor = 1 − gain·strength·(1 − scale): WT (scale=1) → 1 → both fluxes
-	# unscaled → byte-identical/Dolan-safe; KO (scale=0) → 1−strength → reduced
-	# release + SOCE → cytosolic Ca²⁺ reduced across the whole transient (matches
-	# Ghatge 2026 / Ajanel 2025). gain (default 1) toggles the coupling off.
+	# MCU coupling (#76 Part 2): MCU uptake at the MAM (mitochondria–DTS contact)
+	# clears the local Ca²⁺ microdomain, relieving the IP3R's Ca²⁺-dependent
+	# inactivation → sustained store release. With no spatial microdomains here,
+	# the relief is lumped as ∝ functional MCU capacity (mcu_vmax_scale), and gated
+	# by an ACTIVATION function of Ca²⁺ (mito_act) so it engages only during the
+	# evoked transient (high Ca²⁺) — matching the biology (inactivation only bites
+	# at high Ca²⁺) and so preserving the resting state. WT (scale=1) → factor 1 →
+	# flux_ip3r unchanged → byte-identical / Dolan-safe. Knockout (scale=0) → evoked
+	# release cut → cytosolic Ca²⁺ reduced (peak + AUC); the fuller store then lowers
+	# SOCE indirectly, capturing both reductions Ghatge 2026 / Ajanel 2025 report.
+	# Magnitude is modest (~15 %): the lost MCU buffer in KO raises cyt and partly
+	# offsets the lost relief (competing effects). gain (default 1) toggles it off.
+	mito_act = (ca_cyt ** K_MITO_BIO['n_act']
+		/ (ca_cyt ** K_MITO_BIO['n_act'] + K_MITO_BIO['Ka_act'] ** K_MITO_BIO['n_act']))
 	mito_coupling_factor = (1.0 - config.mito_coupling_gain
-		* K_MITO_BIO['coupling_strength'] * (1.0 - config.mcu_vmax_scale))
+		* K_MITO_BIO['coupling_strength'] * (1.0 - config.mcu_vmax_scale) * mito_act)
 
 	# GPCR cascade state reads
 	p2y1_i = max(y[_IDX['P2Y1_inactive[pl]']], 0.0)
@@ -1050,7 +1054,7 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 		driving_v = V_IM_V - e_ca_im_v
 		flux_ip3r_ions_s = (
 			-GAMMA_IP3R_S * N_IP3R * po_channel * driving_v * NA_OVER_zF
-			* mito_coupling_factor          # #76 Part 2: MAM support of release
+			* mito_coupling_factor          # #76 Part 2: evoked-gated MAM relief
 		)
 	else:
 		flux_ip3r_ions_s = 0.0
@@ -1233,9 +1237,11 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 		driving_pm_v = V_PM_V - e_ca_pm_v
 		# Bioenergetic arm of the #76 Part 2 coupling: the same matrix-Ca²⁺
 		# support factor (computed above) scales store-operated entry.
+		# SOCE is NOT gated directly (#76 Part 2): the IP3R-release gate above
+		# leaves the KO store fuller, which lowers store-operated entry on its own
+		# (STIM/Orai see a less-depleted store) — so SOCE falls indirectly.
 		soce_ions_s = (
 			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
-			* mito_coupling_factor
 		)
 		dy[_IDX['CA2_CYT[c]']] += soce_ions_s
 

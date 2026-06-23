@@ -23,11 +23,12 @@ Exp B — MCU loss reduces the cytosolic transient (v0.7 #76 coupling)
     Knob   : K_MITO['V_max_MCU']  (baseline 50000 ions/s; 0 = knockout)
     Scan   : {0 (KO), 1 (baseline), 4 (over-expression)}
     Protocol: +Ca²⁺ (ca_ex = 1.2 mM), standard sustained agonist transient.
-    Observable: peak/sustained cyt. With the v0.7 #76 coupling (matrix-Ca²⁺ support
-        of IP3R store release + SOCE), MCU=0 depletes the matrix → less release and
-        SOCE → cyt REDUCED (KO ~480 vs WT ~530 nM) and the KO store releases less,
-        matching Ghatge 2026 / Ajanel 2025. Set RunConfig.mito_coupling_gain=0 to
-        recover the old buffer-only behaviour (KO *raises* cyt). See issue #76.
+    Observable: peak/sustained cyt. With the v0.7 #76 coupling (MCU relief of
+        IP3R inactivation, evoked-gated), MCU=0 reduces agonist-evoked release →
+        cyt REDUCED (KO peak ~435 vs WT ~530 nM, -18%); the fuller store also lowers
+        SOCE, matching Ghatge 2026 / Ajanel 2025. Modest magnitude (~15%): the lost
+        MCU buffer partly offsets the lost relief. Set RunConfig.mito_coupling_gain=0
+        to recover the old buffer-only behaviour (KO *raises* cyt). See issue #76.
 
 Exp C — PKC desensitises P2Y1, throttling the ADP arm (v0.6, issue #57)
     Knob   : K_P2Y1_DES['k_des']  (P2Y1 desensitisation rate; 0 = knockout)

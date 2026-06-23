@@ -31,8 +31,9 @@ Columns written:
   mcu_uptake_per_s  — MCU uptake flux into the matrix this step (ions/s),
                       recomputed from the ODE's Hill kinetics so the otherwise
                       unobserved mitochondrial module is auditable (issue #76)
-  mito_coupling_factor — #76 Part 2 matrix-Ca²⁺ support factor (0–1) gating SOCE
-                      and IP3R store release; 1.0 on the wild type, < 1 on MCU loss
+  mito_coupling_factor — #76 Part 2 evoked IP3R-release gate factor (0–1) =
+                      ∝ MCU capacity × Ca²⁺-activation; 1.0 in WT, < 1 during the
+                      KO transient (SOCE is not gated by it — it falls indirectly)
 """
 
 import numpy as np
@@ -207,13 +208,17 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.mcu_uptake_per_s = float(
 			K_MITO['V_max_MCU'] * self._mcu_vmax_scale
 			* ca_n / (km_n + ca_n) * mito_fill)
-		# #76 Part 2 — MCU-capacity support factor that gates the SOCE recompute
-		# below (and, in the ODE, IP3R store release). ∝ functional MCU capacity
-		# (mcu_vmax_scale); 1.0 on the wild type → soce_flux_nMs unchanged →
-		# goldens byte-identical; 1−strength on knockout.
+		# #76 Part 2 — the evoked IP3R-release gate factor applied in the ODE
+		# (∝ functional MCU capacity, gated by an activation function of Ca²⁺).
+		# 1.0 on the wild type; < 1 during the KO transient. Recorded for audit;
+		# SOCE is NOT gated by it (SOCE falls indirectly via the fuller store).
+		mito_act = (ca_cyt_uM ** K_MITO_BIO['n_act']
+			/ (ca_cyt_uM ** K_MITO_BIO['n_act']
+				+ K_MITO_BIO['Ka_act'] ** K_MITO_BIO['n_act']))
 		self.mito_coupling_factor = float(
 			1.0 - self._mito_coupling_gain
-			* K_MITO_BIO['coupling_strength'] * (1.0 - self._mcu_vmax_scale))
+			* K_MITO_BIO['coupling_strength'] * (1.0 - self._mcu_vmax_scale)
+			* mito_act)
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.
@@ -270,8 +275,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			driving_pm_v = V_PM_V - e_ca_pm_v
 			soce_ions_s = (
 				-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
-				* self.mito_coupling_factor          # #76 Part 2 bioenergetic arm
-			)
+			)  # #76 Part 2: SOCE not gated directly — falls via the fuller store
 		else:
 			soce_ions_s = 0.0
 		# Convert ions/s in cytosol → nM/s (cyt volume).

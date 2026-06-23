@@ -63,21 +63,32 @@ Ca²⁺ falls, as observed.
 
 ## What happens in the model
 
-With the v0.7 coupling, removing MCU now **lowers** the sustained cytosolic Ca²⁺
-(WT ~530 → KO ~480 nM; @fig-mcu), and the DTS store **releases less** (the KO
-store stays at ~70 µM where the wild type empties to ~2 µM) — the reduced
-agonist-evoked-release phenotype. The matrix depletes without MCU, so the support
-factor falls and both store release and SOCE are throttled. Integrin output is
-essentially unchanged (PAC-1⁺ ~0.82 either way; the readout is saturated under
-this strong agonist).
+With the v0.7 coupling, removing MCU **lowers** the cytosolic Ca²⁺ transient — peak
+~530 → ~435 nM (−18 %) and integrated response −14 % (@fig-mcu) — while the
+**resting level is preserved** (~120 nM either way). The DTS store **releases less**
+(the KO store stays ~20 µM where the wild type empties to ~1 µM), and store-operated
+entry falls with it (SOCE peak ~31 → ~6 nM/s). So the model reproduces all three
+directions the data report — reduced cytosolic Ca²⁺, reduced store release, reduced
+SOCE. Integrin output edges down (PAC-1⁺ 0.826 → 0.796), downstream of the smaller
+signal.
 
-This reverses the *buffer-only* prediction: set `mito_coupling_gain = 0` (decouple
-Part 2) and the model reverts to the old behaviour — MCU loss *raises* cytosolic
-Ca²⁺ (~+14 % with the #76 Part 1 capacity bound in place; ~+40 % before it). The
-coupling is what flips the sign, and the flip is **release-driven** (gating SOCE
-alone is too weak — the extrusion pumps compensate as cytosolic Ca²⁺ falls).
+**Mechanism.** MCU uptake at mitochondria–DTS (MAM) contacts relieves the IP3R's
+Ca²⁺-dependent *inactivation*; on knockout that relief is lost, the IP3R inactivates
+sooner, and **agonist-evoked release falls**. The relief is gated by an activation
+function of Ca²⁺, so it engages only during the transient — leaving the resting
+state untouched. The reduced release then leaves the store fuller, which lowers SOCE
+*indirectly* (one gate, both reductions). WT is unchanged (the gate is 1 at full
+MCU), so Dolan 5/5 is preserved and the goldens stay byte-identical.
 
-![**MCU knockout (current, coloured) vs wild-type baseline (grey) — v0.7 model with the #76 coupling.** Left: removing mitochondrial Ca²⁺ uptake now *lowers* the sustained cytosolic Ca²⁺ (KO ~480 vs WT ~530 nM) — the curve sits *below* the grey baseline, matching the platelet MCU-knockout data. Centre: the KO DTS store releases less and stays fuller (it does not empty to the wild-type ~2 µM) — the reduced-release phenotype; store-operated entry is also throttled. Right: IP₃ is essentially unchanged (the perturbation is downstream of IP₃). Reproduce the old buffer-only divergence (KO *above* WT) with `mito_coupling_gain = 0`. The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
+**Honest caveat — the magnitude is modest (~15 %), and that is itself the result.**
+Two effects compete on knockout: losing the IP3R relief *lowers* cytosolic Ca²⁺,
+but losing the mitochondrial *buffer* (Part 1) *raises* it. The net is a clear but
+moderate reduction — the single-cell balance of buffer-versus-relief, reported
+honestly rather than tuned to the larger drop the papers' figures imply. Decouple
+Part 2 (`mito_coupling_gain = 0`) and only the buffer remains, so MCU loss *raises*
+cyt again (~+14 %) — the original buffer-only divergence.
+
+![**MCU knockout (current, coloured) vs wild-type baseline (grey) — v0.7 model with the #76 coupling.** Left: removing mitochondrial Ca²⁺ uptake *lowers* the cytosolic transient (KO peak ~435 vs WT ~530 nM, −18 %) — the curve sits *below* the grey baseline, matching the platelet MCU-knockout data — while resting Ca²⁺ is preserved. Centre: the KO DTS store releases less and stays fuller (it does not empty to the wild-type ~1 µM) — the reduced-release phenotype; store-operated entry falls with it. Right: IP₃ is essentially unchanged (the perturbation acts on IP3R inactivation, downstream of IP₃). The reduction is modest (~15 %) because losing the mitochondrial buffer partly offsets the lost relief; reproduce the old buffer-only divergence (KO *above* WT) with `mito_coupling_gain = 0`. The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
 
 ## What happens in real platelets
 
@@ -123,15 +134,18 @@ unambiguous and consistent across both studies.)
 - **Direction now matches.** With the v0.7 coupling, MCU loss *lowers* cytosolic
   Ca²⁺ and reduces agonist-evoked store release — the direction both studies
   report. The buffer-only model got the sign wrong; the coupling fixes it.
-- **What the coupling represents.** A lumped matrix-Ca²⁺ support factor gating
-  IP3R release (mitochondria–DTS / MAM arm) and SOCE (bioenergetic arm) — the two
-  reductions *both* papers observe (reduced agonist-evoked release; reduced SOCE).
-  The store-release arm provides the flip; SOCE alone is too weak (the extrusion
-  pumps compensate).
-- **Matched, not predicted.** This is honest model-building, not an independent
-  prediction: we added the biology the papers point to and it reproduces their
-  direction. The magnitude is a calibration choice (`E_ref` ≈ resting matrix);
-  the papers report only directional/AUC data, so there is no magnitude to fit.
+- **What the coupling represents.** MCU uptake at mitochondria–DTS (MAM) contacts
+  relieving the IP3R's Ca²⁺-dependent *inactivation* — modelled as an evoked-gated
+  reduction of IP3R release scaling with functional MCU. Gating release *alone*
+  captures *both* reductions the papers report: less release leaves the store
+  fuller, which lowers SOCE indirectly. (Gating SOCE directly instead is too weak —
+  the extrusion pumps compensate — and it tanks the resting state.)
+- **Matched, not predicted, and modest.** This is honest model-building: we added
+  the biology the papers point to and it reproduces their direction. The magnitude
+  (~15 %) is calibrated, not fitted to a number (the papers report only
+  directional/AUC data) — and it is *deliberately* moderate, because in this
+  single-cell model losing the mitochondrial buffer partly offsets the lost relief
+  (two competing effects). We report that balance rather than forcing a larger drop.
 - **Still partial.** The model captures the cytosolic-Ca²⁺/release direction, not
   the full mechanism — mitochondrial **ROS → Syk/PLCγ2 (ITAM)** signalling and the
   GPVI pathway Ajanel emphasises remain out of single-cell GPCR scope. And the
@@ -149,13 +163,15 @@ experiment**. A buffer-only MCU made a clear, mechanistically transparent
 prediction; confronted with data it was wrong in *direction* (two MCU-knockout
 studies — Ghatge 2026, Ajanel 2025 — both find cytosolic Ca²⁺ *reduced*); that
 diagnostic divergence localised the missing biology (MCU's *support* of
-agonist-evoked release and store-operated entry); and adding exactly that — the
-#76 Part 1 capacity bound plus the Part 2 matrix-Ca²⁺ support coupling —
-**resolved it**, so the model now reproduces the published direction. The honest
-caveats (matched by adding the right biology rather than predicted; release-driven;
-ROS/ITAM still absent; the store-content disagreement unsettled) are recorded
-above. That arc — predict → confront → diagnose → extend → reproduce — is what a
-mechanistic model is *for*. Tracked as GitHub issue #76.
+agonist-evoked release, via relief of IP3R inactivation at the MAM); and adding
+exactly that — the #76 Part 1 capacity bound plus the Part 2 evoked IP3R-relief
+coupling — **turned the sign around**, so the model now reproduces the published
+direction (reduced cytosolic Ca²⁺, release and SOCE). The honest caveats (matched
+by adding the right biology rather than predicted; a *modest* ~15 % drop because
+the lost buffer partly offsets the lost relief; ROS/ITAM still absent; the
+store-content disagreement unsettled) are recorded above. That arc — predict →
+confront → diagnose → extend → reproduce — is what a mechanistic model is *for*.
+Tracked as GitHub issue #76.
 
 ## Provenance
 

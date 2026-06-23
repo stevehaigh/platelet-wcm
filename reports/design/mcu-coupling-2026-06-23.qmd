@@ -41,18 +41,21 @@ This doc designs both, in two parts:
 - **Part 2 — bioenergetic MCU → SOCE coupling (designed; future work).** The
   source-coupling that would flip the knockout sign, via an ATP intermediate.
 
-> **Status (2026-06-23): both parts now implemented.** Part 1 (capacity bound)
-> and Part 2 (matrix-Ca²⁺ support coupling) are merged. **Key empirical finding
-> during Part 2:** the bioenergetic **SOCE-only** route — the one originally
-> chosen here — turned out to be *too weak to flip the sign* (it pulls KO cyt
-> 602→585 nM, not below WT 530), because the model's MCU buffer effect dominates
-> and SOCE-gating is compensated by PMCA. The lever with enough authority is
-> gating **agonist-evoked store release (IP3R)** — the mitochondria–DTS / MAM arm
-> — which *both* papers actually observe (reduced release). Per the user's call,
-> Part 2 ships **both** arms (one matrix-Ca²⁺ support factor gating SOCE *and*
-> IP3R release), with the **release arm providing the flip**: KO cyt now ~480 <
-> WT ~530, matching the data. WT is byte-identical (factor ≡ 1 at normal matrix
-> load → Dolan 5/5 untouched). See the updated Part 2 section and `3-mcu-knockout.qmd`.
+> **Status (2026-06-23): both parts implemented.** Part 1 = the matrix capacity
+> bound. Part 2 = an **evoked, activation-gated relief of IP3R inactivation**,
+> scaling with functional MCU. **The route took three tries — recorded honestly:**
+> (1) gating on the matrix *level* is brittle (depends on the matrix initial
+> condition); (2) gating the fluxes by *capacity* flips nothing if it includes SOCE
+> (PMCA compensates) and **tanks the resting state** (gating resting SOCE/leak);
+> (3) the working form gates **only IP3R release**, by functional MCU capacity ×
+> an **activation function of Ca²⁺** (`factor = 1 − gain·strength·(1−scale)·act`,
+> `act = ca^n/(ca^n+Ka^n)`). That is evoked-specific (engages only at high Ca²⁺,
+> so rest is spared and WT is byte-identical → Dolan 5/5 untouched), and the
+> fuller KO store lowers **SOCE indirectly** — so one gate yields the reduced
+> release *and* reduced SOCE both papers report. **Result:** KO peak ~530→435
+> (−18 %), AUC −14 %, SOCE 31→6 nM/s, rest preserved. **Honest:** the magnitude
+> is modest because losing the MCU buffer partly offsets the lost relief (competing
+> effects) — reported, not tuned away. See the Part 2 section and `3-mcu-knockout.qmd`.
 
 ## What the data actually constrain
 
@@ -109,14 +112,15 @@ matrix plateauing near `C_max` rather than growing; (iii) Dolan 5/5 preserved.
 
 ## Part 2 — MCU coupling to store release + SOCE (IMPLEMENTED)
 
-> **As shipped:** a single matrix-Ca²⁺ support factor `E = min(1, ca_mito/E_ref)`
-> (`E_ref` ≈ resting matrix, `[mito.bioenergetic]`) gates **both** the IP3R
-> store-release flux (MAM arm) and the SOCE flux (bioenergetic arm), via
-> `RunConfig.mito_coupling_gain` (1 = full, 0 = decoupled). The original
-> SOCE-only design below is retained for the record; the **release (MAM) arm was
-> added because SOCE-gating alone could not flip the sign** (it is compensated by
-> PMCA). The text below describes the bioenergetic arm; the MAM arm is the same
-> factor applied to `flux_ip3r_ions_s`.
+> **As shipped:** the IP3R store-release flux (`flux_ip3r_ions_s`) is scaled by
+> `factor = 1 − gain·strength·(1 − mcu_vmax_scale)·act`, with `act = ca^n/(ca^n +
+> Ka^n)` an activation function of cytosolic Ca²⁺ (`[mito.bioenergetic]`:
+> `coupling_strength` 0.95, `Ka_act` 0.25 µM, `n_act` 4) and `gain =
+> RunConfig.mito_coupling_gain` (1 = full, 0 = decoupled). `act` makes the relief
+> *evoked-specific* (≈0 at rest, ≈1 during the transient), so resting Ca²⁺ and the
+> wild type are untouched. **SOCE is not gated** — it falls indirectly because the
+> KO store stays fuller. The original bioenergetic-SOCE design below is retained
+> for the record (it was too weak; see the status note above).
 
 ### Mechanism (the originally chosen route — bioenergetic SOCE)
 
@@ -207,11 +211,15 @@ response is unchanged**; only knockout/perturbation moves `E`.
 
 1. **Part 1:** `C_max` target → **`100000` ions** (calibration choice; preserves
    Dolan, plateaus the matrix ~9e4). Matrix buffer (Option 2) not added.
-2. **Part 2:** what does `E` gate? → **IP3R store release *and* SOCE**, *not* the
-   efflux pumps (SERCA/PMCA). The release arm is sign-determining (SOCE-only was
-   too weak); efflux pumps stay ungated (gating them would oppose the sign).
-3. **Part 2:** explicit ATP vs lumped factor → **lumped `E(ca_mito)`** (one
-   support factor); explicit glycolysis/OXPHOS deferred.
+2. **Part 2:** what is gated? → **IP3R store release only** (efflux pumps and SOCE
+   left ungated; SOCE falls indirectly via the fuller store). SOCE-only gating was
+   too weak (PMCA compensates) and tanked rest; gating an efflux opposes the sign.
+3. **Part 2:** how is the relief keyed? → **functional MCU capacity
+   (`mcu_vmax_scale`) × an activation function of Ca²⁺** — *not* the matrix level
+   (brittle to the initial condition). The activation function makes it
+   evoked-specific so rest is preserved. Explicit ATP/glycolysis deferred.
+4. **Part 2:** magnitude → **modest (~15 %) by design** — the lost MCU buffer
+   partly offsets the lost relief; reported honestly rather than forced larger.
 
 ## Still open (future)
 

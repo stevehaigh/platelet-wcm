@@ -256,7 +256,7 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 		orai_count = 400
 		counts = [ca_cyt_count, ca_dts_count, ip3_count,
 			stim1_count, orai_count] + [0] * (_NUM_SPECIES - 5)
-		counts[25] = 1_000  # ca_mito ≥ E_ref → #76 Part 2 coupling factor = 1 (WT)
+		# #76 Part 2 does not gate SOCE, so the chain below is the full ungated SOCE.
 
 		lst = _make_listener(counts, ca_ex_uM=ca_ex_uM)
 		lst.update()
@@ -278,19 +278,34 @@ class TestCalciumTraceSoceFlux(unittest.TestCase):
 
 		self.assertAlmostEqual(lst.soce_flux_nMs, expected_nMs, places=8)
 
-	def test_soce_reduced_when_matrix_depleted(self):
-		"""#76 Part 2: a depleted matrix (ca_mito < E_ref) scales SOCE down."""
-		ca_ex_uM = 1200.0
-		base = [361, 38_800, 180, 200, 400] + [0] * (_NUM_SPECIES - 5)
-		full = list(base); full[25] = 1_000                        # WT → factor 1
-		dep = list(base); dep[25] = round(K_MITO_BIO['E_ref'] / 2)  # → factor 0.5
-		lst_full = _make_listener(full, ca_ex_uM=ca_ex_uM); lst_full.update()
-		lst_dep = _make_listener(dep, ca_ex_uM=ca_ex_uM); lst_dep.update()
-		self.assertAlmostEqual(lst_full.mito_coupling_factor, 1.0, places=9)
-		self.assertAlmostEqual(lst_dep.mito_coupling_factor, 0.5, places=6)
-		# Halved support factor → halved SOCE influx.
+	def test_coupling_factor_one_in_wt_reduced_in_ko_at_high_ca(self):
+		"""#76 Part 2: IP3R-gate factor = 1 in WT; < 1 in KO at evoked (high) Ca²⁺."""
+		counts = [round(0.5 / _UM_PER_COUNT_CYT)] + [0] * (_NUM_SPECIES - 1)  # ~0.5 µM
+		lst_wt = _make_listener(counts); lst_wt.update()
+		self.assertAlmostEqual(lst_wt.mito_coupling_factor, 1.0, places=9)
+		lst_ko = _make_listener(counts); lst_ko._mcu_vmax_scale = 0.0; lst_ko.update()
+		ca = counts[0] * _UM_PER_COUNT_CYT
+		n, ka = K_MITO_BIO['n_act'], K_MITO_BIO['Ka_act']
+		act = ca ** n / (ca ** n + ka ** n)
 		self.assertAlmostEqual(
-			lst_dep.soce_flux_nMs, 0.5 * lst_full.soce_flux_nMs, places=8)
+			lst_ko.mito_coupling_factor,
+			1.0 - K_MITO_BIO['coupling_strength'] * act, places=6)
+		self.assertLess(lst_ko.mito_coupling_factor, 1.0)
+
+	def test_coupling_factor_near_one_at_rest_even_in_ko(self):
+		"""Evoked-specific: at resting Ca²⁺ the gate is ~1 even in KO (rest spared)."""
+		counts = [361] + [0] * (_NUM_SPECIES - 1)   # ca_cyt ≈ 100 nM (rest)
+		lst = _make_listener(counts); lst._mcu_vmax_scale = 0.0; lst.update()
+		self.assertGreater(lst.mito_coupling_factor, 0.97)
+
+	def test_soce_recompute_not_gated_by_coupling(self):
+		"""#76 Part 2: SOCE is NOT gated by the factor (it falls indirectly)."""
+		counts = [round(0.5 / _UM_PER_COUNT_CYT), 38_800, 180, 200, 400] \
+			+ [0] * (_NUM_SPECIES - 5)
+		wt = _make_listener(counts, ca_ex_uM=1200.0); wt.update()
+		ko = _make_listener(counts, ca_ex_uM=1200.0); ko._mcu_vmax_scale = 0.0; ko.update()
+		# Same Ca²⁺/STIM/Orai inputs ⇒ identical recomputed SOCE despite KO.
+		self.assertAlmostEqual(ko.soce_flux_nMs, wt.soce_flux_nMs, places=8)
 
 	def test_soce_flux_non_negative_at_resting_state(self):
 		"""At resting cyt with extracellular > intracellular, SOCE ≥ 0."""
