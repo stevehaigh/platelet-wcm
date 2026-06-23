@@ -533,6 +533,7 @@ V_max_MCU = 50000.0  # ions/s — total over all mitochondria; calibrated
 K_MCU     = 1.0      # Hill half-saturation (µM)         literature 0.5–10
 n_MCU     = 4        # Hill cooperativity (int)          literature 2–4
 k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
+C_max     = 100000.0 # matrix Ca²⁺ capacity (ions); uptake back-pressure (#76 Part 1)
 
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────

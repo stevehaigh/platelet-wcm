@@ -63,16 +63,22 @@ the comparison exposes.
 
 ## What happens in the model
 
-Removing MCU **raises** the cytosolic Ca²⁺ peak from **429 nM to 602 nM (+40 %)**
-and the sustained plateau likewise (423 → 600 nM) (@fig-mcu); the DTS store still
-empties to ~1 µM in both cases. This is exactly the buffer expectation — with no
-mitochondrial sink, more of the released Ca²⁺ stays free in the cytosol. The
-slightly higher integrin activation (PAC-1⁺ 0.796 → 0.842) and thromboxane that
-follow are simply downstream of the larger Ca²⁺ signal. The result is a direct,
-self-consistent consequence of the model's MCU-as-buffer assumption — not an
-independent or emergent prediction.
+Removing MCU **raises** the cytosolic Ca²⁺ peak/plateau from **530 nM (wild type)
+to 602 nM (+14 %)** (@fig-mcu); the DTS store empties to ~0.9–1.1 µM in both
+cases. This is exactly the buffer expectation — with no mitochondrial sink, more
+of the released Ca²⁺ stays free in the cytosol. The slightly higher integrin
+activation (PAC-1⁺ 0.826 → 0.842) and thromboxane that follow are simply
+downstream of the larger Ca²⁺ signal. The result is a direct, self-consistent
+consequence of the model's MCU-as-buffer assumption — not an independent or
+emergent prediction.
 
-![**Model prediction — cytosolic Ca²⁺ with MCU knocked out (current) vs the baseline (grey).** Left: in the model, removing mitochondrial Ca²⁺ uptake raises the cytosolic peak/plateau by ~40 % (429 → 602 nM) — the curve sits *above* the grey wild-type baseline. Centre: the DTS store empties to ~1 µM in both runs (grey and current overlap at the bottom), so the mitochondria redistribute Ca²⁺ away from the cytosol rather than returning it to the store; store-operated entry (right axis) is similar. Right: IP₃ is essentially unchanged (the perturbation is downstream of IP₃). This is the model's prediction; the *Comparison* section below shows it runs opposite to the platelet MCU-knockout literature. The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
+(These figures reflect the **#76 Part 1** matrix-capacity bound. The knockout
+margin was a larger ~+40 % beforehand, when the mitochondrial sink was unbounded;
+capping the buffer at a physiological capacity lets the wild-type plateau rise as
+the buffer saturates, so the margin is now more modest. The *direction* — and the
+divergence from the data below — is unchanged.)
+
+![**Model prediction — cytosolic Ca²⁺ with MCU knocked out (current) vs the baseline (grey).** Left: in the model, removing mitochondrial Ca²⁺ uptake raises the cytosolic peak/plateau by ~14 % (530 → 602 nM) — the curve sits *above* the grey wild-type baseline. Centre: the DTS store empties to ~0.9–1.1 µM in both runs (grey and current overlap near the bottom), so the mitochondria redistribute Ca²⁺ away from the cytosol rather than returning it to the store; store-operated entry (right axis) is similar. Right: IP₃ is essentially unchanged (the perturbation is downstream of IP₃). This is the model's prediction; the *Comparison* section below shows it runs opposite to the platelet MCU-knockout literature. The baseline's duration is shown in its legend label.](../figures/demos/mcu_calcium.png){#fig-mcu width=100%}
 
 ## What happens in real platelets
 
@@ -169,8 +175,9 @@ figure by `runscripts/manual/analysisPlatelet.py --plot demo_calcium` (figure
 module `models/platelet/analysis/single/demo_calcium.py`, reading the
 `CalciumTrace` listener; the grey baseline overlay is supplied through the
 `PLATELET_BASELINE_SIMOUT` environment variable). Both runs used **seed 0** for
-**300 s** on Python 3.11.5, at git commit **`9724cc81`** — the exact commit is
-also stamped in the figure footnote and in each run's `metadata/metadata.json`.
+**300 s** on Python 3.11.5. The figure and numbers were **regenerated for issue
+#76 Part 1** (the mitochondrial-matrix capacity bound); the exact commit is
+stamped in the figure footnote and in each run's `metadata/metadata.json`.
 
 ## Appendix — reproduce {#appendix}
 

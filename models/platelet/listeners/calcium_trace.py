@@ -195,8 +195,11 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.ca_mito_count = int(counts[self._idx_ca_mito])
 		ca_n = ca_cyt_uM ** K_MITO['n_MCU']
 		km_n = K_MITO['K_MCU'] ** K_MITO['n_MCU']
+		# Capacity back-pressure factor, matching the ODE (#76 Part 1).
+		mito_fill = max(0.0, 1.0 - self.ca_mito_count / K_MITO['C_max'])
 		self.mcu_uptake_per_s = float(
-			K_MITO['V_max_MCU'] * self._mcu_vmax_scale * ca_n / (km_n + ca_n))
+			K_MITO['V_max_MCU'] * self._mcu_vmax_scale
+			* ca_n / (km_n + ca_n) * mito_fill)
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.
