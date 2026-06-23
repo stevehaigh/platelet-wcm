@@ -1425,7 +1425,17 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	# NCLX efflux: linear in mito Ca²⁺ (slow release).
 	cyt_n = ca_cyt ** K_MITO['n_MCU']
 	km_n  = K_MITO['K_MCU'] ** K_MITO['n_MCU']
-	v_mcu  = K_MITO['V_max_MCU'] * config.mcu_vmax_scale * cyt_n / (km_n + cyt_n)
+	# Capacity back-pressure (#76 Part 1): MCU uptake falls to zero as the matrix
+	# approaches C_max, so the pool saturates instead of accumulating without
+	# bound (the buffer-only model otherwise runs the matrix away under a
+	# sustained agonist). Resting load is a small fraction of C_max, so the
+	# resting fixed point and the 30-s Dolan window are essentially unchanged;
+	# the bound bites on the long sustained runs, where the cytosolic buffer
+	# realistically saturates. Quantitative effects + calibration of C_max:
+	# reports/design/mcu-coupling-2026-06-23.qmd, reports/experiments/3-mcu-knockout.qmd.
+	mito_fill = max(0.0, 1.0 - ca_mito_count / K_MITO['C_max'])
+	v_mcu  = (K_MITO['V_max_MCU'] * config.mcu_vmax_scale
+		* cyt_n / (km_n + cyt_n) * mito_fill)
 	v_nclx = K_MITO['k_NCLX'] * ca_mito_count
 	dy[_IDX['CA2_CYT[c]']]  += -v_mcu + v_nclx
 	dy[_IDX['CA2_MITO[m]']] += +v_mcu - v_nclx

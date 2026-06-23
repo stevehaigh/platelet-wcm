@@ -191,18 +191,30 @@ class TestCalciumTraceMitoModule(unittest.TestCase):
 		self.assertEqual(lst.ca_mito_count, 1_234)
 		self.assertIsInstance(lst.ca_mito_count, int)
 
-	def test_mcu_uptake_matches_ode_hill_kinetics(self):
-		"""mcu_uptake_per_s re-derives the ODE's Hill flux; catches drift."""
-		# ca_cyt set to ~K_MCU → half-saturation of the n=4 Hill term.
+	def test_mcu_uptake_matches_ode_hill_kinetics_with_backpressure(self):
+		"""mcu_uptake_per_s re-derives the ODE Hill flux × capacity back-pressure."""
+		# ca_cyt ~ K_MCU (half-saturation of the n=4 Hill term); matrix half-full,
+		# so the #76 Part 1 back-pressure factor (1 − ca_mito/C_max) = 0.5.
 		counts = [0] * _NUM_SPECIES
 		counts[0] = round(K_MITO['K_MCU'] / _UM_PER_COUNT_CYT)
+		counts[25] = round(K_MITO['C_max'] / 2)
 		lst = _make_listener(counts)
 		lst.update()
 		ca_uM = counts[0] * _UM_PER_COUNT_CYT
 		ca_n = ca_uM ** K_MITO['n_MCU']
 		km_n = K_MITO['K_MCU'] ** K_MITO['n_MCU']
-		expected = K_MITO['V_max_MCU'] * 1.0 * ca_n / (km_n + ca_n)
+		mito_fill = 1.0 - counts[25] / K_MITO['C_max']      # = 0.5
+		expected = K_MITO['V_max_MCU'] * 1.0 * ca_n / (km_n + ca_n) * mito_fill
 		self.assertAlmostEqual(lst.mcu_uptake_per_s, expected, places=4)
+
+	def test_mcu_uptake_zero_at_capacity(self):
+		"""Back-pressure: uptake is zero once the matrix reaches C_max (#76 Part 1)."""
+		counts = [0] * _NUM_SPECIES
+		counts[0] = 3_613                       # ca_cyt ≈ 1 µM (would drive uptake)
+		counts[25] = round(K_MITO['C_max'])     # matrix at capacity → fill = 0
+		lst = _make_listener(counts)
+		lst.update()
+		self.assertEqual(lst.mcu_uptake_per_s, 0.0)
 
 	def test_mcu_uptake_zero_when_knocked_out(self):
 		"""mcu_vmax_scale = 0 (KO) zeroes the recomputed uptake flux."""
