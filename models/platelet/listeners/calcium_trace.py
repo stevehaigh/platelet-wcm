@@ -26,6 +26,11 @@ Columns written:
                       desensitised state (0–1; v0.6 feedback)
   plcb_phosphorylated_frac — fraction of the PLCβ pool phosphorylated out of the
                       Gq-activatable pool by PKC (0–1; v0.6 Slice 3, Purvis route)
+  ca_mito_count     — mitochondrial matrix Ca²⁺ (raw count; mito volume is not
+                      tracked separately, so this is ions, not a concentration)
+  mcu_uptake_per_s  — MCU uptake flux into the matrix this step (ions/s),
+                      recomputed from the ODE's Hill kinetics so the otherwise
+                      unobserved mitochondrial module is auditable (issue #76)
 """
 
 import numpy as np
@@ -42,6 +47,7 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_mwc_open_fraction,
 	pka_active_frac,
 	GAMMA_SOC_S,
+	K_MITO,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
 	PUNCTA,
@@ -70,6 +76,9 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		# Ca²⁺ for the SOCE trace, and the live-CSV toggle.
 		self._config = sim.run_config
 		self._ca_ex_uM = self._config.ca_ex_mM * 1000.0
+		# MCU knockout scale (1.0 intact, 0.0 KO); copied out like _ca_ex_uM so
+		# the uptake-flux recompute below stays unit-testable without a config.
+		self._mcu_vmax_scale = self._config.mcu_vmax_scale
 
 		self._bulk_molecules = (
 			sim.internal_states['BulkMolecules'].container)
@@ -95,6 +104,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self._idx_pmca_cam       = all_ids.index('PMCA_CaM[pl]')
 		self._idx_pmca_free      = all_ids.index('PMCA[pl]')
 		self._idx_pmca_ca        = all_ids.index('PMCA_Ca[pl]')
+		# Mitochondrial matrix Ca²⁺ (issue #76 observability).
+		self._idx_ca_mito        = all_ids.index('CA2_MITO[m]')
 		# PKC negative-feedback states (v0.6).
 		self._idx_pkc_active     = all_ids.index('PKC_active[c]')
 		self._idx_p2y1_inactive  = all_ids.index('P2Y1_inactive[pl]')
@@ -125,6 +136,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_cam         = 0
 		self.pmca_free        = 0
 		self.pmca_ca          = 0
+		self.ca_mito_count    = 0
+		self.mcu_uptake_per_s = 0.0
 		self.atp_pump_per_s   = 0.0
 		self.pkc_active             = 0
 		self.p2y1_desensitised_frac = 0.0
@@ -136,6 +149,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 
 		self.registerLoggedQuantity('Ca²⁺_cyt\n(nM)',   'ca_cyt_nM',     '.1f')
 		self.registerLoggedQuantity('Ca²⁺_dts\n(µM)',   'ca_dts_uM',     '.1f')
+		self.registerLoggedQuantity('Ca²⁺_mito\n(count)', 'ca_mito_count', '.0f')
 		self.registerLoggedQuantity('IP₃\n(nM)',         'ip3_nM',        '.1f')
 		self.registerLoggedQuantity('SOCE\n(nM/s)',      'soce_flux_nMs', '.2f')
 		self.registerLoggedQuantity('ATP pump\n(ions/s)', 'atp_pump_per_s', '.0f')
@@ -174,6 +188,15 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_cam        = int(counts[self._idx_pmca_cam])
 		self.pmca_free       = int(counts[self._idx_pmca_free])
 		self.pmca_ca         = int(counts[self._idx_pmca_ca])
+
+		# Mitochondrial matrix Ca²⁺ pool (raw count — mito volume isn't tracked
+		# separately) and the MCU uptake flux (ions/s), recomputed from the same
+		# Hill kinetics the ODE applies, so the mito module is auditable (#76).
+		self.ca_mito_count = int(counts[self._idx_ca_mito])
+		ca_n = ca_cyt_uM ** K_MITO['n_MCU']
+		km_n = K_MITO['K_MCU'] ** K_MITO['n_MCU']
+		self.mcu_uptake_per_s = float(
+			K_MITO['V_max_MCU'] * self._mcu_vmax_scale * ca_n / (km_n + ca_n))
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.
@@ -238,7 +261,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 
 	def tableCreate(self, tableWriter):
 		tableWriter.writeAttributes(
-			concentration_units='nM for ca_cyt and ip3; µM for ca_dts; nM/s for soce_flux',
+			concentration_units='nM for ca_cyt and ip3; µM for ca_dts; nM/s for soce_flux; count for ca_mito; ions/s for mcu_uptake',
 			validation_target='Dolan & Diamond 2014 Fig. 4',
 		)
 
@@ -259,6 +282,8 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pmca_cam=self.pmca_cam,
 			pmca_free=self.pmca_free,
 			pmca_ca=self.pmca_ca,
+			ca_mito_count=self.ca_mito_count,
+			mcu_uptake_per_s=self.mcu_uptake_per_s,
 			atp_pump_per_s=self.atp_pump_per_s,
 			pkc_active=self.pkc_active,
 			p2y1_desensitised_frac=self.p2y1_desensitised_frac,
