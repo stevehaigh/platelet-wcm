@@ -801,9 +801,11 @@ K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 #
 # Sources (all in `source-info/calcium-papers/`):
 #   - Ghatge et al. 2026 — global MCU-/- platelets show *reduced* agonist-evoked
-#     cyt Ca²⁺ (store release + SOCE), as does Ajanel 2025. NB the model here is
-#     buffer-only and so RAISES the cyt peak on MCU loss — it diverges from this
-#     data; see issue #76.
+#     cyt Ca²⁺, as does Ajanel 2025 (platelet-specific KO). Both agree SOCE is
+#     reduced; they disagree on the store (Ghatge speculates depletion; Ajanel
+#     measured store content + thapsigargin release normal), and both call the
+#     cytosolic mechanism unresolved. NB the model here is buffer-only and so
+#     RAISES the cyt peak on MCU loss — it diverges from this data; see #76.
 #   - Ajanel et al. 2025 — MCU regulates ITAM-dependent activation
 #   - Shehwar et al. 2025 — review of platelet mito-Ca²⁺ biology
 #
