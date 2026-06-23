@@ -53,13 +53,14 @@ purely as a buffer, the expectation is straightforward — remove the sink and t
 buffered species (cytosolic Ca²⁺) should **rise**. Nothing counterintuitive; it
 is simply what removing a buffer does.
 
-Real platelet MCU does more. Mitochondrial Ca²⁺ uptake **supports** agonist-evoked
-store release (via mitochondria–DTS / MAM coupling) and store-operated Ca²⁺ entry
-(bioenergetically), so its loss *lowers* the cytosolic transient. The v0.7 model
-adds exactly this: a matrix-Ca²⁺ support factor (#76 Part 2) that gates IP3R
-release and SOCE, on top of a bounded matrix (#76 Part 1). With MCU knocked out
-the matrix depletes, that support falls, and release + SOCE drop — so cytosolic
-Ca²⁺ falls, as observed.
+Real platelet MCU does more. Mitochondrial Ca²⁺ uptake at mitochondria–DTS (MAM)
+contacts **relieves the IP3R's Ca²⁺-dependent inactivation**, sustaining
+agonist-evoked store release, so its loss *lowers* the cytosolic transient. The
+v0.7 model adds exactly this (#76 Part 2): an evoked, activation-gated reduction
+of IP3R release that scales with functional MCU (on top of the bounded matrix of
+#76 Part 1). With MCU knocked out the relief is lost, release falls, and — because
+the store then stays fuller — SOCE falls indirectly too; so cytosolic Ca²⁺ falls,
+as observed. Only IP3R is gated; SOCE is not gated directly.
 
 ## What happens in the model
 
@@ -181,8 +182,8 @@ module `models/platelet/analysis/single/demo_calcium.py`, reading the
 `CalciumTrace` listener; the grey baseline overlay is supplied through the
 `PLATELET_BASELINE_SIMOUT` environment variable). Both runs used **seed 0** for
 **300 s** on Python 3.11.5. The figure and numbers were **regenerated for issue
-#76 Part 1 + Part 2** (the matrix capacity bound plus the matrix-Ca²⁺ support
-coupling that gates IP3R release and SOCE); the exact commit is stamped in the
+#76 Part 1 + Part 2** (the matrix capacity bound plus the evoked IP3R-relief
+coupling); the exact commit is stamped in the
 figure footnote and in each run's `metadata/metadata.json`.
 
 ## Appendix — reproduce {#appendix}

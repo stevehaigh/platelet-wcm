@@ -1,5 +1,5 @@
 ---
-title: "Design (#76): bounding the mitochondrial Ca²⁺ sink, and a bioenergetic MCU → SOCE coupling"
+title: "Design (#76): bounding the mitochondrial Ca²⁺ sink, and an MCU → IP3R-relief coupling"
 author: "Steve Haigh"
 date: 2026-06-23
 format:
@@ -38,8 +38,10 @@ This doc designs both, in two parts:
 
 - **Part 1 — bound the matrix (implement now).** A realism fix; Dolan-safe; the
   prerequisite for Part 2.
-- **Part 2 — bioenergetic MCU → SOCE coupling (designed; future work).** The
-  source-coupling that would flip the knockout sign, via an ATP intermediate.
+- **Part 2 — MCU → IP3R-relief coupling (implemented).** The source-coupling that
+  flips the knockout sign. (Originally designed as a bioenergetic MCU→SOCE arm,
+  below; that proved too weak — the working form relieves IP3R inactivation. See
+  the status note and the three-tries journey.)
 
 > **Status (2026-06-23): both parts implemented.** Part 1 = the matrix capacity
 > bound. Part 2 = an **evoked, activation-gated relief of IP3R inactivation**,

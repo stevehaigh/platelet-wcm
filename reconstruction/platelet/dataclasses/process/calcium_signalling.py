@@ -1252,8 +1252,6 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	if ca_ex_uM > 0.0 and ca_cyt > 0.0:
 		e_ca_pm_v = RT_OVER_zF_V * math.log(ca_ex_uM / ca_cyt)
 		driving_pm_v = V_PM_V - e_ca_pm_v
-		# Bioenergetic arm of the #76 Part 2 coupling: the same matrix-Ca²⁺
-		# support factor (computed above) scales store-operated entry.
 		# SOCE is NOT gated directly (#76 Part 2): the IP3R-release gate above
 		# leaves the KO store fuller, which lowers store-operated entry on its own
 		# (STIM/Orai see a less-depleted store) — so SOCE falls indirectly.
