@@ -25,7 +25,7 @@ format:
 This is the **baseline** run — the unperturbed reference that the perturbation
 experiments are compared against. It does two things:
 
-1. shows that the model holds a **stable resting state**, and
+1. Shows that the model holds a **stable resting state**, and
 2. reproduces an **agonist-evoked Ca²⁺ transient** that *appears similar to* that
    of Dolan & Diamond (*Biophys. J.* 2014) when a physiological agonist mixture
    is applied after a 300 s settling period, and shows that the activated state is
@@ -45,22 +45,22 @@ at a time, reading the difference against the reference values established here.
 | Model settings | `agonist_delay_s = 300`; all other parameters, counts and rate constants left at their defaults |
 
 The agonists enter as transient time-courses (a rise and a slow decay), not step
-inputs — this matches the *shape* of an agonist bolus reaching a platelet, though
+inputs — this matches the shape of an agonist bolus reaching a platelet, though
 the precise time-course is a modelling choice, not a measurement. The exact
 commands to reproduce this run and its figures are in the [Appendix](#appendix).
 
 ## Resting state
 
 Started from the Dolan initial conditions (cytosolic Ca²⁺ = 100 nM, dense
-tubular system (DTS) store = 250 µM), the model does **not** sit exactly still:
-those initial values are not its own equilibrium, so it undergoes a damped
+tubular system (DTS) store = 250 µM), the model does not sit still, the
+ initial values are not equilibrium, so it undergoes a damped
 settling transient — an overshoot to ~129 nM by t ≈ 19 s — before converging to
 its resting fixed point of **~96 nM cytosolic / ~256 µM store** by ~200 s
 (@fig-resting). Resting IP₃ holds at ~47 nM throughout.
 
 ![**Resting state with no agonist (600 s).** Left: cytosolic Ca²⁺ relaxes from the imposed initial value (100 nM) through a damped overshoot (~129 nM at ~19 s) to a maintained fixed point of ~96 nM. Centre: the DTS store mirrors this (250 → ~198 → ~256 µM); store-operated entry stays near its low resting level. Right: IP₃ holds at ~47 nM. The model converges to and then holds a resting steady state close to the Dolan resting targets (100 nM / 250 µM); the settling takes a couple of hundred seconds because the imposed initial values are not the model's exact equilibrium.](../figures/demos/resting_calcium.png){#fig-resting width=100%}
 
-The practical consequence: the agonist runs below now apply their stimulus only
+The agonist runs below apply their stimulus only
 after a **full 300 s settle**, by which point the resting transient is complete
 and the trace is flat (@fig-resting). This cleanly separates the start-up settle
 from the agonist response — the resting baseline in @fig-agonist is flat right up
@@ -81,34 +81,32 @@ thromboxane A₂ rises to ~1.2 µM.
 
 The brief upward spike in the DTS store at ~300 s (centre panel of @fig-agonist)
 is worth noting. It is a **multi-timescale** effect. At onset the fast,
-ATP-gated **P2X1** channel admits Ca²⁺ almost immediately — cytosolic Ca²⁺ jumps
+ATP-gated **P2X1** channel admits Ca²⁺ almost immediately and cytosolic Ca²⁺ jumps
 from ~96 to ~150 nM within a second — while **IP₃ is still low** (~47 → ~55 nM)
-because the slower Gq → PLCβ → IP₃ cascade has not yet built up. SERCA pumps that
-early Ca²⁺ influx into the store, so the store briefly **over-fills**
+because the slower Gq → PLCβ → IP₃ cascade has not yet built up. SERCA pumps the
+Ca²⁺ influx into the store, so the store briefly **over-fills**
 (~255 → ~274 µM) before it is drained. A few seconds later IP₃ crosses threshold
 (~60–70 nM), the IP₃ receptors open, and the store discharges to ~1 µM. The
-spike is therefore the model correctly separating the rapid ionotropic (P2X1)
-response from the slower receptor → IP₃ pathway, rather than an artefact.
+spike is therefore the model actually working, rather than an artefact.
 
 ## Comparison with real platelets
 
 - **Resting Ca²⁺.** Real resting platelets sit at ~50–100 nM cytosolic Ca²⁺ with
   a high DTS store; the model's resting fixed point (~96 nM / ~256 µM) is within
   this range and close to the Dolan targets. The damped settling transient is a
-  consequence of the chosen initial values, not a biological prediction.
+  consequence of the chosen initial values.
 - **Agonist transient.** Real platelets respond to thrombin/ADP with a rapid
   cytosolic Ca²⁺ rise to several hundred nM, sustained in the presence of
-  extracellular Ca²⁺ by store-operated entry — qualitatively what the model
+  extracellular Ca²⁺ by store-operated entry. This is qualitatively what the model
   shows, and the basis of its validation against Dolan & Diamond (2014) Fig. 4
   (the "5/5" peak / SOCE-differential criteria).
-- **Honest differences.** (i) The model's store empties almost completely
-  (~1 µM), whereas Dolan infer a substantial residual; the free luminal store
-  Ca²⁺ has never been measured directly, so this is a falsifiable model
-  prediction, not a known error. (ii) The real transient is sharper and shows
-  more recovery; the model's sustained plateau reflects its autocrine
+- **Differences.** (i) The model's store empties almost completely
+  (~1 µM), whereas Dolan infer a substantial residual. 
+  (ii) The real transient is sharper and shows more recovery; 
+  the model's sustained plateau reflects its autocrine
   amplification loops under a saturating agonist. (iii) Cytosolic free Ca²⁺ is
   **store-limited** in the model — the peak is nearly insensitive to most single
-  parameters — which is the key caveat for interpreting any perturbation of this
+  parameters; this is the key caveat for interpreting any perturbation of this
   baseline.
 
 ## Provenance
