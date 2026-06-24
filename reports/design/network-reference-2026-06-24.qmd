@@ -1,6 +1,6 @@
 ---
-title: "Platelet Ca²⁺ signalling — pathway, equation & rate reference (v0.7)"
-subtitle: "A walk-through of the model figure: every pathway, its governing equations and rate constants"
+title: "Platelet Ca²⁺ signalling network — equation & rate reference (v0.7)"
+subtitle: "A walk-through of the model: each pathway and transport mechanism, with its governing equations and rate constants"
 author: "Steve Haigh"
 date: 2026-06-24
 format:
@@ -25,7 +25,7 @@ format:
 ## Purpose and scope
 
 This is a **reference document** for the v0.7 platelet calcium-signalling
-pathway diagram (@fig-pathway). It walks the figure component by component and,
+network diagram (@fig-pathway). It walks the figure component by component and,
 for each, states (i) the biological role, (ii) the governing equation(s) **exactly
 as implemented**, (iii) the rate constants with their numeric values, units and
 source, and (iv) which model state variable(s) the term touches and whether it
@@ -66,7 +66,7 @@ Where a constant is a calibration or modelling choice rather than a measured
 value, the text says so. As a rule, the receptor copy numbers are measured and
 the rate constants are calibrated.
 
-![**The v0.7 platelet Ca²⁺ signalling network.** Plasma-membrane receptors split into a **Gq/P2Y1 arm** (green) and a **Gi/P2Y12 arm** (purple) feeding the cytosolic Ca²⁺ machinery; **PKC** is the activation hub, driving three terminal outputs. The components are walked through immediately below, and in full in the sections that follow.](../figures/v0.7-platelet-ca-pathway.png){#fig-pathway width=100%}
+![**The v0.7 platelet Ca²⁺ signalling network.** Plasma-membrane receptors split into a **Gq/P2Y1 arm** (green) and a **Gi/P2Y12 arm** (purple) feeding the cytosolic Ca²⁺ machinery; **PKC** is the activation hub, driving three terminal outputs.](../figures/v0.7-platelet-ca-network.png){#fig-pathway width=100%}
 
 ### Reading the diagram
 
@@ -92,7 +92,7 @@ Stepping through @fig-pathway:
   loop; α — fibrinogen/vWF/P-selectin surface exposure), thromboxane synthesis
   (COX-1; **aspirin** target), and αIIbβ3 inside-out activation (the PAC-1
   flow-cytometry readout, driven via PI3K/Akt → Rap1b). *(→ §D, G.3–G.5)*
-- **Optional drug targets (dashed in the figure).** clopidogrel (P2Y12),
+- **Optional drug targets (dashed lines in the figure).** clopidogrel (P2Y12),
   aspirin (COX-1).
 
 ---
@@ -175,14 +175,14 @@ functional groups:
 
 ### Notation — how to read the equations
 
-The equations throughout share a small, consistent vocabulary. Define it once:
+The equations throughout share a small, consistent vocabulary described below.
 
 | Symbol | Read as | Meaning |
 |---|---|---|
 | $\dot x$ (e.g. $\dot C$, $\dot O$, $\dot{R_a}$, $\dot{\mathrm{IP3}}$) | "$x$-dot" | **Time derivative** $dx/dt$ — the instantaneous rate of change of state variable $x$. The ODE solver integrates these over each 1 s step. Units: (count or µM) per second. |
-| $v_\text{name}$ (e.g. $v_\text{on}$, $v_\text{act}$, $v_\text{cat}$, $v_\text{bind}$) | "vee-name" | A **reaction velocity / flux term** — one signed contribution to a $\dot x$. Each $\dot x$ is a sum of $v$'s (e.g. $\dot{R_a}=v_\text{on}-v_\text{off}-v_\text{des}$ means $R_a$ gains at rate $v_\text{on}$, loses at $v_\text{off}+v_\text{des}$). Units match the $\dot x$ it feeds. |
-| $J_\text{name}$ (e.g. $J_\text{P2X1}$, $J_\text{IP3R}$, $J_\text{SOCE}$) | "jay-name" | A **membrane channel flux** specifically — Ca²⁺ ions/s through an ion channel, computed from a Nernst electrodiffusion driving force $-\gamma_s N P_o (V_m - E_{Ca})\,N_A/zF$ rather than mass-action. A $J$ is just a $v$ for a channel; the separate letter flags the electrodiffusive form. |
-| $k_\text{name}$ (e.g. $k_\text{on}$, $k_\text{off}$, $k_\text{act}$, $k_\text{cat}$) | "kay-name" | A **rate constant** — the fixed numeric coefficient multiplying reactant(s) in a $v$. These are the values in the per-section constant tables. Subscripts: `on`/`off` = binding/unbinding, `act`/`inact` = activation/inactivation, `cat` = catalytic turnover, `f`/`r` = forward/reverse, `deg` = degradation. |
+| $v_\text{name}$ (e.g. $v_\text{on}$, $v_\text{act}$, $v_\text{cat}$, $v_\text{bind}$) | "V-name" | A **reaction velocity / flux term** — one signed contribution to a $\dot x$. Each $\dot x$ is a sum of $v$'s (e.g. $\dot{R_a}=v_\text{on}-v_\text{off}-v_\text{des}$ means $R_a$ gains at rate $v_\text{on}$, loses at $v_\text{off}+v_\text{des}$). Units match the $\dot x$ it feeds. |
+| $J_\text{name}$ (e.g. $J_\text{P2X1}$, $J_\text{IP3R}$, $J_\text{SOCE}$) | "J-name" | A **membrane channel flux** specifically — Ca²⁺ ions/s through an ion channel, computed from a Nernst electrodiffusion driving force $-\gamma_s N P_o (V_m - E_{Ca})\,N_A/zF$ rather than mass-action. A $J$ is just a $v$ for a channel; the separate letter flags the electrodiffusive form. |
+| $k_\text{name}$ (e.g. $k_\text{on}$, $k_\text{off}$, $k_\text{act}$, $k_\text{cat}$) | "K-name" | A **rate constant** — the fixed numeric coefficient multiplying reactant(s) in a $v$. These are the values in the per-section constant tables. Subscripts: `on`/`off` = binding/unbinding, `act`/`inact` = activation/inactivation, `cat` = catalytic turnover, `f`/`r` = forward/reverse, `deg` = degradation. |
 | $C,\,O,\,D$ | closed / open / desensitised | The three **channel conformational states** (e.g. P2X1). |
 | $R_i,\,R_a,\,R_\text{des},\,R_\text{int}$ | inactive / active / desensitised / internalised | **Receptor sub-pools**. A receptor's copies are partitioned across these; the $v$'s move copies between them. $R_a$ ("active") is the signalling pool that drives downstream G-protein activity. |
 | $P_o$ | "P-oh" | **Open probability** — the fraction of a channel population open at a given instant (0–1); multiplies the maximal flux. |
@@ -209,7 +209,7 @@ $$\text{value}(t) = \text{REST} + (\text{PEAK}-\text{REST})\,
 \underbrace{e^{-\max(0,\,t_\text{eff}-t_\text{peak})/\tau_\text{decay}}}_{\text{decay}}$$
 
 | Agonist | fn / lines | REST | PEAK | $\tau_\text{rise}$ | $t_\text{peak}$ | $\tau_\text{decay}$ |
-|---|---|---|---|---|---|---|
+|---|----|---|---|---|---|---|
 | Thrombin (nM) | `thrombin_nM` 707–717 | 0 | 1.0 | 0.5 s | 5 s | 120 s |
 | ADP (µM) | `adp_uM` 720–730 | 0 | 10.0 | 1.0 s | 5 s | 30 s |
 | ATP_ex (µM) | `atp_ex_forcing_uM` 485–499 | 0 | 10.0 | 0.5 s | 1 s | 30 s |
@@ -222,8 +222,7 @@ agonists at REST for 300 s before stimulation.
 
 ### A.2 P2X1 — ATP-gated ionotropic Ca²⁺ channel
 
-**Role.** P2X1 is a fast, ATP-gated cation channel in the plasma membrane. Unlike
-the G-protein-coupled receptors around it, P2X1 is itself an ion channel: when
+**Role.** P2X1 is a fast, ATP-gated cation channel in the plasma membrane. When
 extracellular ATP binds, the pore opens and Ca²⁺ flows straight into the cytosol,
 giving the platelet its quickest Ca²⁺ signal. Because that Ca²⁺ comes from
 outside the cell, the pathway works only when extracellular Ca²⁺ is present. The
@@ -308,7 +307,7 @@ v_\text{cleave}=k_\text{cleave}R_i[\mathrm{thr}],\; v_\text{int}=k_\text{int}R_a
 
 ### A.5 P2Y12 → Gi → cAMP → PKA (the inhibitory arm)
 
-**Role.** P2Y12 is the second ADP receptor, and the target of the most widely
+**Role.** P2Y12 is the second ADP receptor, and the target of widely
 used antiplatelet drugs (clopidogrel, ticagrelor, cangrelor). Where P2Y1 excites
 the cell through Gq, P2Y12 works through Gi to *release a brake*. At rest, cyclic
 AMP (cAMP) keeps protein kinase A (PKA) active, and PKA damps Ca²⁺ release,
@@ -350,12 +349,17 @@ b_\text{min},\,b_\text{max}\big)$$
 | integrin / secretion brake `gain`,`b_max` | 2.0, 3.0 | model choice |
 | VASP `n_total`,`k_phos`,`k_dephos` | 50000, 0.1, 0.06 s⁻¹ | Burkhart 2012 |
 
-`TOML [gpcr.p2y12]` 427–429, `[inhibitory.camp/pka/vasp]` 456–496. The brake
-multiplies the IP₃R open probability **inside** the ODE (`b_ip3r`, line 1054);
-the integrin and secretion brakes are applied in their own processes. VASP
-phosphorylation is a pure readout: $\dfrac{d[\mathrm{VASP\_phos}]}{dt}=k_\text{phos}
-\,\text{pka\_frac}\,\mathrm{VASP}_\text{free}-k_\text{dephos}\,\mathrm{VASP}_\text{phos}$.
-cAMP-raising drug inputs (all RunConfig, default 0): `pgi2_nM` (PGI₂/iloprost),
+`TOML [gpcr.p2y12]` 427–429, `[inhibitory.camp/pka/vasp]` 456–496.
+
+The brake multiplies the IP₃R open probability **inside** the ODE (`b_ip3r`,
+line 1054); the integrin and secretion brakes are applied in their own processes.
+VASP phosphorylation is a pure readout:
+
+$$\frac{d[\mathrm{VASP\_phos}]}{dt}
+  = k_\text{phos}\,\text{pka\_frac}\,\mathrm{VASP}_\text{free}
+  - k_\text{dephos}\,\mathrm{VASP}_\text{phos}$$
+
+cAMP-raising drug inputs (all `RunConfig`, default 0): `pgi2_nM` (PGI₂/iloprost),
 `forskolin`, `pde3_block` (cilostazol). **Gi feedback.**
 
 ### A.6 TP (TXA₂ receptor) → Gq
