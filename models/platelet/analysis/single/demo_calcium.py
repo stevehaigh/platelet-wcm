@@ -37,7 +37,7 @@ class Plot(singleAnalysisPlot.SingleAnalysisPlot):
 		ax.axhline(100.0, color='grey', lw=0.8, ls=':', label='100 nM rest')
 		ax.set_ylabel(r'cytosolic $[\mathrm{Ca}^{2+}]$  (nM)')
 		ax.set_ylim(bottom=0)
-		ax.set_title('Cytosolic $\\mathrm{Ca}^{2+}$  (MCU KO raises it)',
+		ax.set_title('Cytosolic $\\mathrm{Ca}^{2+}$',
 			fontsize=10, fontweight='bold')
 		ax.legend(loc='best', fontsize=8)
 

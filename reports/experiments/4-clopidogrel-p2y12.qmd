@@ -2,7 +2,7 @@
 title: "Clopidogrel: P2Y12 blockade"
 subtitle: "Platelet whole-cell model — demo experiment 4 of 4"
 author: "Steve Haigh"
-date: 2026-06-23
+date: 2026-06-24
 format:
   pdf:
     pdf-engine: xelatex
@@ -24,9 +24,7 @@ format:
 
 Block the **P2Y12 ADP receptor** (the target of clopidogrel, prasugrel and
 ticagrelor) on the [baseline experiment](1-baseline-resting-agonist.qmd) and ask
-how the integrin activation readout (PAC-1) changes. The honest answer depends
-on agonist strength, which makes this a good illustration of *when* an
-antiplatelet drug bites.
+how the integrin activation readout (PAC-1) changes.
 
 ## What is changed from the baseline
 
@@ -44,34 +42,43 @@ the [Appendix](#appendix).
 
 ## Biological reasoning
 
-P2Y12 is the Gi-coupled ADP receptor. Through Giα it **inhibits adenylyl
-cyclase**, lowering cAMP and so **relieving** the cAMP/PKA brake that keeps a
-platelet quiescent. Autocrine ADP acting on P2Y12 therefore *sustains and
-consolidates* activation. Blocking P2Y12 keeps cAMP — and the PKA brake — high,
-restraining activation. This cAMP/PKA axis is exactly what the clinical VASP-
-phosphorylation / platelet-reactivity-index (PRI) assay measures.
+P2Y12 is the Gi-coupled ADP receptor, and it sustains integrin activation through
+two routes, both now in the model:
 
-In the model, `p2y12_block = 1.0` removes the P2Y12 → Gi → ↓cAMP arm, so cAMP
-stays at its resting level and the PKA brake on the integrin remains engaged.
+1. **cAMP/PKA brake.** Through Giα, P2Y12 **inhibits adenylyl cyclase**, lowering
+   cAMP and so **relieving** the cAMP/PKA brake that keeps a platelet quiescent —
+   exactly what the clinical VASP-phosphorylation / platelet-reactivity-index
+   (PRI) assay measures.
+2. **PI3K/Akt → Rap1b sustain** (issue #73, now implemented). P2Y12 occupancy
+   drives Akt, which dis-inhibits the Rap1b-GAP Rasa3, keeping **Rap1b-GTP — the
+   integrin's proximal driver — high while P2Y12 is driven** (Zou et al., *Int. J.
+   Mol. Sci.* 2022; Stolla et al., *Blood* 2011).
+
+Autocrine ADP on P2Y12 therefore *sustains and consolidates* activation by both
+arms. In the model, `p2y12_block = 1.0` removes the P2Y12 → Gi signal, so cAMP
+stays at its resting level (PKA brake engaged) **and** Akt falls (the Rasa3 GAP
+re-engages, so Rap1b-GTP — hence integrin — is no longer sustained).
 
 ## What happens in the model
 
 **Under the saturating Dolan agonist the effect is masked.** Blocking P2Y12
-holds the PKA brake at 1.0 (vs 1.87 dis-inhibited in the baseline), yet the
-PAC-1⁺ fraction barely changes (0.796 → 0.778, −1.8 points) and cytosolic Ca²⁺
-is unchanged (@fig-clop-strong). The reason: with high thrombin + 10 µM ADP the
-integrin is already near its activation ceiling, so re-engaging the brake has
-little room to act.
+holds the PKA brake at 1.0 (vs 1.87 dis-inhibited in the baseline) and removes the
+Akt→Rap1b sustain, yet the sustained PAC-1⁺ fraction barely changes (0.865 → 0.861,
+−0.4 points) and cytosolic Ca²⁺ is unchanged (@fig-clop-strong). The reason: with
+high thrombin + 10 µM ADP the integrin is already near its activation ceiling, so
+neither the re-engaged brake nor the lost sustain has much room to act — the
+clearest signature of the missing sustain is a slower rise, not a lower plateau.
 
-![**Clopidogrel under the saturating Dolan agonist (current) vs baseline (grey).** Top: the PAC-1⁺ active fraction is almost unchanged (≈0.80 → 0.78) — clopidogrel and baseline track closely, because activation is near-maximal. Bottom: the PKA brake factor *does* change markedly — held at 1.0 (fully engaged) under clopidogrel vs the baseline's dis-inhibited hump to ~1.87 — but with the integrin saturated this barely propagates to PAC-1. The grey traces are the baseline run (its duration is in the legend). This is the model showing that a strong agonist "overcomes" the drug.](../figures/demos/clopidogrel_strong_integrin.png){#fig-clop-strong width=100%}
+![**Clopidogrel under the saturating Dolan agonist (current) vs baseline (grey).** Top: the PAC-1⁺ active fraction is almost unchanged (≈0.865 → 0.861) — clopidogrel and baseline track closely, because activation is near-maximal. Bottom: the PKA brake factor *does* change markedly — held at 1.0 (fully engaged) under clopidogrel vs the baseline's dis-inhibited hump to ~1.87 — but with the integrin saturated this barely propagates to PAC-1. The grey traces are the baseline run (its duration is in the legend). This is the model showing that a strong agonist "overcomes" the drug.](../figures/demos/clopidogrel_strong_integrin.png){#fig-clop-strong width=100%}
 
 **At a threshold agonist the effect is visible.** With ADP 0.5 µM — the regime
-where the autocrine-ADP → P2Y12 → cAMP arm actually sets the response —
-clopidogrel lowers the PAC-1⁺ fraction from **60.5 % to 52.7 % (−7.8 points)**,
-again by keeping the PKA brake engaged (1.0 vs ~1.80) (@fig-clop-weak). This is
-the regime in which P2Y12 inhibitors are clinically meaningful.
+where the autocrine-ADP → P2Y12 arms actually set the response — clopidogrel
+lowers the sustained PAC-1⁺ fraction from **78.0 % to 74.4 % (−3.6 points)**, by
+both keeping the PKA brake engaged (1.0 vs ~1.80) and removing the Akt→Rap1b
+sustain (@fig-clop-weak). This is the regime in which P2Y12 inhibitors are
+clinically meaningful.
 
-![**Clopidogrel at a threshold agonist (ADP 0.5 µM; current) vs baseline (grey).** Top: now the PAC-1⁺ fraction is reduced (≈0.61 → 0.53) — the integrin is no longer saturated, so the re-engaged brake bites. Bottom: the PKA brake is held at 1.0 under clopidogrel vs the baseline's dis-inhibition to ~1.80. Together the panels trace the mechanism: P2Y12 block → cAMP stays high → PKA brake engaged → less integrin activation. Baseline durations are shown in the legend labels.](../figures/demos/clopidogrel_weak_integrin.png){#fig-clop-weak width=100%}
+![**Clopidogrel at a threshold agonist (ADP 0.5 µM; current) vs baseline (grey).** Top: now the PAC-1⁺ fraction is reduced (≈0.78 → 0.74) — the integrin is no longer saturated, so the re-engaged brake and the lost Akt→Rap1b sustain bite. Bottom: the PKA brake is held at 1.0 under clopidogrel vs the baseline's dis-inhibition to ~1.80. Together the panels trace the mechanism: P2Y12 block → cAMP stays high → PKA brake engaged → less integrin activation. Baseline durations are shown in the legend labels.](../figures/demos/clopidogrel_weak_integrin.png){#fig-clop-weak width=100%}
 
 ## What happens in real platelets
 
@@ -83,7 +90,7 @@ most pronounced when activation is not already driven to completion by a strong
 agonist. The VASP/PRI assay quantifies the residual cAMP/PKA brake to gauge
 response.
 
-## Honest comparison
+## Comparison
 
 - **What the model gets right.** The mechanism (P2Y12 → cAMP → PKA brake →
   reduced integrin activation), the direction (less PAC-1), and the
@@ -113,49 +120,33 @@ implemented (future work, logged as GitHub issue #73).
 
 ## Provenance
 
-The simulations were produced by `runscripts/manual/runFromConfig.py`, and the
-figures by `runscripts/manual/analysisPlatelet.py --plot demo_integrin` (figure
-module `models/platelet/analysis/single/demo_integrin.py`, reading the
+The simulations and figures were produced by the demo-experiment driver
+`runscripts/manual/runDemoExperiments.py`, which renders the `demo_integrin`
+figure module (`models/platelet/analysis/single/demo_integrin.py`, reading the
 `IntegrinTrace` listener; the grey baseline overlay is supplied through the
-`PLATELET_BASELINE_SIMOUT` environment variable). All runs used **seed 0** for
-**300 s** on Python 3.11.5, at git commit **`9724cc81`** — the exact commit is
-also stamped in each figure footnote and in the run's `metadata/metadata.json`.
+`PLATELET_BASELINE_SIMOUT` environment variable the driver sets automatically).
+All runs used **seed 0** for **600 s** (a 300 s settle then 300 s of stimulation)
+on Python 3.11.5, at git commit **`4fe847b9`** — the exact commit is also stamped
+in each figure footnote and in the run's `metadata/metadata.json`.
 
 ## Appendix — reproduce {#appendix}
 
-From the repository root (`PYTHONPATH=$PWD`):
+All four demo experiments are driven by one script
+(`runscripts/manual/runDemoExperiments.py`): every run settles for 300 s with all
+agonists at REST, then the agonists switch on and the run continues for a further
+300 s (`length = 600 s`). This experiment uses two agonist regimes — the
+saturating Dolan mixture (`clopidogrel_strong_integrin`, with `p2y12_block = 1.0`)
+and a threshold ADP 0.5 µM with no thrombin/ATP (`clopidogrel_weak_integrin`) —
+each overlaid on its matching baseline. From the repository root
+(`PYTHONPATH=$PWD`):
 
 ```bash
-# --- Saturating Dolan agonist (Fig. 1): baseline vs clopidogrel ---
-cat > base.json <<'EOF'
-{"length_sec": 300, "seed": 0, "run_config": {"agonist_delay_s": 60}}
-EOF
-cat > clop.json <<'EOF'
-{"length_sec": 300, "seed": 0,
- "run_config": {"agonist_delay_s": 60, "p2y12_block": 1.0}}
-EOF
-python runscripts/manual/runFromConfig.py --config base.json --out exp_base
-python runscripts/manual/runFromConfig.py --config clop.json --out exp_clop
-base=out/exp_base/platelet_stub_000000/000000/generation_000000/000000/simOut
-PLATELET_BASELINE_SIMOUT=$base MPLBACKEND=Agg \
-  python runscripts/manual/analysisPlatelet.py exp_clop --plot demo_integrin
+# Regenerate every demo-experiment figure:
+python runscripts/manual/runDemoExperiments.py
 
-# --- Threshold agonist (Fig. 2): weak ADP, baseline vs clopidogrel ---
-cat > wbase.json <<'EOF'
-{"length_sec": 300, "seed": 0,
- "run_config": {"agonist_delay_s": 60, "thrombin_peak_nM": 0,
-                "adp_peak_uM": 0.5, "atp_ex_peak_uM": 0}}
-EOF
-cat > wclop.json <<'EOF'
-{"length_sec": 300, "seed": 0,
- "run_config": {"agonist_delay_s": 60, "thrombin_peak_nM": 0,
-                "adp_peak_uM": 0.5, "atp_ex_peak_uM": 0, "p2y12_block": 1.0}}
-EOF
-python runscripts/manual/runFromConfig.py --config wbase.json --out exp_wbase
-python runscripts/manual/runFromConfig.py --config wclop.json --out exp_wclop
-wbase=out/exp_wbase/platelet_stub_000000/000000/generation_000000/000000/simOut
-PLATELET_BASELINE_SIMOUT=$wbase MPLBACKEND=Agg \
-  python runscripts/manual/analysisPlatelet.py exp_wclop --plot demo_integrin
+# …or just this experiment's two integrin figures:
+python runscripts/manual/runDemoExperiments.py \
+    --only clopidogrel_strong_integrin clopidogrel_weak_integrin
 ```
 
 The figure module `demo_integrin.py` plots the `IntegrinTrace` columns
