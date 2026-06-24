@@ -8,6 +8,7 @@ format:
     pdf-engine: xelatex
     geometry: "margin=2.5cm"
     fontsize: 11pt
+    fig-pos: 'H'  # pin the pathway figure at its source position (before §"Reading the diagram") rather than letting it float into the descriptive text
     mainfont: "STIX Two Text"
     colorlinks: true
     linkcolor: blue
@@ -30,22 +31,40 @@ as implemented**, (iii) the rate constants with their numeric values, units and
 source, and (iv) which model state variable(s) the term touches and whether it
 feeds back into the calcium ODE or is a terminal output.
 
-Every equation and constant below is taken directly from the model source. The
-two homes are:
+Every equation and rate constant below is taken straight from the model's source
+code, so this document describes what the simulation actually computes rather
+than an idealised account of the biology.
 
-- **The calcium ODE** — `reconstruction/platelet/dataclasses/process/calcium_signalling.py`,
-  whose pure right-hand side `_ode_rhs(t, y, t_sim_start, config, step_inputs)`
-  integrates a 58-species state vector each 1 s outer step. Rate constants are
-  loaded from `reports/params/calcium-v0.6.toml` into the `_KINETICS` dict.
-- **Three downstream processes** — `granule_secretion.py`,
-  `thromboxane_synthesis.py`, `integrin_activation.py` (in
-  `models/platelet/processes/` with parameter dataclasses under
-  `reconstruction/platelet/dataclasses/process/`). These read ODE states and,
-  in two cases, feed an autocrine signal back into the ODE.
+The model represents the platelet's calcium chemistry as a system of **ordinary
+differential equations (ODEs)**. There is one equation for each molecular
+species, and it gives the rate at which that species' concentration changes as
+the reactions drawn in @fig-pathway proceed. A numerical solver advances all of
+the equations together, in steps of one second, and the calcium time-courses it
+produces are what the model is tested against. The equations live in two places
+in the code:
 
-Line numbers cite the source as of git commit `4fe847b9`. Where a constant is a
-calibration/model choice rather than a measured value, that is stated — most
-receptor copy numbers are measured, most rate constants are calibrated.
+- **The calcium ODE itself** is in
+  `reconstruction/platelet/dataclasses/process/calcium_signalling.py`. A single
+  function, `_ode_rhs`, returns the rate of change of every species at a given
+  instant (in the vocabulary of differential equations, the "right-hand sides")
+  for the 58 species the model tracks. The solver calls it over and over to step
+  the cell forward in time. Its rate constants are not written into the code;
+  they are read at start-up from a separate parameter file,
+  `reports/params/calcium-v0.6.toml`. (TOML is a plain-text format for
+  configuration files. Each bracketed name in it, such as `[ip3r.channel]`,
+  labels a group of related constants, and the `TOML […]` citations below point
+  into those groups.)
+- **Three downstream processes** read the calcium state once per second and act
+  on it: `granule_secretion.py`, `thromboxane_synthesis.py` and
+  `integrin_activation.py`, in `models/platelet/processes/`, with their
+  parameters alongside the calcium code. Two of them feed a signal back into the
+  ODE, the autocrine ADP and thromboxane loops; the third, integrin activation,
+  is a pure read-out.
+
+Line numbers refer to the code as committed on 24 June 2026 (commit `4fe847b9`).
+Where a constant is a calibration or modelling choice rather than a measured
+value, the text says so. As a rule, the receptor copy numbers are measured and
+the rate constants are calibrated.
 
 ![**The v0.7 platelet Ca²⁺ signalling network.** Plasma-membrane receptors split into a **Gq/P2Y1 arm** (green) and a **Gi/P2Y12 arm** (purple) feeding the cytosolic Ca²⁺ machinery; **PKC** is the activation hub, driving three terminal outputs. The components are walked through immediately below, and in full in the sections that follow.](../figures/v0.7-platelet-ca-pathway.png){#fig-pathway width=100%}
 
@@ -96,20 +115,85 @@ integer-equivalent **counts**; each rate law converts to µM internally.
 
 $$\text{conc}_{\mu M} = \frac{\text{count}}{N_A\, V_L\, 10^{-6}}\quad(\texttt{\_UM\_PER\_COUNT\_CYT/DTS/EX})$$
 
-**Physical constants** (lines 215–234): $F = 96485$ C/mol, $R = 8.314$ J/mol·K,
-$T = 310$ K, giving $RT/zF \approx 0.01334$ V for $z=2$. Membrane potentials:
-$V_{IM} = 0$ V (DTS membrane), $V_{PM} = -0.060$ V (plasma membrane, Dolan 2014).
-Electrodiffusive channel fluxes (P2X1, IP3R, SOCE) use a Nernst driving force
-$J = -\gamma_s\,N\,P_o\,(V_m - E_{Ca})\,N_A/zF$ with
-$E_{Ca} = (RT/zF)\ln([\mathrm{Ca}]_\text{out}/[\mathrm{Ca}]_\text{in})$.
+**Physical constants** (lines 215–234). These are the standard thermodynamic
+quantities that set the scale of the electrical forces on Ca²⁺. None is fitted:
 
-**State vector** (`MOLECULE_NAMES`, lines 105–199, `N_SPECIES = 58`): cytosolic &
-DTS free Ca²⁺ (`CA2_CYT[c]`, `CA2_DTS[dts]`), IP₃, the IP₃R inactivation gate
-`IP3R_h`, SERCA's 6 enzyme states, PMCA's basal + CaM-coupled states, STIM1
-(free/Ca/dimer), Orai1, CaM (free/Ca₂/Ca₄), all receptor pools (P2X1, P2Y1,
-PAR1, PAR4, P2Y12, TP), Gq, PLCβ (inactive/active/phosphorylated), PIP₂, DAG,
-PKC (inactive/active), cAMP, VASP, mitochondrial Ca²⁺, and the DTS luminal
-buffers (CALR, HSP90B1, BiP, CREC, GSN).
+| Symbol | Value | Meaning |
+|---|---|---|
+| $F$ | $96{,}485$ C/mol | **Faraday constant** — the electric charge of one mole of monovalent ions; it converts between an electric current and a rate of ion movement. |
+| $R$ | $8.314$ J/(mol·K) | **universal gas constant**. |
+| $T$ | $310$ K | **absolute temperature** (37 °C, body temperature). |
+| $z$ | $2$ | the **charge number** of a Ca²⁺ ion (it carries two positive charges). |
+
+Together these give the thermal voltage $RT/zF \approx 0.0133$ V, the natural
+unit in which the membrane driving force on a Ca²⁺ ion is measured at body
+temperature.
+
+The two membranes are held at fixed voltages: $V_{IM} = 0$ V across the DTS
+membrane and $V_{PM} = -0.060$ V across the plasma membrane (Dolan 2014). Each
+ion channel (P2X1, IP₃R, SOCE) lets Ca²⁺ move down its electrochemical gradient,
+so its flux follows a Nernst driving force,
+
+$$J = -\,\gamma_s\,N\,P_o\,(V_m - E_{Ca})\,\frac{N_A}{zF},$$
+
+where $\gamma_s$ is the conductance of a single open channel, $N$ the number of
+channels, $P_o$ the fraction of them open, and $V_m$ the membrane voltage. The
+Ca²⁺ reversal (Nernst) potential,
+
+$$E_{Ca} = \frac{RT}{zF}\,\ln\frac{[\mathrm{Ca}]_\text{out}}{[\mathrm{Ca}]_\text{in}},$$
+
+is the voltage at which the electrical and concentration forces on Ca²⁺ cancel:
+the flux is zero when $V_m = E_{Ca}$ and grows as the membrane voltage departs
+from it.
+
+**The state vector** is the full list of quantities the model carries through
+time: the 58 numbers (`N_SPECIES = 58`) that together fix the platelet's
+signalling state at any instant. Each is the amount of one molecular species in
+one compartment, and each has its own differential equation. They fall into a few
+functional groups:
+
+- **Free calcium** in the compartments that matter for signalling: the cytosol
+  (`CA2_CYT[c]`) and the dense tubular system, which is the platelet's internal
+  Ca²⁺ store (`CA2_DTS[dts]`). Mitochondrial Ca²⁺ is tracked separately.
+- **The second messengers** of the Gq cascade: IP₃, DAG, and their membrane
+  precursor PIP₂.
+- **The receptors**, each split into the conformational pools that its equations
+  shuttle molecules between: P2X1, P2Y1, PAR1, PAR4, P2Y12, and the thromboxane
+  receptor TP.
+- **The signalling enzymes and their internal states**: the Gαq pool; PLCβ
+  (inactive, active, or phosphorylated); PKC (inactive or active); the IP₃R
+  inactivation gate `IP3R_h`; the six enzymatic states of the SERCA pump; the
+  basal and calmodulin-coupled states of the PMCA pump; and the store-operated
+  entry machinery, STIM1 (free, Ca²⁺-bound, or dimerised) and Orai1.
+- **The calcium buffers** that mop up free Ca²⁺: calmodulin (CaM, in its free,
+  Ca₂- and Ca₄-bound forms) in the cytosol, and the luminal proteins of the DTS
+  (CALR, HSP90B1, BiP, CREC, GSN).
+- **The inhibitory arm and its read-outs**: cAMP, and the phosphorylation marker
+  VASP.
+
+(The species names themselves are listed in `MOLECULE_NAMES`, lines 105–199.)
+
+### Notation — how to read the equations
+
+The equations throughout share a small, consistent vocabulary. Define it once:
+
+| Symbol | Read as | Meaning |
+|---|---|---|
+| $\dot x$ (e.g. $\dot C$, $\dot O$, $\dot{R_a}$, $\dot{\mathrm{IP3}}$) | "$x$-dot" | **Time derivative** $dx/dt$ — the instantaneous rate of change of state variable $x$. The ODE solver integrates these over each 1 s step. Units: (count or µM) per second. |
+| $v_\text{name}$ (e.g. $v_\text{on}$, $v_\text{act}$, $v_\text{cat}$, $v_\text{bind}$) | "vee-name" | A **reaction velocity / flux term** — one signed contribution to a $\dot x$. Each $\dot x$ is a sum of $v$'s (e.g. $\dot{R_a}=v_\text{on}-v_\text{off}-v_\text{des}$ means $R_a$ gains at rate $v_\text{on}$, loses at $v_\text{off}+v_\text{des}$). Units match the $\dot x$ it feeds. |
+| $J_\text{name}$ (e.g. $J_\text{P2X1}$, $J_\text{IP3R}$, $J_\text{SOCE}$) | "jay-name" | A **membrane channel flux** specifically — Ca²⁺ ions/s through an ion channel, computed from a Nernst electrodiffusion driving force $-\gamma_s N P_o (V_m - E_{Ca})\,N_A/zF$ rather than mass-action. A $J$ is just a $v$ for a channel; the separate letter flags the electrodiffusive form. |
+| $k_\text{name}$ (e.g. $k_\text{on}$, $k_\text{off}$, $k_\text{act}$, $k_\text{cat}$) | "kay-name" | A **rate constant** — the fixed numeric coefficient multiplying reactant(s) in a $v$. These are the values in the per-section constant tables. Subscripts: `on`/`off` = binding/unbinding, `act`/`inact` = activation/inactivation, `cat` = catalytic turnover, `f`/`r` = forward/reverse, `deg` = degradation. |
+| $C,\,O,\,D$ | closed / open / desensitised | The three **channel conformational states** (e.g. P2X1). |
+| $R_i,\,R_a,\,R_\text{des},\,R_\text{int}$ | inactive / active / desensitised / internalised | **Receptor sub-pools**. A receptor's copies are partitioned across these; the $v$'s move copies between them. $R_a$ ("active") is the signalling pool that drives downstream G-protein activity. |
+| $P_o$ | "P-oh" | **Open probability** — the fraction of a channel population open at a given instant (0–1); multiplies the maximal flux. |
+| $m_\infty,\,h$ | — | **Gating variables** (IP₃R): $m_\infty$ is the fast activation gate at its quasi-steady value; $h$ is the slow Ca²⁺-dependent inactivation gate (its own ODE). |
+| $b$ (e.g. $b_\text{ip3r}$, $b_\text{PKA}$) | brake | A dimensionless **brake multiplier**, normalised to 1.0 at rest; PKA raising it above/below 1 scales a target rate up/down. |
+| $E_{Ca}$, $V_m$ | — | The Ca²⁺ **Nernst (reversal) potential** and the membrane potential of the compartment ($V_{IM}$ DTS, $V_{PM}$ plasma membrane). |
+| "gate", $f_{Ca}$ | — | **Coincidence factors** in [0,1) — the shared PKC×Ca²⁺ gate (§D) and the Hill Ca²⁺ co-factor on PKC activation. |
+
+A useful pattern: each block first lists the $\dot x$ balance equations (what
+changes and in which direction), then defines each $v$ in that balance as a
+mass-action product of a $k$ and its reactant state variables.
 
 ---
 
@@ -138,8 +222,14 @@ agonists at REST for 300 s before stimulation.
 
 ### A.2 P2X1 — ATP-gated ionotropic Ca²⁺ channel
 
-**Role.** Fast plasma-membrane ATP-gated cation channel; the rapid, +Ca²⁺-ex–specific
-entry pathway. **Three-state** closed/open/desensitised cycle (lines 1290–1300):
+**Role.** P2X1 is a fast, ATP-gated cation channel in the plasma membrane. Unlike
+the G-protein-coupled receptors around it, P2X1 is itself an ion channel: when
+extracellular ATP binds, the pore opens and Ca²⁺ flows straight into the cytosol,
+giving the platelet its quickest Ca²⁺ signal. Because that Ca²⁺ comes from
+outside the cell, the pathway works only when extracellular Ca²⁺ is present. The
+model uses a three-state cycle of closed, open and desensitised states, because
+P2X1 inactivates within milliseconds of opening and then needs seconds to recover
+(lines 1290–1300):
 
 $$\dot C = -v_\text{act}+v_\text{close}+v_\text{rec},\quad
 \dot O = v_\text{act}-v_\text{close}-v_\text{des},\quad
@@ -165,8 +255,13 @@ $J_\text{P2X1} = -\gamma_\text{P2X1}\,O\,(V_{PM}-E_{Ca,PM})\,N_A/zF \to$ `CA2_CY
 
 ### A.3 P2Y1 → Gq (ADP, reversible) + PKC desensitisation
 
-**Role.** Gq-coupled ADP receptor; reversible binding, PKC-desensitisable. ADP
-drive includes the autocrine secreted contribution (lines 1358–1360):
+**Role.** P2Y1 is the Gq-coupled receptor for ADP, and it triggers the
+shape-change and the first wave of stored-Ca²⁺ release when ADP arrives. Its
+binding is reversible, so the receptor follows the ADP concentration up and back
+down, and active PKC can switch it off (desensitisation), which gives this arm
+its own negative feedback. The ADP that drives it is the sum of any ADP added
+experimentally and the ADP the platelet secretes from its own dense granules,
+the autocrine contribution (lines 1358–1360):
 $\text{adp\_um\_now} = \text{adp\_uM}(t) + \text{secreted\_adp\_count}\cdot
 \texttt{\_UM\_PER\_COUNT\_EX}\cdot \texttt{autocrine\_adp\_gain}$.
 
@@ -189,8 +284,15 @@ v_\text{res}=k_\text{res}R_\text{des}$$
 
 ### A.4 PAR1 + PAR4 — thrombin protease-activated receptors
 
-**Role.** Irreversible thrombin cleavage; PAR1 fast/high-affinity, PAR4 ~10×
-slower/sustained; one-way internalisation (lines 1385–1397):
+**Role.** PAR1 and PAR4 are the platelet's thrombin receptors, and thrombin is
+the strongest physiological agonist. They are switched on in an unusual way:
+thrombin cuts off part of the receptor's outer tail, and the freshly exposed end
+folds back and activates the receptor from within. Because the cut cannot be
+undone, activation is effectively one-way; the receptor never returns to rest and
+is instead taken back into the cell (internalised). PAR1 is the fast,
+high-affinity receptor that dominates the early response, while PAR4 is cleaved
+about ten times more slowly and sustains the signal once PAR1 has been
+internalised (lines 1385–1397):
 
 $$\dot{R_i}=-v_\text{cleave},\quad \dot{R_a}=v_\text{cleave}-v_\text{int},\quad
 \dot{R_\text{int}}=v_\text{int};\qquad
@@ -206,9 +308,15 @@ v_\text{cleave}=k_\text{cleave}R_i[\mathrm{thr}],\; v_\text{int}=k_\text{int}R_a
 
 ### A.5 P2Y12 → Gi → cAMP → PKA (the inhibitory arm)
 
-**Role.** Gi-coupled ADP receptor. Lowers cAMP → lowers PKA → **dis-inhibits** the
-PKA brake on IP₃R, integrin and secretion. `p2y12_block` ∈ [0,1] is the
-clopidogrel/cangrelor knob. Implemented **inside the ODE** (lines 1425–1454).
+**Role.** P2Y12 is the second ADP receptor, and the target of the most widely
+used antiplatelet drugs (clopidogrel, ticagrelor, cangrelor). Where P2Y1 excites
+the cell through Gq, P2Y12 works through Gi to *release a brake*. At rest, cyclic
+AMP (cAMP) keeps protein kinase A (PKA) active, and PKA damps Ca²⁺ release,
+integrin activation and secretion. ADP on P2Y12 lowers cAMP, which lowers PKA
+activity, which in turn lifts that brake; so P2Y12 strengthens the response
+indirectly, by disinhibition rather than by direct excitation. The `p2y12_block`
+knob, running from 0 (no block) to 1 (full block), stands for clopidogrel or
+cangrelor. The whole arm is solved inside the calcium ODE (lines 1425–1454).
 
 Receptor: $v_\text{on}=k_\text{on}R_i\,\text{adp}\,\text{avail}$,
 $\text{avail}=1-\text{clamp}_{[0,1]}(\texttt{p2y12\_block})$; $v_\text{off}=k_\text{off}R_a$.
@@ -252,8 +360,13 @@ cAMP-raising drug inputs (all RunConfig, default 0): `pgi2_nM` (PGI₂/iloprost)
 
 ### A.6 TP (TXA₂ receptor) → Gq
 
-**Role.** Gq-coupled thromboxane receptor; reversible and **catalytic** (binding
-does not deplete TXA₂). Autocrine TXA₂ from the synthesis process (lines 1403–1407):
+**Role.** TP is the receptor for thromboxane A₂ (TXA₂), the short-lived lipid
+signal that the platelet makes and releases to recruit and activate its
+neighbours. Like P2Y1 it couples to Gq, so it feeds into the same Ca²⁺-raising
+cascade, and it forms the receiving end of the second autocrine loop. Its binding
+is reversible and *catalytic*: one TXA₂ molecule can activate the receptor
+without being consumed, so the model does not use up TXA₂ when it binds. The
+autocrine TXA₂ comes from the synthesis process (lines 1403–1407):
 $\text{txa2\_um\_now}=\text{secreted\_txa2\_count}\cdot\texttt{\_UM\_PER\_COUNT\_EX}
 \cdot\texttt{autocrine\_txa2\_gain}$.
 
@@ -267,8 +380,13 @@ choice). $R_a$ joins `total_active_R`. **Gq feedback** (closed by §G.2).
 
 ## B. G-protein cascade: Gαq → PLCβ
 
-**Role.** A shared Gαq pool driven by all active Gq receptors; activates PLCβ,
-which PKC can phosphorylate out of the activatable pool (lines 1411–1415, 1309–1334).
+**Role.** This is where the Gq arm converges. P2Y1, PAR1, PAR4 and TP all couple
+to the same G-protein, Gαq, so the model pools them: every active Gq-coupled
+receptor adds to one shared Gαq pool. Active Gαq then switches on phospholipase
+C-β (PLCβ), the enzyme that makes the second messengers. PKC closes a feedback
+loop at this node by phosphorylating PLCβ, which moves it into an inactive pool
+that Gαq can no longer stimulate, damping the cascade once it is running
+(lines 1411–1415, 1309–1334).
 
 $$\text{total\_active\_R}=P2Y1_a+PAR1_a+PAR4_a+TP_a$$
 $$\dot{Gq_a}=(k_\text{act/R}\,\text{total\_active\_R}+k_\text{basal})\,Gq_i-k_\text{rgs}Gq_a,\quad
@@ -298,7 +416,13 @@ v_\text{dephos}=k_\text{dephos}PLCb_p$$
 
 ## C. PI cycle: PIP₂ → IP₃ + DAG
 
-**Role.** Endogenous IP₃/DAG production and turnover (lines 1313–1337).
+**Role.** This is the reaction that turns receptor activation into a calcium
+signal. Active PLCβ splits the membrane lipid PIP₂ into two second messengers:
+IP₃, which diffuses to the store and opens the IP₃ receptor, and DAG, which stays
+in the membrane and activates PKC. The model makes both from PIP₂, breaks each
+down again (IP₃ by phosphatases and a kinase, DAG by DAG kinase), and slowly
+rebuilds PIP₂, so IP₃ and DAG rise during stimulation and fall back to baseline
+afterwards instead of being fixed inputs (lines 1313–1337).
 
 $$\dot{\mathrm{PIP2}}=-v_\text{cat}+v_\text{resynth},\quad
 \dot{\mathrm{IP3}}=v_\text{cat}-v_\text{ip3,deg},\quad
@@ -320,8 +444,13 @@ v_\text{ip3,deg}=k_\text{ip3,deg}\,\mathrm{IP3},\;v_\text{dag,deg}=k_\text{dag,d
 
 ## D. PKC (α/β/δ) — the activation hub
 
-**Role.** DAG + Ca²⁺ coincidence detector. In the ODE it activates from the DAG
-branch with a Hill Ca²⁺ co-factor (lines 1345–1352):
+**Role.** PKC (modelled as a lumped conventional and novel isoform, α/β/δ) is the
+model's central decision point: a *coincidence detector* that fires only when DAG
+and Ca²⁺ rise together, as they do during genuine activation. Requiring two
+signals at once is what keeps a resting platelet quiet. Once active, PKC both
+brakes the cascade upstream (§A.3, §B) and drives all three terminal outputs. In
+the ODE it is activated along the DAG branch, with cytosolic Ca²⁺ entering as a
+Hill-type co-factor (lines 1345–1352):
 
 $$f_{Ca}=f_\text{floor}+(1-f_\text{floor})\frac{Ca^{n}}{K_{Ca}^{n}+Ca^{n}},\quad
 \dot{PKC_a}=k_\text{act}\,PKC_i\,\text{dag\_uM}\,f_{Ca}-k_\text{inact}PKC_a$$
@@ -350,7 +479,14 @@ integrin activation at zero in an unstimulated platelet.
 
 ### E.1 IP₃R — Li-Rinzel reduction of De Young–Keizer
 
-**Role.** IP₃- and Ca²⁺-gated DTS→cytosol release channel (lines 1044–1075).
+**Role.** The IP₃ receptor is the channel that releases stored calcium. It sits
+in the membrane of the dense tubular system (the platelet's version of the
+endoplasmic reticulum) and opens when both IP₃ and cytosolic Ca²⁺ are bound,
+letting Ca²⁺ pour from the store into the cytosol. That dependence on Ca²⁺ makes
+the channel self-reinforcing at first and then self-limiting: a little cytosolic
+Ca²⁺ promotes opening, but more of it eventually shuts the slow inactivation gate
+($h$). The model uses the Li–Rinzel reduction of the De Young–Keizer scheme,
+which captures this behaviour with a single slow gating variable (lines 1044–1075).
 With $h = \mathrm{IP3R\_h}/N_\text{IP3R}$:
 
 $$m_\infty=\frac{\mathrm{IP3}}{\mathrm{IP3}+d_1}\cdot\frac{Ca_\text{cyt}}{Ca_\text{cyt}+d_5},\quad
@@ -367,8 +503,12 @@ Refs: De Young & Keizer 1992, Li & Rinzel 1994.
 
 ### E.2 SERCA — E1/E2 enzymatic cycle
 
-**Role.** ATP-driven cytosol→DTS pump, 2 Ca²⁺/turnover; 6 enzyme states
-(lines 1078–1096):
+**Role.** SERCA is the pump that refills the store. It spends the energy of ATP
+to push Ca²⁺ from the cytosol back into the dense tubular system against the
+concentration gradient, two Ca²⁺ ions per ATP, and so it opposes the IP₃ receptor
+and helps bring a signal to an end. The model resolves its catalytic cycle into
+six enzyme states rather than collapsing it to one rate, so the pump's dependence
+on cytosolic and luminal Ca²⁺ falls out of the kinetics (lines 1078–1096):
 
 $$v_\text{bind}=k_{bf}\,se1\,Ca_\text{cyt}^2-k_{br}\,se1c,\quad
 v_\text{release}=k_{rf}\,se2pc-k_{rr}\,se2p\,Ca_\text{dts}^2$$
@@ -383,8 +523,12 @@ $\gamma_\text{IP3R}$** — changing one requires re-deriving the other.
 
 ### E.3 PMCA — 5-state CaM-coupled extrusion
 
-**Role.** Plasma-membrane cytosol→extracellular pump; a basal path and a
-Ca₄·CaM-activated path with ~5× higher $k_\text{cat}$ (lines 1158–1210).
+**Role.** PMCA is the plasma-membrane pump that exports Ca²⁺ out of the cell
+altogether, the main route for clearing a cytosolic Ca²⁺ rise and restoring the
+resting level. The model gives it two parallel routes: a slow basal path, and a
+fast path that switches on when calmodulin loaded with four Ca²⁺ (Ca₄·CaM) binds
+the pump and raises its turnover roughly five-fold. The pump therefore speeds up
+exactly when cytosolic Ca²⁺ is high, a built-in negative feedback (lines 1158–1210).
 
 $$\text{basal: }\;v_\text{bind}=k_\text{on}\,\mathrm{PMCA}\,Ca_\text{cyt}-k_\text{off}\,\mathrm{PMCA\_Ca},\quad
 v_\text{cat}=k_\text{cat}\,\texttt{pmca\_kcat\_scale}\,\mathrm{PMCA\_Ca}$$
@@ -396,8 +540,12 @@ Caride 2007 Table 3). Removes Ca²⁺ from `CA2_CYT[c]`.
 
 ### E.4 NCX — Na⁺/Ca²⁺ exchanger
 
-**Role.** Forward-mode Ca²⁺ extrusion (3 Na⁺:1 Ca²⁺), Ca²⁺-activated; runs in both
-±Ca²⁺-ex conditions (lines 1284–1288):
+**Role.** The sodium–calcium exchanger is a second route for exporting Ca²⁺.
+Instead of burning ATP directly, it rides the inward sodium gradient, pulling one
+Ca²⁺ out for every three Na⁺ it lets in (forward mode). The model turns it on as
+cytosolic Ca²⁺ rises; and because it does not depend on Ca²⁺ entry, it runs
+whether or not extracellular Ca²⁺ is present, unlike the channels above
+(lines 1284–1288):
 
 $$g_\text{act}=\frac{(Ca_\text{cyt}/K_a)^h}{1+(Ca_\text{cyt}/K_a)^h},\quad
 v_\text{ncx}=V_\text{max}\,g_\text{act}\,\frac{Ca_\text{cyt}}{K_m+Ca_\text{cyt}}\;\to\;-\mathrm{CA2\_CYT}$$
@@ -407,7 +555,10 @@ v_\text{ncx}=V_\text{max}\,g_\text{act}\,\frac{Ca_\text{cyt}}{K_m+Ca_\text{cyt}}
 
 ### E.5 Basal plasma-membrane Ca²⁺ leak
 
-Constant cytosolic influx balancing PMCA at rest, gated on extracellular Ca²⁺
+A small, constant inward leak of Ca²⁺ across the plasma membrane. Its job is
+bookkeeping: at rest it exactly balances what PMCA pumps out, so resting
+cytosolic Ca²⁺ holds steady instead of slowly draining away. Like the channels,
+it is present only when there is extracellular Ca²⁺ to leak inward
 (line 1259): $\dot{\mathrm{CA2\_CYT}}\mathrel{+}= J_\text{PM,leak}$, `ions_s=75.0`
 (`TOML [pm.leak]` 54; calibrated against the PM balance at 100 nM cyt / 250 µM DTS).
 
@@ -415,8 +566,14 @@ Constant cytosolic influx balancing PMCA at rest, gated on extracellular Ca²⁺
 
 ## F. SOCE — store-operated Ca²⁺ entry (STIM1 / Orai1)
 
-**Role.** Store depletion → STIM1 dimerisation → Orai1 opening → Ca²⁺ entry; the
-sustained-plateau pathway. Gated on extracellular Ca²⁺ (Dolan 2014).
+**Role.** Store-operated Ca²⁺ entry is how the cell refills an emptied store from
+outside, and it produces the sustained, plateau phase of the Ca²⁺ signal. The
+trigger is the fall in store Ca²⁺ itself: as the dense tubular system empties, its
+luminal Ca²⁺ sensor STIM1 loses its bound Ca²⁺, pairs up (dimerises), moves to the
+plasma membrane and opens the Orai1 channel, which lets extracellular Ca²⁺ in.
+Because that Ca²⁺ enters from outside, the pathway runs only when extracellular
+Ca²⁺ is present, which is exactly the experimental contrast (with versus without
+external Ca²⁺) that the model is validated against (Dolan & Diamond 2014).
 
 STIM1 cycle (lines 1213–1223): Ca²⁺ unbinding from the luminal STIM1 EF-hand and
 free-monomer dimerisation,
@@ -451,9 +608,14 @@ differentiating mechanism.
 
 ### G.1 MCU + NCLX (+ IP₃R-relief coupling, #76)
 
-**Role.** Mitochondrial uniporter — fast cooperative uptake, capacity-bounded
-(#76 Part 1) — plus NCLX slow linear efflux; MCU uptake also **relieves IP₃R
-inactivation** (#76 Part 2) (lines 1459–1474, 817–839).
+**Role.** The mitochondria act as a temporary calcium buffer. The mitochondrial
+calcium uniporter (MCU) takes Ca²⁺ up quickly and cooperatively when cytosolic
+Ca²⁺ spikes, which blunts the peak; the model caps how much the matrix can hold
+(#76 Part 1), so uptake slows as it fills. The sodium–calcium exchanger NCLX then
+returns that Ca²⁺ slowly to the cytosol. In this model MCU uptake has a second
+effect: by drawing Ca²⁺ down close to the store, it eases the Ca²⁺-dependent
+inactivation of the IP₃ receptor and so helps sustain release (#76 Part 2)
+(lines 1459–1474, 817–839).
 
 $$\text{mito\_fill}=\max\!\Big(0,1-\frac{\mathrm{Ca}_\text{mito}}{C_\text{max}}\Big),\quad
 v_\text{MCU}=V_\text{max}\,\texttt{mcu\_vmax\_scale}\,\frac{Ca_\text{cyt}^{n}}{K_\text{MCU}^{n}+Ca_\text{cyt}^{n}}\,\text{mito\_fill}$$
@@ -475,7 +637,13 @@ config.mito_coupling_gain`. Refs: Ghatge 2026, Ajanel 2025. (See
 
 ### G.2 Buffers — CaM and the DTS luminal proteins
 
-**CaM** (cytosolic, two-lobe cooperative; lines 1100–1108):
+**Role.** Buffers bind free Ca²⁺ reversibly, so they blunt and slow every change
+in cytosolic Ca²⁺; most of the Ca²⁺ that enters the cytosol is caught by a buffer
+rather than left free to signal. The model tracks two kinds, one in the cytosol
+and one inside the store.
+
+**CaM** (calmodulin, in the cytosol, binding Ca²⁺ in two cooperative steps;
+lines 1100–1108):
 $v_1=k_6\,\mathrm{CaM_{free}}Ca^2-k_{6r}\mathrm{Ca_2CaM}$,
 $v_2=k_7\,\mathrm{Ca_2CaM}\,Ca^2-k_{7r}\mathrm{Ca_4CaM}$;
 $\dot{\mathrm{CA2\_CYT}}\mathrel{+}=-2v_1-2v_2$. Ca₄·CaM activates PMCA (§E.3).
@@ -490,9 +658,14 @@ in `TOML [buffers.*]` 581–700.
 
 ### G.3 Granule secretion (+ autocrine ADP loop)
 
-**Role.** PKC×Ca²⁺-gated dense- and α-granule cargo release; closes the autocrine
-ADP → P2Y1 loop. Files: `granule_secretion.py`. First-order release per pool,
-gated and PKA-braked (lines 104–125):
+**Role.** This is the first of PKC's three terminal outputs: the release of
+granule contents, or secretion. When PKC and Ca²⁺ rise together, the platelet's
+storage granules fuse with the membrane and empty their cargo: ADP and serotonin
+from the dense granules; fibrinogen and von Willebrand factor from the
+α-granules; and P-selectin, which is delivered to the cell surface. The secreted
+ADP is what closes the autocrine loop back onto P2Y1. The model releases each
+cargo pool with first-order kinetics, opened by the shared PKC×Ca²⁺ gate and held
+back by the PKA brake (file `granule_secretion.py`, lines 104–125):
 
 $$\text{released}_i=\big\lfloor \text{src}_i\,(1-e^{-k_{sec,i}\,\text{gate}\,b_\text{PKA}\,\Delta t})\big\rfloor$$
 
@@ -509,8 +682,13 @@ feedback**.
 
 ### G.4 Thromboxane synthesis (+ autocrine TP loop)
 
-**Role.** Lumped cPLA₂→COX-1→TXA₂-synthase production, Ca²⁺×PKC-gated, with the
-aspirin knob; TXA₂→TXB₂ decay. File: `thromboxane_synthesis.py` (lines 70–89):
+**Role.** The second terminal output is thromboxane synthesis. When Ca²⁺ and PKC
+rise, the platelet frees arachidonic acid and converts it, through COX-1 and
+thromboxane synthase, into thromboxane A₂, the diffusible signal that recruits
+neighbouring platelets (and the target of low-dose aspirin). The model lumps that
+three-enzyme chain into one gated production term, scaled by the aspirin knob
+`cox1_factor`, and lets the unstable product TXA₂ decay to its stable, measurable
+metabolite TXB₂ (file `thromboxane_synthesis.py`, lines 70–89):
 
 $$\text{produced}=\text{round}(k_\text{prod}\,\texttt{cox1\_factor}\,\text{gate}\,\Delta t),\quad
 \text{decayed}=\lfloor\mathrm{TXA2[e]}(1-e^{-k_\text{decay}\Delta t})\rfloor$$
@@ -522,9 +700,16 @@ the TP→Gq loop (§A.6) is **Gq feedback**, implemented in the ODE.
 
 ### G.5 αIIbβ3 inside-out activation (PAC-1 readout) + Akt/Rap1b arm
 
-**Role.** 2-state resting⇌active αIIbβ3 switch; active fraction = the per-cell
-PAC-1 readout. Driven by **Rap1b-GTP**, sustained by P2Y12→Akt, gated and
-PKA-braked. File: `integrin_activation.py`.
+**Role.** The third and final output is the one that makes a platelet sticky:
+inside-out activation of the integrin αIIbβ3 (glycoprotein IIb/IIIa), the receptor
+that binds fibrinogen and lets platelets aggregate. The model treats it as a
+switch between a resting, low-affinity shape and an active, high-affinity one, and
+the fraction in the active shape is what the PAC-1 antibody reports in flow
+cytometry. The forward switch is driven by the small GTPase Rap1b in its
+GTP-bound form, which is kept switched on for as long as P2Y12 → Akt signalling
+holds the Rap1b "off" enzyme (its GAP) in check. As with the other two outputs,
+the shared PKC×Ca²⁺ gate opens it and the PKA brake opposes it
+(file `integrin_activation.py`).
 
 PI3K/Akt → Rap1b (pure helper `akt_rap_step`, lines 35–62; Euler-exact 1 s step),
 with $\text{p2y12\_frac}=\mathrm{P2Y12\_active}/N_{P2Y12}$:
@@ -603,18 +788,19 @@ provenance with inline citations is in `reports/design/kinetics-v0.6-review.qmd`
 ## How this document was produced
 
 **This document was generated by an AI coding assistant (Claude Code), by reading
-the model source directly.** Every equation and rate constant above was extracted
-from the implementation — `reconstruction/platelet/dataclasses/process/calcium_signalling.py`
-(the `_ode_rhs` right-hand side and its helpers), `reports/params/calcium-v0.6.toml`
+the model source directly.** Every equation and rate constant above was read out
+of the implementation, with line-number citations to the code as committed on
+24 June 2026 (commit `4fe847b9`). The sources are
+`reconstruction/platelet/dataclasses/process/calcium_signalling.py` (the
+`_ode_rhs` right-hand sides and their helpers), `reports/params/calcium-v0.6.toml`
 (the `_KINETICS` rate-constant table), and the three downstream process files
-(`granule_secretion.py`, `thromboxane_synthesis.py`, `integrin_activation.py`) —
-with line-number citations to the code as of git commit `4fe847b9`. No equation or
-numeric value was drawn from the assistant's own prior knowledge; the source code
-and TOML are the sole authority.
+(`granule_secretion.py`, `thromboxane_synthesis.py`, `integrin_activation.py`).
+No equation or numeric value was drawn from the assistant's own prior knowledge;
+the source code and the TOML file are the sole authority.
 
 This has two consequences worth stating plainly. First, the document is a
 **faithful transcription of what the code does**, not an independent statement of
-what the biology *should* be — if the implementation contains an error, this
+what the biology *should* be; if the implementation contains an error, this
 reference reproduces it. Second, AI extraction over ~1500 lines can mis-attribute a
 constant or paraphrase an equation; **treat the cited source line as ground truth
 and this document as a navigational aid.** The literature citations (paper,
