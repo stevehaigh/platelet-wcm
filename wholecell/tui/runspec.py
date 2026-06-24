@@ -50,11 +50,12 @@ GROUPS: Tuple[Tuple[str, Tuple[Tuple[str, str, str, str, bool], ...]], ...] = (
 		('pde3_block', 'PDE3 block (cilostazol)',  '0.0', 'float', False),
 	)),
 	('Pumps / brakes (scale)', (
-		('pmca_kcat_scale',    'PMCA k_cat',        '1.0', 'float', True),
-		('mcu_vmax_scale',     'MCU V_max',         '1.0', 'float', True),
-		('k_des_scale',        'P2Y1 desens',       '1.0', 'float', True),
-		('k_plcb_phos_scale',  'PLCb phos',         '1.0', 'float', True),
-		('integrin_act_scale', 'aIIbb3 activation', '1.0', 'float', True),
+		('pmca_kcat_scale',    'PMCA k_cat',         '1.0', 'float', True),
+		('mcu_vmax_scale',     'MCU V_max',          '1.0', 'float', True),
+		('mito_coupling_gain', 'MCU→IP3R coupling',  '1.0', 'float', True),
+		('k_des_scale',        'P2Y1 desens',        '1.0', 'float', True),
+		('k_plcb_phos_scale',  'PLCb phos',          '1.0', 'float', True),
+		('integrin_act_scale', 'aIIbb3 activation',  '1.0', 'float', True),
 	)),
 )
 

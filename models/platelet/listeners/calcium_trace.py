@@ -31,6 +31,9 @@ Columns written:
   mcu_uptake_per_s  — MCU uptake flux into the matrix this step (ions/s),
                       recomputed from the ODE's Hill kinetics so the otherwise
                       unobserved mitochondrial module is auditable (issue #76)
+  mito_coupling_factor — #76 Part 2 evoked IP3R-release gate factor (0–1) =
+                      ∝ MCU capacity × Ca²⁺-activation; 1.0 in WT, < 1 during the
+                      KO transient (SOCE is not gated by it — it falls indirectly)
 """
 
 import numpy as np
@@ -47,6 +50,7 @@ from reconstruction.platelet.dataclasses.process.calcium_signalling import (
 	_mwc_open_fraction,
 	pka_active_frac,
 	GAMMA_SOC_S,
+	ip3r_relief_factor,
 	K_MITO,
 	NA_OVER_zF,
 	ORAI_SUBUNITS_PER_CHANNEL,
@@ -79,6 +83,9 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		# MCU knockout scale (1.0 intact, 0.0 KO); copied out like _ca_ex_uM so
 		# the uptake-flux recompute below stays unit-testable without a config.
 		self._mcu_vmax_scale = self._config.mcu_vmax_scale
+		# #76 Part 2 — MCU → (SOCE + release) coupling gain (copied like the
+		# others so the SOCE-flux recompute stays unit-testable without a config).
+		self._mito_coupling_gain = self._config.mito_coupling_gain
 
 		self._bulk_molecules = (
 			sim.internal_states['BulkMolecules'].container)
@@ -138,6 +145,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.pmca_ca          = 0
 		self.ca_mito_count    = 0
 		self.mcu_uptake_per_s = 0.0
+		self.mito_coupling_factor = 1.0
 		self.atp_pump_per_s   = 0.0
 		self.pkc_active             = 0
 		self.p2y1_desensitised_frac = 0.0
@@ -200,6 +208,13 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 		self.mcu_uptake_per_s = float(
 			K_MITO['V_max_MCU'] * self._mcu_vmax_scale
 			* ca_n / (km_n + ca_n) * mito_fill)
+		# #76 Part 2 — the evoked IP3R-release gate the ODE applies, via the shared
+		# `ip3r_relief_factor` helper so the recorded value matches the ODE exactly
+		# (one source of truth). Recorded for audit; SOCE is NOT gated by it (it
+		# falls indirectly via the fuller store). End-of-step snapshot: computed
+		# from the committed Ca²⁺, so it is an estimate of the within-step factor.
+		self.mito_coupling_factor = float(ip3r_relief_factor(
+			ca_cyt_uM, self._mcu_vmax_scale, self._mito_coupling_gain))
 
 		# PKC feedback (v0.6): active PKC count + fraction of the P2Y1 pool
 		# in the desensitised phospho-state.
@@ -256,7 +271,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			driving_pm_v = V_PM_V - e_ca_pm_v
 			soce_ions_s = (
 				-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
-			)
+			)  # #76 Part 2: SOCE not gated directly — falls via the fuller store
 		else:
 			soce_ions_s = 0.0
 		# Convert ions/s in cytosol → nM/s (cyt volume).
@@ -287,6 +302,7 @@ class CalciumTrace(wholecell.listeners.listener.Listener):
 			pmca_ca=self.pmca_ca,
 			ca_mito_count=self.ca_mito_count,
 			mcu_uptake_per_s=self.mcu_uptake_per_s,
+			mito_coupling_factor=self.mito_coupling_factor,
 			atp_pump_per_s=self.atp_pump_per_s,
 			pkc_active=self.pkc_active,
 			p2y1_desensitised_frac=self.p2y1_desensitised_frac,

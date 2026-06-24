@@ -535,6 +535,31 @@ n_MCU     = 4        # Hill cooperativity (int)          literature 2–4
 k_NCLX    = 0.005    # NCLX linear efflux (s⁻¹)          τ = 200 s
 C_max     = 100000.0 # matrix Ca²⁺ capacity (ions); uptake back-pressure (#76 Part 1)
 
+[mito.bioenergetic]
+# #76 Part 2 — MCU coupling to agonist-evoked store release (Ghatge 2026 / Ajanel
+# 2025, which BOTH report reduced release AND reduced SOCE on MCU loss).
+# Biology: MCU uptake at mitochondria–DTS (MAM) contacts clears the local Ca²⁺
+# microdomain, relieving the IP3R's Ca²⁺-dependent INACTIVATION → sustained store
+# release. We have no spatial microdomains, so the relief is lumped as ∝ functional
+# MCU capacity (mcu_vmax_scale; = MCU uptake normalised to full capacity — the
+# matrix LEVEL was tried first and is brittle, depending on the matrix initial
+# condition), and gated by an ACTIVATION function of cytosolic Ca²⁺ so it engages
+# only during the evoked transient (high Ca²⁺), not at rest — matching the biology
+# (inactivation only bites at high Ca²⁺) and preserving the resting state.
+#   factor = 1 − gain·strength·(1 − mcu_vmax_scale)·act,   act = ca^n / (ca^n + Ka^n)
+# applied to flux_ip3r ONLY. WT (scale=1) → factor 1 → unchanged → byte-identical,
+# Dolan 5/5 preserved. Knockout (scale=0) → evoked release cut → cytosolic Ca²⁺
+# REDUCED (peak + AUC); the fuller store then lowers SOCE INDIRECTLY (so one gate
+# captures both reduced release and reduced SOCE). Magnitude is modest (~15 %): the
+# lost MCU buffer in KO raises cyt and partly offsets the lost relief — a competing-
+# effects result, honest about the single-cell buffer-vs-relief balance. Efflux
+# pumps (SERCA/PMCA) and SOCE left ungated on purpose. gain
+# (RunConfig.mito_coupling_gain, default 1) toggles it off (0 = Part-1-only).
+# See reports/design/mcu-coupling-2026-06-23.qmd.
+coupling_strength = 0.95  # evoked relief lost at full KO (calibrated; KO peak ~-18%)
+Ka_act            = 0.25  # Ca²⁺ (µM) half-point of the activation gate (rest off, evoked on)
+n_act             = 4     # activation-gate Hill exponent (int)
+
 
 # ── Coarse-grained cytosolic Ca²⁺ buffer (gelsolin proxy) ────────────
 # Single 1:1 buffer representing the cytosolic Ca²⁺ buffering capacity.

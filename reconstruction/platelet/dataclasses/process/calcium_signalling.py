@@ -816,6 +816,33 @@ K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 # Values live in `reports/params/calcium-v0.6.toml [mito.kinetics]`
 # (issue #32 Phase 2 slice 6).
 K_MITO = dict(_KINETICS['mito']['kinetics'])
+# #76 Part 2 — MCU → IP3R-relief coupling params ([mito.bioenergetic]).
+K_MITO_BIO = dict(_KINETICS['mito']['bioenergetic'])
+
+
+def ip3r_relief_factor(ca_cyt_uM, mcu_vmax_scale, gain):
+	"""#76 Part 2 evoked IP3R-relief gate — the single source of truth shared by
+	the ODE and the CalciumTrace listener (so they cannot drift apart).
+
+	MCU uptake at mitochondria–DTS (MAM) contacts relieves the IP3R's
+	Ca²⁺-dependent inactivation; the relief scales with functional MCU capacity
+	(``mcu_vmax_scale``) and is gated by an activation function of cytosolic Ca²⁺
+	so it engages only during the evoked transient (high Ca²⁺), not at rest.
+
+	Returns a factor in **[0, 1]** to multiply the IP3R store-release flux:
+	``1`` = full relief (wild type, ``mcu_vmax_scale ≥ 1``); ``< 1`` = reduced
+	(knockdown). Clamped both ways: over-expression (``scale > 1``) saturates the
+	relief at 1 (it cannot *raise* release — ``max(0, 1 − scale)``), and no
+	gain/strength setting can drive the factor negative (``max(0.0, …)``), which
+	would otherwise reverse the flux. NB: lumps the relief as a whole-flux scale
+	(no spatial microdomain / explicit ``h``-gate term); intermediate
+	``mcu_vmax_scale`` is *not* independently calibrated — only the endpoints
+	(WT, full KO) are. See reports/design/mcu-coupling-2026-06-23.qmd."""
+	ca_n = ca_cyt_uM ** K_MITO_BIO['n_act']
+	act = ca_n / (ca_n + K_MITO_BIO['Ka_act'] ** K_MITO_BIO['n_act'])
+	loss = (gain * K_MITO_BIO['coupling_strength']
+		* max(0.0, 1.0 - mcu_vmax_scale) * act)
+	return max(0.0, 1.0 - loss)
 
 
 
@@ -933,6 +960,14 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 
 	# Mitochondrial Ca²⁺ state read
 	ca_mito_count = max(y[_IDX['CA2_MITO[m]']], 0.0)
+	# MCU coupling (#76 Part 2): MCU uptake at the MAM relieves the IP3R's
+	# Ca²⁺-dependent inactivation → sustained store release; lost on knockout.
+	# Evoked-gated (engages only at high Ca²⁺) so rest and WT are untouched. The
+	# fuller KO store then lowers SOCE indirectly (one gate, both reductions).
+	# Modest (~15 %): the lost MCU buffer partly offsets the lost relief. See the
+	# shared `ip3r_relief_factor` helper for the form, clamps, and caveats.
+	mito_coupling_factor = ip3r_relief_factor(
+		ca_cyt, config.mcu_vmax_scale, config.mito_coupling_gain)
 
 	# GPCR cascade state reads
 	p2y1_i = max(y[_IDX['P2Y1_inactive[pl]']], 0.0)
@@ -1036,6 +1071,7 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 		driving_v = V_IM_V - e_ca_im_v
 		flux_ip3r_ions_s = (
 			-GAMMA_IP3R_S * N_IP3R * po_channel * driving_v * NA_OVER_zF
+			* mito_coupling_factor          # #76 Part 2: evoked-gated MAM relief
 		)
 	else:
 		flux_ip3r_ions_s = 0.0
@@ -1216,6 +1252,9 @@ def _ode_rhs(t, y, t_sim_start, config, step_inputs):
 	if ca_ex_uM > 0.0 and ca_cyt > 0.0:
 		e_ca_pm_v = RT_OVER_zF_V * math.log(ca_ex_uM / ca_cyt)
 		driving_pm_v = V_PM_V - e_ca_pm_v
+		# SOCE is NOT gated directly (#76 Part 2): the IP3R-release gate above
+		# leaves the KO store fuller, which lowers store-operated entry on its own
+		# (STIM/Orai see a less-depleted store) — so SOCE falls indirectly.
 		soce_ions_s = (
 			-GAMMA_SOC_S * n_orai_channels * po_orai * driving_pm_v * NA_OVER_zF
 		)
