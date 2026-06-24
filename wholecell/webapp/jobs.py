@@ -13,13 +13,6 @@ from typing import Any, Dict, List, Optional
 
 
 DB_FILENAME = 'webapp_jobs.db'
-PHASES = ['queued', 'simulating', 'analyzing', 'done', 'failed']
-
-# Typical durations for progress estimation (seconds)
-PHASE_DURATIONS = {
-	'simulating': 30,
-	'analyzing': 10,
-}
 
 
 ALLOWED_COLUMNS = frozenset([

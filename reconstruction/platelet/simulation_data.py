@@ -5,11 +5,10 @@ Minimal parameter object for the platelet whole-cell model.  Satisfies the
 engine's interface contract so that BulkMolecules, UniqueMolecules, and
 LocalEnvironment can all call initialize() without error.
 
-Real biology is added incrementally:
-  - Issue #18: Burkhart proteome — populates internal_state.bulk_molecules
-  - Issue #24: Purvis calcium parameters
-  - Issue #28: granule UniqueMolecule definitions
-  - Issue #34: agonist-addition timeline replaces ExternalState stub
+The platelet biology is built out across the dataclasses this object wires
+together (constants, molecule_groups, internal_state, external_state,
+process); see those modules and the git history for the provenance of each
+pathway. This class stays a thin, engine-facing parameter container.
 """
 
 from reconstruction.platelet.dataclasses.constants import Constants

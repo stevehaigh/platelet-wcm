@@ -12,8 +12,8 @@ This script makes that point with three figures, then the companion
   3. amplifiers_saturating.png v0.61 amplifiers on vs off (standard 300 s): Ca2+ flat,
                               IP3 small, P2Y1 desensitisation clear
 
-Conditions use the supported override knobs (no monkeypatching), via the
-``model_config`` context manager:
+Conditions use the supported override knobs (no monkeypatching), via
+``RunConfig``:
   v0.5  = brakes off, amplifiers off   (k_des = k_plcb_phos = 0; gains 0)
   v0.6  = brakes on,  amplifiers off
   v0.61 = brakes on,  amplifiers on    (defaults)

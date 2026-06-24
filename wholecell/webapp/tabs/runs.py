@@ -8,7 +8,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
-from wholecell.webapp.jobs import PHASE_DURATIONS, PHASES, JobManager
+from wholecell.webapp.jobs import JobManager
 
 
 def layout() -> html.Div:

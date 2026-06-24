@@ -399,7 +399,7 @@ and loaded at import time by
 and assigns the remaining ODE state / per-channel scalars; physical constants
 (R, T, F, NA), structural integers, and compartment volumes stay in Python.
 
-The molecule inventory (id, mass, initial count, class for all 78 species)
+The molecule inventory (id, mass, initial count, class for all 83 species)
 lives in `reports/params/species-v0.6.tsv` and is loaded by
 `reconstruction/platelet/dataclasses/_species_loader.py:load_species()`,
 exposed in `internal_state.py` as `_MOLECULES`. There is no `raw_data/`
