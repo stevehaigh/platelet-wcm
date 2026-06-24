@@ -1,75 +1,69 @@
 # `reports/design/` — navigator
 
-Design docs for the platelet WCM. ~20 files accumulated over the v0.2 → v0.4
-arc; this README signposts what's current canonical vs historical context.
+Design docs for the platelet WCM. This README signposts what's current.
 
-For *current work state* — what's being touched this week, today's
-calibration results — read the most recent file in
-[`../lab-books/`](../lab-books/) instead. The lab books are dated session
-notes and are always more current than anything in this directory.
+For *current work state* — what's being touched this week, today's calibration
+results — read the most recent file in [`../lab-books/`](../lab-books/) instead.
+The lab books are dated session notes and are always more current than anything
+in this directory.
+
+> Superseded v0.2–v0.5 design/planning docs have been moved to
+> [`../archive/`](../archive/) (see its README). Only current material is listed
+> below.
 
 ---
 
-## Read this first (current canonical)
+## Read this first (current model status)
 
 | File | What it is |
 |---|---|
-| [`version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd`](version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd) | **Model evolution v0.5 → v0.6 → v0.61.** Biology added, model changes, and results per release, with regenerated figures + legends. The current cross-version summary (and the PR #54 description). Start here for "what changed across the PKC arc". |
-| [`model-status-2026-05-13.qmd`](model-status-2026-05-13.qmd) | v0.4.1 model status. Twelve coupled mechanisms agonist → cytosolic Ca²⁺; Phase 3 Dolan validation 5/5. The best summary of the *calcium core* (pre-PKC). |
-| [`kinetics-as-data-2026-05-22.qmd`](kinetics-as-data-2026-05-22.qmd) | Issue #32 audit and implementation plan. Move ~150 numerical constants out of Python into TOML/TSV. Four-level spectrum from "Python-with-TOML-constants" to "fully data-driven biology". |
-| [`codebase-review-2026-05-23.qmd`](codebase-review-2026-05-23.qmd) | Dev-readiness audit (max-effort review of `main`). Priority-ordered punch list, calibration-coupling map, test-coverage gap analysis, "not to do" list. |
+| [`validation-map-2026-06-19.qmd`](validation-map-2026-06-19.qmd) | **The current model-status / validation overview.** What each mechanism is validated against, and the Dolan 5/5 placed in the context of the broader validation portfolio. Start here for "what does the model do now, and how do we know it's right". |
+| [`version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd`](version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd) | Model evolution v0.5 → v0.6 → v0.61: biology added, model changes, and results per release (pre-v0.7; the inhibitory axis and the #73/#76 arms came after). |
+
+## Pathway designs (current biology)
+
+| File | What it is |
+|---|---|
+| [`pkc-p2y1-feedback-design-2026-06-11.qmd`](pkc-p2y1-feedback-design-2026-06-11.qmd) | **v0.6** — DAG → PKC → P2Y1 desensitisation negative feedback (Purvis 2008; Mundell 2006 / Nicholas 2023). |
+| [`pkc-downstream-effects-2026-06-12.qmd`](pkc-downstream-effects-2026-06-12.qmd) | **v0.61** — design-of-record for the built downstream PKC outputs: granule secretion (autocrine ADP), thromboxane (autocrine TP→Gq, aspirin target), integrin αIIbβ3. PKC as the hub of four feedback loops. |
+| [`inhibitory-axis-design-2026-06-15.qmd`](inhibitory-axis-design-2026-06-15.qmd) | **v0.7** — the cAMP/PKA inhibitory axis: P2Y12/Gi (clopidogrel), PGI₂/Gs + forskolin + PDE3 (cilostazol), VASP readout. |
+| [`pi3k-akt-rap1b-arm-2026-06-22.qmd`](pi3k-akt-rap1b-arm-2026-06-22.qmd) | **#73** — PI3K/Akt → Rap1b sustain arm; Rap1b-GTP is the integrin's proximal driver (built; carries an as-built status note). |
+| [`mcu-coupling-2026-06-23.qmd`](mcu-coupling-2026-06-23.qmd) | **#76** — bounding the mitochondrial Ca²⁺ sink + the MCU → IP3R-relief coupling that flips the MCU-KO direction toward the data (built). |
+| [`dts-depletion-literature-2026-06-14.qmd`](dts-depletion-literature-2026-06-14.qmd) | Literature check on whether the model's complete DTS Ca²⁺ depletion is a real discrepancy (incl. §8 V_IM=0, §9 γ_IP3R recalibration). |
+| [`model-driven-experiment-design-2026-06-14.qmd`](model-driven-experiment-design-2026-06-14.qmd) | Model-driven experimental design around the DTS-depletion question. |
+
+## Calibration & kinetics
+
+| File | What it is |
+|---|---|
 | [`calibration-coupling-2026-05-25.qmd`](calibration-coupling-2026-05-25.qmd) | One-page matrix of "if you change X you must re-derive Y" chains in `calcium_signalling.py`. Skim before touching any rate constant. |
+| [`kinetics-v0.6-review.qmd`](kinetics-v0.6-review.qmd) | The clickable kinetics review rendered from `calcium-v0.6.toml` (auto-linked citations). Built in CI. |
 
-## Recent work (last ~3 weeks)
+## Tooling / infrastructure designs
 
 | File | What it is |
 |---|---|
-| [`web-ui-rewrite-2026-06-18.qmd`](web-ui-rewrite-2026-06-18.qmd) | **Web UI rewrite — architecture review + design.** Reviews the Dash webapp's UI/engine separation (functionally separated but leaky: hardcoded dir regexes, listener/column defaults, biology presets, `OBSERVABLES` import). Proposes extracting a framework-neutral **bench-core** shared by the TUI + a rewritten web UI (run-spec JSON as the one contract; per-run manifest), plus generalized N-D sweeps, figure-recipes with auto-legends, and a named-presets library. **PARKED post-dissertation; front-end decided = option C (FastAPI + JS).** Tracked in GitHub issue #64. |
-| [`tui-tinkering-dashboard-2026-06-15.qmd`](tui-tinkering-dashboard-2026-06-15.qmd) | **Terminal-TUI experiment-bench design.** A Textual TUI to edit biology (concentrations / counts / rates), knock out receptors/pathways, run, and watch the Ca²⁺ trace live. Frames tunable values as three tiers (Tier 0 = `RunConfig`, live today; Tier 1 = TOML rates; Tier 2 = TSV counts — both import-time, need a build-time refactor; Tier 3 = physics, leave alone), decomposes knockouts into expression (count→0) vs activity (rate→0), and phases the work P0–P3. §12 records locked decisions (scope P0+P1; subprocess per run; textual-plotext line charts; will replace the webapp). **P0–P2 implemented** in `wholecell/tui/` (`make tui`): full RunConfig surfaced + scale-knockouts + presets + compare-to-baseline + on-demand 5-panel figure; **P2** adds expression knockouts via `RunConfig.count_overrides` (entity map in `reconstruction/platelet/knockouts.py`). See lab book `2026-06-16-tui-bench`. |
-| [`pkc-p2y1-feedback-design-2026-06-11.qmd`](pkc-p2y1-feedback-design-2026-06-11.qmd) | **v0.6 design.** DAG → PKC → P2Y1 desensitisation negative feedback; closes the dead-end DAG branch. Anchored to Purvis 2008 (PKC module) + Mundell 2006 / Nicholas 2023 (PKC→P2Y1 in platelets). **Implemented** on branch `PKC-P2Y1-desensitisation`: both feedback routes — P2Y1 desensitisation (Mundell/Nicholas) **and** PLCβ phosphorylation (Purvis route, added on Mike's request) — plus `runPerturbation.py` `pkc`/`plcb` figures. calcium-v0.6 TOML/TSV, ODE, listener columns, goldens regenerated, Dolan 5/5 preserved. |
-| [`pkc-downstream-effects-2026-06-12.qmd`](pkc-downstream-effects-2026-06-12.qmd) | **v0.61 design.** Scopes the downstream PKC effects deferred from v0.6: granule secretion (autocrine ADP), thromboxane A₂ (autocrine TP→Gq, aspirin target), integrin αIIbβ3 affinity state. Recommends sequencing (secretion → thromboxane → integrin); flags the single-cell limit (aggregation out of reach). Frames PKC as the hub of four feedback loops (2 brakes + 2 amplifiers). Design only — no code. |
-| [`pathway-diagram-review-2026-05-19.qmd`](pathway-diagram-review-2026-05-19.qmd) | Annotation list for the BioRender pathway figure used in lab-meeting slide 7. |
-| [`lab-meeting-2026-05-14.qmd`](lab-meeting-2026-05-14.qmd) | Lab-meeting presentation: methodology, results, AI-assisted validation. |
-| [`mike-report-2026-05-14.qmd`](mike-report-2026-05-14.qmd) | PNAS-style write-up on feasibility of mechanistic whole-cell platelet modelling. |
-| [`model-status-graphviz.qmd`](model-status-graphviz.qmd) | Graphviz vs Mermaid layout-engine comparison for pathway visualisations. |
-| [`kinetics-as-data-sketch.qmd`](kinetics-as-data-sketch.qmd) | Single-reaction sketch of the post-dissertation refactor — companion to `kinetics-as-data-2026-05-22`. Also exists as `.md`. |
-| [`diagrams-v0.3.0.md`](diagrams-v0.3.0.md) | Mermaid versions of the v0.2 ASCII diagrams; updated post Phase 4 / #31 (PI cycle replaces forced IP3). |
+| [`tui-tinkering-dashboard-2026-06-15.qmd`](tui-tinkering-dashboard-2026-06-15.qmd) | Terminal-TUI experiment-bench design (edit biology, knock out pathways, run, watch the Ca²⁺ trace live). P0–P2 built in `wholecell/tui/`. |
+| [`web-ui-rewrite-2026-06-18.qmd`](web-ui-rewrite-2026-06-18.qmd) | Web-UI rewrite over a shared bench-core (FastAPI + JS). Parked post-dissertation; tracked in issue #64. |
+| [`perturbation-figures.qmd`](perturbation-figures.qmd) | Perturbation-figure design (PMCA V_max & MCU). *Note: predates #76; its MCU claim is superseded by the MCU-coupling work.* |
+| [`model-status-graphviz.qmd`](model-status-graphviz.qmd) | Graphviz vs Mermaid layout comparison; source of the v0.5 architecture figure (being replaced by the BioRender diagram). |
+
+## Feasibility / external-facing
+
+| File | What it is |
+|---|---|
+| [`mike-report-2026-05-14.qmd`](mike-report-2026-05-14.qmd) | PNAS-style feasibility write-up on mechanistic whole-cell platelet modelling (v0.4.1-era; some authoring stubs remain). |
 
 ## Errata / footnotes
 
 | File | What it is |
 |---|---|
-| [`purvis-2008-k3-transcription-error.md`](purvis-2008-k3-transcription-error.md) | 100× transcription error in Purvis 2008 Table 1 (IP3R k₃ = 11 s⁻¹ vs original Sneyd & Dufour 2002 0.11 s⁻¹). Documents the discovery and propagation through downstream models. |
-
-## Historical context (v0.2 era — 2026-05-07)
-
-These describe the model *before* the v0.3 / Phase 3+ work (SERCA cycle, DTS
-buffers, SOCE, P2X1, CaM ladder). Useful for the demo flow and
-walkthroughs but **not** the current biology.
-
-| File | What it is |
-|---|---|
-| [`biology-overview-2026-05-07.md`](biology-overview-2026-05-07.md) | Single-cell deterministic Ca²⁺ model overview at v0.2/v0.3.0. IP3-mediated transient calibrated against Dolan 2014. |
-| [`demo-2026-05-07.md`](demo-2026-05-07.md) | Demo cheatsheet — Dolan 3/5 acceptance criteria at v0.2; SOCE-differential gap is the named root cause for the two failures (now resolved in v0.4). |
-| [`code-overview-2026-05-07.md`](code-overview-2026-05-07.md) | Companion to the demo: file/line navigation for the live walkthrough; framework (`wholecell/`) vs model (`models/platelet/`) split. |
-| [`code-walkthrough-2026-05-07.md`](code-walkthrough-2026-05-07.md) | Temporal trace from `runPlateletSim.py` to first row of output. |
-
-## Pre-v0.2 design docs (undated)
-
-The original design work that bootstrapped the model. Mostly of historical interest.
-
-| File | What it is |
-|---|---|
-| [`calcium-dynamics-design.md`](calcium-dynamics-design.md) | v0.2 calcium dynamics design — first real biochemistry targeting Dolan Fig. 4. |
-| [`calcium-next-steps-plan.md`](calcium-next-steps-plan.md) | Plan dated 2026-04-29 for reproducing Dolan Fig. 4 — superseded by the model-status doc. |
-| [`calcium-signalling-pathway-design.md`](calcium-signalling-pathway-design.md) | Architecture for ADP receptor signalling (P2Y1, P2Y12). Uses the wcEcoli `TwoComponentSystem` pattern with stoichiometry matrix + SymPy-generated ODEs. Predates the current `calcium_signalling.py` dataclass approach. |
-| [`platelet-runtime-scaffold-summary.md`](platelet-runtime-scaffold-summary.md) | First runnable `models/platelet/` scaffold — proves the wholecell engine can host a platelet namespace. |
-| [`reconstruction-platelet-design.md`](reconstruction-platelet-design.md) | Design for the `reconstruction/platelet/` namespace; keeps useful reconstruction architecture from wcEcoli while replacing bacterium-specific parts. |
+| [`purvis-2008-k3-transcription-error.md`](purvis-2008-k3-transcription-error.md) | 100× transcription error in Purvis 2008 Table 1 (IP3R k₃ = 11 s⁻¹ vs the original Sneyd & Dufour 2002 0.11 s⁻¹) and its propagation through downstream models. |
 
 ---
 
 ## How to add a new doc
 
-- New design docs default to **`.qmd`** (Quarto). See `CLAUDE.md` "Reports & docs" section for the canonical frontmatter (or copy from [`model-status-2026-05-13.qmd`](model-status-2026-05-13.qmd)).
+- New design docs default to **`.qmd`** (Quarto). See `CLAUDE.md` "Reports & docs" section for the canonical frontmatter, or copy the block from any current `.qmd` here (e.g. [`mcu-coupling-2026-06-23.qmd`](mcu-coupling-2026-06-23.qmd)).
 - Date in the filename: `<topic>-YYYY-MM-DD.qmd`. The publish script (`runscripts/manual/buildDocsSite.py`) indexes by this date.
-- Add the new file to the relevant section above.
+- Add the new file to the relevant section above. Superseded docs go to [`../archive/`](../archive/).

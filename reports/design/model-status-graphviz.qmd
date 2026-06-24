@@ -18,7 +18,7 @@ format:
 
 # Graphviz vs Mermaid — same content, different layout engine
 
-Same biology as `model-status-2026-05-13.qmd`, rendered through Graphviz
+Same biology as `../archive/model-status-2026-05-13.qmd`, rendered through Graphviz
 `dot` instead of Mermaid. The advantage Graphviz brings:
 
 1. **Visible compartment boxes** via `subgraph cluster_*` — closer to a
