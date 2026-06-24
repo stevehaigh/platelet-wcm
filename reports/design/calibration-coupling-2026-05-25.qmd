@@ -53,6 +53,6 @@ Items currently flagged in the source as "works at v0.4.1 but should be revisite
 
 - `calcium_signalling.py` — primary source for all four chains; the `⚠ CALIBRATION-COUPLED` comments are the authoritative description.
 - `reports/dissertation-notes.md §3.1` — coupling diagram (cited from `calcium_signalling.py:191, 220`).
-- `reports/design/codebase-review-2026-05-23.qmd` — Priority-1 item that motivated aggregating these chains.
-- `reports/design/kinetics-as-data-2026-05-22.qmd` — issue #32 refactor that will move these constants to TOML.
+- `reports/archive/codebase-review-2026-05-23.qmd` — Priority-1 item that motivated aggregating these chains.
+- `reports/archive/kinetics-as-data-2026-05-22.qmd` — issue #32 refactor that will move these constants to TOML.
 - Dolan & Diamond 2014 — validation target (resting cyt 100 nM, DTS 250 µM; Fig. 3 resting trace, Fig. 4 ± extracellular Ca²⁺ transients).

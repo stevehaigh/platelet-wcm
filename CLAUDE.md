@@ -430,7 +430,7 @@ mitochondrial metabolism, integrin signalling, cytoskeleton) would require
 a new `<pathway>-v0.N.toml`, a parallel `_<pathway>_loader.py`, registration
 in whichever process consumes it, and updates to `CHAPTER_TITLES` in the
 review renderer so its sections render. None of that scaffolding exists yet
-(see `reports/design/kinetics-as-data-2026-05-22.qmd` "Level 2" sketch).
+(see `reports/archive/kinetics-as-data-2026-05-22.qmd` "Level 2" sketch).
 
 ## Key Conventions
 
@@ -519,5 +519,5 @@ Ca²⁺ trace stream live. Launch with `make tui` (entry point
 
 - **`.md` (pandoc)** — default for prose-only design docs and lab books. No new tool dependencies; build pipeline is the established `make pdfs` target.
 - **`.qmd` (Quarto)** — use for **diagram-heavy** docs and anything that benefits from `quarto preview` live-reload during editing. Native mermaid → PDF rendering (no `mmdc` step). Same xelatex pipeline under the hood, same fonts and margins as the pandoc rule, so existing reports/design/ visual style is preserved.
-- Quarto frontmatter for this repo: see `reports/design/model-status-2026-05-13.qmd` for the canonical block (format → pdf with `include-in-header: ../pandoc-header.tex` to inherit the project's LaTeX header).
+- Quarto frontmatter for this repo: see `reports/archive/model-status-2026-05-13.qmd` for the canonical block (format → pdf with `include-in-header: ../pandoc-header.tex` to inherit the project's LaTeX header).
 - During iteration: `quarto preview reports/design/<doc>.qmd` watches the file and reloads HTML on save. For PDF iteration, `quarto render <doc>.qmd --to pdf` is faster than going through make.

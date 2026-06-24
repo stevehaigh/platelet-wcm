@@ -149,7 +149,7 @@ physics and molecular architecture) — possibly excepting compartment
 volumes, which are acknowledged estimates (cytosol ≈ 6 fL is a guess).
 
 This tiering connects directly to the existing
-[`kinetics-as-data-2026-05-22.qmd`](kinetics-as-data-2026-05-22.qmd)
+[`kinetics-as-data-2026-05-22.qmd`](../archive/kinetics-as-data-2026-05-22.qmd)
 plan, whose "four-level spectrum" describes the same axis from
 Python-constants → fully-data-driven. Tier-1 editing is essentially that
 doc's "Level 2" made interactive.

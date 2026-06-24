@@ -135,7 +135,7 @@ under "Artifacts → kinetics-review".
 > cytoskeleton) needs a new `<pathway>-v0.N.toml`, a parallel
 > `_<pathway>_loader.py`, and updates to `CHAPTER_TITLES` in
 > `runscripts/manual/buildKineticsReview.py`. See
-> `reports/design/kinetics-as-data-2026-05-22.qmd` for the
+> `reports/archive/kinetics-as-data-2026-05-22.qmd` for the
 > post-dissertation generalisation sketch.
 
 

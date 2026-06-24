@@ -395,7 +395,7 @@ activation drops the apparent KM into the sub-µM range and raises k_cat. Dolan
 2014 adopts a comparable CaM-coupled model. Using the basal constants in v0.2
 is honest to the primary source but will yield a slower decay phase than the
 Dolan & Diamond Fig 4 transient. The full 5-state CaM-coupled scheme is
-deferred to v0.3 — see `calcium-dynamics-design.md` §3.5 and §7.2.
+deferred to v0.3 — see `../archive/calcium-dynamics-design.md` §3.5 and §7.2.
 
 #### Provenance correction (logged 2026-04-23)
 
@@ -496,7 +496,7 @@ The SOC current uses Dolan Eq. 4 with single-channel conductance
 constraint `SOCE_rest = PMCA_steady_rest`. Literature γ_SOC for CRAC is
 ~24 fS at saturating Po, but for the integer-count regime at platelet rest
 (<1 channel open) the effective conductance is reduced to avoid spurious
-runaway. See `reports/platelet-calcium-calibration.md` §3 and §6 for the
+runaway. See `../archive/platelet-calcium-calibration.md` §3 and §6 for the
 full derivation.
 
 ---
