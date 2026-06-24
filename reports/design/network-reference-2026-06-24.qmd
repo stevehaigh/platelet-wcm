@@ -1,6 +1,6 @@
 ---
-title: "Platelet Ca²⁺ signalling — pathway, equation & rate reference (v0.7)"
-subtitle: "A walk-through of the model figure: every pathway, its governing equations and rate constants"
+title: "Platelet Ca²⁺ signalling network — equation & rate reference (v0.7)"
+subtitle: "A walk-through of the model figure: each pathway and transport mechanism, with its governing equations and rate constants"
 author: "Steve Haigh"
 date: 2026-06-24
 format:
@@ -25,7 +25,7 @@ format:
 ## Purpose and scope
 
 This is a **reference document** for the v0.7 platelet calcium-signalling
-pathway diagram (@fig-pathway). It walks the figure component by component and,
+network diagram (@fig-pathway). It walks the figure component by component and,
 for each, states (i) the biological role, (ii) the governing equation(s) **exactly
 as implemented**, (iii) the rate constants with their numeric values, units and
 source, and (iv) which model state variable(s) the term touches and whether it
