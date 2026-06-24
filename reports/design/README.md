@@ -18,6 +18,7 @@ in this directory.
 | File | What it is |
 |---|---|
 | [`validation-map-2026-06-19.qmd`](validation-map-2026-06-19.qmd) | **The current model-status / validation overview.** What each mechanism is validated against, and the Dolan 5/5 placed in the context of the broader validation portfolio. Start here for "what does the model do now, and how do we know it's right". |
+| [`pathway-reference-2026-06-24.qmd`](pathway-reference-2026-06-24.qmd) | **The v0.7 pathway figure, annotated end-to-end.** Walks the network diagram (`../figures/v0.7-platelet-ca-pathway.png`) component by component: for every pathway, the governing equation(s) *as implemented*, the rate constants with values/units/sources, the state variables touched, and whether it is a Gq/Gi feedback loop or a terminal output. The "what is each arrow, and what equation is behind it" reference. |
 | [`version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd`](version-comparison-v0.5-v0.6-v0.61-2026-06-14.qmd) | Model evolution v0.5 → v0.6 → v0.61: biology added, model changes, and results per release (pre-v0.7; the inhibitory axis and the #73/#76 arms came after). |
 
 ## Pathway designs (current biology)
