@@ -4,22 +4,11 @@ from __future__ import annotations
 
 import os
 import re
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from wholecell.io.tablereader import DoesNotExistError, TableReader
-
-
-def dir_timestamp(path: str) -> str:
-	"""Return a short timestamp for a directory as YYMMDD-HH:MM:SS."""
-	try:
-		stat = os.stat(path)
-		ts = getattr(stat, 'st_birthtime', None) or stat.st_mtime
-		return time.strftime('%y%m%d-%H:%M:%S', time.localtime(ts))
-	except OSError:
-		return ''
 
 
 def dose_sweep_options(out_path: str) -> List[dict]:

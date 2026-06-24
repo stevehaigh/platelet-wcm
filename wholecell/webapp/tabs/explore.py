@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import base64
 import os
-from typing import Tuple
 
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 
 from wholecell.webapp import results
 

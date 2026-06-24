@@ -21,7 +21,7 @@ Python 3.11.5 via pyenv. Run all commands from the repo root.
 # Install dependencies
 pip install -r requirements.txt
 
-# Run a 200-second IP3-stimulated simulation (Phase 1 transient)
+# Run a 200-second agonist-stimulated simulation (activation transient)
 PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py out/my_run --length 200
 
 # Generate analysis plots
@@ -65,8 +65,8 @@ See [`docs/create-pyenv.md`](docs/create-pyenv.md) for full environment setup.
 
 ```
 models/platelet/           Platelet model
-  processes/               Biological submodels (CalciumDynamics, Scaffold, ...)
-  listeners/               Data recorders (CalciumListener, ...)
+  processes/               Biological submodels (CalciumDynamics, GranuleSecretion, ...)
+  listeners/               Data recorders (CalciumTrace, ...)
   analysis/single/         Post-simulation plots (calcium_trace.py, ...)
   sim/                     PlateletSimulation — wires processes and listeners
   tests/                   Regression and unit tests
@@ -98,10 +98,10 @@ need to edit Python to change a value — edit the data file, re-run the sim.
 
 | File | Purpose | Loader |
 |------|---------|--------|
-| `reports/params/calcium-v0.5.toml` | Rate constants, calibration scalars, agonist forcing peaks, and `[references.*]` bibliography for the calcium pathway | `reconstruction/platelet/dataclasses/process/_params_loader.py` |
-| `reports/params/species-v0.5.tsv` | Molecule inventory: `id`, `mass_fg`, `initial_count`, `molecule_class` for all 63 species | `reconstruction/platelet/dataclasses/_species_loader.py` |
+| `reports/params/calcium-v0.6.toml` | Rate constants, calibration scalars, agonist forcing peaks, and `[references.*]` bibliography for the calcium pathway | `reconstruction/platelet/dataclasses/process/_params_loader.py` |
+| `reports/params/species-v0.6.tsv` | Molecule inventory: `id`, `mass_fg`, `initial_count`, `molecule_class` for all 83 species | `reconstruction/platelet/dataclasses/_species_loader.py` |
 
-**Change a rate constant.** Open `calcium-v0.5.toml`, find the section
+**Change a rate constant.** Open `calcium-v0.6.toml`, find the section
 (e.g. `[serca.cycle]`), edit the value, re-run. The inline `# ...` comment
 on each row is the per-parameter provenance / citation; update it too if the
 new value comes from a different source.
@@ -111,17 +111,17 @@ row in the TOML section, then add the corresponding `K_FOO['new_key']`
 reference in `calcium_signalling.py` where the dict is consumed.
 
 **Add a new receptor / sub-pathway within calcium.** (1) Add a new
-`[section.subsection]` block to `calcium-v0.5.toml` with its rate
+`[section.subsection]` block to `calcium-v0.6.toml` with its rate
 constants and inline citations. (2) Add a `K_FOO = dict(_KINETICS['section']['subsection'])`
 line in `calcium_signalling.py` near the existing `K_*` block. (3) Wire it
 into `_ode_rhs()`. (4) If the receptor adds a species, append a row to
-`species-v0.5.tsv` (id with compartment tag, mass_fg, initial_count,
+`species-v0.6.tsv` (id with compartment tag, mass_fg, initial_count,
 class). (5) Add a `[references.<key>]` block for any new citations and a
 `match = [...]` list so the kinetics review auto-links them.
 
 **Regenerate the clickable review PDF** (renders the TOML to
-`reports/design/kinetics-v0.5-review.pdf` with auto-linked citations + a
-BibTeX side-output at `reports/params/calcium-v0.5-references.bib`):
+`reports/design/kinetics-v0.6-review.pdf` with auto-linked citations + a
+BibTeX side-output at `reports/params/calcium-v0.6-references.bib`):
 
 ```bash
 make kinetics-review        # needs quarto + xelatex on PATH

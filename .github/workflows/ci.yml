@@ -44,7 +44,7 @@ jobs:
         run: |
           python -m pytest wholecell/tests/ -v --tb=short
 
-  # ── Kinetics review: render reports/design/kinetics-v0.5-review.pdf ───────
+  # ── Kinetics review: render reports/design/kinetics-v0.6-review.pdf ───────
   kinetics-review:
     name: kinetics-review PDF
     runs-on: ubuntu-latest
@@ -81,16 +81,25 @@ jobs:
           fc-cache -f
 
       - name: Build kinetics review PDF
-        run: make kinetics-review
+        # The render auto-installs the `wasy` LaTeX package via TinyTeX's
+        # tlmgr; some CTAN mirrors intermittently serve an unsigned package
+        # database, which aborts the signature check and fails the render
+        # (a flake unrelated to repo changes). Retry once — a fresh mirror
+        # draw usually succeeds — before giving up.
+        run: |
+          make kinetics-review || {
+            echo "::warning::kinetics-review render failed (likely a transient CTAN mirror); retrying"
+            make kinetics-review
+          }
 
       - name: Upload kinetics-review artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kinetics-review
           path: |
-            reports/design/kinetics-v0.5-review.pdf
-            reports/design/kinetics-v0.5-review.qmd
-            reports/params/calcium-v0.5-references.bib
+            reports/design/kinetics-v0.6-review.pdf
+            reports/design/kinetics-v0.6-review.qmd
+            reports/params/calcium-v0.6-references.bib
 
   # ── Type checking (platelet paths only) ───────────────────────────────────
   typecheck:

@@ -350,7 +350,6 @@ K_CALR   = dict(_KINETICS['buffers']['calr'])
 N_CALR   = _KINETICS['buffers']['calr_pool']['n_total']
 
 K_CALR_P = dict(_KINETICS['buffers']['calr_p'])
-N_CALR_P = _KINETICS['buffers']['calr_p_pool']['n_total']
 
 
 # ── HSP90B1 / GRP94 / endoplasmin — Phase 3 / issue #25 ──────────────────
@@ -377,7 +376,6 @@ K_HSP90B1_L = dict(_KINETICS['buffers']['hsp90b1_low'])
 # Per-molecule × sites-per-molecule decomposition kept in TOML so a
 # biologist can edit either independently.
 _HSP90B1_POOL = _KINETICS['buffers']['hsp90b1_pool']
-N_HSP90B1   = _HSP90B1_POOL['n_molecules']
 N_HSP90B1_M = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_medium']
 N_HSP90B1_L = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_low']
 
@@ -392,8 +390,6 @@ N_HSP90B1_L = _HSP90B1_POOL['n_molecules'] * _HSP90B1_POOL['sites_low']
 # Platelet copy number: ~50 000 (order-of-magnitude estimate; BiP is the
 # canonically most-abundant ER chaperone, more so than CALR or HSP90B1).
 K_BIP = dict(_KINETICS['buffers']['bip'])
-_BIP_POOL = _KINETICS['buffers']['bip_pool']
-N_BIP = _BIP_POOL['n_molecules'] * _BIP_POOL['sites_per']
 
 
 # ── CREC family pool — CALU + RCN1 + RCN2 lumped — Phase 3 / issue #25 ──
@@ -408,8 +404,6 @@ N_BIP = _BIP_POOL['n_molecules'] * _BIP_POOL['sites_per']
 # + RCN2 ~5 k). Effective Ca²⁺-binding sites per molecule ~4 (most
 # EF-hands have functional Ca²⁺ binding; some are structural).
 K_CREC = dict(_KINETICS['buffers']['crec'])
-_CREC_POOL = _KINETICS['buffers']['crec_pool']
-N_CREC = _CREC_POOL['n_molecules'] * _CREC_POOL['sites_per']
 
 
 # ── PMCA4b CaM-activated path (Caride 2007 Table 3 steps 8–12) ──────────
