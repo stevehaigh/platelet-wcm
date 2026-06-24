@@ -56,6 +56,7 @@ GROUPS: Tuple[Tuple[str, Tuple[Tuple[str, str, str, str, bool], ...]], ...] = (
 		('k_des_scale',        'P2Y1 desens',        '1.0', 'float', True),
 		('k_plcb_phos_scale',  'PLCb phos',          '1.0', 'float', True),
 		('integrin_act_scale', 'aIIbb3 activation',  '1.0', 'float', True),
+		('rap1b_scale',        'Rap1b (CalDAG-GEFI)', '1.0', 'float', True),
 	)),
 )
 

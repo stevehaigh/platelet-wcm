@@ -74,6 +74,11 @@ class RunConfig:
 	"""Scale on αIIbβ3 inside-out activation rate (v0.61 §3); 0 = αIIbβ3
 	antagonist / Glanzmann thrombasthenia (no high-affinity integrin)."""
 
+	rap1b_scale: float = 1.0
+	"""#73 — scale on the Rap1b-GTP proximal driver of αIIbβ3 activation;
+	0 = Rap1b knockout (no inside-out activation, like CalDAG-GEFI/RASGRP2 loss).
+	Distinct from integrin_act_scale (which knocks out the receptor itself)."""
+
 	p2y12_block: float = 0.0
 	"""P2Y12 competitive-antagonist occupancy (v0.7 Slice 2, issue #10);
 	0 = no drug (P2Y12 fully active), 1 = full block (cangrelor / ticagrelor /

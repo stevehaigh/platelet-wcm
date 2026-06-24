@@ -15,6 +15,10 @@ Columns written:
   pka_brake        — PKA dis-inhibition factor on the inside-out rate (≥1;
                      1.0 at rest, >1 as P2Y12/Gi lowers cAMP — the clopidogrel
                      mechanism, issue #10)
+  akt_active       — lumped PI3K/Akt activity (0–1); tracks P2Y12 occupancy,
+                     dis-inhibits the Rap1b-GAP (#73)
+  rap1b_gtp        — Rap1b-GTP activity (0–1) — the integrin's proximal
+                     forward driver; sustained by Akt while P2Y12 is driven (#73)
 """
 
 import wholecell.listeners.listener
@@ -44,6 +48,8 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 		self.active_frac = 0.0
 		self.integrin_gate = 0.0
 		self.pka_brake = 1.0
+		self.akt_active = 0.0
+		self.rap1b_gtp = 0.0
 
 		self.registerLoggedQuantity('αIIbβ3 act\n(frac)', 'active_frac', '.3f')
 		self.registerLoggedQuantity('PKA brake\n(≥1)', 'pka_brake', '.3f')
@@ -58,10 +64,13 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 		self.active_frac = float(active / total) if total > 0 else 0.0
 		self.integrin_gate = float(getattr(self._activation, '_gate', 0.0))
 		self.pka_brake = float(getattr(self._activation, '_pka_brake', 1.0))
+		self.akt_active = float(getattr(self._activation, '_akt', 0.0))
+		self.rap1b_gtp = float(getattr(self._activation, '_rap', 0.0))
 
 	def tableCreate(self, tableWriter):
 		tableWriter.writeAttributes(
-			units='count for active/resting; active_frac, gate, pka_brake dimensionless',
+			units=('count for active/resting; active_frac, gate, pka_brake, '
+				'akt_active, rap1b_gtp dimensionless'),
 		)
 
 	def tableAppend(self, tableWriter):
@@ -73,4 +82,6 @@ class IntegrinTrace(wholecell.listeners.listener.Listener):
 			active_frac=self.active_frac,
 			integrin_gate=self.integrin_gate,
 			pka_brake=self.pka_brake,
+			akt_active=self.akt_active,
+			rap1b_gtp=self.rap1b_gtp,
 		)

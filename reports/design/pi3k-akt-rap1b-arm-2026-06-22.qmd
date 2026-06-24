@@ -10,6 +10,61 @@ format:
     include-in-header: ../pandoc-header.tex
 ---
 
+## Implementation status (2026-06-23, issue #73)
+
+**Built and merged-ready (PR pending).** The arm below was implemented largely as
+designed, with two deliberate deviations and a calibrated-down headline. The
+sections after this note are the *original design*; this note is the *as-built*
+record (the convention used for the MCU-coupling doc).
+
+**As-built:**
+
+- Two process-internal scalars on `IntegrinActivation` — `Akt_active`,
+  `Rap1b_GTP` — stepped once per second by a pure, unit-tested helper
+  `akt_rap_step()` (single source of truth; the `ip3r_relief_factor` pattern).
+  Exposed via new `IntegrinTrace` columns `akt_active` / `rap1b_gtp`. *(Decision
+  point 1: chose the minimal process-internal option, not bulk `Rap1b_GTP/GDP`.)*
+- Akt relaxes toward a P2Y12-occupancy steady state; it dis-inhibits the Rap1b-GAP
+  (Rasa3) term, so Rap1b-GTP is sustained **while P2Y12 is driven**.
+- The integrin forward driver was swapped to `k_act · Rap1b_GTP · pka_brake ·
+  act_scale · rap1b_scale`. New KO knob `RunConfig.rap1b_scale` (0 = Rap1b /
+  CalDAG-GEFI loss → no inside-out activation).
+- **Deviation (resting quiescence):** Rap1b *forms* via the existing PKC×Ca
+  coincidence **gate** (already exactly 0 at rest), **not** the design's
+  `caldag(Ca)` fast-Hill — which is nonzero at resting Ca²⁺ and would have
+  perturbed the resting fixed point / goldens. The gate is the sole formation
+  route (decision point 2 taken further than "fold into `k_pkc`").
+
+**Honest outcome — calibrated down from the design's headline.** The design
+anticipated P2Y12 block causing integrin to "**reverse even at high ADP**"
+(target 3 / the "headline fix"). The single-cell model with a *clearing* agonist
+**cannot** show a steady-state reversal: once ADP clears, P2Y12 → Akt → Rap decay
+for the intact cell too, so intact and blocked converge. What the arm *does*
+produce (measured, standard transient, 100 s) is a real **activation-phase**
+contrast:
+
+| | intact | P2Y12-blocked |
+|---|---|---|
+| Akt (peak) | 0.63 | **0** (exactly) |
+| `active_frac` at t = 50 s | 0.78 | 0.50 |
+| `active_frac` peak (100 s) | 0.93 | 0.79 |
+| stimulated-phase AUC | 1.00 (ref) | **0.71** |
+
+So P2Y12 blockade **slows the rise and lowers the sustained-phase level** (AUC
+−29 %), largest during activation (t ≈ 30–100 s), converging at the cleared-agonist
+endpoint. This is the clinically-relevant direction (ticagrelor/clopidogrel reduce
+integrin activation), framed without over-claiming the dramatic reversal.
+
+**Verification:** calcium ODE untouched → **Dolan 5/5 byte-identical (no regen)**;
+full suite 146 passed; mypy clean. The mechanism is guarded by a *non-vacuous*
+unit test — neutralising the Akt→GAP coupling (`f_akt_gap → 0`) collapses the
+P2Y12-dependent Rap difference to zero and fails the guard — plus slow integration
+tests (rest → Akt/Rap = 0; `rap1b_scale=0` → no activation; the contrast above).
+
+> **Note (PARs latch / agonist-class):** still a non-goal (below). The
+> "reverses even at high ADP" headline would need *sustained* ADP drive (held,
+> not clearing) — a protocol/PAR-latching change, deferred.
+
 ## Why
 
 Zou et al. 2022 (*Int. J. Mol. Sci.* 23:12512, "Reversible Platelet Integrin

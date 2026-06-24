@@ -105,7 +105,7 @@ Where each behaviour is defined in code:
 - **Feedback loops & perturbations** → `RunConfig.autocrine_adp_gain`,
   `autocrine_txa2_gain`, `cox1_factor` (aspirin knob), and the single-constant
   scales `k_des_scale` / `k_plcb_phos_scale` / `pmca_kcat_scale` /
-  `mcu_vmax_scale` (each `1.0` = baseline, `0.0` = knockout). `runSecondWave.py`
+  `mcu_vmax_scale` / `rap1b_scale` (each `1.0` = baseline, `0.0` = knockout). `runSecondWave.py`
   / `runPerturbation.py` / the plot scripts build `RunConfig`s — no monkeypatching.
   Autocrine `[e]` species (ADP, TXA₂) reach the ODE by name via `step_inputs`.
 
@@ -329,6 +329,24 @@ PKC is the hub of 4 feedback loops **plus** 3 terminal outputs (secretion,
 thromboxane, integrin). *Not yet added: fibrinogen-bound occupancy (the design's
 second readout) — pending a ligand-source decision (plasma bath vs autocrine
 secreted FGA[e]).* Design: `reports/design/pkc-downstream-effects-2026-06-12.qmd` §3.
+
+**PI3K/Akt → Rap1b arm (#73) — the integrin's proximal driver.** The integrin
+forward driver was changed from the `pkc_ca_gate` directly to **Rap1b-GTP**
+(Zou 2022; Stolla 2011): two process-internal scalars on `IntegrinActivation`,
+`Akt_active` + `Rap1b_GTP`, stepped each second by the pure helper
+`akt_rap_step()` (single source of truth, unit-tested — the `ip3r_relief_factor`
+pattern). Rap1b *forms* via the existing gate (still exactly 0 at rest → resting
+quiescence preserved) and is removed by the Rap1b-GAP Rasa3; **Akt (∝ P2Y12
+occupancy) dis-inhibits the GAP**, so Rap1b-GTP — and hence integrin — is
+**sustained while P2Y12 is driven** (`k_act · Rap1b_GTP · pka_brake · act_scale
+· rap1b_scale`). New KO knob `RunConfig.rap1b_scale` (0 = Rap1b / CalDAG-GEFI
+loss → no activation; distinct from `integrin_act_scale` = receptor KO).
+`IntegrinTrace` gains `akt_active` / `rap1b_gtp`. **Honest scope:** P2Y12 block
+slows the rise and lowers the stimulated-phase level (AUC −29 %, Akt 0.63→0),
+largest during activation and converging once ADP clears — *not* the dramatic
+"reverses at high ADP" the single-cell clearing-agonist regime can't show.
+Calcium ODE untouched → **Dolan 5/5 byte-identical, no regen**. Design (+ as-built
+status note): `reports/design/pi3k-akt-rap1b-arm-2026-06-22.qmd`.
 
 **Toggling the loops / the second wave.** Two `RunConfig` fields disable the
 amplifiers: `autocrine_adp_gain` (1.0 → full; 0.0 → open loop) and `cox1_factor`
