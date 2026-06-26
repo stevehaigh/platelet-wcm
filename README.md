@@ -1,7 +1,8 @@
 # Platelet Whole-Cell Model
 
 A computational whole-cell model of a human platelet, built as a dissertation project.
-Models intracellular calcium dynamics, granule release, and receptor signalling using a
+Models intracellular calcium signalling and the activation responses it drives — granule
+secretion, thromboxane synthesis, and integrin (αIIbβ3) activation — using a
 discrete-timestep simulation framework.
 
 > **Framework attribution.** The simulation engine (`wholecell/`) is derived from
@@ -14,6 +15,10 @@ discrete-timestep simulation framework.
 
 
 ## Quick-start
+
+> **New here?** The **[getting-started guide](docs/getting-started.md)** is the
+> gentler path — setup, a first run, a tour of the code, and a worked knockout
+> experiment, with the biology explained as it goes.
 
 Python 3.11.5, managed with [uv](https://docs.astral.sh/uv/) (reads
 `.python-version`). Run all commands from the repo root. The `python` in the run
@@ -155,16 +160,24 @@ make tui
 
 | Concern | Tool |
 |---------|------|
-| CI | GitHub Actions — pytest + mypy on every push |
+| CI | GitHub Actions — pytest, mypy, and the kinetics-review PDF on every push/PR |
 | Python env | uv-managed 3.11.5 venv (pinned via `.python-version`) |
 | Output format | Custom binary columnar format (TableWriter/TableReader, zlib-compressed) |
 
 
 ## Documentation
 
-- [`docs/README.md`](docs/README.md) — setup and run guide (+ orientation docs)
+Start with **[`docs/getting-started.md`](docs/getting-started.md)** — a hands-on
+tour for new readers (setup → first run → code tour → a worked knockout). Then:
+
+- [`docs/README.md`](docs/README.md) — the full docs index
+- [`docs/domain-overview.md`](docs/domain-overview.md) — the biology and the *why*
+- [`docs/architecture.md`](docs/architecture.md) — the engine, the timestep, the design rationale
+- [`docs/codebase-overview.md`](docs/codebase-overview.md) — where everything lives
+- [`docs/development-workflow.md`](docs/development-workflow.md) — branch, PR, the test layers, CI
+- [`docs/validation-and-regressions.md`](docs/validation-and-regressions.md) — an honest validation account
 - [`docs/environment.md`](docs/environment.md) — Python environment setup (uv)
-- [`docs/dev-tools.md`](docs/dev-tools.md) — recommended dev tools (legacy pyenv setup)
+- [`docs/dev-tools.md`](docs/dev-tools.md) — recommended dev tools (+ legacy pyenv setup)
 - [`docs/style-guide.md`](docs/style-guide.md) — code style conventions
 - [`reports/design/`](reports/design/) — model design documents
-- [`reports/lab-books/`](reports/lab-books/) — development journal
+- [`reports/lab-books/`](reports/lab-books/) — development journal (latest = current state)

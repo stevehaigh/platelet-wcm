@@ -2,8 +2,9 @@
 
 ## orientation (start here)
 
-A set of orientation docs aimed at AI assistants and new readers — what the
-project is, how it's built, and how we know it works:
+**New to the repo?** Start with **[Getting started](getting-started.md)** — a
+hands-on tour that walks you from `uv sync` to running a knockout experiment in a
+few minutes. The reference docs below go deeper:
 
 1. [Domain overview](domain-overview.md) — the biological problem and how we tackle it
 2. [Architecture and rationale](architecture.md) — the engine, the timestep, the *why*
@@ -47,15 +48,14 @@ PYTHONPATH="$PWD" OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPhase3.py \
     out/phase3 --length 200
 ```
 
-The condition flags override module-/class-level state before the
-simulation is constructed: `--ca-ex-mM` overrides `cs_mod.CA_EX_UM`, and
-`--at-rest` (or the per-receptor `--thrombin-peak-nM` / `--adp-peak-uM`
-/ `--atp-ex-peak-uM` flags) overrides `CalciumDynamics._thrombin_peak_nM`,
-`_adp_peak_uM`, and `_atp_ex_peak_uM`. The same knobs are exposed as
-editable fields (with built-in and user-saved presets) in the TUI
-experiment bench (`make tui`). See the
-top-level [README](../README.md) and each script's `--help` for all
-options.
+The condition flags are assembled into a `RunConfig` (see
+`reconstruction/platelet/run_config.py`) — a frozen per-run config the simulation
+reads and records to `metadata/` for provenance. `--ca-ex-mM` sets `ca_ex_mM`;
+`--at-rest` (or the per-receptor `--thrombin-peak-nM` / `--adp-peak-uM` /
+`--atp-ex-peak-uM` flags) sets the agonist peaks. The same knobs are exposed as
+editable fields (with built-in and user-saved presets) in the TUI experiment
+bench (`make tui`). See the top-level [README](../README.md) and each script's
+`--help` for all options.
 
 ## development
 
