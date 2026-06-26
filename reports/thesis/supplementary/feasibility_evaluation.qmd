@@ -46,7 +46,7 @@ further — not "a WCM is feasible / done". Reasoning developed in
 
 *[The honest core. Reproduce and expand the tiered framing:]*
 
-- **Weak claim — proved.** *[One Ca²⁺ pathway modelled mechanistically and validated (Dolan 5/5, resting state held, no hand-fitted forcing).]*
+- **Weak claim — proved.** *[One Ca²⁺ pathway modelled mechanistically and validated against Dolan & Diamond 2014 Fig. 4 (±extracellular Ca²⁺; resting state held, no hand-fitted forcing).]*
 - **Medium claim — now largely shown.** *[The architecture ports to platelet biology (adaptation ✓) and is extensible — no longer merely asserted: several further processes (granule secretion, thromboxane synthesis, integrin αIIbβ3 activation, and a P2Y₁₂ / cAMP / PKA inhibitory arm) now compose over the shared, mass-balanced Ca²⁺ state without re-fitting the calcium core. The residual soft spot is depth, not composition: the downstream modules are validated directionally, not quantitatively, and their kinetics are largely model choices rather than measured constants.]*
 - **Strong claim — not proved, not claimed.** *[A complete WCM is feasible. Defensible substitute: viable proof-of-concept; principal risk is data, not architecture/computation [@szigeti2017].]*
 
