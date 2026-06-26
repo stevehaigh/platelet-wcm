@@ -1,9 +1,26 @@
 # Platelet WCM — Developer Docs
 
+## orientation (start here)
+
+A set of orientation docs aimed at AI assistants and new readers — what the
+project is, how it's built, and how we know it works:
+
+1. [Domain overview](domain-overview.md) — the biological problem and how we tackle it
+2. [Architecture and rationale](architecture.md) — the engine, the timestep, the *why*
+3. [Codebase overview](codebase-overview.md) — where everything lives
+4. [Development workflow](development-workflow.md) — branch, PR, the test layers, and the behavioural regression suite
+5. [Validation and regressions](validation-and-regressions.md) — an honest account of "Dolan 5/5", the retired byte-identical goldens, and the behavioural regression suite that replaced them
+6. [Source papers](papers/) — one summary per primary source (+ index)
+
+Deeper references: [`../platelet-plan/`](../platelet-plan/) (high-level plan +
+wcEcoli engine map), [`../reports/data/calcium-data-provenance.md`](../reports/data/calcium-data-provenance.md)
+(value-by-value provenance), [`../reports/design/`](../reports/design/) (design
+docs), [`../reports/lab-books/`](../reports/lab-books/) (the latest = current state).
+
 ## setup
 
-1. [Required development tools](dev-tools.md) — pyenv, gcc, make, git
-2. [Creating the pyenv runtime environment](create-pyenv.md) — Python 3.11.5 + packages
+1. [Python environment setup](environment.md) — uv + Python 3.11.5 + packages
+2. [Recommended dev tools](dev-tools.md) — git, make, etc. (also has the legacy pyenv setup)
 
 ## running
 
