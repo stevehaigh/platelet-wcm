@@ -15,11 +15,16 @@ discrete-timestep simulation framework.
 
 ## Quick-start
 
-Python 3.11.5 via pyenv. Run all commands from the repo root.
+Python 3.11.5, managed with [uv](https://docs.astral.sh/uv/) (reads
+`.python-version`). Run all commands from the repo root. The `python` in the run
+commands below means the project venv — either activate it (`source
+.venv/bin/activate`) or prefix each command with `uv run`.
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# One-time setup: install the interpreter, create .venv, install deps
+uv python install 3.11.5
+uv venv
+uv pip install -r requirements.txt          # add requirements-viz.txt for the TUI
 
 # Run a 200-second agonist-stimulated simulation (activation transient)
 PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py out/my_run --length 200
@@ -58,7 +63,7 @@ Agonist transient (+Ca²⁺), Agonist transient (60 s settle, +Ca²⁺),
 EDTA transient, Resting.
 
 Set `OPENBLAS_NUM_THREADS=1` in your shell profile for consistent numerical results.
-See [`docs/create-pyenv.md`](docs/create-pyenv.md) for full environment setup.
+See [`docs/environment.md`](docs/environment.md) for full environment setup (uv).
 
 
 ## Code layout
@@ -159,15 +164,15 @@ Deployed to Azure Container Instances on push to the `webapp` branch.
 |---------|------|
 | CI | GitHub Actions — pytest + mypy on every push |
 | Staging deploy | GitHub Actions → Azure Container Instances (`platelet-wcm.uksouth.azurecontainer.io`) |
-| Python env | pyenv 3.11.5 + virtualenv |
+| Python env | uv-managed 3.11.5 venv (pinned via `.python-version`) |
 | Output format | Custom binary columnar format (TableWriter/TableReader, zlib-compressed) |
 
 
 ## Documentation
 
-- [`docs/README.md`](docs/README.md) — setup and run guide
-- [`docs/create-pyenv.md`](docs/create-pyenv.md) — Python environment setup
-- [`docs/dev-tools.md`](docs/dev-tools.md) — recommended dev tools
+- [`docs/README.md`](docs/README.md) — setup and run guide (+ orientation docs)
+- [`docs/environment.md`](docs/environment.md) — Python environment setup (uv)
+- [`docs/dev-tools.md`](docs/dev-tools.md) — recommended dev tools (legacy pyenv setup)
 - [`docs/style-guide.md`](docs/style-guide.md) — code style conventions
 - [`reports/design/`](reports/design/) — model design documents
 - [`reports/lab-books/`](reports/lab-books/) — development journal

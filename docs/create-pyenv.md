@@ -1,4 +1,8 @@
-# Create the Python runtime environment
+# Create the Python runtime environment (legacy pyenv guide)
+
+> **The project now uses uv.** See [`environment.md`](environment.md) for the
+> current setup. This page is kept for reference if you prefer pyenv +
+> pyenv-virtualenv; both honour the repo's `.python-version` (3.11.5).
 
 ## Background
 

@@ -11,8 +11,8 @@ These lock in the issue #10 acceptance criteria as integration tests:
      reduces activation.
 
 Plus the load-bearing invariant: the PKA brake is normalised to 1.0 at resting
-cAMP, so the resting Ca²⁺ fixed point is unchanged (Dolan goldens preserved —
-see test_validation_targets / test_byte_identical).
+cAMP, so the resting Ca²⁺ fixed point is unchanged (the Dolan regression
+invariant is preserved — see test_validation_targets / test_acceptance).
 
 The clinical VASP/PRI direction (phospho-VASP falls under ADP, preserved under
 blockade) is checked as the quantitative pharmacology readout.

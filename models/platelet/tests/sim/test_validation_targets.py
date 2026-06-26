@@ -196,8 +196,9 @@ class TestDolanRecoveryPhase:
 class TestMcuCouplingDirection:
 	"""#76 Part 2 — end-to-end regression guard for the MCU-knockout result.
 	These pin the ODE's *behaviour*; the listener factor tests only check the
-	formula, and the byte-identical goldens / Dolan 5/5 are wild-type-only
-	(factor ≡ 1 at WT, so they are blind to the coupling by construction)."""
+	formula, and the Dolan transient (test_acceptance / test_regression) is
+	wild-type-only (factor ≡ 1 at WT, so it is blind to the coupling by
+	construction)."""
 
 	def test_ko_reduces_transient_and_gain_toggle_flips_sign(self):
 		"""Coupling ON: MCU KO *reduces* the evoked cytosolic peak + AUC (the

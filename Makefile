@@ -30,13 +30,13 @@ PORT ?= 8050
 # ── Local development ─────────────────────────────────────────────────────────
 
 run:
-	PYTHONPATH="$$PWD" python3 runscripts/manual/webapp.py --port $(PORT) --debug
+	PYTHONPATH="$$PWD" uv run python runscripts/manual/webapp.py --port $(PORT) --debug
 
 stop:
 	pkill -f "webapp.py" && echo "Stopped." || echo "No webapp process found."
 
 tui:
-	OPENBLAS_NUM_THREADS=1 PYTHONPATH="$$PWD" pyenv exec python runscripts/manual/runTui.py
+	OPENBLAS_NUM_THREADS=1 PYTHONPATH="$$PWD" uv run python runscripts/manual/runTui.py
 
 # ── Azure deployment ──────────────────────────────────────────────────────────
 
@@ -155,5 +155,5 @@ kinetics-fonts:
 	 echo "kinetics-fonts: TeX Gyre Termes + DejaVu Sans Mono installed under $(KINETICS_FONT_DIR)"
 
 kinetics-review: kinetics-fonts
-	PYTHONPATH="$$PWD" python runscripts/manual/buildKineticsReview.py
+	PYTHONPATH="$$PWD" uv run python runscripts/manual/buildKineticsReview.py
 

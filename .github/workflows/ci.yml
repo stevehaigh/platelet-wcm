@@ -68,6 +68,12 @@ jobs:
         with:
           tinytex: true
 
+      - name: Set up uv
+        # `make kinetics-review` runs `uv run python …`, so this job needs uv on
+        # PATH (the pytest job uses pip directly and doesn't). buildKineticsReview.py
+        # is stdlib-only, so a bare uv env — no dependency install — suffices.
+        uses: astral-sh/setup-uv@v5
+
       - name: Install kinetics-review fonts (system-wide via apt)
         # Quarto's bundled TinyTeX doesn't ship tlmgr, and even if it
         # did, fontspec resolves via fontconfig (system fonts), not
@@ -87,6 +93,7 @@ jobs:
         # (a flake unrelated to repo changes). Retry once — a fresh mirror
         # draw usually succeeds — before giving up.
         run: |
+          uv venv                       # .venv with 3.11.5 (from .python-version) for `uv run`
           make kinetics-review || {
             echo "::warning::kinetics-review render failed (likely a transient CTAN mirror); retrying"
             make kinetics-review

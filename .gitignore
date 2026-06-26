@@ -84,10 +84,14 @@ user/*
 *.lprof
 *.prof
 
-# pyenv python version #
-########################
-# Python version (tracked so all contributors use the same interpreter)
-# .python-version
+# Python version #
+##################
+# .python-version is tracked so all contributors (uv or pyenv) use 3.11.5
+
+# uv / virtualenv #
+###################
+.venv/
+# NB: a future uv.lock is meant to be committed — do not ignore it
 
 # personal config files #
 #########################

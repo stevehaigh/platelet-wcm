@@ -46,7 +46,7 @@ Items currently flagged in the source as "works at v0.4.1 but should be revisite
 # How to use this page
 
 1. **Before changing any constant in `calcium_signalling.py`**: search this table for the symbol. If it appears in column 1 or column 2 of any chain, the matched chain dictates what else must be re-derived.
-2. **Before approving a PR that touches a rate constant**: confirm the regression suite (`models/platelet/tests/sim/test_byte_identical.py`, `test_phase3.py`, `test_regression.py`) is being updated alongside, and that the resting state at `cyt = 100 nM` / `DTS = 250 µM` is still hit.
+2. **Before approving a PR that touches a rate constant**: confirm the regression suite (`models/platelet/tests/sim/test_acceptance.py`, `test_regression.py`, `test_phase3.py`) is being updated alongside, and that the resting state at `cyt = 100 nM` / `DTS = 250 µM` is still hit.
 3. **After issue #32 lands** (parameters move to TOML): keep this page; replace the line-number citations with TOML-key references. The chains themselves are biology, not implementation, and won't go away.
 
 # References

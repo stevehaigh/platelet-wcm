@@ -19,16 +19,14 @@ aggregometry, drug dose-response) — see
 ``reports/design/validation-map-2026-06-19.qmd``. Keep this test as the cheap
 guard that the Ca²⁺ core is not accidentally broken.
 
-Baseline (seed=0, length=200 s, both conditions, 2026-05-07 after the
-Caride k_12 fix and STIM1 dimer-count fix; Dolan-convention IP3R N
-restored):
-  +Ca_ex peak Ca_cyt:  ~392 nM at t=1 s
-  −Ca_ex peak Ca_cyt:  ~325 nM at t=1 s
-  SOCE differential:   ~67 nM   (FAILS Dolan ≥100 nM criterion;
-                                 documented as the open issue tracked
-                                 in #24, not a regression)
+Current (seed 0, length 200 s, both conditions): +Ca_ex peak ≈ 521 nM,
+−Ca_ex peak ≈ 296 nM, SOCE differential ≈ 225 nM.
 
-Phase 3 acceptance now passes 4 of 5 criteria.
+The all-or-nothing "Dolan 5/5" gate was retired 2026-06-26: the behavioural
+Dolan validation (paired peaks in band + the SOCE differential) now lives in
+``test_acceptance.py::TestDolanTransient``. ``_eval_criteria`` still annotates
+the plot, but is no longer a pass/fail gate. See
+``docs/validation-and-regressions.md``.
 """
 
 import os
@@ -116,23 +114,6 @@ class TestPhase3DolanFig4(unittest.TestCase):
 			f'−Ca_ex peak {peak:.1f} regressed below baseline −30%')
 		self.assertLess(peak, 423.0,
 			f'−Ca_ex peak {peak:.1f} regressed above baseline +30%')
-
-	# ── Acceptance-criteria pass/fail count ───────────────────────────────────
-
-	def test_criteria_pass_count(self):
-		"""All 5 Dolan 2014 Fig. 4 acceptance criteria pass.
-
-		Updated 2026-05-11 (Phase 2.5): adding the P2X1 ATP-gated cation
-		channel closed the previously-missing SOCE differential
-		criterion. The +Ca_ex condition now has a fast P2X1 Ca²⁺ entry
-		that the −Ca_ex condition lacks (P2X1 flux is gated on
-		extracellular Ca²⁺), producing a ~150 nM peak difference between
-		the two conditions — within the Dolan ≥100 nM criterion.
-		"""
-		passed = sum(1 for c in self.summary['criteria'] if c['passed'])
-		self.assertEqual(passed, 5,
-			f'Expected 5/5 Phase 3 criteria; got {passed}. If something '
-			f'regressed, update this assertion and the lab book entry.')
 
 
 if __name__ == '__main__':

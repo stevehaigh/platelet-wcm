@@ -1,15 +1,15 @@
 """
 Launch the platelet TUI experiment bench (Textual).
 
-    OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" pyenv exec python runscripts/manual/runTui.py
+    OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" uv run python runscripts/manual/runTui.py
 
 or simply:
 
     make tui
 
-Both run under the pyenv 3.11.5 interpreter, which has the sim deps plus
-`textual` / `textual-plotext`. Plain `python3` may resolve to a different
-interpreter that lacks them.
+Both run under the uv-managed 3.11.5 interpreter (.venv), which has the sim
+deps plus `textual` / `textual-plotext`. Plain `python3` may resolve to a
+different interpreter that lacks them.
 
 Edit the run conditions, press `r` (or click Run) to launch a simulation as
 a subprocess, and watch the Ca²⁺ trace stream live. See

@@ -1,13 +1,14 @@
 ## Platelet whole-cell model — Python runtime requirements.
-## Python 3.11.5 via pyenv (see docs/create-pyenv.md).
+## Python 3.11.5, managed with uv (see docs/environment.md). uv reads the pinned
+## interpreter from .python-version.
 ##
 ## Set up:
-#   pyenv virtualenv 3.11.5 platelet-wcm && pyenv local platelet-wcm
-#   pip install --upgrade pip
-#   pip install -r requirements.txt
+#   uv python install 3.11.5      # installs the pinned interpreter if needed
+#   uv venv                       # creates .venv from .python-version
+#   uv pip install -r requirements.txt
 #
 ## Run simulations with:
-#   OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" python runscripts/manual/runPlateletSim.py
+#   OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" uv run python runscripts/manual/runPlateletSim.py
 #
 ## For CI, use requirements-platelet-ci.txt (subset of this file).
 

@@ -291,7 +291,7 @@ def main(argv=None):
 		print('Agonist stimulus delayed by {:.0f} s'.format(args.agonist_delay))
 	if args.live and paths['live_path']:
 		print('Live CSV: {}'.format(paths['live_path']))
-		print('Viewer:   PYTHONPATH=$PWD pyenv exec python '
+		print('Viewer:   PYTHONPATH=$PWD uv run python '
 			  'runscripts/manual/livePlot.py {}'.format(paths['live_path']))
 
 
