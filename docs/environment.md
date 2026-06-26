@@ -23,13 +23,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 From the repo root:
 
 ```bash
-uv python install 3.11.5      # installs the pinned interpreter (no-op if present)
-uv venv                       # creates .venv using 3.11.5 (from .python-version)
-uv pip install -r requirements.txt
-uv pip install -r requirements-viz.txt   # optional: replay TUI / experiment bench
+uv sync                       # installs 3.11.5 (.python-version), creates .venv, core deps
+uv sync --extra viz           # optional: + replay TUI / experiment bench
+uv sync --all-extras          # or: everything (core + viz + dev)
 ```
 
-`uv venv` creates a `.venv/` in the repo (gitignored). uv resolves the
+`uv sync` creates a `.venv/` in the repo (gitignored). uv resolves the
 interpreter from `.python-version`, so the venv is always 3.11.5.
 
 ## Running commands
@@ -46,8 +45,8 @@ PYTHONPATH=$PWD OPENBLAS_NUM_THREADS=1 python runscripts/manual/runPlateletSim.p
 ```
 
 Always run from the repo root with `PYTHONPATH=$PWD`, and set
-`OPENBLAS_NUM_THREADS=1` for reproducible numerics. `make run` and `make tui`
-already invoke `uv run` for you.
+`OPENBLAS_NUM_THREADS=1` for reproducible numerics. `make tui` already invokes
+`uv run` for you.
 
 ## Tests & type-checking
 
@@ -61,10 +60,9 @@ uv run python -m mypy models/platelet/ reconstruction/platelet/ \
 
 - **No compile step** — this is pure Python/NumPy/SciPy; the wcEcoli `.pyx`
   modules were removed.
-- **CI** does not use uv yet — it installs with `pip` from
-  `requirements-platelet-ci.txt` (see `.github/workflows/ci.yml`). Switching CI to
-  `astral-sh/setup-uv` is an optional follow-up.
-- **Dependencies remain in `requirements*.txt`** (not `pyproject.toml`). Moving
-  them into `pyproject.toml` + a committed `uv.lock` (full uv-native, `uv sync`)
-  is a deliberate future step, not done here.
+- **Dependencies live in `pyproject.toml`** (`[project]` + the `viz` / `dev`
+  optional extras), pinned by the committed `uv.lock`; `uv sync` installs exactly
+  that lockfile. There is no `requirements.txt` — `uv export` regenerates one if a
+  plain pip list is ever needed.
+- **CI** uses `astral-sh/setup-uv` + `uv sync` (see `.github/workflows/ci.yml`).
 - For IDE config, point the interpreter at `.venv/bin/python`.

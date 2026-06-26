@@ -6,7 +6,7 @@ import os
 from models.platelet.analysis.single import TAGS
 from wholecell.utils import constants, scriptBase
 import wholecell.utils.filepath as fp
-from wholecell.webapp import results as _results
+from wholecell.io import run_results as _results
 
 
 DEFAULT_PLOTS = ['DEFAULT']

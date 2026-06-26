@@ -15,7 +15,7 @@ Uses `uv run python` (the pinned-3.11.5 `.venv`) so the viz deps resolve. If it
 complains about missing packages:
 
 ```bash
-uv pip install -r requirements-viz.txt   # rich, textual, textual-plotext, plotext
+uv sync --extra viz   # rich, textual, textual-plotext, plotext
 ```
 
 Keys: **r** run · **b** set baseline · **f** demo figures (per-theme) · **q** quit.

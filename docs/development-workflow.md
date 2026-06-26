@@ -14,14 +14,12 @@
   floating-point reduction order).
 - **No compile step** — the wcEcoli `.pyx` Cython modules were removed; this is
   pure Python/NumPy/SciPy.
-- The replay-TUI extras are optional (`requirements-viz.txt`). CI uses the
-  slimmer `requirements-platelet-ci.txt`.
+- The replay-TUI extras are optional (the `viz` extra: `uv sync --extra viz`).
+  CI installs `--extra dev --extra viz`.
 
 ```bash
-# one-time setup (uv installs 3.11.5 if needed and creates .venv)
-uv python install 3.11.5
-uv venv
-uv pip install -r requirements.txt          # + requirements-viz.txt for the TUI
+# one-time setup (uv installs 3.11.5 if needed, creates .venv, installs deps)
+uv sync --all-extras                         # or `uv sync` for just the core
 
 # run things through the venv — no activation needed
 PYTHONPATH=$PWD uv run python runscripts/manual/runPlateletSim.py out/my_run --length 200
@@ -37,9 +35,6 @@ PYTHONPATH=$PWD uv run python runscripts/manual/analysisPlatelet.py out/my_run
 
 - **`main`** is the integration branch and the CI target. Work happens on feature
   branches; **don't commit straight to `main`**.
-- **`webapp`** is a deploy branch — pushing to it triggers the Azure Container
-  Instances deploy (`.github/workflows/deploy-azure.yml`). Don't use it for
-  normal development.
 - Open a **PR into `main`**; CI must be green before merge. Recent history is
   small, focused PRs (e.g. "#88 Finish the network rename", "#90 Gitignore
   rendered experiment PDFs"), often paired with a lab-book entry or design doc.

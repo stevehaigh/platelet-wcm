@@ -15,8 +15,8 @@ validated against Dolan & Diamond 2014. Single-cell, no division.
 ## Build & Run
 
 Python 3.11.5 (pinned via `.python-version`), managed with **uv** (it reads
-`.python-version`). One-time setup: `uv python install 3.11.5 && uv venv && uv pip
-install -r requirements.txt` (add `requirements-viz.txt` for the TUI). Run things
+`.python-version`). One-time setup: `uv sync --all-extras` (installs the pinned 3.11.5, creates
+`.venv`, and installs all extras; `uv sync` alone = core only). Run things
 via `uv run python …` (or activate `.venv`); the example commands below use plain
 `python` for brevity — prefix with `uv run` if the venv isn't activated. All
 commands assume `PYTHONPATH="$PWD"` from the repo root. **No Cython compile step is
@@ -25,8 +25,8 @@ required** — the performance-critical `.pyx` modules from wcEcoli have been re
 setup still works.)
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (uv installs 3.11.5 per .python-version + creates .venv)
+uv sync --all-extras
 
 # Run a simulation (no ParCa — sim_data is constructed directly)
 PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py [sim_outdir] --length 200
@@ -54,23 +54,19 @@ PYTHONPATH=$PWD python runscripts/manual/runSecondWave.py [sim_outdir] --adp-uM 
 # Animated terminal replay of a finished sim — Textual-based ASCII platelet
 # schematic (receptors, Gq cascade, PKC feedback, Ca²⁺ pools, secretion,
 # thromboxane, integrin PAC-1) with a scrolling sparkline. Needs the optional
-# viz extras: pip install -r requirements-viz.txt
+# viz extras: uv sync --extra viz
 PYTHONPATH=$PWD python runscripts/manual/replayTui.py <run_or_simOut_dir> --speed 0.2
 #   q quit · space pause · +/- speed · ←/→ step · r restart · ? field-reference
 #   --dump-frame N  renders frame N once to stdout (no TTY needed; CI/triage)
 #   The cell box auto-sizes to the terminal (grows to ~114 cols when there's
 #   room, clamps down so it never crops); a ≥114-col window reads best.
 
-# Run the Dash webapp locally (http://localhost:8050)
-make run     # foreground with hot reload
-make stop    # kill it
-
 # Run the terminal UI — the experiment bench (Textual)
 make tui     # edit run conditions / knockouts, run, watch the Ca²⁺ trace live
 ```
 
 All runscripts support `-h` for full options. The replay TUI's deps (`rich`,
-`textual`) are an **optional extra** (`requirements-viz.txt`) — the model itself
+`textual`) are an **optional extra** (the `viz` extra) — the model itself
 doesn't need them, and its smoke tests `importorskip` if they're absent.
 
 ### Run-time conditions
@@ -115,11 +111,10 @@ Where each behaviour is defined in code:
   / `runPerturbation.py` / the plot scripts build `RunConfig`s — no monkeypatching.
   Autocrine `[e]` species (ADP, TXA₂) reach the ODE by name via `step_inputs`.
 
-The same conditions are exposed on the **webapp** Configure tab as form
-fields (Extracellular Ca²⁺ mM, "Run at rest" checkbox). The four webapp
-presets — Agonist transient (+Ca²⁺), Agonist transient (60 s settle),
-EDTA transient, Resting — are defined in
-`wholecell/webapp/tabs/configure.py:PRESETS` and differ across four
+The same conditions are exposed as editable fields in the **TUI** experiment
+bench (`make tui`). Its built-in presets — Agonist transient (+Ca²⁺), Agonist
+(60 s settle), EDTA (no Ca_ex), Resting, plus Aspirin / Glanzmann knockouts —
+are defined in `wholecell/tui/presets.py` and differ across four
 biology-affecting knobs: `ca_ex_mM`, `at_rest`, `agonist_delay_s`, and
 `length_sec` (the last sets how much of the response is observed; the
 first three set what biology runs). The Phase 3 driver `runPhase3.py`
@@ -175,7 +170,7 @@ SimulationDataPlatelet  (constructed in code; no ParCa step)
 
 - `wholecell/` — **Framework**: model-agnostic simulation engine, base classes, I/O,
   utilities. Inherited from CovertLab/wcEcoli; division-related code removed/unused.
-  Includes `wholecell/webapp/` (Dash app for browsing runs).
+  Includes `wholecell/tui/` (the Textual experiment bench).
 - `models/platelet/` — **Platelet model**: processes, listeners, analysis, sim wiring.
 - `reconstruction/platelet/` — **Parameters**: `SimulationDataPlatelet` + dataclasses.
   Replaces wcEcoli's heavyweight ParCa with a directly-constructed parameter object.
@@ -483,19 +478,13 @@ out/{sim_dir}/
           plotOut/                           # Analysis figures
 ```
 
-(The variant/seed/generation/cell nesting is preserved from wcEcoli so the webapp's
-"Inspect Data" tab can browse platelet runs without modification.)
+(The variant/seed/generation/cell nesting is preserved from wcEcoli so the analysis
+tooling — e.g. `analysisPlatelet.py` via `wholecell/io/run_results.py` — can locate a
+run's output without modification.)
 
 ### Environment
 
 Set `OPENBLAS_NUM_THREADS=1` to avoid threading artifacts in numerical results.
-
-### Webapp
-
-Dash app at `wholecell/webapp/`. `make run` starts it locally. Pushing to the `webapp`
-branch (`make deploy`) triggers `.github/workflows/deploy-azure.yml`, which builds
-docker images (`docker/runtime/`, `docker/webapp/`) and deploys to Azure Container
-Instances at `platelet-wcm.uksouth.azurecontainer.io`.
 
 ### Terminal UI (TUI)
 
@@ -518,7 +507,7 @@ Ca²⁺ trace stream live. Launch with `make tui` (entry point
 - **Env gotcha:** `make tui` runs `uv run python` (the uv-managed `.venv`), NOT bare
   `python3` — on dev machines `python3` may resolve to a system Python lacking
   `textual-plotext` / the sim deps; the pinned 3.11.5 venv has everything. Deps:
-  `textual`, `textual-plotext`, `plotext` (in `requirements-viz.txt`). Tests in
+  `textual`, `textual-plotext`, `plotext` (the `viz` extra). Tests in
   `wholecell/tests/tui/`.
 - Like the loops/perturbations, **knockout effects are invisible under the default
   saturating agonist** (store-limited); isolate one agonist and read IP₃, or use the

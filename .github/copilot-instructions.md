@@ -9,7 +9,6 @@ source of truth for:
 - Architecture of `wholecell/` (framework) vs `models/platelet/` (model)
   vs `reconstruction/platelet/` (parameters)
 - Code style and conventions
-- Webapp / Docker / Azure deployment surface
 
 For the live state of the calcium signalling work — the model's headline
 biology — the most recent dated file under

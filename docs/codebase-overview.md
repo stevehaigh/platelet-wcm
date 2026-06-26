@@ -11,14 +11,14 @@
 ```
 models/platelet/         The platelet model: processes, listeners, analysis, sim wiring
 reconstruction/platelet/ Parameters: SimulationDataPlatelet + dataclasses + loaders
-wholecell/               Generic engine inherited from CovertLab/wcEcoli (+ webapp, tui)
-runscripts/manual/       Entry points (run sims, analysis, drivers, webapp, TUI)
+wholecell/               Generic engine inherited from CovertLab/wcEcoli (+ tui)
+runscripts/manual/       Entry points (run sims, analysis, drivers, TUI)
 reports/                 Lab books, design docs, params (TOML/TSV), figures, data, thesis
 docs/                    Developer docs (this orientation set, style guide, env setup)
 platelet-plan/           High-level plan + the wcEcoli engine architecture map
 source-info/             Source PDFs (calcium-papers/) — summarised in docs/papers/
 out/                     Simulation output (gitignored runs)
-docker/  .github/        Deploy images + CI workflows
+.github/                 CI workflows
 ```
 
 ## `models/platelet/` — the model
@@ -99,12 +99,11 @@ states/                  bulk_molecules.py, unique_molecules.py, local_environme
 views/view.py            the request/allocate/merge interface
 io/tablewriter.py, tablereader.py   the columnar binary format
 utils/units.py           Unum-based physical units
-webapp/                  Dash app (browse runs, launch sims) — wholecell/webapp/
 tui/                     Textual "experiment bench" TUI — wholecell/tui/
 ```
 
 Don't put platelet biology in `wholecell/`. The only platelet-aware code here is
-the webapp/TUI presentation layer.
+the TUI presentation layer.
 
 ## `runscripts/manual/` — entry points
 
@@ -124,7 +123,6 @@ The important ones (all support `-h`; all need `PYTHONPATH=$PWD`):
 | `plotInhibitoryAxis.py`, `plotIntegrin.py`, `plot*.py` | bespoke figures |
 | `buildKineticsReview.py` | render the clickable kinetics-review PDF from the TOML |
 | `buildDocsSite.py` | render reports/*.{md,qmd} to the HTML docs site |
-| `webapp.py` | launch the Dash app |
 
 ## Where the data and prose live (`reports/`)
 
@@ -164,10 +162,10 @@ The important ones (all support `-h`; all need `PYTHONPATH=$PWD`):
   numpy's *global* RNG, not the sim seed.
 - **Use the uv-managed venv, not bare `python3`** — system `python3` may lack the
   deps or be the wrong version. Run via `uv run python …` (or activate `.venv`);
-  `make tui`/`make run` already do. The interpreter is pinned to **3.11.5** via
+  `make tui` already does. The interpreter is pinned to **3.11.5** via
   `.python-version`, which uv reads automatically.
 - The replay TUI's deps (`rich`, `textual`, `textual-plotext`, `plotext`) are an
-  **optional extra** (`requirements-viz.txt`); model smoke tests `importorskip`.
+  **optional extra** (the `viz` extra); model smoke tests `importorskip`.
 - "Loop / knockout / perturbation effects are usually invisible under the default
   saturating agonist" (the response is store-limited) — isolate one agonist and
   read IP₃, or use the baseline overlay, to see them.

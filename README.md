@@ -21,10 +21,8 @@ commands below means the project venv — either activate it (`source
 .venv/bin/activate`) or prefix each command with `uv run`.
 
 ```bash
-# One-time setup: install the interpreter, create .venv, install deps
-uv python install 3.11.5
-uv venv
-uv pip install -r requirements.txt          # add requirements-viz.txt for the TUI
+# One-time setup: uv installs 3.11.5 (per .python-version), creates .venv, installs deps
+uv sync --all-extras                         # or `uv sync` for just the core
 
 # Run a 200-second agonist-stimulated simulation (activation transient)
 PYTHONPATH=$PWD python runscripts/manual/runPlateletSim.py out/my_run --length 200
@@ -57,10 +55,9 @@ python runscripts/manual/runPlateletSim.py out/sweep --thrombin-peak-nM 3.0 --ad
 python runscripts/manual/runPhase3.py out/phase3 --length 200
 ```
 
-The same conditions are available in the webapp Configure tab as form fields
-(Extracellular Ca²⁺ mM, "Run at rest" checkbox) and as four presets:
-Agonist transient (+Ca²⁺), Agonist transient (60 s settle, +Ca²⁺),
-EDTA transient, Resting.
+The same conditions are available as editable fields in the TUI experiment
+bench (`make tui`), with built-in presets: Agonist transient (+Ca²⁺), Agonist
+(60 s settle), EDTA (no Ca_ex), Resting (plus Aspirin / Glanzmann knockouts).
 
 Set `OPENBLAS_NUM_THREADS=1` in your shell profile for consistent numerical results.
 See [`docs/environment.md`](docs/environment.md) for full environment setup (uv).
@@ -88,10 +85,9 @@ wholecell/                 Generic simulation framework (from CovertLab/wcEcoli)
   listeners/               Listener base class + TableWriter/TableReader I/O
   utils/                   Units (Unum), math utilities
 
-wholecell/webapp/          Browser-based web interface (Dash)
-runscripts/manual/         Entry points: runPlateletSim.py, analysisPlatelet.py, webapp.py
+wholecell/tui/             Terminal experiment bench (Textual)
+runscripts/manual/         Entry points: runPlateletSim.py, analysisPlatelet.py, runTui.py
 reports/                   Lab books, design docs, figures, calibration data
-docker/                    Dockerfiles for staging deployment
 ```
 
 
@@ -144,18 +140,15 @@ under "Artifacts → kinetics-review".
 > post-dissertation generalisation sketch.
 
 
-## Web interface
+## Terminal interface (TUI)
 
-A [Dash](https://dash.plotly.com/) app for launching simulations and exploring results
-without the command line.
+A [Textual](https://textual.textualize.io/) experiment bench for editing run
+conditions, knocking out receptors/pathways, running, and watching the Ca²⁺
+trace live — without the command line.
 
 ```bash
-# Run locally
-make run        # starts webapp at http://localhost:8050/
-make stop       # stop the process
+make tui
 ```
-
-Deployed to Azure Container Instances on push to the `webapp` branch.
 
 
 ## Infrastructure
@@ -163,7 +156,6 @@ Deployed to Azure Container Instances on push to the `webapp` branch.
 | Concern | Tool |
 |---------|------|
 | CI | GitHub Actions — pytest + mypy on every push |
-| Staging deploy | GitHub Actions → Azure Container Instances (`platelet-wcm.uksouth.azurecontainer.io`) |
 | Python env | uv-managed 3.11.5 venv (pinned via `.python-version`) |
 | Output format | Custom binary columnar format (TableWriter/TableReader, zlib-compressed) |
 
