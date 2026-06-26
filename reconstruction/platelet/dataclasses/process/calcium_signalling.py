@@ -798,8 +798,10 @@ K_PLCB_PHOS = dict(_KINETICS['pkc']['plcb_phos'])
 #     cyt Ca²⁺, as does Ajanel 2025 (platelet-specific KO). Both agree SOCE is
 #     reduced; they disagree on the store (Ghatge speculates depletion; Ajanel
 #     measured store content + thapsigargin release normal), and both call the
-#     cytosolic mechanism unresolved. NB the model here is buffer-only and so
-#     RAISES the cyt peak on MCU loss — it diverges from this data; see #76.
+#     cytosolic mechanism unresolved. With the #76 Part 2 MCU→IP3R-relief
+#     coupling (`mito_coupling_gain` > 0, the default), the model now *reduces*
+#     the evoked cyt peak on MCU loss, matching this direction; only the
+#     decoupled buffer-only mode (gain = 0) raises it. See ip3r_relief_factor().
 #   - Ajanel et al. 2025 — MCU regulates ITAM-dependent activation
 #   - Shehwar et al. 2025 — review of platelet mito-Ca²⁺ biology
 #

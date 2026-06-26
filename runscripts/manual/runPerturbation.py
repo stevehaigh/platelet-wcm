@@ -97,10 +97,10 @@ EXPERIMENTS: dict[str, dict] = {
 		ca_ex_mM=0.0, length_sec=300,
 	),
 	'mcu': dict(
-		title='MCU buffers cytosolic Ca without rescuing the DTS store (+Ca)',
+		title='MCU loss reduces the cytosolic transient (v0.7 #76 coupling, +Ca)',
 		dict_name='K_MITO', knob_key='V_max_MCU', config_field='mcu_vmax_scale',
 		knob_label='MCU V_max',
-		factors=[0.0, 1.0, 4.0],
+		factors=[0.0, 1.0],
 		ca_ex_mM=1.2, length_sec=400,
 	),
 	'pkc': dict(
@@ -302,10 +302,9 @@ def plot_pmca(scan: PerturbationScan, png_path: str) -> None:
 def plot_mcu(scan: PerturbationScan, png_path: str) -> None:
 	"""2-panel: cyt traces (buffering) + DTS traces (no store rescue)."""
 	t = np.arange(scan.cyt.shape[1])
-	# Explicit colours: KO=red, baseline=black, over-expression=blue.
-	colours = {0.0: '#cc0000', 1.0: '#222222', 4.0: '#1155cc'}
-	labels = {0.0: 'MCU knockout (×0)', 1.0: 'baseline (×1)',
-		4.0: 'over-expression (×4)'}
+	# Explicit colours: KO=red, baseline=black.
+	colours = {0.0: '#cc0000', 1.0: '#222222'}
+	labels = {0.0: 'MCU knockout (×0)', 1.0: 'baseline (×1)'}
 
 	fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
 	for i, f in enumerate(scan.factors):
@@ -315,7 +314,7 @@ def plot_mcu(scan: PerturbationScan, png_path: str) -> None:
 		ax2.plot(t, scan.dts[i], color=c, linewidth=1.8, label=lbl)
 	ax1.set_xlabel('Time (s)')
 	ax1.set_ylabel(r'Cytosolic Ca$^{2+}$ (nM)')
-	ax1.set_title('MCU buffers cytosolic Ca$^{2+}$')
+	ax1.set_title('MCU loss reduces evoked cytosolic Ca$^{2+}$ (coupling on)')
 	ax1.legend(fontsize=9)
 	ax1.grid(alpha=0.3)
 
@@ -325,7 +324,8 @@ def plot_mcu(scan: PerturbationScan, png_path: str) -> None:
 	ax2.legend(fontsize=9)
 	ax2.grid(alpha=0.3)
 
-	fig.suptitle('MCU buffers cytosolic Ca$^{2+}$ without rescuing the DTS '
+	fig.suptitle('MCU loss reduces the evoked cytosolic Ca$^{2+}$ peak; '
+		'the DTS empties regardless '
 		f'(+Ca$^{{2+}}$, {scan.length_sec} s)', fontsize=12)
 	fig.tight_layout()
 	fig.savefig(png_path, dpi=140, bbox_inches='tight')

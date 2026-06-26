@@ -14,9 +14,15 @@ validated against Dolan & Diamond 2014. Single-cell, no division.
 
 ## Build & Run
 
-Python 3.11.5 (pinned via `.python-version`; pyenv recommended). All commands assume
-`PYTHONPATH="$PWD"` from the repo root. **No Cython compile step is required** —
-the performance-critical `.pyx` modules from wcEcoli have been removed.
+Python 3.11.5 (pinned via `.python-version`), managed with **uv** (it reads
+`.python-version`). One-time setup: `uv python install 3.11.5 && uv venv && uv pip
+install -r requirements.txt` (add `requirements-viz.txt` for the TUI). Run things
+via `uv run python …` (or activate `.venv`); the example commands below use plain
+`python` for brevity — prefix with `uv run` if the venv isn't activated. All
+commands assume `PYTHONPATH="$PWD"` from the repo root. **No Cython compile step is
+required** — the performance-critical `.pyx` modules from wcEcoli have been removed.
+(pyenv is no longer required; `.python-version` is shared, so an existing pyenv
+setup still works.)
 
 ```bash
 # Install dependencies
@@ -128,6 +134,10 @@ PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/ -v
 # Fast iteration — skip simulation-running tests (~3 s vs ~24 s)
 PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/ -m "not slow"
 
+# Behavioural acceptance / regression suite — the headline contract:
+# resting equilibrium, the Dolan ±Ca²⁺ transient, drug/knockout responses
+PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/sim/test_acceptance.py -v
+
 # Single test file or method
 PYTHONPATH=$PWD python3 -m pytest models/platelet/tests/sim/test_simulation.py
 PYTHONPATH=$PWD python3 -m pytest wholecell/tests/utils/test_units.py::TestUnits::test_some_method
@@ -136,6 +146,17 @@ PYTHONPATH=$PWD python3 -m pytest wholecell/tests/utils/test_units.py::TestUnits
 python -m mypy models/platelet/ reconstruction/platelet/ \
     runscripts/manual/runPlateletSim.py runscripts/manual/analysisPlatelet.py
 ```
+
+**Acceptance / regression scheme (reworked 2026-06-26):** `test_acceptance.py`
+is the headline behavioural suite — one readable, biologically-anchored band per
+result (resting equilibrium, the Dolan ±Ca²⁺ transient, MCU / P2Y12 / COX-1
+knockouts, and the resting-quiescence invariant). It replaced the brittle
+byte-identical golden tests (`test_byte_identical.py` + `golden/*.npz`, removed)
+and the all-or-nothing "Dolan 5/5" gate. `test_regression.py` keeps the
+lower-level structural guards (DTS ≥ cyt, mass > 0, SOCE ≥ 0); the subsystem
+suites keep the depth. See `docs/validation-and-regressions.md`. Historical
+"goldens byte-identical / Dolan 5/5 preserved" notes elsewhere in this file
+describe the then-current scheme.
 
 CI (`.github/workflows/ci.yml`) runs pytest + mypy on every push and PR to `main`.
 Set `OPENBLAS_NUM_THREADS=1` for reproducible numerics.
@@ -494,10 +515,11 @@ Ca²⁺ trace stream live. Launch with `make tui` (entry point
   `reconstruction/platelet/initialization.py:initialize_bulk_molecules` (wired from
   `models/platelet/sim/initial_conditions.py` via `sim.run_config`). Empty overrides →
   byte-identical.
-- **Env gotcha:** `make tui` uses `pyenv exec python`, NOT bare `python3` — on dev
-  machines `python3` may resolve to a system Python lacking `textual-plotext` / the sim
-  deps; the pinned pyenv 3.11.5 has everything. Deps: `textual`, `textual-plotext`,
-  `plotext`. Tests in `wholecell/tests/tui/`.
+- **Env gotcha:** `make tui` runs `uv run python` (the uv-managed `.venv`), NOT bare
+  `python3` — on dev machines `python3` may resolve to a system Python lacking
+  `textual-plotext` / the sim deps; the pinned 3.11.5 venv has everything. Deps:
+  `textual`, `textual-plotext`, `plotext` (in `requirements-viz.txt`). Tests in
+  `wholecell/tests/tui/`.
 - Like the loops/perturbations, **knockout effects are invisible under the default
   saturating agonist** (store-limited); isolate one agonist and read IP₃, or use the
   baseline overlay, to see them.

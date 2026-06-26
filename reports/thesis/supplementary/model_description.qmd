@@ -63,7 +63,7 @@ Much of this can be drafted from CLAUDE.md + the codebase, then human-verified.
 
 ## Parameters as data
 
-*[The kinetics-as-data refactor (#32): rate constants live in `reports/params/calcium-v0.5.toml`, species in `species-v0.5.tsv`, each value carrying a citation. Biological motivation: parameters are evidence, so they should be inspectable, sourced, and changeable without touching code.]*
+*[The kinetics-as-data refactor (#32): rate constants live in `reports/params/calcium-v0.6.toml`, species in `species-v0.6.tsv`, each value carrying a citation. Biological motivation: parameters are evidence, so they should be inspectable, sourced, and changeable without touching code.]*
 
 ## Reproducibility and engineering practice
 
@@ -71,7 +71,7 @@ Much of this can be drafted from CLAUDE.md + the codebase, then human-verified.
 
 ## Extending the model
 
-*[How a new mechanism attaches as a process sharing the same Ca²⁺ state — the composition argument that distinguishes a whole-cell model from a single network. Note this is currently demonstrated for one pathway; adding a second sharing state is the decisive next step (cross-ref the feasibility supplement).]*
+*[How a new mechanism attaches as a process sharing the same Ca²⁺ state — the composition argument that distinguishes a whole-cell model from a single network. Note this is now demonstrated for several processes (secretion, thromboxane, integrin, and a cyclic-nucleotide inhibitory arm) sharing the calcium state; deepening their validation from directional to quantitative is the next step (cross-ref the feasibility supplement).]*
 
 ## References
 
