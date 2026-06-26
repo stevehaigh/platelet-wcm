@@ -19,10 +19,10 @@ import unittest
 import numpy as np
 import pytest
 
-# The replayer is an optional visualisation extra (rich + textual,
-# requirements-viz.txt). Skip the whole module cleanly if they're absent.
-pytest.importorskip('rich', reason='TUI viz extra — see requirements-viz.txt')
-pytest.importorskip('textual', reason='TUI viz extra — see requirements-viz.txt')
+# The replayer is an optional visualisation extra (rich + textual, the
+# `viz` extra). Skip the whole module cleanly if they're absent.
+pytest.importorskip('rich', reason='TUI viz extra — uv sync --extra viz')
+pytest.importorskip('textual', reason='TUI viz extra — uv sync --extra viz')
 
 from runscripts.manual.replayTui import (
 	Snapshot,

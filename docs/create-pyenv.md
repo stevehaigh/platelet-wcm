@@ -6,8 +6,10 @@
 
 ## Background
 
-The [requirements.txt](../requirements.txt) file lists the Python packages
-needed for the Python runtime environment, with terse setup instructions.
+The Python package dependencies are declared in
+[`pyproject.toml`](../pyproject.toml) (with a committed `uv.lock`) and installed
+with `uv sync`. See [`environment.md`](environment.md) for the current canonical
+setup; this page covers the legacy pyenv + pip route.
 
 This page goes through the Python environment setup steps in more detail.
 
@@ -80,10 +82,13 @@ This page goes through the Python environment setup steps in more detail.
    pip install --upgrade pip setuptools wheel
    ```
 
-1. Install the packages listed in `requirements.txt`.
+1. Install the project dependencies (now declared in `pyproject.toml`; `uv sync`
+   is the canonical install — see [`environment.md`](environment.md)). The repo is
+   run from source (no install step), so for a bare-pip env install the pinned
+   `[project.dependencies]` directly:
 
    ```bash
-   pip install -r requirements.txt && pyenv rehash
+   pip install numpy==1.26.3 scipy==1.11.4 matplotlib==3.7.1 Unum==4.2.1 && pyenv rehash
    ```
 
 1. **Required:** Add the following line to your shell profile and run it in your current shell.

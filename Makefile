@@ -1,48 +1,24 @@
-.PHONY: help run stop tui deploy pdfs pdfs-clean kinetics-review kinetics-fonts
+.PHONY: help tui pdfs pdfs-clean kinetics-review kinetics-fonts
 
 help:
 	@echo ""
 	@echo "  platelet-wcm — available targets"
 	@echo ""
-	@echo "  Webapp"
-	@echo "    run           Run webapp with hot-reload (port $(PORT))"
-	@echo "    stop          Kill a running webapp process"
-	@echo ""
 	@echo "  TUI"
 	@echo "    tui           Run the terminal experiment bench (Textual)"
-	@echo ""
-	@echo "  Azure"
-	@echo "    deploy        Push current branch to webapp → triggers Azure CI pipeline"
 	@echo ""
 	@echo "  Reports"
 	@echo "    pdfs            Build PDFs from reports/*.md into reports/pdf/"
 	@echo "    pdfs-clean      Delete reports/pdf/"
 	@echo "    kinetics-review Render reports/design/kinetics-v0.6-review.pdf from calcium-v0.6.toml"
 	@echo ""
-	@echo "  Options"
-	@echo "    PORT=NNNN     Override port (default: $(PORT))"
-	@echo ""
-
-PORT ?= 8050
 
 .DEFAULT_GOAL := help
 
 # ── Local development ─────────────────────────────────────────────────────────
 
-run:
-	PYTHONPATH="$$PWD" uv run python runscripts/manual/webapp.py --port $(PORT) --debug
-
-stop:
-	pkill -f "webapp.py" && echo "Stopped." || echo "No webapp process found."
-
 tui:
 	OPENBLAS_NUM_THREADS=1 PYTHONPATH="$$PWD" uv run python runscripts/manual/runTui.py
-
-# ── Azure deployment ──────────────────────────────────────────────────────────
-
-deploy:
-	@echo "Pushing $$(git branch --show-current) → webapp to trigger Azure deployment..."
-	git push origin HEAD:webapp
 
 # ── Reports: Markdown → PDF ───────────────────────────────────────────────────
 

@@ -10,7 +10,7 @@
 #
 # Designed to be paste-and-go in iTerm or any other real terminal.
 # Requires the uv-managed Python (pinned to 3.11.5 via .python-version)
-# with `requirements.txt` installed (`uv venv && uv pip install -r requirements.txt`).
+# with deps installed (`uv sync --all-extras`).
 
 set -euo pipefail
 
@@ -29,10 +29,10 @@ if [[ ! -d "$SIMOUT" ]]; then
 fi
 
 # Ensure the viz extras (rich + textual) are importable. One-shot; installs
-# the pinned set from requirements-viz.txt so versions match CI.
+# the viz extra so versions match the lock.
 if ! uv run python -c "import textual, rich" 2>/dev/null; then
 	echo "viz extras (rich/textual) not installed; installing now ..." >&2
-	uv pip install -r requirements-viz.txt >/dev/null
+	uv sync --extra viz >/dev/null
 fi
 
 echo "Launching replay TUI in your terminal..."

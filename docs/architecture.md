@@ -58,7 +58,7 @@ codebase small enough to reason about end-to-end.
 2. **Simulation engine** — `wholecell/sim/simulation.py` is used **as-is**.
    `PlateletSimulation` just declares its state classes, process groups,
    listeners, and an initial-conditions function. The engine is fully generic;
-   nothing platelet-specific lives in `wholecell/` except the webapp/TUI.
+   nothing platelet-specific lives in `wholecell/` except the TUI.
 
 3. **The model** — `models/platelet/` holds the biology as **Processes** (modify
    state) and **Listeners** (observe & record). This is where the science lives.
@@ -160,8 +160,9 @@ limitation, not an oversight.
 
 ## Output directory structure
 
-The variant/seed/generation/cell nesting is preserved from wcEcoli so the webapp
-"Inspect Data" tab works unmodified:
+The variant/seed/generation/cell nesting is preserved from wcEcoli so the
+analysis tooling (e.g. `analysisPlatelet.py`) can locate a run's output
+unmodified:
 
 ```
 out/{sim_dir}/
@@ -178,7 +179,7 @@ E. coli variants yet.
 ## Design principles, in short
 
 - **Engine generic, biology specific.** Nothing platelet-specific in `wholecell/`
-  (bar the webapp/TUI).
+  (bar the TUI).
 - **Parameters are versioned data with citations**, not magic numbers in code.
 - **The rate law is a pure function** — config in, derivatives out.
 - **Each new layer is normalised at rest** so the resting fixed point and the

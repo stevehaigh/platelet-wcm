@@ -52,7 +52,8 @@ simulation is constructed: `--ca-ex-mM` overrides `cs_mod.CA_EX_UM`, and
 `--at-rest` (or the per-receptor `--thrombin-peak-nM` / `--adp-peak-uM`
 / `--atp-ex-peak-uM` flags) overrides `CalciumDynamics._thrombin_peak_nM`,
 `_adp_peak_uM`, and `_atp_ex_peak_uM`. The same knobs are exposed as
-form fields and four presets in the webapp Configure tab. See the
+editable fields (with built-in and user-saved presets) in the TUI
+experiment bench (`make tui`). See the
 top-level [README](../README.md) and each script's `--help` for all
 options.
 
