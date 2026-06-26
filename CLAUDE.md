@@ -515,9 +515,9 @@ Ca²⁺ trace stream live. Launch with `make tui` (entry point
   `reconstruction/platelet/initialization.py:initialize_bulk_molecules` (wired from
   `models/platelet/sim/initial_conditions.py` via `sim.run_config`). Empty overrides →
   byte-identical.
-- **Env gotcha:** `make tui` runs `uv run python` (the uv-managed `.venv`), NOT bare
-  `python3` — on dev machines `python3` may resolve to a system Python lacking
-  `textual-plotext` / the sim deps; the pinned 3.11.5 venv has everything. Deps:
+- **Env gotcha:** `make tui` runs `pyenv exec python`, NOT bare `python3` — on
+  dev machines `python3` may resolve to a system Python lacking
+  `textual-plotext` / the sim deps. Deps:
   `textual`, `textual-plotext`, `plotext` (in `requirements-viz.txt`). Tests in
   `wholecell/tests/tui/`.
 - Like the loops/perturbations, **knockout effects are invisible under the default
