@@ -69,13 +69,13 @@ FIGURES = [
 ]
 
 
-def run_one(run_key):
+def run_one(run_key, out_prefix):
 	"""Run a single named simulation; return its simOut directory."""
 	run_config = RunConfig(live=False, **RUNS[run_key])
-	sim_path = resolve_sim_path(os.path.join(OUT_PREFIX, run_key))
+	sim_path = resolve_sim_path(os.path.join(out_prefix, run_key))
 	fp.makedirs(sim_path)
 	write_metadata(
-		sim_path, '{}/{}'.format(OUT_PREFIX, run_key), SEED, LENGTH_S,
+		sim_path, '{}/{}'.format(out_prefix, run_key), SEED, LENGTH_S,
 		run_config.ca_ex_mM,
 		thrombin_peak_nM=run_config.thrombin_peak_nM,
 		adp_peak_uM=run_config.adp_peak_uM,
@@ -90,21 +90,22 @@ def run_one(run_key):
 	return paths['sim_out_dir']
 
 
-def render_figure(name, run_key, plot_module, baseline_run, simouts):
-	"""Render one demo figure and copy its PNG into reports/figures/demos/."""
+def render_figure(name, run_key, plot_module, baseline_run, simouts,
+				  out_prefix, demos_dir):
+	"""Render one demo figure and copy its PNG into `demos_dir`."""
 	prev = os.environ.pop('PLATELET_BASELINE_SIMOUT', None)
 	if baseline_run is not None:
 		os.environ['PLATELET_BASELINE_SIMOUT'] = simouts[baseline_run]
 	try:
 		result = run_platelet_analysis(
-			resolve_sim_path(os.path.join(OUT_PREFIX, run_key)),
+			resolve_sim_path(os.path.join(out_prefix, run_key)),
 			[plot_module], out_name=name)
 	finally:
 		os.environ.pop('PLATELET_BASELINE_SIMOUT', None)
 		if prev is not None:
 			os.environ['PLATELET_BASELINE_SIMOUT'] = prev
 	src = os.path.join(result['plot_out_dir'], LOW_RES_DIR, name + '.png')
-	dst = os.path.join(DEMOS_DIR, name + '.png')
+	dst = os.path.join(demos_dir, name + '.png')
 	shutil.copyfile(src, dst)
 	return dst
 
@@ -153,12 +154,23 @@ def build_parser():
 	parser.add_argument(
 		'--no-metrics', action='store_true',
 		help='Skip the metrics summary table.')
+	parser.add_argument(
+		'--tag', metavar='DIR',
+		help='Write runs under out/<DIR>/ and figures under out/<DIR>/figures/ '
+			 '(instead of out/demo_experiments/ + reports/figures/demos/). '
+			 'Use for dated archival runs that must not clobber committed figures.')
 	return parser
 
 
 def main(argv=None):
 	"""Run the requested demo experiments and regenerate their figures."""
 	args = build_parser().parse_args(argv)
+	# --tag redirects runs to out/<tag>/ and figures to out/<tag>/figures/, for
+	# dated archival runs that must not clobber the committed demo figures.
+	out_prefix = args.tag or OUT_PREFIX
+	demos_dir = (os.path.join(fp.ROOT_PATH, 'out', args.tag, 'figures')
+				 if args.tag else DEMOS_DIR)
+	fp.makedirs(demos_dir)
 	figures = [f for f in FIGURES if not args.only or f[0] in args.only]
 	needed = {run for _, run, _, _ in figures}
 	needed |= {bl for _, _, _, bl in figures if bl is not None}
@@ -167,10 +179,11 @@ def main(argv=None):
 	for key in RUNS:                      # deterministic order
 		if key in needed:
 			print('>>> sim {}'.format(key))
-			simouts[key] = run_one(key)
+			simouts[key] = run_one(key, out_prefix)
 
 	for name, run_key, plot_module, baseline_run in figures:
-		dst = render_figure(name, run_key, plot_module, baseline_run, simouts)
+		dst = render_figure(name, run_key, plot_module, baseline_run, simouts,
+							out_prefix, demos_dir)
 		print('>>> figure {} -> {}'.format(
 			name, os.path.relpath(dst, fp.ROOT_PATH)))
 
