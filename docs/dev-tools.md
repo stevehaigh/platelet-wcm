@@ -42,7 +42,11 @@ Probably `cmake` and `llvm` as well.
 
 
 
-## Required tools: pyenv and pyenv-virtualenv
+## Python environment: pyenv (legacy)
+
+> **The project now manages Python with uv** — see
+> [`environment.md`](environment.md). This section is the older pyenv route, kept
+> for anyone who prefers it; it is no longer required.
 
 `pyenv` and `virtualenv` are tools to install versions of Python and switch
 between virtual environments, each with its own selection of Python and libraries.

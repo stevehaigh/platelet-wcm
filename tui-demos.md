@@ -11,11 +11,11 @@ hit **Save** to keep any setup as a named preset.
 make tui
 ```
 
-Uses `pyenv exec python` (pinned 3.11.5) so the viz deps resolve. If it
+Uses `uv run python` (the pinned-3.11.5 `.venv`) so the viz deps resolve. If it
 complains about missing packages:
 
 ```bash
-pip install -r requirements-viz.txt   # rich, textual, textual-plotext, plotext
+uv pip install -r requirements-viz.txt   # rich, textual, textual-plotext, plotext
 ```
 
 Keys: **r** run · **b** set baseline · **f** demo figures (per-theme) · **q** quit.

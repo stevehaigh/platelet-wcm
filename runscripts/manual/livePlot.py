@@ -3,10 +3,10 @@ Live Ca²⁺ trace viewer — polls a CSV written by runPlateletSim --live.
 
 Usage:
     # Watch a specific file:
-    PYTHONPATH=$PWD pyenv exec python runscripts/manual/livePlot.py out/my_run/live.csv
+    PYTHONPATH=$PWD uv run python runscripts/manual/livePlot.py out/my_run/live.csv
 
     # Auto-discover the most recent live.csv under out/:
-    PYTHONPATH=$PWD pyenv exec python runscripts/manual/livePlot.py
+    PYTHONPATH=$PWD uv run python runscripts/manual/livePlot.py
 
 Start this before or during the simulation — it will display "Waiting..." until
 data arrives and then update the plot once per second.

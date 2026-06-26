@@ -11,7 +11,7 @@ without changing biology. Output JSON is intended to be pasted
 into ``reconstruction/platelet/dataclasses/internal_state.py``.
 
 Usage:
-    PYTHONPATH=$PWD pyenv exec python runscripts/manual/restConvergence.py \\
+    PYTHONPATH=$PWD uv run python runscripts/manual/restConvergence.py \\
         [--length 600] [--out reports/data/rest-converged-2026-05-07.json]
 """
 
