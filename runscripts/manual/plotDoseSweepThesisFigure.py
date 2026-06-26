@@ -18,8 +18,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 — registers 3D projection
 
-NPZ = 'reports/figures/v0.5/dose-sweep-9x9-transition.npz'
-OUT = 'reports/figures/v0.5/dose-sweep-transition-surface-auc-2026-06-10.png'
+NPZ = 'reports/figures/v0.6/dose-sweep-9x9-transition.npz'
+OUT = 'reports/figures/v0.6/dose-sweep-transition-surface-auc-v0.6.png'
 
 
 def _log_edges(centers: np.ndarray) -> np.ndarray:

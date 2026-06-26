@@ -3,6 +3,15 @@
 **Part 2: strategy, thesis-draft critique, and feasibility framing**
 Date: 2026-06-09 · Advisory notes for Steve Haigh
 
+> **Dated snapshot — superseded for model state.** The project status in §1
+> (v0.4.1 · `calcium-v0.5.toml` · 63 species · "Dolan 5/5") describes the model
+> as of 2026-06-09 and is now historical: the biology has advanced well past it
+> (v0.6 line, 83 species, the downstream modules + the P2Y₁₂ / cAMP / PKA
+> inhibitory arm, and a behavioural regression suite in place of the 5/5 gate).
+> For the current as-built state see [`model-truth-table.md`](model-truth-table.md).
+> The *strategy and framing* below — claim strength, the 70 / 20 / 10 assessment
+> split, the Methods + Results emphasis — remain current.
+
 ---
 
 ## 0. Decisions locked this session
